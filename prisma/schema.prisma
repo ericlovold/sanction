@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Wallet {
+  id         String   @id @default(cuid())
+  name       String
+  ownerEmail String   @unique
+  createdAt  DateTime @default(now())
+
+  agents           Agent[]
+  policy           Policy?
+  credentials      CredentialVault[]
+  clearances       AgentClearance[]
+  executionTokens  ExecutionToken[]
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  walletId     String
+  name         String
+  apiKeyHash   String   @unique
+  apiKeyPrefix String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  wallet          Wallet                 @relation(fields: [walletId], references: [id])
+  tokenLogs       TokenLog[]
+  authRequests    AuthorizationRequest[]
+  clearance       AgentClearance?
+  executionTokens ExecutionToken[]
+
+  @@index([walletId])
+}
+
+model Policy {
+  id       String @id @default(cuid())
+  walletId String @unique
+
+  // All values in cents
+  dailyTokenBudgetUsd  Int @default(1000)  // $10
+  dailySpendBudgetUsd  Int @default(5000)  // $50
+  perTransactionMaxUsd Int @default(5000)  // $50
+  autoApproveUnderUsd  Int @default(2500)  // $25
+  escalateOverUsd      Int @default(10000) // $100
+
+  allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
+  blockedCategories String[] @default(["gambling", "adult", "crypto"])
+
+  updatedAt DateTime @updatedAt
+  wallet    Wallet   @relation(fields: [walletId], references: [id])
+}
+
+model TokenLog {
+  id        String   @id @default(cuid())
+  agentId   String
+  model     String
+  tokensIn  Int
+  tokensOut Int
+  costUsd   Float
+  taskLabel String?
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, createdAt])
+}
+
+// Encrypted credential stored in vault — raw value never exposed directly
+model CredentialVault {
+  id            String    @id @default(cuid())
+  walletId      String
+  label         String
+  type          String    // api_key | oauth_token | certificate | license | password
+  encryptedValue String
+  allowedAgentIds String[] @default([]) // empty = all agents in wallet
+  scopes        String[]  @default([])  // what this credential grants
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  wallet        Wallet          @relation(fields: [walletId], references: [id])
+  injections    CredentialInjection[]
+
+  @@index([walletId])
+}
+
+// Clearance level assigned to a specific agent
+model AgentClearance {
+  id          String    @id @default(cuid())
+  walletId    String
+  agentId     String
+  level       Int       @default(1) // 1-5
+  industry    String    @default("general") // general | healthcare | legal | financial | enterprise
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  restrictions Json?    // additional constraints at this clearance level
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+  agent  Agent  @relation(fields: [agentId], references: [id])
+
+  @@unique([walletId, agentId])
+  @@unique([agentId])
+  @@index([agentId])
+}
+
+// Short-lived JWT issued per execution — bounded scope, 15min TTL
+model ExecutionToken {
+  id          String    @id // = jti (JWT ID, unique per issuance)
+  agentId     String
+  walletId    String
+  scope       String[]  // which credential labels this token can inject
+  budgetUsd   Float     // spend authority for this execution
+  spentUsd    Float     @default(0)
+  clearance   Int       @default(1)
+  issuedAt    DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  containerId String?   // set when a docker container claims this token
+  status      String    @default("active") // active | expired | revoked | completed
+
+  agent  Agent  @relation(fields: [agentId], references: [id])
+  wallet Wallet @relation(fields: [walletId], references: [id])
+  injections CredentialInjection[]
+
+  @@index([agentId])
+  @@index([status, expiresAt])
+}
+
+// Audit record of every credential injection — what was accessed, when, by whom
+model CredentialInjection {
+  id               String   @id @default(cuid())
+  executionTokenId String
+  credentialId     String
+  injectedAt       DateTime @default(now())
+
+  executionToken ExecutionToken  @relation(fields: [executionTokenId], references: [id])
+  credential     CredentialVault @relation(fields: [credentialId], references: [id])
+
+  @@index([executionTokenId])
+}
+
+model AuthorizationRequest {
+  id           String    @id @default(cuid())
+  agentId      String
+  action       String    // purchase | subscribe | transfer
+  amountUsd    Float
+  merchant     String
+  category     String
+  description  String?
+  status       String    @default("pending") // pending | approved | denied | escalated
+  decidedAt    DateTime?
+  decisionNote String?
+  createdAt    DateTime  @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, createdAt])
+  @@index([status])
+}
