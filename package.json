@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
     "start": "next start",
     "lint": "eslint"
