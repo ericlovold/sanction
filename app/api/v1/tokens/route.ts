@@ -23,44 +23,43 @@ export async function POST(req: NextRequest) {
 
   const { model, tokens_in, tokens_out, cost_usd, task } = parsed.data
 
-  // Check daily token budget
   const policy = agent.wallet.policy
-  if (policy) {
-    const dayStart = new Date()
-    dayStart.setHours(0, 0, 0, 0)
+  const dayStart = new Date()
+  dayStart.setHours(0, 0, 0, 0)
 
-    const dailySpend = await db.tokenLog.aggregate({
+  const logData = { agentId: agent.id, model, tokensIn: tokens_in, tokensOut: tokens_out, costUsd: cost_usd, taskLabel: task }
+
+  // No budget to enforce — log directly.
+  if (!policy) {
+    const log = await db.tokenLog.create({ data: logData })
+    return NextResponse.json({ id: log.id, recorded: true, cost_usd, agent: agent.name })
+  }
+
+  // Atomic budget check + write: serialize per agent so concurrent calls can't
+  // both pass the check and overshoot the daily token budget.
+  const budgetDollars = policy.dailyTokenBudgetUsd / 100
+  const outcome = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
+
+    const dailySpend = await tx.tokenLog.aggregate({
       where: { agentId: agent.id, createdAt: { gte: dayStart } },
       _sum: { costUsd: true },
     })
-
-    const dailyTotal = (dailySpend._sum.costUsd ?? 0) + cost_usd
-    const budgetDollars = policy.dailyTokenBudgetUsd / 100
-
-    if (dailyTotal > budgetDollars) {
-      return NextResponse.json({
-        error: "Daily token budget exceeded",
-        daily_limit_usd: budgetDollars,
-        daily_spent_usd: dailySpend._sum.costUsd ?? 0,
-      }, { status: 402 })
+    const spent = dailySpend._sum.costUsd ?? 0
+    if (spent + cost_usd > budgetDollars) {
+      return { exceeded: true as const, spent }
     }
+    const log = await tx.tokenLog.create({ data: logData })
+    return { exceeded: false as const, logId: log.id }
+  })
+
+  if (outcome.exceeded) {
+    return NextResponse.json({
+      error: "Daily token budget exceeded",
+      daily_limit_usd: budgetDollars,
+      daily_spent_usd: outcome.spent,
+    }, { status: 402 })
   }
 
-  const log = await db.tokenLog.create({
-    data: {
-      agentId: agent.id,
-      model,
-      tokensIn: tokens_in,
-      tokensOut: tokens_out,
-      costUsd: cost_usd,
-      taskLabel: task,
-    },
-  })
-
-  return NextResponse.json({
-    id: log.id,
-    recorded: true,
-    cost_usd,
-    agent: agent.name,
-  })
+  return NextResponse.json({ id: outcome.logId, recorded: true, cost_usd, agent: agent.name })
 }

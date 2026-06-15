@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
+import { authenticateOwner } from "@/lib/ownerAuth"
 
 const schema = z.object({
   wallet_id: z.string(),
   name: z.string().min(1).max(64),
 })
 
-// Register a new agent and return its API key (shown once)
+// Register a new agent and return its API key (shown once).
+// Management-plane: requires the wallet's management key (x-mgmt-key).
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
@@ -18,8 +20,8 @@ export async function POST(req: NextRequest) {
 
   const { wallet_id, name } = parsed.data
 
-  const wallet = await db.wallet.findUnique({ where: { id: wallet_id } })
-  if (!wallet) return NextResponse.json({ error: "Wallet not found" }, { status: 404 })
+  const owner = await authenticateOwner(req, wallet_id)
+  if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
   const { raw, hash, prefix } = generateApiKey()
 
@@ -42,6 +44,9 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const walletId = req.nextUrl.searchParams.get("wallet_id")
   if (!walletId) return NextResponse.json({ error: "wallet_id required" }, { status: 400 })
+
+  const owner = await authenticateOwner(req, walletId)
+  if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
   const agents = await db.agent.findMany({
     where: { walletId },

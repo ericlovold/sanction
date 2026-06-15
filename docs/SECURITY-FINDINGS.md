@@ -3,6 +3,12 @@
 > Answers to the founder's existential day-one checks (V1 key custody, V2 spend concurrency & tenant isolation, V3 audit integrity), each with **code evidence** and severity. Companion to the full `SECURITY-THREAT-MODEL.md`. Verified at commit `e3e7269`.
 >
 > **Headline:** no secrets are committed to git history (verified), and the credential-injection core is well-built. But there is a **live, unauthenticated credential-disclosure chain** (THREAT F1, P0), a **double-spend race** on every budget check (V2, P1), **single-key custody with no rotation** (V1, P1), and **non-tamper-evident audit** (V3, P1). None are blockers to fixing; all are blockers to claiming the product is secure.
+>
+> **🔧 Remediation status (branch `claude/modest-albattani-620j27`):**
+> - ✅ **F1/F2/F3 fixed** — management-plane auth (`x-mgmt-key`) now gates `/agents`, `/credentials/vault`, `/wallets/stats`; the disclosure chain is closed (an attacker can no longer mint an agent). Pre-existing wallets fail closed; bootstrap via `POST /wallets/bootstrap-key`.
+> - ✅ **V2a fixed** — `/authorize` & `/tokens` budget checks are now atomic (per-agent advisory lock in a transaction) + idempotency-key support.
+> - ✅ **F5 fixed** — `/inject` rejects expired credentials.
+> - ⏳ **Still open:** V1 (key custody/envelope — L-1), V2b (Postgres RLS — S-9), V3 (tamper-evident audit — L-2), F6 (revocation), F7 (asymmetric JWT), default-deny allow-list flip (needs AIIA backfill), rotate AIIA key.
 
 ---
 

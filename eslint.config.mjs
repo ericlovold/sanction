@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated build artifacts — not hand-written source.
+    "mcp-server.js",
+    "lib/generated/**",
   ]),
 ]);
 

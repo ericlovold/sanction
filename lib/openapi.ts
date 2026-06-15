@@ -6,7 +6,7 @@ export const spec = {
     version: "1.0.0",
     description:
       "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
-    contact: { name: "Sanction", url: "https://autoflux.ai" },
+    contact: { name: "Sanction", url: "https://sanction.ai" },
   },
   servers: [{ url: "https://proxy-ai-three.vercel.app/api/v1", description: "Production" }],
   components: {
@@ -15,7 +15,13 @@ export const spec = {
         type: "apiKey",
         in: "header",
         name: "x-api-key",
-        description: "Sanction agent API key (prefix: pxy_). Issued per agent at registration.",
+        description: "Sanction agent API key (prefix: pxy_). Issued per agent at registration. Used for data-plane calls (authorize, tokens, exec).",
+      },
+      ManagementKey: {
+        type: "apiKey",
+        in: "header",
+        name: "x-mgmt-key",
+        description: "Wallet owner management key (prefix: sk_). Issued once at wallet creation. Required for management-plane calls (register agents, manage vault, read stats).",
       },
       ExecutionJWT: {
         type: "http",

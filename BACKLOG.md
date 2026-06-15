@@ -4,6 +4,14 @@
 > Impact: 3=massive, 2=high, 1=med, 0.5=low. Confidence: 1.0/0.8/0.5. Effort in person-days.
 > Re-rank every cycle as `docs/SIGNALS.md` changes. Ship in small branch→PR→green-CI→merge increments.
 
+## ✅ Shipped (branch `claude/modest-albattani-620j27`, first security PR)
+- **S-1** management-plane auth (`lib/ownerAuth.ts`, `sk_` key, `x-mgmt-key`) on `/agents`, `/credentials/vault`, `/wallets/stats`; bootstrap endpoint for legacy wallets → **closes P0 F1/F2, P1 F3**.
+- **S-8** atomic budget checks (per-agent advisory lock in a transaction) on `/authorize` + `/tokens`; `Idempotency-Key` on `/authorize` → **closes V2a double-spend**.
+- **F5** credential `expiresAt` enforced on `/inject`.
+- **S-5** CI (typecheck + lint + audit) via `.github/workflows/ci.yml`; ESLint ignores generated artifacts; `.env.example` added.
+- **S-4 (partial)** scrubbed live wallet id / key prefix from `AGENTS.md`. *Still TODO: rotate the AIIA agent key.*
+- **S-7 (partial)** fixed dashboard env var + title. *Still TODO: JWT `iss` "autoflux"→"sanction" (needs a verify-both transition window since it's data-plane).*
+
 ## Now (P0/P1 — security & correctness; do before anything else)
 
 | ID | Item | R | I | C | E | RICE | Source |

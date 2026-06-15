@@ -50,6 +50,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 })
   }
 
+  // Reject expired credentials — a rotated/expired secret must not be injectable.
+  if (credential.expiresAt && credential.expiresAt < new Date()) {
+    return NextResponse.json({ error: "Credential has expired" }, { status: 410 })
+  }
+
   // Audit the injection
   await db.credentialInjection.create({
     data: { executionTokenId: execToken.id, credentialId: credential.id },
