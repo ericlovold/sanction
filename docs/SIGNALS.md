@@ -1,57 +1,22 @@
-# Sanction — Market Signals (living)
+# Sanction — Signals
 
-> Standing watch on market shifts, competitor moves, new standards, and demand signals. **Each entry links to a backlog/roadmap implication.** Revisit every cycle; promote recurring signals into `BACKLOG.md` and re-rank. Newest first. Sourcing detail and confidence live in `MARKET.md`.
+> Canonical signals file. Adopted from the agent-team draft. The input to the continual-iteration loop: market shifts, standards, competitor moves, and demand signals — each tied to a backlog implication. Review every cycle; when a signal moves, re-score the linked `BACKLOG.md` items. **External signals are cited from June-2026 research (verify before betting); internal signals are code-grounded this session.** Sanction's own traction is unknown — these are mostly *external*.
+
+| ID | Signal | Status (Jun 2026) | Implication for Sanction | Linked backlog |
+|----|--------|-------------------|--------------------------|----------------|
+| SIG-1 | **AP2 (Google Agent Payments Protocol)** — signed Intent→Cart→Payment mandates; human-present vs. pre-authorized split; "prompt playback." 60+ partners (Mastercard, PayPal, Coinbase, Amex). | Real, Sept 2025. Payments companion to A2A/MCP. | AP2 **standardized who-authorized-what but left the policy engine + human escalation underspecified** — that gap *is* Sanction's three pillars. Position as the AP2 Intent-Mandate policy/clearance layer; adopt prompt-playback in approvals. | POS-1, UX-2, UX-4 |
+| SIG-2 | **x402 (Coinbase/Cloudflare)** — revives HTTP 402; agent signs a stablecoin tx and retries. ~69k active agents / 165M txns / ~$50M cumulative by late Apr 2026 (**vendor-reported, UNVERIFIED**). | Real, growing, onchain-native. | A *different lane* (onchain) from Sanction's fiat/JWT model, but a discovery+spend surface to support as an **x402 facilitator** for crypto-native agents. Watch for demand crossover. | POS-1 |
+| SIG-3 | **Official MCP Registry** (`server.json`) — canonical, backed by Anthropic/GitHub/Microsoft; fans out to Smithery/PulseMCP/Docker. 10k+ servers. | Real, canonical. | The single manifest that distributes everywhere. **Publish once, well.** Tool-description quality determines whether agents *choose* Sanction (most servers write lazy descriptions — easy edge). | DIST-1, DIST-2 |
+| SIG-4 | **Anthropic Connectors Directory** — curated, trafficked, with a safety/security review gate. | Real, submission open. | Curation = credibility, and security posture is Sanction's whole pitch → should clear review. Pursue for trust signal + co-distribution. | DIST-4 |
+| SIG-5 | **AWS AgentCore** — Agent Registry (preview, Apr 2026), Marketplace Discovery API, and **Identity already vaults credentials natively**. | Real, fast-moving. | Double-edged: free enterprise distribution **and** a commoditization threat (AWS vaults creds itself). Be the **cross-platform, clearance-based** layer beyond one cloud. List, but don't depend. | DIST-5, SEC-9 |
+| SIG-6 | **Commoditization pressure** — Stripe Agentic Commerce Suite owns agent payments; WorkOS/Auth0/Scalekit/Composio racing into agent identity/auth + token vaults. | Active, intensifying. | **Biggest strategic risk:** each pillar absorbed by a platform default before Sanction owns a category. Mitigation: aggressively cross-platform + clearance-native; **do not anchor "Stripe for agents."** Lead "give your agent a security clearance." | (positioning — all DIST) |
+| SIG-7 | **MCP tool annotations + description quality** drive model tool-selection (`readOnlyHint`/`destructiveHint`; complete descriptions → ~3–4× fewer failed invocations). | Real, current. | Annotate read tools (`/wallets/stats`) `readOnlyHint`; leave `authorize`/`inject` at destructive defaults. Tool descriptions are conversion copy — A/B test them. | DIST-1, UX-1 |
+| SIG-8 | **Prompt injection is the category-defining agent threat** — a hijacked agent can call `/inject` and exfiltrate a secret while Sanction behaves perfectly. | Structural, ongoing. | The defense (purpose/egress-bound, just-enough injection + anomaly detection) is a feature **only Sanction is positioned to sell** — "agent-aware credential governance." | SEC-8 |
+| SIG-9 | **Funding/custody ambiguity** — README never states whether budgets are real fund custody or accounting caps over the dev's own rails. | **Resolved (current state):** code has **no custody** — `stripe` imported but unused; budgets are accounting caps. | Resolving the *forward* choice changes blast radius, money-transmission surface, and AP2 positioning. **Gates GA.** Recommend staying control-plane (no custody). | FUND-1 (ADR-0005) |
+| SIG-10 | **[INTERNAL/code] Live unauthenticated management plane** — discovery found `POST /agents` etc. open + the prod wallet_id published, chaining to vault disclosure. | **Fixed in PR #1.** | Confirms the thesis that *trust is the product* and that market-derived backlogs miss code-level holes. Reinforces: code-ground every security claim before publishing it. | SEC-15 ✅, SEC-3, SEC-6 |
 
 ## How to use this file
-1. Log a signal (what changed, source, date).
-2. State the **implication** for Sanction.
-3. File or update a `BACKLOG.md` item and link it.
-4. If a signal invalidates a thesis, open an ADR in `DECISIONS.md`.
-
----
-
-## 2026-06-15 — Initial scan
-
-### SIG-001 · Hyperscalers + identity incumbents shipped agent-identity primitives (12 months)
-Microsoft **Entra Agent ID** (GA), Okta **Auth0 for AI Agents** + **Cross-App Access** (GA Nov 2025), **Google Cloud Agent Identity** (SPIFFE-based), AWS **Bedrock AgentCore Identity** (GA Oct 2025), Ping & SailPoint agent-identity GA. ([MARKET §2a](MARKET.md))
-- **Implication:** the enterprise *identity* slice is a crowded incumbent land-grab. Sanction must **not** compete head-on as "agent IdP." Wedge = developer-first, embeddable, rail-neutral, MCP-distributed (POSITIONING §3).
-- **Backlog:** reinforces N-5 (SDK), S-1 (auth) for embeddability; do **not** build an enterprise IdP.
-
-### SIG-002 · "Pre-action authorization" is forming as a distinct, thin layer
-AWS **Bedrock AgentCore Policy** (Cedar, deny-by-default, evaluates every tool call incl. MCP args; preview Dec 2025 / GA ~2026) is the closest production analog — but **tool-calls only, no spend/budget, Bedrock-locked**. Academic work ("Before the Tool Call," arXiv 2603.20953) + MS Defender for AI Agents + HITL primitives in OpenAI/MS agent SDKs. ([MARKET §2d](MARKET.md))
-- **Implication:** this is Sanction's category (Layer 4) and it has **no neutral, framework-agnostic incumbent unifying spend + credentials + audit**. Strong reason to sharpen the "authorization layer for agents that act" positioning and ship fast.
-- **Backlog:** validates the whole roadmap; prioritize N-1/N-3 (policy + per-execution budget) to own "spend" where AgentCore Policy doesn't.
-
-### SIG-003 · Agent-payment standards are proliferating and fragmenting
-**ACP** (OpenAI+Stripe, live), **AP2** (Google, 60+ partners, → FIDO), **x402** (Coinbase, Linux Foundation), **Mastercard Agent Pay**, **Visa Intelligent Commerce/Trusted Agent Protocol**. No winner; much is pilot-stage. ([MARKET §2c](MARKET.md))
-- **Implication:** betting on one rail is risky; the durable position is the **neutral consent/audit brain above the rails**. AP2's "signed mandate proving a user authorized a specific purchase" ≈ Sanction's job — Sanction could issue/hold those mandates.
-- **Backlog:** new **L-8 — AP2/ACP mandate adapter** (later); keep ADR-0005 (control-plane vs custody) open.
-
-### SIG-004 · Direct credential-injection-for-payments startup exists (Nekuda)
-**Nekuda** ($5M, Amex/Visa Ventures) ships a "Secure Agent Wallet" that **delegates payment credentials to an agent for storage/injection at checkout** — functionally mirrors Sanction's vault-inject. Also Skyfire (identity+payments), Payman (policy+HITL), Catena Labs ($48M, filing for a trust-bank charter). ([MARKET §2c](MARKET.md))
-- **Implication:** the vault-inject mechanism is validated *and* contested. Differentiate on the **bundle** (spend policy + vault + audit + clearance) and DX, not the mechanism alone.
-- **Backlog:** sharpen N-5 (SDK) and N-1/N-2 (policy/escalation) as the bundle's differentiators.
-
-### SIG-005 · NHI / "agentic AI security" is a funded, consolidating category
-Gartner named **"Agentic AI Ecosystem Security"** (Emerging Tech radar, Oct 2025); **Oasis** raised $120M for "Agentic Access Management"; **Astrix** (Gartner-named, reported Cisco acquisition talks — UNVERIFIED); **Aembit** MCP Identity Gateway; AI secrets leaks +81% in 2025. ([MARKET §2b](MARKET.md))
-- **Implication:** category tailwind is real; so is competition and likely M&A. Trust/proof (SOC 2, clean key mgmt) becomes a *competitive* requirement, not just hygiene.
-- **Backlog:** raises priority of L-1 (KMS/envelope), L-2 (tamper-evident audit), L-5 (SOC 2) on the "earn enterprise trust" track.
-
-### SIG-006 · MCP authorization standardized on OAuth 2.1 (+ RFC 8707 resource indicators)
-MCP servers are now OAuth Resource Servers; PKCE mandatory; Nov 2025 external-OAuth flows. Sanction already ships an MCP server. ([MARKET §2a](MARKET.md))
-- **Implication:** align Sanction's MCP server with the current MCP auth spec to be a first-class citizen in compliant hosts (and to interoperate with Auth0/Entra/Cognito as auth servers).
-- **Backlog:** new **N-8 — bring MCP server up to 2025-11 auth spec** (OAuth 2.1 RS, resource indicators).
-
-### SIG-007 · Compliance path is binary: avoid custody or become a bank
-Catena Labs **filed for a trust-bank charter**; everyone else avoids money-transmitter status via tokenization + delegated credentials + BIN/bank partners. PCI scope collapses if you never store raw PANs; SOC 2 CC6/CC7 already match Sanction's scoped-JWT + audit design. ([MARKET §6](MARKET.md))
-- **Implication:** Sanction's "authorize + log, don't custody" architecture is a **compliance moat** — keep it deliberately (ADR-0005-A). Never store raw PANs.
-- **Backlog:** L-5 (SOC 2 readiness) is the monetization unlock; ADR-0005 decision pending founder.
-
----
-
-## Watchlist (check next cycle)
-- Okta "Okta for AI Agents" GA (expected Apr 2026) — feature scope vs. Sanction.
-- HashiCorp Vault native AI-agent support (EA → public beta summer 2026) — closest infra incumbent.
-- Whether AP2/ACP converge or a card-network scheme wins — decides the L-8 adapter target.
-- Cisco/Astrix acquisition outcome — signals NHI consolidation pace.
-- Any Gartner/Forrester quadrant for "agentic IAM" (none confirmed yet) — category legitimization.
+1. Each cycle, scan for movement (a standard ships, a competitor launches, a number changes).
+2. New signal → add a row with status + implication + linked backlog IDs.
+3. Moved signal → re-score the linked `BACKLOG.md` items (Reach/Impact/Confidence).
+4. Log any resulting direction change in `docs/DECISIONS.md`.

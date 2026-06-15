@@ -11,7 +11,7 @@
 | [POSITIONING.md](POSITIONING.md) | Category, one-liner, the wedge |
 | [SECURITY-THREAT-MODEL.md](SECURITY-THREAT-MODEL.md) | Full threat model, F1–F10 |
 | [SECURITY-FINDINGS.md](SECURITY-FINDINGS.md) | Day-one checks V1–V3 answered with code evidence |
-| [../ROADMAP.md](../ROADMAP.md) · [../BACKLOG.md](../BACKLOG.md) · [SIGNALS.md](SIGNALS.md) · [DECISIONS.md](DECISIONS.md) | The continual-iteration engine |
+| [ROADMAP.md](ROADMAP.md) · [BACKLOG.md](BACKLOG.md) · [SIGNALS.md](SIGNALS.md) · [DECISIONS.md](DECISIONS.md) | The continual-iteration engine (all in `docs/`) |
 
 ## 1. What Sanction actually is (verified)
 A **pre-action authorization + credential layer for autonomous agents**: a policy-driven spend authorizer, an AES-256-GCM credential vault released only against short-lived scoped execution JWTs, and an audit log — distributed over REST, **MCP**, and AWS Bedrock. As built it **authorizes and records**; it does **not** custody or move funds (the `stripe` dep is unused). The schema is strong; enforcement and access control lag it.

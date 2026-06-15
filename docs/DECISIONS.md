@@ -4,6 +4,13 @@
 
 ---
 
+## ADR-0006 ACCEPTED — Adopt the agent-team planning docs as canonical; consolidate to `docs/`
+**Date:** 2026-06-15 · **Status:** Accepted
+**Context:** The agent team supplied richer, market-aware `SIGNALS.md` / `BACKLOG.md` / `ROADMAP.md` (cleaner ID scheme: `SEC-/UX-/DIST-/FUND-/POS-/SIG-`; RICE + Gate model; signals my first-pass missed — MCP Registry, Connectors Directory, AgentCore, AP2/x402, prompt-injection moat, custody question). My first-pass used `S-/N-/L-/F-` ids and lived partly at repo root.
+**Decision:** Adopt the team's docs as canonical, **reconciled against code** (validated/refuted each "validate against code" flag) and against what shipped in PR #1. Consolidate all four iteration docs under `docs/`; delete the root `ROADMAP.md`/`BACKLOG.md` duplicates to keep one source of truth.
+**Finding→new-ID map (for traceability):** THREAT/FINDINGS `F1/F2/F3` (unauth mgmt plane) → **SEC-15** (shipped); `V2a` double-spend → **SEC-4** (shipped); `F5` cred-expiry → shipped (folded into SEC-5/SEC-8 area); `V1` key custody → **SEC-1/SEC-2**; `V2b` isolation → **SEC-3**; `F6` revocation / `F7` asymmetric → **SEC-5/SEC-10**; `F9` committed ids / key rotation → **SEC-6/SEC-16**; audit → **SEC-7**.
+**Consequences:** Older docs (`SECURITY-FINDINGS.md`, `SECURITY-THREAT-MODEL.md`, `PRODUCT-OWNERSHIP.md`) still reference `F#/S#` ids; this map keeps them traceable. Future work references the `SEC-/UX-/DIST-` scheme.
+
 ## ADR-0005 ⚑ PROPOSED — Wallet rails: control plane vs. fund custody
 **Date:** 2026-06-15 · **Status:** Proposed (needs founder decision)
 **Context:** Sanction is marketed as an "agent wallet" but today only *authorizes* and *logs* spend; it never moves money (the `stripe` dependency is unused). Two divergent futures: (A) stay an **authorization + audit control plane** that rides existing rails (cards, agent-payment protocols), keeping Sanction out of money-transmission/PCI scope; (B) add **real spend rails** (virtual-card issuing or an agent-payment protocol) and custody/route funds, becoming a true wallet — far larger TAM but heavy compliance (MTL/KYC/PCI).
