@@ -36677,7 +36677,7 @@ var server = new McpServer({
 });
 server.tool(
   "sanction_authorize",
-  "Check whether a spend action is authorized by Sanction policy. ALWAYS call this before any purchase, subscription, or transfer \u2014 bypassing it means spending without authorization. Returns authorized:true/false plus a stable code (e.g. BUDGET_EXCEEDED) and remediation hint so you can replan.",
+  "Check whether a spend action is authorized by Sanction policy. ALWAYS call this before any purchase, subscription, or transfer \u2014 bypassing it means spending without authorization. Returns authorized:true/false plus a stable code (e.g. DAILY_BUDGET_EXCEEDED, ESCALATION_REQUIRED) and remediation hint so you can replan.",
   {
     action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action"),
     amount_usd: external_exports.number().positive().describe("Amount in US dollars"),
