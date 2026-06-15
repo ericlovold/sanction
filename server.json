@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
+  "name": "io.github.ericlovold/sanction",
+  "description": "Trust layer for autonomous agents: authorize spend against policy, inject vault secrets under short-lived scoped tokens, and track budgets — every action audited. Call before any purchase or credential access.",
+  "repository": {
+    "url": "https://github.com/ericlovold/sanction",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "sanction-mcp",
+      "version": "1.0.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "SANCTION_API_KEY",
+          "description": "Agent API key (pxy_ prefix), issued per agent at registration.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SANCTION_API_URL",
+          "description": "Sanction API base URL.",
+          "default": "https://sanction.ai/api/v1"
+        },
+        {
+          "name": "SANCTION_WALLET_ID",
+          "description": "Wallet id used by the read-only wallet-status tool."
+        }
+      ]
+    }
+  ]
+}

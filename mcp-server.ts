@@ -67,7 +67,7 @@ const server = new McpServer({
 // Tool: Check spend authorization
 server.tool(
   "sanction_authorize",
-  "Check whether a spend action is authorized by Sanction policy. ALWAYS call this before any purchase, subscription, or transfer. Returns authorized:true/false with reason.",
+  "Check whether a spend action is authorized by Sanction policy. ALWAYS call this before any purchase, subscription, or transfer — bypassing it means spending without authorization. Returns authorized:true/false plus a stable code (e.g. BUDGET_EXCEEDED) and remediation hint so you can replan.",
   {
     action: z.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action"),
     amount_usd: z.number().positive().describe("Amount in US dollars"),
@@ -75,6 +75,7 @@ server.tool(
     category: z.string().describe("Spend category: software, services, research, infrastructure"),
     description: z.string().optional().describe("What this purchase is for"),
   },
+  { title: "Authorize Spend", openWorldHint: true },
   async ({ action, amount_usd, merchant, category, description }) => {
     const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description })
     const authorized = result.authorized === true
@@ -101,6 +102,7 @@ server.tool(
     cost_usd: z.number().nonnegative().describe("Dollar cost of this call"),
     task: z.string().optional().describe("Label for the task this call served"),
   },
+  { title: "Log Token Usage", openWorldHint: true },
   async ({ model, tokens_in, tokens_out, cost_usd, task }) => {
     const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task })
     if (result.error) {
@@ -121,6 +123,7 @@ server.tool(
     budget_usd: z.number().positive().describe("Maximum spend authority for this execution"),
     ttl_seconds: z.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds (default 900 = 15min)"),
   },
+  { title: "Request Execution Token", openWorldHint: true },
   async ({ scope, budget_usd, ttl_seconds }) => {
     const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds })
     if (result.error) {
@@ -150,6 +153,7 @@ server.tool(
     jwt: z.string().describe("Execution JWT from sanction_request_execution"),
     credential_label: z.string().describe("Label of the credential to inject"),
   },
+  { title: "Inject Credential", openWorldHint: true },
   async ({ jwt, credential_label }) => {
     const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt)
     if (result.error) {
@@ -167,8 +171,9 @@ server.tool(
 // Tool: Wallet status
 server.tool(
   "sanction_wallet_status",
-  "Check current wallet spend and token usage. Returns today and month-to-date costs, plus count of pending approvals awaiting human review.",
+  "Check current wallet spend and token usage. Returns today and month-to-date costs, plus count of pending approvals awaiting human review. Read-only — safe to call any time.",
   {},
+  { title: "Wallet Status", readOnlyHint: true, openWorldHint: true },
   async () => {
     if (!WALLET_ID) {
       return { content: [{ type: "text" as const, text: "SANCTION_WALLET_ID not configured" }], isError: true }

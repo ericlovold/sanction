@@ -53,7 +53,7 @@
 ## Distribution / GTM
 | ID | Item | R | I | C | E | RICE | Gate | Notes |
 |----|------|---|---|---|---|------|------|-------|
-| DIST-1 | MCP Registry `server.json` + elite tool names/descriptions | 9 | 3 | 0.9 | 0.5 | 48.6 | | **Best effort:leverage in the plan.** Fans out everywhere (SIG-3, SIG-7). |
+| DIST-1 | MCP Registry `server.json` + elite tool names/descriptions | 9 | 3 | 0.9 | 0.5 | 48.6 | | **✅ SHIPPED.** `server.json` manifest (npm `sanction-mcp`, stdio, env vars) + tool annotations (`readOnlyHint` on wallet-status; titles + `openWorldHint`) and sharper "call BEFORE / bypassing fails" descriptions (SIG-7). Publish step: run `mcp-publisher` to push to the official registry. |
 | DIST-4 | Anthropic Connectors Directory submission | 7 | 2 | 0.7 | 1 | 9.8 | | Curated, trafficked; security posture clears the bar (SIG-4). |
 | DIST-2 | A2A AgentCard at `/.well-known/agent-card.json` | 4 | 1 | 0.8 | 0.5 | 6.4 | | **✅ SHIPPED PR #1.** Static card (3 skills) pointing at the live OpenAPI spec. |
 | DIST-3 | AIIA dogfood → reference arch + OSS quickstart template | 7 | 3 | 0.7 | 4 | 3.7 | | Proof + case study + copy-paste adoption. AIIA's AUTO/SUPERVISED/GATED maps ~1:1 to clearance. |
