@@ -8,7 +8,7 @@ export const spec = {
       "AutoFlux is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
     contact: { name: "AutoFlux", url: "https://autoflux.ai" },
   },
-  servers: [{ url: "https://autoflux.ai/api/v1", description: "Production" }],
+  servers: [{ url: "https://proxy-ai-three.vercel.app/api/v1", description: "Production" }],
   components: {
     securitySchemes: {
       AgentApiKey: {
