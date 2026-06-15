@@ -30,7 +30,7 @@
 | SEC-3 | Postgres RLS tenant isolation + forced-tenant query layer | 10 | 3 | 0.8 | 2 | 12.0 | ✅ | ⚠ Confirmed: app-code `where` filtering only, single PG role. One typo from a breach. |
 | SEC-5 | JWT hardening: pin `alg`, bind `aud`/`jti`/scope, single-use, revocation | 9 | 3 | 0.8 | 2 | 10.8 | ✅ | ◑ **Mostly shipped PR #1:** `alg` now pinned `["HS256"]` (anti alg-confusion); owner-authed `POST /exec/revoke` added (inject already enforces `status`/expiry, so revocation is immediate). Remaining: `aud` binding + true single-use. |
 | SEC-6 | `pxy_` key hashed at rest, scoped, rotatable, revocable | 9 | 2 | 0.9 | 1.5 | 10.8 | ✅ | ◑ Partial: keys **already SHA-256-hashed at rest**; mgmt-key bootstrap shipped (SEC-15); rotation/per-key revocation (beyond `isActive`) TODO. |
-| SEC-13 | Next/Vercel hardening: `no-store` on secret responses, middleware-bypass review, bundle hygiene | 9 | 2 | 0.8 | 1 | 14.4 | | Cheap, high-value. Add `Cache-Control: no-store` to `/inject`. |
+| SEC-13 | Next/Vercel hardening: `no-store` on secret responses, middleware-bypass review, bundle hygiene | 9 | 2 | 0.8 | 1 | 14.4 | | ◑ `Cache-Control: no-store` added to `/inject` + `/exec` (secret responses) in PR #1. Remaining: same on `/wallets` + `/wallets/bootstrap-key` (mgmt-key responses); OpenAPI sync for new fields/`/exec/revoke`. |
 | SEC-12 | Rate limiting + Neon connection-exhaustion protection | 8 | 2 | 0.8 | 1 | 12.8 | | Serverless PG has a hard connection ceiling. |
 | SEC-14 | Mass-assignment lockdown + SSRF allow-lists + dependency SCA | 8 | 1.5 | 0.8 | 1 | 9.6 | | Clearance-escalation + supply-chain. (CI `npm audit` shipped PR #1.) |
 | SEC-7 | Tamper-evident hash-chained audit log + export | 6 | 2 | 0.7 | 3 | 2.8 | | **Sellable.** Confirmed mutable rows today; governance pitch needs cryptographic evidence. |
@@ -43,7 +43,7 @@
 ## UX / product
 | ID | Item | R | I | C | E | RICE | Gate | Notes |
 |----|------|---|---|---|---|------|------|-------|
-| UX-1 | Typed, remediable DENY responses (reason + remediation hint) | 9 | 2 | 0.8 | 1 | 14.4 | | Agent replans on structure, hallucinates on `403`. (PR #1 already returns `reason`; formalize codes.) |
+| UX-1 | Typed, remediable DENY responses (reason + remediation hint) | 9 | 2 | 0.8 | 1 | 14.4 | | **✅ SHIPPED PR #1.** `/authorize` now returns stable `code` (`BUDGET_EXCEEDED`-class) + `remediation`, additive to `reason`/`status` (AIIA-safe). Codes derived purely from persisted decision → stable on replay; unit-tested. |
 | UX-2 | First-class ESCALATE/`pending` state + mandatory timeout fallback | 8 | 3 | 0.7 | 3 | 5.6 | | #1 reliability risk: escalation deadlock. Confirmed: no resolution path exists today. |
 | UX-3 | Policy templates + plain-English clearance ladder (safest default) | 7 | 2 | 0.8 | 2 | 5.6 | | Confirmed: no policy-management API; defaults only. Replaces the blank-form cliff. |
 | UX-6 | First-run live dry-run authorize (activation aha) | 7 | 2 | 0.7 | 2 | 4.9 | | "We simulated a $5 charge — here's the audit row." |

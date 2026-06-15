@@ -62,11 +62,15 @@ export async function POST(req: NextRequest) {
 
   const value = decryptCredential(credential.encryptedValue, `${credential.walletId}:${credential.label}`)
 
-  return NextResponse.json({
-    label: credential.label,
-    type: credential.type,
-    value,
-    injected_at: new Date().toISOString(),
-    expires_at: execToken.expiresAt.toISOString(),
-  })
+  return NextResponse.json(
+    {
+      label: credential.label,
+      type: credential.type,
+      value,
+      injected_at: new Date().toISOString(),
+      expires_at: execToken.expiresAt.toISOString(),
+    },
+    // Never let a decrypted secret sit in any shared/proxy/browser cache (SEC-13).
+    { headers: { "Cache-Control": "no-store" } },
+  )
 }

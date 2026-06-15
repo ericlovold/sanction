@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
+import { decisionCode, REMEDIATION } from "@/lib/decisions"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -97,11 +98,15 @@ async function persist(data: Record<string, unknown>, agentName: string) {
 
 function decisionResponse(r: Decision, agentName: string) {
   const authorized = r.status === "approved"
+  const code = decisionCode(r.status, r.decisionNote)
   return {
     authorized,
     status: r.status,
     request_id: r.id,
     reason: r.decisionNote ?? undefined,
+    // Machine-readable code + remediation hint so an agent can replan (UX-1).
+    code,
+    remediation: code ? REMEDIATION[code] : undefined,
     agent: agentName,
     amount_usd: r.amountUsd,
     merchant: r.merchant,
