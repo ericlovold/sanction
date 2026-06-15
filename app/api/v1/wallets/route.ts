@@ -41,5 +41,5 @@ export async function POST(req: NextRequest) {
     management_key_prefix: mgmt.prefix,
     warning: "Store this management key now. It will not be shown again. Required (x-mgmt-key) to manage this wallet.",
     created_at: wallet.createdAt,
-  }, { status: 201 })
+  }, { status: 201, headers: { "Cache-Control": "no-store" } })
 }
