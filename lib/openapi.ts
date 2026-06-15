@@ -2,11 +2,11 @@
 export const spec = {
   openapi: "3.0.0",
   info: {
-    title: "AutoFlux Agent Governance API",
+    title: "Sanction Agent Governance API",
     version: "1.0.0",
     description:
-      "AutoFlux is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
-    contact: { name: "AutoFlux", url: "https://autoflux.ai" },
+      "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
+    contact: { name: "Sanction", url: "https://autoflux.ai" },
   },
   servers: [{ url: "https://proxy-ai-three.vercel.app/api/v1", description: "Production" }],
   components: {
@@ -15,7 +15,7 @@ export const spec = {
         type: "apiKey",
         in: "header",
         name: "x-api-key",
-        description: "AutoFlux agent API key (prefix: pxy_). Issued per agent at registration.",
+        description: "Sanction agent API key (prefix: pxy_). Issued per agent at registration.",
       },
       ExecutionJWT: {
         type: "http",

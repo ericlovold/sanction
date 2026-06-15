@@ -1,9 +1,9 @@
 {
-  "name": "autoflux",
+  "name": "sanction",
   "version": "0.1.0",
   "private": false,
   "bin": {
-    "autoflux-mcp": "./mcp-server.js"
+    "sanction-mcp": "./mcp-server.js"
   },
   "scripts": {
     "dev": "next dev",

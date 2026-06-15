@@ -2,12 +2,12 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose"
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto"
 
 function getSigningKey() {
-  const secret = process.env.AUTOFLUX_SIGNING_SECRET
-  if (!secret) throw new Error("AUTOFLUX_SIGNING_SECRET not set")
+  const secret = process.env.SANCTION_SIGNING_SECRET
+  if (!secret) throw new Error("SANCTION_SIGNING_SECRET not set")
   return new TextEncoder().encode(secret)
 }
 
-export interface AutoFluxClaims extends JWTPayload {
+export interface SanctionClaims extends JWTPayload {
   wallet: string
   agent: string
   clearance: number
@@ -15,7 +15,7 @@ export interface AutoFluxClaims extends JWTPayload {
   budget_usd: number
 }
 
-export async function issueExecutionJWT(claims: Omit<AutoFluxClaims, "iss" | "iat">, ttlSeconds = 900): Promise<string> {
+export async function issueExecutionJWT(claims: Omit<SanctionClaims, "iss" | "iat">, ttlSeconds = 900): Promise<string> {
   const jti = randomBytes(16).toString("hex")
   return new SignJWT({ ...claims, jti })
     .setProtectedHeader({ alg: "HS256" })
@@ -26,15 +26,15 @@ export async function issueExecutionJWT(claims: Omit<AutoFluxClaims, "iss" | "ia
     .sign(getSigningKey())
 }
 
-export async function verifyExecutionJWT(token: string): Promise<AutoFluxClaims & { jti: string }> {
+export async function verifyExecutionJWT(token: string): Promise<SanctionClaims & { jti: string }> {
   const { payload } = await jwtVerify(token, getSigningKey(), { issuer: "autoflux" })
-  return payload as AutoFluxClaims & { jti: string }
+  return payload as SanctionClaims & { jti: string }
 }
 
 // AES-256-GCM encryption for credential values at rest
 function getEncryptionKey(): Buffer {
-  const key = process.env.AUTOFLUX_CREDENTIAL_ENCRYPTION_KEY
-  if (!key) throw new Error("AUTOFLUX_CREDENTIAL_ENCRYPTION_KEY not set")
+  const key = process.env.SANCTION_CREDENTIAL_ENCRYPTION_KEY
+  if (!key) throw new Error("SANCTION_CREDENTIAL_ENCRYPTION_KEY not set")
   return createHash("sha256").update(key).digest()
 }
 
