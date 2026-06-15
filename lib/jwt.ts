@@ -19,7 +19,7 @@ export async function issueExecutionJWT(claims: Omit<SanctionClaims, "iss" | "ia
   const jti = randomBytes(16).toString("hex")
   return new SignJWT({ ...claims, jti })
     .setProtectedHeader({ alg: "HS256" })
-    .setIssuer("autoflux")
+    .setIssuer("sanction")
     .setIssuedAt()
     .setExpirationTime(`${ttlSeconds}s`)
     .setJti(jti)
@@ -30,7 +30,7 @@ export async function verifyExecutionJWT(token: string): Promise<SanctionClaims 
   // Pin the algorithm explicitly: never let a token's own header pick the
   // verification alg (defends against alg-confusion / "alg: none").
   const { payload } = await jwtVerify(token, getSigningKey(), {
-    issuer: "autoflux",
+    issuer: "sanction",
     algorithms: ["HS256"],
   })
   return payload as SanctionClaims & { jti: string }
