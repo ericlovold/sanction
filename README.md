@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sanction
 
-## Getting Started
+**The trust and governance layer for autonomous AI agents.**
 
-First, run the development server:
+Sanction gives agents a wallet, a credential vault, and a clearance system — so they can act autonomously without acting without limits.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## What It Does
+
+Autonomous agents need permission to spend money, access credentials, and operate in sensitive domains. Sanction is the layer that grants that permission, enforces policy, and logs everything.
+
+| Pillar | Capability |
+|--------|-----------|
+| **Agent Wallet** | Spend authorization with configurable policy. Auto-approve under threshold, escalate over it, deny what's blocked. Daily and monthly budgets per agent. |
+| **Credential Vault** | AES-256-GCM encrypted secrets. Scoped execution JWTs (15-minute TTL) gate every injection. Every access is audit-logged. |
+| **Clearance Levels** | 1–5 clearance system for domain authorization. Agents only access what they're cleared for. |
+
+---
+
+## Distribution
+
+Sanction is available through three channels:
+
+- **MCP Server** — drop into any Claude Desktop, AIIA, or MCP-compatible agent host
+- **REST API** — direct integration via `x-api-key` auth
+- **AWS Bedrock Action Group** — enterprise agent orchestration (`agentId: JXRNIJRMCX`, us-east-1)
+
+---
+
+## API
+
+Base URL: `https://sanction.ai/api/v1`
+
+```
+POST /authorize           — Authorize a spend action before any transaction
+POST /tokens              — Log LLM token consumption for budget tracking
+POST /exec                — Issue a scoped execution JWT (15-min TTL)
+POST /credentials/vault   — Store an encrypted credential
+POST /credentials/inject  — Inject a decrypted credential (requires JWT)
+POST /agents              — Register an agent against a wallet
+POST /wallets             — Create a wallet with spend policy
+GET  /wallets/stats       — Dashboard stats (today + MTD)
+GET  /api/openapi.json    — OpenAPI 3.0 spec (Bedrock compatible)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Auth
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Agent API calls use `x-api-key: pxy_...` header. Credential injection requires a short-lived Bearer JWT issued by `/exec`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## MCP Setup
 
-To learn more about Next.js, take a look at the following resources:
+```json
+{
+  "mcpServers": {
+    "sanction": {
+      "command": "npx",
+      "args": ["sanction-mcp"],
+      "env": {
+        "SANCTION_API_URL": "https://sanction.ai/api/v1",
+        "SANCTION_API_KEY": "pxy_...",
+        "SANCTION_WALLET_ID": "wallet_..."
+      }
+    }
+  }
+}
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Stack
 
-## Deploy on Vercel
+- **Next.js 16** (App Router) + TypeScript
+- **Neon** (serverless Postgres) via Prisma 7
+- **Vercel** deployment
+- **jose** for JWT signing (HS256)
+- **Node crypto** for AES-256-GCM encryption
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Pricing
+
+| Tier | Price | Agents | Token Budget |
+|------|-------|--------|-------------|
+| Free | $0 | 1 | $10/mo |
+| Pro | $19/mo | 5 | $100/mo |
+| Team | $49/mo | 25 | $500/mo |
+| Enterprise | Custom | Unlimited | Custom |
+
+---
+
+## License
+
+MIT
