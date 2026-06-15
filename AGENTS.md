@@ -94,7 +94,9 @@ AIIA (the Mac Mini AI agent) is the first Sanction client. Integration lives in:
 ## Business Context
 
 - Owner: Eric Lovold (solo founder), Vercel account `lovold`
-- Primary agent: AIIA Brain (`pxy_7356614f...`), wallet `cmqefleko000004ieyqrer393`
+- Primary agent: AIIA Brain. Live wallet/agent identifiers are NOT committed — see
+  Vercel env vars (`SANCTION_WALLET_ID`) and the secrets store. Never commit
+  production wallet ids or API keys to the repo.
 - Distribution: MCP (npm), AWS Bedrock Action Groups, direct REST API
 - Model: Freemium SaaS — Free / $19 Pro / $49 Team / Enterprise
 

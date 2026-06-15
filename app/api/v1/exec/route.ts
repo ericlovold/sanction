@@ -69,13 +69,17 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({
-    jwt,
-    jti,
-    expires_at: expiresAt.toISOString(),
-    clearance: clearanceLevel,
-    scope,
-    budget_usd,
-    ttl_seconds,
-  })
+  return NextResponse.json(
+    {
+      jwt,
+      jti,
+      expires_at: expiresAt.toISOString(),
+      clearance: clearanceLevel,
+      scope,
+      budget_usd,
+      ttl_seconds,
+    },
+    // The JWT is a bearer secret — keep it out of any cache (SEC-13).
+    { headers: { "Cache-Control": "no-store" } },
+  )
 }

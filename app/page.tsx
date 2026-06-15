@@ -41,12 +41,12 @@ function fmt(d: Date) {
 }
 
 export default async function Dashboard() {
-  const walletId = process.env.PROXY_WALLET_ID
+  const walletId = process.env.SANCTION_WALLET_ID
   if (!walletId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-2">
-          <p className="text-zinc-400 font-mono text-sm">PROXY_WALLET_ID not set</p>
+          <p className="text-zinc-400 font-mono text-sm">SANCTION_WALLET_ID not set</p>
           <p className="text-zinc-600 text-xs">Create a wallet via POST /api/v1/wallets and set the ID in .env.local</p>
         </div>
       </div>
@@ -60,7 +60,7 @@ export default async function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">AutoFlux</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Sanction</h1>
           <p className="text-zinc-500 text-sm">Agent wallet &amp; governance</p>
         </div>
         {pendingCount > 0 && (

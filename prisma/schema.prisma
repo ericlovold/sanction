@@ -13,6 +13,13 @@ model Wallet {
   ownerEmail String   @unique
   createdAt  DateTime @default(now())
 
+  // Owner management key (sk_ prefix), shown once at creation. Gates the
+  // management plane (create agents, manage vault/policy, read stats).
+  // Nullable for wallets created before auth was introduced — those fail
+  // closed until bootstrapped via /wallets/bootstrap-key.
+  mgmtKeyHash   String? @unique
+  mgmtKeyPrefix String?
+
   agents           Agent[]
   policy           Policy?
   credentials      CredentialVault[]
@@ -146,20 +153,22 @@ model CredentialInjection {
 }
 
 model AuthorizationRequest {
-  id           String    @id @default(cuid())
-  agentId      String
-  action       String    // purchase | subscribe | transfer
-  amountUsd    Float
-  merchant     String
-  category     String
-  description  String?
-  status       String    @default("pending") // pending | approved | denied | escalated
-  decidedAt    DateTime?
-  decisionNote String?
-  createdAt    DateTime  @default(now())
+  id             String    @id @default(cuid())
+  agentId        String
+  action         String    // purchase | subscribe | transfer
+  amountUsd      Float
+  merchant       String
+  category       String
+  description    String?
+  status         String    @default("pending") // pending | approved | denied | escalated
+  decidedAt      DateTime?
+  decisionNote   String?
+  idempotencyKey String?   // client-supplied; dedupes retries per agent
+  createdAt      DateTime  @default(now())
 
   agent Agent @relation(fields: [agentId], references: [id])
 
+  @@unique([agentId, idempotencyKey])
   @@index([agentId, createdAt])
   @@index([status])
 }

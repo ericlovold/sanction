@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
+import { decisionCode, REMEDIATION } from "@/lib/decisions"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -23,67 +24,100 @@ export async function POST(req: NextRequest) {
 
   const { action, amount_usd, merchant, category, description } = parsed.data
   const policy = agent.wallet.policy
+  const idempotencyKey = req.headers.get("idempotency-key") || undefined
+
+  // Idempotent replay: a retry with the same key returns the original decision.
+  if (idempotencyKey) {
+    const existing = await db.authorizationRequest.findUnique({
+      where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
+    })
+    if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+  }
+
+  const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
 
   // No policy = deny by default
   if (!policy) {
-    const req_ = await db.authorizationRequest.create({
-      data: { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" },
-    })
-    return NextResponse.json({ authorized: false, status: "denied", reason: "No policy configured", request_id: req_.id }, { status: 403 })
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
   }
 
   const amountCents = Math.round(amount_usd * 100)
 
-  // Blocked category
+  // Stateless gates (no budget state involved)
   if (policy.blockedCategories.includes(category)) {
-    const req_ = await db.authorizationRequest.create({
-      data: { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` },
-    })
-    return NextResponse.json({ authorized: false, status: "denied", reason: `Category '${category}' is blocked`, request_id: req_.id }, { status: 403 })
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
   }
-
-  // Over per-transaction max
   if (amountCents > policy.perTransactionMaxUsd) {
-    const req_ = await db.authorizationRequest.create({
-      data: { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}` },
-    })
-    return NextResponse.json({ authorized: false, status: "denied", reason: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}`, request_id: req_.id }, { status: 403 })
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}` }, agent.name)
   }
 
-  // Check daily spend
+  // Stateful gate: daily-spend check + write must be atomic, otherwise two
+  // concurrent requests can both pass the check and blow the cap. Serialize per
+  // agent with a transaction-scoped advisory lock, then re-read inside the lock.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
-  const dailySpend = await db.authorizationRequest.aggregate({
-    where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-    _sum: { amountUsd: true },
-  })
-  const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
-  if (dailyTotalCents > policy.dailySpendBudgetUsd) {
-    const req_ = await db.authorizationRequest.create({
-      data: { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" },
+
+  try {
+    const result = await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
+
+      const dailySpend = await tx.authorizationRequest.aggregate({
+        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        _sum: { amountUsd: true },
+      })
+      const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
+      if (dailyTotalCents > policy.dailySpendBudgetUsd) {
+        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
+      }
+
+      if (amountCents > policy.escalateOverUsd) {
+        return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+      }
+
+      return tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" } })
     })
-    return NextResponse.json({ authorized: false, status: "denied", reason: "Daily spend budget exceeded", request_id: req_.id }, { status: 403 })
+    return NextResponse.json(decisionResponse(result, agent.name), { status: statusCode(result.status) })
+  } catch (e: unknown) {
+    // Unique violation on (agentId, idempotencyKey) => concurrent duplicate; return the winner.
+    if (idempotencyKey && isUniqueViolation(e)) {
+      const existing = await db.authorizationRequest.findUnique({
+        where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
+      })
+      if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+    }
+    throw e
   }
+}
 
-  // Escalate if over threshold
-  if (amountCents > policy.escalateOverUsd) {
-    const req_ = await db.authorizationRequest.create({
-      data: { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, status: "escalated" },
-    })
-    return NextResponse.json({ authorized: false, status: "escalated", reason: `Amount exceeds auto-approve threshold of $${policy.escalateOverUsd / 100} — awaiting human approval`, request_id: req_.id })
+type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string }
+
+async function persist(data: Record<string, unknown>, agentName: string) {
+  const rec = await db.authorizationRequest.create({ data: data as never })
+  return NextResponse.json(decisionResponse(rec, agentName), { status: statusCode(rec.status) })
+}
+
+function decisionResponse(r: Decision, agentName: string) {
+  const authorized = r.status === "approved"
+  const code = decisionCode(r.status, r.decisionNote)
+  return {
+    authorized,
+    status: r.status,
+    request_id: r.id,
+    reason: r.decisionNote ?? undefined,
+    // Machine-readable code + remediation hint so an agent can replan (UX-1).
+    code,
+    remediation: code ? REMEDIATION[code] : undefined,
+    agent: agentName,
+    amount_usd: r.amountUsd,
+    merchant: r.merchant,
   }
+}
 
-  // Auto-approve
-  const req_ = await db.authorizationRequest.create({
-    data: { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" },
-  })
+function statusCode(status: string): number {
+  if (status === "approved" || status === "escalated") return 200
+  return 403
+}
 
-  return NextResponse.json({
-    authorized: true,
-    status: "approved",
-    request_id: req_.id,
-    agent: agent.name,
-    amount_usd,
-    merchant,
-  })
+function isUniqueViolation(e: unknown): boolean {
+  return typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002"
 }

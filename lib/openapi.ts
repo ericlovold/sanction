@@ -6,7 +6,7 @@ export const spec = {
     version: "1.0.0",
     description:
       "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
-    contact: { name: "Sanction", url: "https://autoflux.ai" },
+    contact: { name: "Sanction", url: "https://sanction.ai" },
   },
   servers: [{ url: "https://proxy-ai-three.vercel.app/api/v1", description: "Production" }],
   components: {
@@ -15,7 +15,13 @@ export const spec = {
         type: "apiKey",
         in: "header",
         name: "x-api-key",
-        description: "Sanction agent API key (prefix: pxy_). Issued per agent at registration.",
+        description: "Sanction agent API key (prefix: pxy_). Issued per agent at registration. Used for data-plane calls (authorize, tokens, exec).",
+      },
+      ManagementKey: {
+        type: "apiKey",
+        in: "header",
+        name: "x-mgmt-key",
+        description: "Wallet owner management key (prefix: sk_). Issued once at wallet creation. Required for management-plane calls (register agents, manage vault, read stats).",
       },
       ExecutionJWT: {
         type: "http",
@@ -41,11 +47,33 @@ export const spec = {
         properties: {
           authorized: { type: "boolean" },
           status: { type: "string", enum: ["approved", "denied", "escalated", "pending"] },
-          reason: { type: "string" },
+          reason: { type: "string", description: "Human-readable explanation of the decision" },
+          code: {
+            type: "string",
+            enum: ["ESCALATION_REQUIRED", "NO_POLICY", "CATEGORY_BLOCKED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "POLICY_DENIED"],
+            description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
+          },
+          remediation: { type: "string", description: "Suggested next step for the agent when not approved" },
           request_id: { type: "string" },
           agent: { type: "string" },
           amount_usd: { type: "number" },
           merchant: { type: "string" },
+        },
+      },
+      ExecRevokeRequest: {
+        type: "object",
+        required: ["wallet_id", "jti"],
+        properties: {
+          wallet_id: { type: "string", description: "Wallet that owns the token" },
+          jti: { type: "string", description: "The execution token id (jti) to revoke" },
+        },
+      },
+      ExecRevokeResponse: {
+        type: "object",
+        properties: {
+          jti: { type: "string" },
+          status: { type: "string", enum: ["revoked"] },
+          revoked_at: { type: "string", format: "date-time" },
         },
       },
       LogTokensRequest: {
@@ -188,6 +216,27 @@ export const spec = {
           },
           "401": { description: "Invalid API key" },
           "403": { description: "Agent not authorized for requested credentials" },
+        },
+      },
+    },
+    "/exec/revoke": {
+      post: {
+        operationId: "revokeExecutionToken",
+        summary: "Revoke an outstanding execution token",
+        description:
+          "Owner-only. Immediately revokes an execution JWT before its TTL elapses — subsequent /credentials/inject calls with that token are rejected. Scoped to the owner's wallet.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/ExecRevokeRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Token revoked",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ExecRevokeResponse" } } },
+          },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "No active token with that jti for this wallet" },
         },
       },
     },
