@@ -62,6 +62,28 @@ export const spec = {
           merchant: { type: "string" },
         },
       },
+      SetPolicyRequest: {
+        type: "object",
+        required: ["wallet_id"],
+        description: "Provide a template id and/or overrides.",
+        properties: {
+          wallet_id: { type: "string" },
+          template: { type: "string", enum: ["conservative", "balanced", "growth", "enterprise"], description: "Named starting point" },
+          overrides: {
+            type: "object",
+            description: "Per-field overrides, all amounts in cents. Override a template or set fields directly.",
+            properties: {
+              daily_token_budget_usd: { type: "integer", minimum: 0 },
+              daily_spend_budget_usd: { type: "integer", minimum: 0 },
+              per_transaction_max_usd: { type: "integer", minimum: 0 },
+              auto_approve_under_usd: { type: "integer", minimum: 0 },
+              escalate_over_usd: { type: "integer", minimum: 0 },
+              allowed_categories: { type: "array", items: { type: "string" } },
+              blocked_categories: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+      },
       ExecRevokeRequest: {
         type: "object",
         required: ["wallet_id", "jti"],
@@ -239,6 +261,34 @@ export const spec = {
           },
           "401": { description: "Missing or invalid management key" },
           "404": { description: "No active token with that jti for this wallet" },
+        },
+      },
+    },
+    "/policy": {
+      get: {
+        operationId: "getPolicy",
+        summary: "Get the wallet's spend policy and available templates",
+        description: "Owner-only. Returns the current policy (all amounts in cents) plus the catalog of named policy templates that can be applied via PUT.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Current policy and templates" },
+          "401": { description: "Missing or invalid management key" },
+        },
+      },
+      put: {
+        operationId: "setPolicy",
+        summary: "Apply a policy template and/or field overrides",
+        description: "Owner-only. Sets the wallet's spend policy from a named template, optional field overrides (in cents), or both. Overrides win field-by-field.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/SetPolicyRequest" } } },
+        },
+        responses: {
+          "200": { description: "Updated policy" },
+          "400": { description: "Invalid request or unknown template" },
+          "401": { description: "Missing or invalid management key" },
         },
       },
     },

@@ -45,7 +45,7 @@
 |----|------|---|---|---|---|------|------|-------|
 | UX-1 | Typed, remediable DENY responses (reason + remediation hint) | 9 | 2 | 0.8 | 1 | 14.4 | | **✅ SHIPPED PR #1.** `/authorize` now returns stable `code` (`BUDGET_EXCEEDED`-class) + `remediation`, additive to `reason`/`status` (AIIA-safe). Codes derived purely from persisted decision → stable on replay; unit-tested. |
 | UX-2 | First-class ESCALATE/`pending` state + mandatory timeout fallback | 8 | 3 | 0.7 | 3 | 5.6 | | #1 reliability risk: escalation deadlock. Confirmed: no resolution path exists today. |
-| UX-3 | Policy templates + plain-English clearance ladder (safest default) | 7 | 2 | 0.8 | 2 | 5.6 | | Confirmed: no policy-management API; defaults only. Replaces the blank-form cliff. |
+| UX-3 | Policy templates + plain-English clearance ladder (safest default) | 7 | 2 | 0.8 | 2 | 5.6 | | ◑ Policy templates (conservative/balanced/growth/enterprise) + owner-authed `GET/PUT /policy` (apply template ± overrides) shipped, unit-tested. Remaining: plain-English clearance ladder. |
 | UX-6 | First-run live dry-run authorize (activation aha) | 7 | 2 | 0.7 | 2 | 4.9 | | ◑ Backend shipped: `dry_run` on `/authorize` returns a simulated decision (FUND-1/ADR-0005). Remaining: surface it in the first-run dashboard UX. |
 | UX-4 | One-glance mobile approvals (Approve/Deny/"Always allow under $X") | 6 | 2 | 0.7 | 3 | 2.8 | | Graduates an escalation into a rule. |
 | UX-5 | `/wallets/stats` dashboard (spend vs cap, burn, escalations, denials, audit feed) | 7 | 1.5 | 0.8 | 3 | 2.8 | | Dashboard exists but env-var bug fixed in PR #1; expand into the trust artifact. |
