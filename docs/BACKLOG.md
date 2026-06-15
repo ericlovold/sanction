@@ -55,7 +55,7 @@
 |----|------|---|---|---|---|------|------|-------|
 | DIST-1 | MCP Registry `server.json` + elite tool names/descriptions | 9 | 3 | 0.9 | 0.5 | 48.6 | | **Best effort:leverage in the plan.** Fans out everywhere (SIG-3, SIG-7). |
 | DIST-4 | Anthropic Connectors Directory submission | 7 | 2 | 0.7 | 1 | 9.8 | | Curated, trafficked; security posture clears the bar (SIG-4). |
-| DIST-2 | A2A AgentCard at `/.well-known/agent-card.json` | 4 | 1 | 0.8 | 0.5 | 6.4 | | Cheap; future-proofs A2A discovery. |
+| DIST-2 | A2A AgentCard at `/.well-known/agent-card.json` | 4 | 1 | 0.8 | 0.5 | 6.4 | | **✅ SHIPPED PR #1.** Static card (3 skills) pointing at the live OpenAPI spec. |
 | DIST-3 | AIIA dogfood → reference arch + OSS quickstart template | 7 | 3 | 0.7 | 4 | 3.7 | | Proof + case study + copy-paste adoption. AIIA's AUTO/SUPERVISED/GATED maps ~1:1 to clearance. |
 | DIST-5 | Bedrock Action Group hardening + AgentCore Agent Registry listing | 6 | 2 | 0.6 | 2 | 3.6 | | Early-mover on a new enterprise surface (SIG-5). |
 | DIST-6 | "Production agent security" content/SEO (clearance narrative) | 6 | 1.5 | 0.6 | 3 | 1.8 | | Proven intent pool (agent OAuth, scoped tokens, spend limits). |
