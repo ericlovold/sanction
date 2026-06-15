@@ -11,11 +11,12 @@
 **Finding→new-ID map (for traceability):** THREAT/FINDINGS `F1/F2/F3` (unauth mgmt plane) → **SEC-15** (shipped); `V2a` double-spend → **SEC-4** (shipped); `F5` cred-expiry → shipped (folded into SEC-5/SEC-8 area); `V1` key custody → **SEC-1/SEC-2**; `V2b` isolation → **SEC-3**; `F6` revocation / `F7` asymmetric → **SEC-5/SEC-10**; `F9` committed ids / key rotation → **SEC-6/SEC-16**; audit → **SEC-7**.
 **Consequences:** Older docs (`SECURITY-FINDINGS.md`, `SECURITY-THREAT-MODEL.md`, `PRODUCT-OWNERSHIP.md`) still reference `F#/S#` ids; this map keeps them traceable. Future work references the `SEC-/UX-/DIST-` scheme.
 
-## ADR-0005 ⚑ PROPOSED — Wallet rails: control plane vs. fund custody
-**Date:** 2026-06-15 · **Status:** Proposed (needs founder decision)
+## ADR-0005 ACCEPTED — Wallet rails: control plane, no custody (+ simulation mode)
+**Date:** 2026-06-15 · **Status:** Accepted (founder decision, 2026-06-15)
 **Context:** Sanction is marketed as an "agent wallet" but today only *authorizes* and *logs* spend; it never moves money (the `stripe` dependency is unused). Two divergent futures: (A) stay an **authorization + audit control plane** that rides existing rails (cards, agent-payment protocols), keeping Sanction out of money-transmission/PCI scope; (B) add **real spend rails** (virtual-card issuing or an agent-payment protocol) and custody/route funds, becoming a true wallet — far larger TAM but heavy compliance (MTL/KYC/PCI).
-**Decision:** Deferred to founder. Recommendation: **(A) for now** — it is where the current code already is, keeps regulatory surface minimal, and the differentiated value (scoped credential injection + policy) doesn't require custody. Re-open if a design partner needs custody.
-**Consequences:** Narrative shifts from "wallet that holds funds" to "the spend *authorization* and credential layer" until/unless (B) is chosen.
+**Decision:** **(A) — control plane, no custody.** Sanction authorizes and audits spend over the developer's own rails; it does not hold or move funds. This keeps the money-transmission/PCI surface at zero and matches where the code already is. Re-open as a separate decision (B) only if a design partner needs custody. Positioning leads "give your agent a security clearance," not "Stripe for agents."
+**Implementation:** Shipped **simulation mode** — `POST /authorize` accepts `dry_run: true` and returns the decision that *would* be made (with typed `code`/`remediation`) without persisting a request or consuming budget. Lets devs activate and preview policy with no funding configured, and powers the first-run dry-run UX (UX-6). Pure decision logic extracted to `lib/decisions.ts::decide()` (unit-tested); the live persisted path is unchanged (no AIIA regression).
+**Consequences:** Narrative is "the spend *authorization* + credential layer," not "wallet that holds funds." GA is no longer blocked on a custody/funding integration. `stripe` dependency can be dropped in a later cleanup.
 
 ## ADR-0004 ACCEPTED — Authentication model for the management plane
 **Date:** 2026-06-15 · **Status:** Accepted & implemented (branch `claude/modest-albattani-620j27`)

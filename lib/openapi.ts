@@ -40,6 +40,7 @@ export const spec = {
           merchant: { type: "string", description: "Vendor or service name" },
           category: { type: "string", description: "Spend category (e.g. software, services, research, infrastructure)" },
           description: { type: "string", description: "Optional description of what this spend is for" },
+          dry_run: { type: "boolean", default: false, description: "Simulation mode: return the decision that would be made without persisting a request or consuming budget. Useful for previews and first-run testing without funding." },
         },
       },
       AuthorizeResponse: {
@@ -54,7 +55,8 @@ export const spec = {
             description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
           },
           remediation: { type: "string", description: "Suggested next step for the agent when not approved" },
-          request_id: { type: "string" },
+          simulated: { type: "boolean", description: "True when this was a dry_run preview — no request was persisted and no budget consumed (request_id is null)." },
+          request_id: { type: "string", nullable: true },
           agent: { type: "string" },
           amount_usd: { type: "number" },
           merchant: { type: "string" },

@@ -40,3 +40,47 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note === "Daily spend budget exceeded") return "DAILY_BUDGET_EXCEEDED"
   return "POLICY_DENIED"
 }
+
+export type DecisionStatus = "approved" | "denied" | "escalated"
+
+// Just the policy fields the decision engine reads (all monetary values in cents).
+export interface PolicyView {
+  blockedCategories: string[]
+  perTransactionMaxUsd: number
+  dailySpendBudgetUsd: number
+  escalateOverUsd: number
+}
+
+/**
+ * Pure spend-authorization decision. Single source of truth for both the live
+ * /authorize path (inside an advisory-locked transaction) and dry-run/simulation
+ * mode. The returned `note` strings must stay in sync with decisionCode() above.
+ *
+ * Gate order matches the live engine: no-policy → blocked category →
+ * per-transaction limit → daily budget → escalation threshold → approve.
+ */
+export function decide(input: {
+  policy: PolicyView | null
+  amountUsd: number
+  category: string
+  dailySpentUsd: number // already-approved spend today, excluding this request
+}): { status: DecisionStatus; note: string | null } {
+  const { policy, amountUsd, category, dailySpentUsd } = input
+  if (!policy) return { status: "denied", note: "No policy configured" }
+
+  const amountCents = Math.round(amountUsd * 100)
+  if (policy.blockedCategories.includes(category)) {
+    return { status: "denied", note: `Category '${category}' is blocked` }
+  }
+  if (amountCents > policy.perTransactionMaxUsd) {
+    return { status: "denied", note: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}` }
+  }
+  const dailyTotalCents = Math.round((dailySpentUsd + amountUsd) * 100)
+  if (dailyTotalCents > policy.dailySpendBudgetUsd) {
+    return { status: "denied", note: "Daily spend budget exceeded" }
+  }
+  if (amountCents > policy.escalateOverUsd) {
+    return { status: "escalated", note: null }
+  }
+  return { status: "approved", note: "Auto-approved by policy" }
+}

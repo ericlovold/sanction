@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, REMEDIATION } from "@/lib/decisions"
+import { decisionCode, REMEDIATION, decide } from "@/lib/decisions"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -10,6 +10,7 @@ const schema = z.object({
   merchant: z.string(),
   category: z.string(),
   description: z.string().optional(),
+  dry_run: z.boolean().optional().default(false),
 })
 
 export async function POST(req: NextRequest) {
@@ -22,9 +23,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { action, amount_usd, merchant, category, description } = parsed.data
+  const { action, amount_usd, merchant, category, description, dry_run } = parsed.data
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
+
+  // Simulation mode: compute what the decision *would* be without persisting a
+  // request or consuming budget. Lets a dev (or first-run UX) preview policy
+  // behavior, and works even when no funding/custody is configured (FUND-1).
+  if (dry_run) {
+    const dayStart = new Date()
+    dayStart.setHours(0, 0, 0, 0)
+    const dailySpend = await db.authorizationRequest.aggregate({
+      where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+      _sum: { amountUsd: true },
+    })
+    const { status, note } = decide({
+      policy: policy
+        ? {
+            blockedCategories: policy.blockedCategories,
+            perTransactionMaxUsd: policy.perTransactionMaxUsd,
+            dailySpendBudgetUsd: policy.dailySpendBudgetUsd,
+            escalateOverUsd: policy.escalateOverUsd,
+          }
+        : null,
+      amountUsd: amount_usd,
+      category,
+      dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
+    })
+    const code = decisionCode(status, note)
+    return NextResponse.json(
+      {
+        authorized: status === "approved",
+        status,
+        simulated: true,
+        request_id: null,
+        reason: note ?? undefined,
+        code,
+        remediation: code ? REMEDIATION[code] : undefined,
+        agent: agent.name,
+        amount_usd,
+        merchant,
+      },
+      { status: statusCode(status) },
+    )
+  }
 
   // Idempotent replay: a retry with the same key returns the original decision.
   if (idempotencyKey) {
