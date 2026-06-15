@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const encrypted = encryptCredential(value)
+  // Bind the ciphertext to its tenant+label so a leaked blob can't be replayed
+  // under a different wallet/label (AAD must match on decrypt).
+  const encrypted = encryptCredential(value, `${wallet_id}:${label}`)
 
   const cred = await db.credentialVault.create({
     data: {

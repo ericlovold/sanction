@@ -25,10 +25,10 @@
 |----|------|---|---|---|---|------|------|---------------------|
 | SEC-15 | **Authenticated management plane** (owner `sk_` key; gate `/agents`,`/vault`,`/stats`; fail-closed + bootstrap) | 10 | 3 | 1.0 | 1.5 | 20.0 | ✅ | **✅ SHIPPED PR #1.** Closed a *live* P0: unauth `POST /agents` + published wallet_id → vault disclosure. Draft had missed this. |
 | SEC-4 | Atomic spend decrement + idempotency keys + policy precedence | 9 | 2 | 0.8 | 2 | 7.2 | ✅ | **✅ SHIPPED PR #1.** Was racing; now per-agent `pg_advisory_xact_lock` in a tx + `Idempotency-Key`. Precedence confirmed correct. |
-| SEC-2 | GCM unique nonce + AAD(tenant‖cred‖version) binding | 10 | 3 | 0.8 | 1 | 24.0 | ✅ | ⚠ Partial: **nonce verified random-96-bit (acceptable)**; AAD binding + version still TODO. Add uniqueness test. |
+| SEC-2 | GCM unique nonce + AAD(tenant‖cred‖version) binding | 10 | 3 | 0.8 | 1 | 24.0 | ✅ | **✅ SHIPPED PR #1.** Versioned ciphertext (v1) binds AAD=`walletId:label`; legacy blobs decrypt via fallback + upgrade on next write. Nonce-uniqueness + tamper + AAD-mismatch unit-tested. |
 | SEC-1 | Envelope encryption: KMS root + per-tenant DEKs | 10 | 3 | 0.8 | 4 | 6.0 | ✅ | ⚠ Confirmed open: one global env-var key, no `keyId`, no rotation. Existential. |
 | SEC-3 | Postgres RLS tenant isolation + forced-tenant query layer | 10 | 3 | 0.8 | 2 | 12.0 | ✅ | ⚠ Confirmed: app-code `where` filtering only, single PG role. One typo from a breach. |
-| SEC-5 | JWT hardening: pin `alg`, bind `aud`/`jti`/scope, single-use, revocation | 9 | 3 | 0.8 | 2 | 10.8 | ✅ | ⚠ Confirmed: HS256 single secret; `jti`/scope bound, but no `aud`, not single-use, **no revocation setter** (status checked, never written). |
+| SEC-5 | JWT hardening: pin `alg`, bind `aud`/`jti`/scope, single-use, revocation | 9 | 3 | 0.8 | 2 | 10.8 | ✅ | ◑ **Mostly shipped PR #1:** `alg` now pinned `["HS256"]` (anti alg-confusion); owner-authed `POST /exec/revoke` added (inject already enforces `status`/expiry, so revocation is immediate). Remaining: `aud` binding + true single-use. |
 | SEC-6 | `pxy_` key hashed at rest, scoped, rotatable, revocable | 9 | 2 | 0.9 | 1.5 | 10.8 | ✅ | ◑ Partial: keys **already SHA-256-hashed at rest**; mgmt-key bootstrap shipped (SEC-15); rotation/per-key revocation (beyond `isActive`) TODO. |
 | SEC-13 | Next/Vercel hardening: `no-store` on secret responses, middleware-bypass review, bundle hygiene | 9 | 2 | 0.8 | 1 | 14.4 | | Cheap, high-value. Add `Cache-Control: no-store` to `/inject`. |
 | SEC-12 | Rate limiting + Neon connection-exhaustion protection | 8 | 2 | 0.8 | 1 | 12.8 | | Serverless PG has a hard connection ceiling. |
@@ -38,7 +38,7 @@
 | SEC-10 | Migrate exec signing to asymmetric (EdDSA) | 8 | 1.5 | 0.8 | 2 | 4.8 | | Verifiers can never mint. Needs verify-both transition (also fixes JWT `iss` "autoflux"→"sanction"). |
 | SEC-9 | BYOK / customer-managed KMS | 3 | 2 | 0.6 | 5 | 0.7 | | Enterprise-sales unlock (low reach, high deal-size). |
 | SEC-11 | SOC2 / ISO27001 readiness | 3 | 2 | 0.7 | 8 | 0.5 | | Procurement gate; long lead, start early. |
-| SEC-16 | **Rotate the AIIA agent key** (prefix was committed) + test suite (no live deps) | 8 | 1 | 1.0 | 1 | 8.0 | | New: hygiene follow-up to PR #1's scrub; add unit tests for crypto/ownerAuth. |
+| SEC-16 | **Rotate the AIIA agent key** (prefix was committed) + test suite (no live deps) | 8 | 1 | 1.0 | 1 | 8.0 | | ◑ Test suite **shipped PR #1** (vitest: crypto/AAD/legacy/keys/JWT, 11 tests, wired into CI). Remaining: rotate the AIIA key (owner action). |
 
 ## UX / product
 | ID | Item | R | I | C | E | RICE | Gate | Notes |

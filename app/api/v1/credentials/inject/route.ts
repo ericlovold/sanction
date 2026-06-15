@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     data: { executionTokenId: execToken.id, credentialId: credential.id },
   })
 
-  const value = decryptCredential(credential.encryptedValue)
+  const value = decryptCredential(credential.encryptedValue, `${credential.walletId}:${credential.label}`)
 
   return NextResponse.json({
     label: credential.label,
