@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { authenticateOwner } from "@/lib/ownerAuth"
+import { authenticateAgent } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
   const walletId = req.nextUrl.searchParams.get("wallet_id")
   if (!walletId) return NextResponse.json({ error: "wallet_id required" }, { status: 400 })
+
+  // Readable by the wallet owner (x-mgmt-key) OR any active agent in the wallet
+  // (x-api-key). Both prove membership; neither is satisfiable by knowing the
+  // wallet_id alone — closing the unauthenticated-read hole while keeping the
+  // MCP sanction_wallet_status tool working.
+  const owner = await authenticateOwner(req, walletId)
+  if (!owner.wallet) {
+    const { agent } = await authenticateAgent(req)
+    if (!agent || agent.walletId !== walletId) {
+      return NextResponse.json({ error: "Unauthorized: management key or wallet agent key required" }, { status: 401 })
+    }
+  }
 
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)

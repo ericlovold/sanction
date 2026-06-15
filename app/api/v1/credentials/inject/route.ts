@@ -50,18 +50,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 })
   }
 
+  // Reject expired credentials — a rotated/expired secret must not be injectable.
+  if (credential.expiresAt && credential.expiresAt < new Date()) {
+    return NextResponse.json({ error: "Credential has expired" }, { status: 410 })
+  }
+
   // Audit the injection
   await db.credentialInjection.create({
     data: { executionTokenId: execToken.id, credentialId: credential.id },
   })
 
-  const value = decryptCredential(credential.encryptedValue)
+  const value = decryptCredential(credential.encryptedValue, `${credential.walletId}:${credential.label}`)
 
-  return NextResponse.json({
-    label: credential.label,
-    type: credential.type,
-    value,
-    injected_at: new Date().toISOString(),
-    expires_at: execToken.expiresAt.toISOString(),
-  })
+  return NextResponse.json(
+    {
+      label: credential.label,
+      type: credential.type,
+      value,
+      injected_at: new Date().toISOString(),
+      expires_at: execToken.expiresAt.toISOString(),
+    },
+    // Never let a decrypted secret sit in any shared/proxy/browser cache (SEC-13).
+    { headers: { "Cache-Control": "no-store" } },
+  )
 }
