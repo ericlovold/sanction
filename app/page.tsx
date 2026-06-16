@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { integrations } from "@/lib/integrations"
 
 export const metadata: Metadata = {
   title: "Sanction — Trust & governance for autonomous agents",
@@ -81,6 +82,64 @@ const authorizeSnippet = `curl -X POST https://proxy-ai-three.vercel.app/api/v1/
 
 # → { "decision": "approved", "remaining_daily_usd": 37.50 }`
 
+const steps = [
+  {
+    n: "1",
+    title: "Register an agent",
+    desc: "Create a wallet and issue a scoped pxy_ API key for each agent. The key is its identity — every call it makes is attributable.",
+    meta: "POST /v1/agents",
+  },
+  {
+    n: "2",
+    title: "Set a policy",
+    desc: "Define the rules once: daily and per-transaction budgets, auto-approve and escalation thresholds, allowed and blocked categories, clearance level.",
+    meta: "POST /v1/wallets",
+  },
+  {
+    n: "3",
+    title: "Authorize in real time",
+    desc: "Before the agent spends, it calls /authorize. Sanction returns approve, escalate, or deny in milliseconds — and logs every decision for audit.",
+    meta: "POST /v1/authorize",
+  },
+]
+
+const toneClass: Record<string, string> = {
+  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
+  amber: "bg-amber-500/15 text-amber-400 border-amber-500/25",
+  red: "bg-red-500/15 text-red-400 border-red-500/25",
+}
+
+const outcomes = [
+  { label: "Approved", tone: "emerald", desc: "Under the threshold and in an allowed category. The agent proceeds; the spend is logged." },
+  { label: "Escalated", tone: "amber", desc: "Over your escalation limit. The request pauses and waits for a human to approve or reject." },
+  { label: "Denied", tone: "red", desc: "Blocked category or over the hard cap. The transaction never reaches the merchant." },
+]
+
+const useCases = [
+  {
+    tag: "Coding & research agents",
+    title: "The agent that runs all night",
+    scenario:
+      "An autonomous coding agent works your backlog overnight — calling Claude, hitting APIs, spinning up sandboxes. Costs compound while you sleep.",
+    bullets: [
+      "A daily token budget caps the burn — it stops before it overruns.",
+      "Every model call is logged with cost, model, and task label.",
+      "A job that needs $200 of compute escalates to you instead of just running.",
+    ],
+  },
+  {
+    tag: "Procurement & ops agents",
+    title: "The agent that pays the bills",
+    scenario:
+      "An ops agent renews SaaS, pays contractors, and buys data. You want it autonomous for the routine and gated for the rest.",
+    bullets: [
+      "Routine renewals under $25 auto-approve — no human in the loop.",
+      "Anything over $100, or in a blocked category, routes to you or stops cold.",
+      "Payment credentials inject from the vault and expire 15 minutes later.",
+    ],
+  },
+]
+
 export default function Landing() {
   return (
     <div className="min-h-screen">
@@ -91,8 +150,9 @@ export default function Landing() {
             Sanction
           </Link>
           <div className="flex items-center gap-6 text-sm text-zinc-400">
-            <a href="#pillars" className="hidden sm:inline hover:text-zinc-100 transition-colors">Pillars</a>
             <a href="#how" className="hidden sm:inline hover:text-zinc-100 transition-colors">How it works</a>
+            <a href="#use-cases" className="hidden md:inline hover:text-zinc-100 transition-colors">Use cases</a>
+            <a href="#integrations" className="hidden md:inline hover:text-zinc-100 transition-colors">Integrations</a>
             <a href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing</a>
             <a href="/api/openapi.json" className="hidden sm:inline hover:text-zinc-100 transition-colors">API</a>
             <Link
@@ -289,45 +349,136 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="max-w-6xl mx-auto px-6 py-16 border-t border-zinc-900">
-        <div className="grid md:grid-cols-2 gap-10 items-center">
-          <div>
+      <section id="how" className="border-t border-zinc-900">
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center max-w-2xl mx-auto">
             <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">How it works</h2>
-            <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">One call before money moves.</h3>
+            <h3 className="mt-3 font-display text-3xl sm:text-4xl font-semibold tracking-tight">
+              Three steps to a governed agent.
+            </h3>
             <p className="mt-4 text-zinc-400 leading-relaxed">
-              Your agent calls <span className="font-mono text-zinc-300">/authorize</span> before it spends.
-              Sanction checks the wallet&apos;s policy — limits, categories, clearance — and returns a decision
-              in milliseconds. Approvals are logged. Escalations wait for a human. Denials never reach the merchant.
+              Sanction sits between your agent and the world. You set the rules once; it enforces
+              them on every call — and keeps a receipt.
             </p>
-            <ul className="mt-6 space-y-3">
-              {[
-                ["1", "Register an agent", "Issue a scoped pxy_ API key per agent."],
-                ["2", "Set a policy", "Daily and per-transaction budgets, allowed categories."],
-                ["3", "Authorize spend", "Auto-approve, escalate, or deny — every call audited."],
-              ].map(([n, t, d]) => (
-                <li key={n} className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-700 text-xs font-mono text-zinc-400">
-                    {n}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-zinc-200">{t}</p>
-                    <p className="text-sm text-zinc-500">{d}</p>
+          </div>
+
+          {/* Numbered steps */}
+          <div className="relative mt-16">
+            <div
+              className="hidden md:block absolute top-8 left-[16.6%] right-[16.6%] h-px bg-gradient-to-r from-emerald-500/0 via-emerald-500/40 to-emerald-500/0"
+              aria-hidden="true"
+            />
+            <div className="grid md:grid-cols-3 gap-12 md:gap-8">
+              {steps.map((s) => (
+                <div key={s.n} className="relative flex flex-col items-center text-center">
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/40 bg-zinc-950 font-display text-2xl font-semibold text-emerald-300 shadow-[0_0_30px_-8px_rgba(16,185,129,0.6)]">
+                    {s.n}
                   </div>
-                </li>
+                  <h4 className="mt-5 font-display text-lg font-semibold text-zinc-100">{s.title}</h4>
+                  <p className="mt-2 max-w-xs text-sm text-zinc-400 leading-relaxed">{s.desc}</p>
+                  <code className="mt-3 text-[11px] font-mono text-emerald-400/70">{s.meta}</code>
+                </div>
               ))}
-            </ul>
-          </div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
-            <div className="flex items-center gap-1.5 border-b border-zinc-800 px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-              <span className="ml-2 text-xs font-mono text-zinc-500">authorize.sh</span>
             </div>
-            <pre className="p-4 text-xs leading-relaxed font-mono text-zinc-300 overflow-x-auto">
-              <code>{authorizeSnippet}</code>
-            </pre>
           </div>
+
+          {/* Decision engine + code */}
+          <div className="mt-16 grid lg:grid-cols-2 gap-6 items-stretch">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+              <p className="text-xs font-mono uppercase tracking-widest text-zinc-500">The decision engine</p>
+              <p className="mt-2 text-sm text-zinc-400">Every authorize call returns one of three outcomes:</p>
+              <div className="mt-5 space-y-4">
+                {outcomes.map((o) => (
+                  <div key={o.label} className="flex gap-3">
+                    <span className={`shrink-0 self-start rounded-md border px-2 py-0.5 text-xs font-medium ${toneClass[o.tone]}`}>
+                      {o.label}
+                    </span>
+                    <p className="text-sm text-zinc-400 leading-relaxed">{o.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+              <div className="flex items-center gap-1.5 border-b border-zinc-800 px-4 py-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+                <span className="ml-2 text-xs font-mono text-zinc-500">authorize.sh</span>
+              </div>
+              <pre className="p-4 text-xs leading-relaxed font-mono text-zinc-300 overflow-x-auto">
+                <code>{authorizeSnippet}</code>
+              </pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Use cases */}
+      <section id="use-cases" className="border-t border-zinc-900">
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Use cases</h2>
+            <h3 className="mt-3 font-display text-3xl sm:text-4xl font-semibold tracking-tight">
+              What it looks like in practice.
+            </h3>
+          </div>
+          <div className="mt-12 grid md:grid-cols-2 gap-6">
+            {useCases.map((u) => (
+              <div key={u.title} className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-7">
+                <p className="text-xs font-mono uppercase tracking-widest text-emerald-400/80">{u.tag}</p>
+                <h4 className="mt-3 font-display text-xl font-semibold text-zinc-100">{u.title}</h4>
+                <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{u.scenario}</p>
+                <div className="mt-5 border-t border-zinc-800 pt-5">
+                  <p className="text-[11px] font-mono uppercase tracking-widest text-zinc-500">With Sanction</p>
+                  <ul className="mt-3 space-y-2.5">
+                    {u.bullets.map((b) => (
+                      <li key={b} className="flex items-start gap-2.5 text-sm text-zinc-300">
+                        <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z" clipRule="evenodd" />
+                        </svg>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Integrations */}
+      <section id="integrations" className="border-t border-zinc-900">
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Integrations</h2>
+            <h3 className="mt-3 font-display text-3xl sm:text-4xl font-semibold tracking-tight">
+              Governs your whole agent stack.
+            </h3>
+            <p className="mt-4 text-zinc-400 leading-relaxed">
+              Sanction is provider-agnostic. Meter spend across model providers, gate payment rails,
+              and vault credentials for the tools your agents already use.
+            </p>
+          </div>
+          <div className="mt-12 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-px overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800">
+            {integrations.map((i) => (
+              <div
+                key={i.title}
+                title={i.title}
+                className="group flex flex-col items-center justify-center gap-2 bg-zinc-950 px-3 py-6 transition-colors hover:bg-zinc-900"
+              >
+                <svg viewBox="0 0 24 24" className="h-7 w-7 text-zinc-500 transition-colors group-hover:text-zinc-100" fill="currentColor" aria-hidden="true">
+                  <path d={i.path} />
+                </svg>
+                <span className="text-center text-[10px] leading-tight text-zinc-600 transition-colors group-hover:text-zinc-400">
+                  {i.title}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-center text-xs text-zinc-600">
+            + any REST API — via MCP, AWS Bedrock Action Groups, or direct calls.
+          </p>
         </div>
       </section>
 
