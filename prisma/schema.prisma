@@ -49,12 +49,13 @@ model Policy {
   id       String @id @default(cuid())
   walletId String @unique
 
-  // All values in cents
+  // All values in cents. Defaults match the "balanced" template and satisfy the
+  // three-band ordering autoApprove ≤ escalateOver ≤ perTransactionMax ≤ dailySpend.
   dailyTokenBudgetUsd  Int @default(1000)  // $10
-  dailySpendBudgetUsd  Int @default(5000)  // $50
-  perTransactionMaxUsd Int @default(5000)  // $50
+  dailySpendBudgetUsd  Int @default(20000) // $200
+  perTransactionMaxUsd Int @default(10000) // $100
   autoApproveUnderUsd  Int @default(2500)  // $25
-  escalateOverUsd      Int @default(10000) // $100
+  escalateOverUsd      Int @default(7500)  // $75
 
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])

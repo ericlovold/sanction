@@ -4,6 +4,17 @@
 
 ---
 
+## ADR-0007 ACCEPTED — Three-band spend decision + single decision engine
+**Date:** 2026-06-16 · **Status:** Accepted (founder decision during QA)
+**Context:** QA found `autoApproveUnderUsd` was never read by the engine (it auto-approved everything up to `escalateOverUsd`), yet the new `/policy` + templates surfaced it as a settable knob — misleading owners. Separately, the live `/authorize` path duplicated the decision gates instead of using `decide()`, a drift risk.
+**Decision:** Implement a real **three-band** sizing decision in `decide()` (now the single source of truth, called inside the live advisory-locked transaction AND by dry-run):
+- `amount ≤ autoApproveUnderUsd` → **approve**
+- `autoApproveUnderUsd < amount ≤ escalateOverUsd` → **escalate** (human approval)
+- `amount > escalateOverUsd` → **deny** (`ESCALATION_CEILING_EXCEEDED` — too large for the agent to even request)
+plus the existing deny gates (no-policy, blocked category, `perTransactionMaxUsd`, daily budget). Coherent policies satisfy `autoApprove ≤ escalateOver ≤ perTransactionMax ≤ dailySpend`; `PUT /policy` now rejects incoherent threshold sets, templates were re-tuned to satisfy it, and schema defaults updated to the coherent "balanced" set (migration `..._policy_defaults_three_band`).
+**Behavior change:** Mid-size charges (over `autoApproveUnder`) now **escalate** instead of silently auto-approving — strictly more conservative/safer. Verified end-to-end against a local Postgres.
+**Also fixed under QA (separate P0):** `/exec` issued the JWT with a different `jti` than the `ExecutionToken` row id, so `/inject` (which looks up by the JWT's `jti`) always returned 401 — credential injection was broken in production. `issueExecutionJWT` now accepts the caller's `jti`. Caught only by the live DB smoke test; locked with a regression unit test.
+
 ## ADR-0006 ACCEPTED — Adopt the agent-team planning docs as canonical; consolidate to `docs/`
 **Date:** 2026-06-15 · **Status:** Accepted
 **Context:** The agent team supplied richer, market-aware `SIGNALS.md` / `BACKLOG.md` / `ROADMAP.md` (cleaner ID scheme: `SEC-/UX-/DIST-/FUND-/POS-/SIG-`; RICE + Gate model; signals my first-pass missed — MCP Registry, Connectors Directory, AgentCore, AP2/x402, prompt-injection moat, custody question). My first-pass used `S-/N-/L-/F-` ids and lived partly at repo root.

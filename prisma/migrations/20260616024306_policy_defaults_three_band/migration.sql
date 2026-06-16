@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Policy" ALTER COLUMN "dailySpendBudgetUsd" SET DEFAULT 20000,
+ALTER COLUMN "perTransactionMaxUsd" SET DEFAULT 10000,
+ALTER COLUMN "escalateOverUsd" SET DEFAULT 7500;

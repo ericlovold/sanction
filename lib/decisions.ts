@@ -12,6 +12,7 @@ export type DecisionCode =
   | "CATEGORY_BLOCKED"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
+  | "ESCALATION_CEILING_EXCEEDED"
   | "POLICY_DENIED"
 
 export const REMEDIATION: Record<DecisionCode, string> = {
@@ -25,6 +26,8 @@ export const REMEDIATION: Record<DecisionCode, string> = {
     "Amount exceeds the per-transaction limit. Split into smaller charges or ask the owner to raise the limit.",
   DAILY_BUDGET_EXCEEDED:
     "The wallet's daily spend budget is exhausted. Retry after the daily reset or ask the owner to raise the budget.",
+  ESCALATION_CEILING_EXCEEDED:
+    "Amount is above the escalation ceiling — too large for the agent to even request approval for. Lower the amount or have the owner raise escalate_over_usd / handle it out-of-band.",
   POLICY_DENIED: "Denied by policy. Review the reason and adjust the request.",
 }
 
@@ -38,6 +41,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"
   if (note.startsWith("Exceeds per-transaction")) return "PER_TXN_LIMIT"
   if (note === "Daily spend budget exceeded") return "DAILY_BUDGET_EXCEEDED"
+  if (note.startsWith("Exceeds escalation ceiling")) return "ESCALATION_CEILING_EXCEEDED"
   return "POLICY_DENIED"
 }
 
@@ -45,19 +49,24 @@ export type DecisionStatus = "approved" | "denied" | "escalated"
 
 // Just the policy fields the decision engine reads (all monetary values in cents).
 export interface PolicyView {
-  blockedCategories: string[]
+  autoApproveUnderUsd: number
+  escalateOverUsd: number
   perTransactionMaxUsd: number
   dailySpendBudgetUsd: number
-  escalateOverUsd: number
+  blockedCategories: string[]
 }
 
 /**
- * Pure spend-authorization decision. Single source of truth for both the live
- * /authorize path (inside an advisory-locked transaction) and dry-run/simulation
- * mode. The returned `note` strings must stay in sync with decisionCode() above.
+ * Pure spend-authorization decision. Single source of truth for the live
+ * /authorize path (called inside an advisory-locked transaction) AND dry-run
+ * simulation. The returned `note` strings must stay in sync with decisionCode().
  *
- * Gate order matches the live engine: no-policy → blocked category →
- * per-transaction limit → daily budget → escalation threshold → approve.
+ * Order: deny gates first (no-policy → blocked category → per-transaction cap →
+ * daily budget), then the three-band sizing decision (ADR-0007):
+ *   amount ≤ autoApproveUnder            → approve
+ *   autoApproveUnder < amount ≤ escalate → escalate (human approval)
+ *   amount > escalateOver                → deny (over the escalation ceiling)
+ * Coherent policies satisfy autoApproveUnder ≤ escalateOver ≤ perTransactionMax.
  */
 export function decide(input: {
   policy: PolicyView | null
@@ -79,8 +88,13 @@ export function decide(input: {
   if (dailyTotalCents > policy.dailySpendBudgetUsd) {
     return { status: "denied", note: "Daily spend budget exceeded" }
   }
-  if (amountCents > policy.escalateOverUsd) {
-    return { status: "escalated", note: null }
+
+  // Three-band sizing decision.
+  if (amountCents <= policy.autoApproveUnderUsd) {
+    return { status: "approved", note: "Auto-approved (under auto-approve threshold)" }
   }
-  return { status: "approved", note: "Auto-approved by policy" }
+  if (amountCents > policy.escalateOverUsd) {
+    return { status: "denied", note: `Exceeds escalation ceiling of $${policy.escalateOverUsd / 100}` }
+  }
+  return { status: "escalated", note: "Over auto-approve threshold — requires human approval" }
 }

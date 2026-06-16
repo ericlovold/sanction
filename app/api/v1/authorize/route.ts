@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, REMEDIATION, decide } from "@/lib/decisions"
+import { decisionCode, REMEDIATION, decide, type PolicyView } from "@/lib/decisions"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -38,14 +38,7 @@ export async function POST(req: NextRequest) {
       _sum: { amountUsd: true },
     })
     const { status, note } = decide({
-      policy: policy
-        ? {
-            blockedCategories: policy.blockedCategories,
-            perTransactionMaxUsd: policy.perTransactionMaxUsd,
-            dailySpendBudgetUsd: policy.dailySpendBudgetUsd,
-            escalateOverUsd: policy.escalateOverUsd,
-          }
-        : null,
+      policy: policyView(policy),
       amountUsd: amount_usd,
       category,
       dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
@@ -78,24 +71,10 @@ export async function POST(req: NextRequest) {
 
   const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
 
-  // No policy = deny by default
-  if (!policy) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
-  }
-
-  const amountCents = Math.round(amount_usd * 100)
-
-  // Stateless gates (no budget state involved)
-  if (policy.blockedCategories.includes(category)) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
-  }
-  if (amountCents > policy.perTransactionMaxUsd) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}` }, agent.name)
-  }
-
-  // Stateful gate: daily-spend check + write must be atomic, otherwise two
-  // concurrent requests can both pass the check and blow the cap. Serialize per
-  // agent with a transaction-scoped advisory lock, then re-read inside the lock.
+  // The daily-spend read + decision + write must be atomic, otherwise two
+  // concurrent requests can both pass the budget check and blow the cap.
+  // Serialize per agent with a transaction-scoped advisory lock, re-read the
+  // day's spend inside the lock, then run the SINGLE decision engine (decide()).
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
 
@@ -107,16 +86,20 @@ export async function POST(req: NextRequest) {
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
         _sum: { amountUsd: true },
       })
-      const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
-      if (dailyTotalCents > policy.dailySpendBudgetUsd) {
-        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
-      }
 
-      if (amountCents > policy.escalateOverUsd) {
-        return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
-      }
+      const { status, note } = decide({
+        policy: policyView(policy),
+        amountUsd: amount_usd,
+        category,
+        dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
+      })
 
-      return tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" } })
+      // Escalations stay pending (no decidedAt); approvals/denials are decided now.
+      const data =
+        status === "escalated"
+          ? { ...base, status, decisionNote: note }
+          : { ...base, status, decidedAt: new Date(), decisionNote: note }
+      return tx.authorizationRequest.create({ data })
     })
     return NextResponse.json(decisionResponse(result, agent.name), { status: statusCode(result.status) })
   } catch (e: unknown) {
@@ -133,9 +116,17 @@ export async function POST(req: NextRequest) {
 
 type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string }
 
-async function persist(data: Record<string, unknown>, agentName: string) {
-  const rec = await db.authorizationRequest.create({ data: data as never })
-  return NextResponse.json(decisionResponse(rec, agentName), { status: statusCode(rec.status) })
+// Project a Prisma Policy down to just the fields the decision engine reads.
+type PolicyRow = PolicyView
+function policyView(p: PolicyRow | null): PolicyView | null {
+  if (!p) return null
+  return {
+    autoApproveUnderUsd: p.autoApproveUnderUsd,
+    escalateOverUsd: p.escalateOverUsd,
+    perTransactionMaxUsd: p.perTransactionMaxUsd,
+    dailySpendBudgetUsd: p.dailySpendBudgetUsd,
+    blockedCategories: p.blockedCategories,
+  }
 }
 
 function decisionResponse(r: Decision, agentName: string) {

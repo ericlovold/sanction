@@ -51,7 +51,7 @@ export const spec = {
           reason: { type: "string", description: "Human-readable explanation of the decision" },
           code: {
             type: "string",
-            enum: ["ESCALATION_REQUIRED", "NO_POLICY", "CATEGORY_BLOCKED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "POLICY_DENIED"],
+            enum: ["ESCALATION_REQUIRED", "NO_POLICY", "CATEGORY_BLOCKED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "ESCALATION_CEILING_EXCEEDED", "POLICY_DENIED"],
             description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
           },
           remediation: { type: "string", description: "Suggested next step for the agent when not approved" },

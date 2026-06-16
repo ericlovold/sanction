@@ -27,10 +27,10 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     name: "Conservative",
     description: "Tight limits, escalate early. Best for a new or untrusted agent.",
     dailyTokenBudgetUsd: 500, // $5
-    dailySpendBudgetUsd: 2000, // $20
-    perTransactionMaxUsd: 1000, // $10
+    dailySpendBudgetUsd: 3000, // $30
+    perTransactionMaxUsd: 2000, // $20
     autoApproveUnderUsd: 500, // $5
-    escalateOverUsd: 2500, // $25
+    escalateOverUsd: 1500, // $15
     allowedCategories: BASE_CATEGORIES,
     blockedCategories: BASE_BLOCKED,
   },
@@ -39,10 +39,10 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     name: "Balanced",
     description: "Sensible defaults for a working agent. Matches the out-of-the-box policy.",
     dailyTokenBudgetUsd: 1000, // $10
-    dailySpendBudgetUsd: 5000, // $50
-    perTransactionMaxUsd: 5000, // $50
+    dailySpendBudgetUsd: 20000, // $200
+    perTransactionMaxUsd: 10000, // $100
     autoApproveUnderUsd: 2500, // $25
-    escalateOverUsd: 10000, // $100
+    escalateOverUsd: 7500, // $75
     allowedCategories: BASE_CATEGORIES,
     blockedCategories: BASE_BLOCKED,
   },
@@ -51,8 +51,8 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     name: "Growth",
     description: "Higher throughput for a trusted production agent.",
     dailyTokenBudgetUsd: 5000, // $50
-    dailySpendBudgetUsd: 25000, // $250
-    perTransactionMaxUsd: 20000, // $200
+    dailySpendBudgetUsd: 200000, // $2,000
+    perTransactionMaxUsd: 75000, // $750
     autoApproveUnderUsd: 10000, // $100
     escalateOverUsd: 50000, // $500
     allowedCategories: BASE_CATEGORIES,
@@ -63,10 +63,10 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     name: "Enterprise",
     description: "High limits and a broader category set for a mature, audited deployment.",
     dailyTokenBudgetUsd: 50000, // $500
-    dailySpendBudgetUsd: 200000, // $2,000
-    perTransactionMaxUsd: 100000, // $1,000
-    autoApproveUnderUsd: 25000, // $250
-    escalateOverUsd: 100000, // $1,000
+    dailySpendBudgetUsd: 1000000, // $10,000
+    perTransactionMaxUsd: 300000, // $3,000
+    autoApproveUnderUsd: 50000, // $500
+    escalateOverUsd: 200000, // $2,000
     allowedCategories: [...BASE_CATEGORIES, "marketing", "data"],
     blockedCategories: ["gambling", "adult"],
   },
@@ -74,6 +74,29 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
 
 export function getTemplate(id: string): PolicyTemplate | undefined {
   return POLICY_TEMPLATES.find((t) => t.id === id)
+}
+
+/**
+ * Validate that a policy's thresholds are ordered so the three-band decision
+ * (decide()) is coherent: autoApprove ≤ escalateOver ≤ perTransactionMax ≤
+ * dailySpendBudget. Returns an error message, or null if coherent.
+ */
+export function policyCoherenceError(p: {
+  autoApproveUnderUsd: number
+  escalateOverUsd: number
+  perTransactionMaxUsd: number
+  dailySpendBudgetUsd: number
+}): string | null {
+  if (p.autoApproveUnderUsd > p.escalateOverUsd) {
+    return "auto_approve_under_usd must be ≤ escalate_over_usd"
+  }
+  if (p.escalateOverUsd > p.perTransactionMaxUsd) {
+    return "escalate_over_usd must be ≤ per_transaction_max_usd"
+  }
+  if (p.perTransactionMaxUsd > p.dailySpendBudgetUsd) {
+    return "per_transaction_max_usd must be ≤ daily_spend_budget_usd"
+  }
+  return null
 }
 
 const POLICY_FIELDS: (keyof PolicyShape)[] = [

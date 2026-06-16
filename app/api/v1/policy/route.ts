@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
-import { POLICY_TEMPLATES, getTemplate, resolvePolicy, type PolicyShape } from "@/lib/policyTemplates"
+import { POLICY_TEMPLATES, getTemplate, resolvePolicy, policyCoherenceError, type PolicyShape } from "@/lib/policyTemplates"
 
 // Owner-facing policy management. Read the current policy + the available
 // templates, or apply a template (optionally with field overrides). All
@@ -80,6 +80,22 @@ export async function PUT(req: NextRequest) {
   }
 
   const resolved = resolvePolicy(tpl, mapOverrides(overrides))
+
+  // Validate the EFFECTIVE policy (resolved merged over the current policy, or a
+  // coherent fallback for a wallet that has none yet) so partial overrides can't
+  // produce an out-of-order, incoherent threshold set.
+  const existing = await db.policy.findUnique({ where: { walletId: wallet_id } })
+  const fallback = getTemplate("balanced")!
+  const effective = {
+    autoApproveUnderUsd: resolved.autoApproveUnderUsd ?? existing?.autoApproveUnderUsd ?? fallback.autoApproveUnderUsd,
+    escalateOverUsd: resolved.escalateOverUsd ?? existing?.escalateOverUsd ?? fallback.escalateOverUsd,
+    perTransactionMaxUsd: resolved.perTransactionMaxUsd ?? existing?.perTransactionMaxUsd ?? fallback.perTransactionMaxUsd,
+    dailySpendBudgetUsd: resolved.dailySpendBudgetUsd ?? existing?.dailySpendBudgetUsd ?? fallback.dailySpendBudgetUsd,
+  }
+  const coherenceError = policyCoherenceError(effective)
+  if (coherenceError) {
+    return NextResponse.json({ error: `Incoherent policy: ${coherenceError}` }, { status: 400 })
+  }
 
   const policy = await db.policy.upsert({
     where: { walletId: wallet_id },
