@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Sanction">
+  <defs>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18181b"/>
+      <stop offset="1" stop-color="#052e25"/>
+    </linearGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ee7b7"/>
+      <stop offset="0.5" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <!-- coin body -->
+  <circle cx="50" cy="50" r="46" fill="url(#coin)" stroke="#34d399" stroke-width="3"/>
+  <!-- milled edge -->
+  <circle cx="50" cy="50" r="41" fill="none" stroke="#34d399" stroke-opacity="0.45" stroke-width="3" stroke-dasharray="1.4 4.2"/>
+  <!-- clever S: a highway ribbon threaded through the coin, with entry/exit nodes -->
+  <path d="M65 37 C65 29 56 26 49 26 C39 26 33 32 33 39 C33 46 40 49 50 51 C60 53 67 56 67 63 C67 71 60 75 51 75 C43 75 35 72 35 63"
+        fill="none" stroke="url(#s)" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="65" cy="37" r="5" fill="#6ee7b7"/>
+  <circle cx="35" cy="63" r="5" fill="#22d3ee"/>
+</svg>
