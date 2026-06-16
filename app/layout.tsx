@@ -6,8 +6,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AutoFlux — Agent Wallet",
-  description: "Governance and spend control for autonomous agents",
+  title: "Sanction — Trust & governance for autonomous agents",
+  description: "Spend authorization, an encrypted credential vault, and clearance levels for autonomous AI agents.",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
