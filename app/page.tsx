@@ -167,34 +167,7 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-zinc-900">
-        {/* Neon interaction highway */}
-        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-          <svg className="h-full w-full" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice">
-            <defs>
-              <linearGradient id="neon" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
-                <stop offset="0" stopColor="#10b981" stopOpacity="0" />
-                <stop offset="0.18" stopColor="#10b981" stopOpacity="0.6" />
-                <stop offset="0.5" stopColor="#22d3ee" stopOpacity="0.6" />
-                <stop offset="0.82" stopColor="#10b981" stopOpacity="0.6" />
-                <stop offset="1" stopColor="#10b981" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <g fill="none" stroke="url(#neon)" strokeWidth="1.4" strokeLinecap="round">
-              <path className="neon-line" style={{ animationDelay: "0s" }} d="M-60,90 C 250,40 460,180 700,120 S 1120,60 1260,140" />
-              <path className="neon-line" style={{ animationDelay: "1.1s" }} d="M-60,210 C 200,270 520,150 770,235 S 1080,300 1260,225" />
-              <path className="neon-line" style={{ animationDelay: "2.3s" }} d="M-60,330 C 320,270 520,420 800,335 S 1120,275 1260,360" />
-              <path className="neon-line" style={{ animationDelay: "0.6s" }} d="M-60,450 C 250,520 500,380 740,455 S 1100,520 1260,440" />
-              <path className="neon-line" style={{ animationDelay: "1.7s" }} d="M-60,540 C 300,500 540,580 820,520 S 1120,470 1260,545" />
-            </g>
-            <g fill="#34d399">
-              <circle className="neon-node" style={{ animationDelay: "0.4s" }} cx="700" cy="120" r="2.6" />
-              <circle className="neon-node" style={{ animationDelay: "1.5s" }} cx="770" cy="235" r="2.6" />
-              <circle className="neon-node" style={{ animationDelay: "2.6s" }} cx="800" cy="335" r="2.6" />
-              <circle className="neon-node" style={{ animationDelay: "0.9s" }} cx="740" cy="455" r="2.6" />
-            </g>
-          </svg>
-        </div>
-        {/* Dark scrim behind the type so it reads cleanly over the highway */}
+        {/* Soft dark vignette for depth behind the type */}
         <div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_70%_at_50%_55%,rgba(9,9,11,0.88)_0%,rgba(9,9,11,0.5)_45%,transparent_82%)]"
           aria-hidden="true"
@@ -224,8 +197,6 @@ export default function Landing() {
                 }}
                 aria-hidden="true"
               />
-              <div className="card-sheen" aria-hidden="true" />
-
               <div className="relative flex h-full flex-col justify-between">
                 {/* top row */}
                 <div className="flex items-start justify-between">
@@ -245,23 +216,26 @@ export default function Landing() {
 
                 {/* chip + number */}
                 <div>
-                  <svg viewBox="0 0 48 36" className="h-7 w-10">
-                    <defs>
-                      <linearGradient id="chip" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0" stopColor="#fde68a" />
-                        <stop offset="0.5" stopColor="#f59e0b" />
-                        <stop offset="1" stopColor="#fcd34d" />
-                      </linearGradient>
-                    </defs>
-                    <rect x="0.5" y="0.5" width="47" height="35" rx="5" fill="url(#chip)" stroke="rgba(0,0,0,0.25)" />
-                    <g stroke="rgba(120,90,10,0.55)" strokeWidth="1.1" fill="none">
-                      <line x1="0" y1="12" x2="48" y2="12" />
-                      <line x1="0" y1="24" x2="48" y2="24" />
-                      <line x1="16" y1="0" x2="16" y2="36" />
-                      <line x1="32" y1="0" x2="32" y2="36" />
-                      <rect x="16" y="12" width="16" height="12" />
-                    </g>
-                  </svg>
+                  <span className="relative inline-block overflow-hidden rounded-[5px]">
+                    <svg viewBox="0 0 48 36" className="block h-7 w-10">
+                      <defs>
+                        <linearGradient id="chip" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0" stopColor="#fde68a" />
+                          <stop offset="0.5" stopColor="#f59e0b" />
+                          <stop offset="1" stopColor="#fcd34d" />
+                        </linearGradient>
+                      </defs>
+                      <rect x="0.5" y="0.5" width="47" height="35" rx="5" fill="url(#chip)" stroke="rgba(0,0,0,0.25)" />
+                      <g stroke="rgba(120,90,10,0.55)" strokeWidth="1.1" fill="none">
+                        <line x1="0" y1="12" x2="48" y2="12" />
+                        <line x1="0" y1="24" x2="48" y2="24" />
+                        <line x1="16" y1="0" x2="16" y2="36" />
+                        <line x1="32" y1="0" x2="32" y2="36" />
+                        <rect x="16" y="12" width="16" height="12" />
+                      </g>
+                    </svg>
+                    <span className="chip-shimmer" aria-hidden="true" />
+                  </span>
                   <p className="mt-3 font-mono text-sm sm:text-base tracking-[0.18em] text-zinc-200">
                     PXY · •••• · •••• · AGNT
                   </p>
