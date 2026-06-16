@@ -67,7 +67,7 @@ export default async function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/" className="text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
+          <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
           <p className="text-zinc-500 text-sm">Agent wallet &amp; governance</p>
         </div>
         {pendingCount > 0 && (

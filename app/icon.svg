@@ -10,13 +10,6 @@
       <stop offset="1" stop-color="#22d3ee"/>
     </linearGradient>
   </defs>
-  <!-- coin body -->
   <circle cx="50" cy="50" r="46" fill="url(#coin)" stroke="#34d399" stroke-width="3"/>
-  <!-- milled edge -->
-  <circle cx="50" cy="50" r="41" fill="none" stroke="#34d399" stroke-opacity="0.45" stroke-width="3" stroke-dasharray="1.4 4.2"/>
-  <!-- clever S: a highway ribbon threaded through the coin, with entry/exit nodes -->
-  <path d="M65 37 C65 29 56 26 49 26 C39 26 33 32 33 39 C33 46 40 49 50 51 C60 53 67 56 67 63 C67 71 60 75 51 75 C43 75 35 72 35 63"
-        fill="none" stroke="url(#s)" stroke-width="9" stroke-linecap="round"/>
-  <circle cx="65" cy="37" r="5" fill="#6ee7b7"/>
-  <circle cx="35" cy="63" r="5" fill="#22d3ee"/>
+  <g transform="translate(50,50) scale(0.07418,-0.07418) translate(-304.500,-350.000)"><path d="M310 -14Q230 -14 168.5 14.5Q107 43 72 97Q37 151 37 229L37 255L156 255L156 229Q156 160 198 126Q240 92 310 92Q381 92 417 121Q453 150 453 196Q453 227 436 246.5Q419 266 386.5 278Q354 290 308 301L278 307Q209 323 158.5 347.5Q108 372 81 411Q54 450 54 513Q54 576 84 621Q114 666 169 690Q224 714 298 714Q372 714 430 689Q488 664 521.5 614Q555 564 555 489L555 456L436 456L436 489Q436 532 419 558Q402 584 371 596Q340 608 298 608Q236 608 204 584Q172 560 172 516Q172 488 186.5 468.5Q201 449 229.5 436.5Q258 424 301 415L331 408Q403 392 457 367.5Q511 343 541.5 303Q572 263 572 199Q572 136 539.5 88Q507 40 448.5 13Q390 -14 310 -14Z" fill="url(#s)"/></g>
 </svg>
