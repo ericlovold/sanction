@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import{createRequire}from"module";const require=createRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -36648,14 +36649,14 @@ var StdioServerTransport = class {
 };
 
 // mcp-server.ts
-var API_URL = process.env.AUTOFLUX_API_URL ?? "https://autoflux.ai/api/v1";
-var API_KEY = process.env.AUTOFLUX_API_KEY ?? "";
-var WALLET_ID = process.env.AUTOFLUX_WALLET_ID ?? "";
+var API_URL = process.env.SANCTION_API_URL ?? "https://sanction.ai/api/v1";
+var API_KEY = process.env.SANCTION_API_KEY ?? "";
+var WALLET_ID = process.env.SANCTION_WALLET_ID ?? "";
 if (!API_KEY) {
-  process.stderr.write("AUTOFLUX_API_KEY is required\n");
+  process.stderr.write("SANCTION_API_KEY is required\n");
   process.exit(1);
 }
-async function callAutoFlux(path, method, body, bearerToken) {
+async function callSanction(path, method, body, bearerToken) {
   const headers = { "Content-Type": "application/json" };
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`;
@@ -36670,22 +36671,22 @@ async function callAutoFlux(path, method, body, bearerToken) {
   return res.json();
 }
 var server = new McpServer({
-  name: "autoflux",
+  name: "sanction",
   version: "1.0.0",
-  description: "AutoFlux \u2014 agent wallet, credential vault, and governance layer"
+  description: "Sanction \u2014 agent wallet, credential vault, and governance layer"
 });
 server.tool(
-  "autoflux_authorize",
-  "Check whether a spend action is authorized by AutoFlux policy. ALWAYS call this before any purchase, subscription, or transfer. Returns authorized:true/false with reason.",
+  "sanction_authorize",
+  "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. Never proceed with a transaction if this returns false.",
   {
-    action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action"),
-    amount_usd: external_exports.number().positive().describe("Amount in US dollars"),
-    merchant: external_exports.string().describe("Vendor or service name"),
-    category: external_exports.string().describe("Spend category: software, services, research, infrastructure"),
-    description: external_exports.string().optional().describe("What this purchase is for")
+    action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
+    amount_usd: external_exports.number().positive().describe("Exact amount in US dollars"),
+    merchant: external_exports.string().describe("Vendor or service name, e.g. 'Anthropic', 'AWS', 'Stripe'"),
+    category: external_exports.string().describe("Spend category \u2014 one of: software, services, research, infrastructure, marketing, legal, other"),
+    description: external_exports.string().optional().describe("Brief human-readable description of what this spend is for \u2014 helps the wallet owner understand escalations")
   },
   async ({ action, amount_usd, merchant, category, description }) => {
-    const result = await callAutoFlux("/authorize", "POST", { action, amount_usd, merchant, category, description });
+    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description });
     const authorized = result.authorized === true;
     return {
       content: [{
@@ -36697,17 +36698,17 @@ server.tool(
   }
 );
 server.tool(
-  "autoflux_log_tokens",
-  "Log LLM token consumption to AutoFlux for budget tracking. Call after every Claude, GPT, Gemini, or other LLM inference call.",
+  "sanction_log_tokens",
+  "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption against the wallet's daily budget. If the daily token budget is exceeded, returns a budget error \u2014 the agent should stop making LLM calls and notify the wallet owner. Cost estimates: claude-sonnet-4-6 is $3/M input + $15/M output; gpt-4o is $2.50/M input + $10/M output.",
   {
-    model: external_exports.string().describe("LLM model identifier, e.g. claude-sonnet-4-6"),
-    tokens_in: external_exports.number().int().nonnegative().describe("Input/prompt tokens"),
-    tokens_out: external_exports.number().int().nonnegative().describe("Output/completion tokens"),
-    cost_usd: external_exports.number().nonnegative().describe("Dollar cost of this call"),
-    task: external_exports.string().optional().describe("Label for the task this call served")
+    model: external_exports.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
+    tokens_in: external_exports.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
+    tokens_out: external_exports.number().int().nonnegative().describe("Output/completion token count from the API response usage field"),
+    cost_usd: external_exports.number().nonnegative().describe("Actual dollar cost of this call \u2014 compute from provider pricing or read from API response if available"),
+    task: external_exports.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' \u2014 used in spend reports")
   },
   async ({ model, tokens_in, tokens_out, cost_usd, task }) => {
-    const result = await callAutoFlux("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task });
+    const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task });
     if (result.error) {
       return { content: [{ type: "text", text: `Budget error: ${result.error}` }], isError: true };
     }
@@ -36717,15 +36718,15 @@ server.tool(
   }
 );
 server.tool(
-  "autoflux_request_execution",
-  "Request a short-lived JWT (default 15min) that grants access to specific credentials within a capped budget. Pass this JWT to any subprocess, Docker container, or code-executing agent. Required before calling autoflux_inject_credential.",
+  "sanction_request_execution",
+  "Issue a short-lived signed JWT that authorizes access to specific credentials within a hard spend cap. Call this before spawning any subprocess, container, or delegated agent that needs secrets \u2014 pass the returned JWT via environment variable or stdin, never hardcode credentials directly. The JWT expires automatically (default 15 min) and is single-wallet-scoped, so a compromised token can't access other wallets. Required before calling sanction_inject_credential.",
   {
-    scope: external_exports.array(external_exports.string()).min(1).describe("Credential labels needed for this execution"),
-    budget_usd: external_exports.number().positive().describe("Maximum spend authority for this execution"),
-    ttl_seconds: external_exports.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds (default 900 = 15min)")
+    scope: external_exports.array(external_exports.string()).min(1).describe("List of credential labels the execution needs \u2014 e.g. ['STRIPE_KEY', 'OPENAI_API_KEY']. Only these labels will be injectable with the returned JWT. Request minimum required scope."),
+    budget_usd: external_exports.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
+    ttl_seconds: external_exports.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs.")
   },
   async ({ scope, budget_usd, ttl_seconds }) => {
-    const result = await callAutoFlux("/exec", "POST", { scope, budget_usd, ttl_seconds });
+    const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds });
     if (result.error) {
       return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
     }
@@ -36745,14 +36746,14 @@ server.tool(
   }
 );
 server.tool(
-  "autoflux_inject_credential",
-  "Retrieve a decrypted credential value using a valid execution JWT. The credential must be in the JWT scope. Every injection is audit-logged. Use the JWT from autoflux_request_execution.",
+  "sanction_inject_credential",
+  "Retrieve a decrypted credential value using a scoped execution JWT. Every injection is audit-logged with timestamp, agent ID, and credential label \u2014 raw values are never logged. Use the credential value immediately and do not store it in memory, files, or logs. Fails if the JWT is expired, revoked, or if the requested credential label was not in the original scope.",
   {
-    jwt: external_exports.string().describe("Execution JWT from autoflux_request_execution"),
-    credential_label: external_exports.string().describe("Label of the credential to inject")
+    jwt: external_exports.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
+    credential_label: external_exports.string().describe("Exact label of the credential to retrieve \u2014 must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive.")
   },
   async ({ jwt: jwt2, credential_label }) => {
-    const result = await callAutoFlux("/credentials/inject", "POST", { credential_label }, jwt2);
+    const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt2);
     if (result.error) {
       return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
     }
@@ -36765,14 +36766,14 @@ server.tool(
   }
 );
 server.tool(
-  "autoflux_wallet_status",
-  "Check current wallet spend and token usage. Returns today and month-to-date costs, plus count of pending approvals awaiting human review.",
+  "sanction_wallet_status",
+  "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
   {},
   async () => {
     if (!WALLET_ID) {
-      return { content: [{ type: "text", text: "AUTOFLUX_WALLET_ID not configured" }], isError: true };
+      return { content: [{ type: "text", text: "SANCTION_WALLET_ID not configured" }], isError: true };
     }
-    const result = await callAutoFlux(`/wallets/stats?wallet_id=${WALLET_ID}`, "GET");
+    const result = await callSanction(`/wallets/stats?wallet_id=${WALLET_ID}`, "GET");
     return {
       content: [{
         type: "text",

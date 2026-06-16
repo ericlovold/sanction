@@ -67,13 +67,13 @@ const server = new McpServer({
 // Tool: Check spend authorization
 server.tool(
   "sanction_authorize",
-  "Check whether a spend action is authorized by Sanction policy. ALWAYS call this before any purchase, subscription, or transfer. Returns authorized:true/false with reason.",
+  "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. Never proceed with a transaction if this returns false.",
   {
-    action: z.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action"),
-    amount_usd: z.number().positive().describe("Amount in US dollars"),
-    merchant: z.string().describe("Vendor or service name"),
-    category: z.string().describe("Spend category: software, services, research, infrastructure"),
-    description: z.string().optional().describe("What this purchase is for"),
+    action: z.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
+    amount_usd: z.number().positive().describe("Exact amount in US dollars"),
+    merchant: z.string().describe("Vendor or service name, e.g. 'Anthropic', 'AWS', 'Stripe'"),
+    category: z.string().describe("Spend category — one of: software, services, research, infrastructure, marketing, legal, other"),
+    description: z.string().optional().describe("Brief human-readable description of what this spend is for — helps the wallet owner understand escalations"),
   },
   async ({ action, amount_usd, merchant, category, description }) => {
     const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description })
@@ -93,13 +93,13 @@ server.tool(
 // Tool: Log LLM token usage
 server.tool(
   "sanction_log_tokens",
-  "Log LLM token consumption to Sanction for budget tracking. Call after every Claude, GPT, Gemini, or other LLM inference call.",
+  "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption against the wallet's daily budget. If the daily token budget is exceeded, returns a budget error — the agent should stop making LLM calls and notify the wallet owner. Cost estimates: claude-sonnet-4-6 is $3/M input + $15/M output; gpt-4o is $2.50/M input + $10/M output.",
   {
-    model: z.string().describe("LLM model identifier, e.g. claude-sonnet-4-6"),
-    tokens_in: z.number().int().nonnegative().describe("Input/prompt tokens"),
-    tokens_out: z.number().int().nonnegative().describe("Output/completion tokens"),
-    cost_usd: z.number().nonnegative().describe("Dollar cost of this call"),
-    task: z.string().optional().describe("Label for the task this call served"),
+    model: z.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
+    tokens_in: z.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
+    tokens_out: z.number().int().nonnegative().describe("Output/completion token count from the API response usage field"),
+    cost_usd: z.number().nonnegative().describe("Actual dollar cost of this call — compute from provider pricing or read from API response if available"),
+    task: z.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' — used in spend reports"),
   },
   async ({ model, tokens_in, tokens_out, cost_usd, task }) => {
     const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task })
@@ -115,11 +115,11 @@ server.tool(
 // Tool: Request scoped execution JWT
 server.tool(
   "sanction_request_execution",
-  "Request a short-lived JWT (default 15min) that grants access to specific credentials within a capped budget. Pass this JWT to any subprocess, Docker container, or code-executing agent. Required before calling sanction_inject_credential.",
+  "Issue a short-lived signed JWT that authorizes access to specific credentials within a hard spend cap. Call this before spawning any subprocess, container, or delegated agent that needs secrets — pass the returned JWT via environment variable or stdin, never hardcode credentials directly. The JWT expires automatically (default 15 min) and is single-wallet-scoped, so a compromised token can't access other wallets. Required before calling sanction_inject_credential.",
   {
-    scope: z.array(z.string()).min(1).describe("Credential labels needed for this execution"),
-    budget_usd: z.number().positive().describe("Maximum spend authority for this execution"),
-    ttl_seconds: z.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds (default 900 = 15min)"),
+    scope: z.array(z.string()).min(1).describe("List of credential labels the execution needs — e.g. ['STRIPE_KEY', 'OPENAI_API_KEY']. Only these labels will be injectable with the returned JWT. Request minimum required scope."),
+    budget_usd: z.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
+    ttl_seconds: z.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs."),
   },
   async ({ scope, budget_usd, ttl_seconds }) => {
     const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds })
@@ -145,10 +145,10 @@ server.tool(
 // Tool: Inject credential using execution JWT
 server.tool(
   "sanction_inject_credential",
-  "Retrieve a decrypted credential value using a valid execution JWT. The credential must be in the JWT scope. Every injection is audit-logged. Use the JWT from sanction_request_execution.",
+  "Retrieve a decrypted credential value using a scoped execution JWT. Every injection is audit-logged with timestamp, agent ID, and credential label — raw values are never logged. Use the credential value immediately and do not store it in memory, files, or logs. Fails if the JWT is expired, revoked, or if the requested credential label was not in the original scope.",
   {
-    jwt: z.string().describe("Execution JWT from sanction_request_execution"),
-    credential_label: z.string().describe("Label of the credential to inject"),
+    jwt: z.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
+    credential_label: z.string().describe("Exact label of the credential to retrieve — must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive."),
   },
   async ({ jwt, credential_label }) => {
     const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt)
@@ -167,7 +167,7 @@ server.tool(
 // Tool: Wallet status
 server.tool(
   "sanction_wallet_status",
-  "Check current wallet spend and token usage. Returns today and month-to-date costs, plus count of pending approvals awaiting human review.",
+  "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
   {},
   async () => {
     if (!WALLET_ID) {
