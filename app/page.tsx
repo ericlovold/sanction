@@ -87,7 +87,7 @@ export default function Landing() {
       {/* Nav */}
       <header className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
         <nav className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/" className="font-semibold tracking-tight">
+          <Link href="/" className="font-display font-semibold tracking-tight">
             Sanction
           </Link>
           <div className="flex items-center gap-6 text-sm text-zinc-400">
@@ -170,7 +170,7 @@ export default function Landing() {
                 {/* top row */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm sm:text-base font-semibold tracking-[0.22em] text-zinc-100">SANCTION</p>
+                    <p className="font-display text-sm sm:text-base font-semibold tracking-[0.22em] text-zinc-100">SANCTION</p>
                     <p className="mt-1 text-[9px] font-mono uppercase tracking-[0.22em] text-emerald-400/80">
                       Agent Access Key
                     </p>
@@ -232,10 +232,10 @@ export default function Landing() {
 
           {/* Company wordmark — large */}
           <h1 className="text-balance">
-            <span className="block bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-6xl sm:text-8xl font-semibold tracking-tight text-transparent">
+            <span className="block font-display bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-6xl sm:text-8xl font-semibold tracking-tight text-transparent">
               Sanction
             </span>
-            <span className="mt-4 block text-2xl sm:text-4xl font-semibold tracking-tight text-zinc-200">
+            <span className="mt-4 block font-display text-2xl sm:text-4xl font-semibold tracking-tight text-zinc-200">
               The trust layer for autonomous agents.
             </span>
           </h1>
@@ -293,7 +293,7 @@ export default function Landing() {
         <div className="grid md:grid-cols-2 gap-10 items-center">
           <div>
             <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">How it works</h2>
-            <h3 className="mt-3 text-2xl font-semibold tracking-tight">One call before money moves.</h3>
+            <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">One call before money moves.</h3>
             <p className="mt-4 text-zinc-400 leading-relaxed">
               Your agent calls <span className="font-mono text-zinc-300">/authorize</span> before it spends.
               Sanction checks the wallet&apos;s policy — limits, categories, clearance — and returns a decision
@@ -335,7 +335,7 @@ export default function Landing() {
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-zinc-900">
         <div className="text-center">
           <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Pricing</h2>
-          <h3 className="mt-3 text-2xl font-semibold tracking-tight">Trust through limits.</h3>
+          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Trust through limits.</h3>
           <p className="mt-3 text-zinc-400">Start free. Scale when your fleet does.</p>
         </div>
         <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -384,7 +384,7 @@ export default function Landing() {
       <footer className="border-t border-zinc-900">
         <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
           <div>
-            <p className="font-semibold text-zinc-300">Sanction</p>
+            <p className="font-display font-semibold text-zinc-300">Sanction</p>
             <p className="text-xs">Authorize. Protect. Govern.</p>
           </div>
           <div className="flex items-center gap-6">
