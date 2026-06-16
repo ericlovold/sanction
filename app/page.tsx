@@ -71,7 +71,7 @@ const tiers = [
   },
 ]
 
-const authorizeSnippet = `curl -X POST https://proxy-ai-three.vercel.app/api/v1/authorize \\
+const authorizeSnippet = `curl -X POST https://getsanction.vercel.app/api/v1/authorize \\
   -H "x-api-key: pxy_••••" \\
   -H "content-type: application/json" \\
   -d '{
