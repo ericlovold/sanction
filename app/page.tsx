@@ -113,9 +113,9 @@ export default function Landing() {
             <defs>
               <linearGradient id="neon" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
                 <stop offset="0" stopColor="#10b981" stopOpacity="0" />
-                <stop offset="0.18" stopColor="#10b981" stopOpacity="0.9" />
-                <stop offset="0.5" stopColor="#22d3ee" stopOpacity="0.9" />
-                <stop offset="0.82" stopColor="#10b981" stopOpacity="0.9" />
+                <stop offset="0.18" stopColor="#10b981" stopOpacity="0.6" />
+                <stop offset="0.5" stopColor="#22d3ee" stopOpacity="0.6" />
+                <stop offset="0.82" stopColor="#10b981" stopOpacity="0.6" />
                 <stop offset="1" stopColor="#10b981" stopOpacity="0" />
               </linearGradient>
             </defs>
@@ -134,9 +134,9 @@ export default function Landing() {
             </g>
           </svg>
         </div>
-        {/* Radial vignette keeps the type readable over the highway */}
+        {/* Dark scrim behind the type so it reads cleanly over the highway */}
         <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_55%_at_50%_42%,transparent,var(--background)_78%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_70%_at_50%_55%,rgba(9,9,11,0.88)_0%,rgba(9,9,11,0.5)_45%,transparent_82%)]"
           aria-hidden="true"
         />
 
@@ -240,7 +240,7 @@ export default function Landing() {
             </span>
           </h1>
 
-          <p className="mt-6 max-w-2xl text-lg text-zinc-400 text-pretty">
+          <p className="mt-6 max-w-2xl text-lg text-zinc-300 text-pretty">
             Agents need agency. Sanction is the financial identity that travels with your agent —
             a wallet, a credential vault, and a clearance system. Before an agent spends money,
             touches a secret, or acts in a sensitive domain, it asks Sanction. Sanction decides,
