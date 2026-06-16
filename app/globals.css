@@ -128,3 +128,74 @@
     @apply font-sans;
   }
 }
+
+/* --- Landing hero: neon highway + Sanction access card --- */
+@keyframes neon-flow {
+  to {
+    stroke-dashoffset: -1200;
+  }
+}
+@keyframes neon-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+@keyframes card-float {
+  0%,
+  100% {
+    transform: rotateX(7deg) rotateY(-13deg) translateY(0);
+  }
+  50% {
+    transform: rotateX(7deg) rotateY(-13deg) translateY(-12px);
+  }
+}
+@keyframes card-sheen {
+  0% {
+    transform: translateX(-130%) rotate(8deg);
+  }
+  55%,
+  100% {
+    transform: translateX(240%) rotate(8deg);
+  }
+}
+
+.neon-line {
+  stroke-dasharray: 16 240;
+  animation: neon-flow 7s linear infinite;
+}
+.neon-node {
+  animation: neon-pulse 3.5s ease-in-out infinite;
+}
+.card-perspective {
+  perspective: 1300px;
+}
+.card-3d {
+  transform: rotateX(7deg) rotateY(-13deg);
+  transform-style: preserve-3d;
+  animation: card-float 8s ease-in-out infinite;
+}
+.card-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 68%
+  );
+  transform: translateX(-130%) rotate(8deg);
+  animation: card-sheen 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-line,
+  .neon-node,
+  .card-3d,
+  .card-sheen {
+    animation: none;
+  }
+}
