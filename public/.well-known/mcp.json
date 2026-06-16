@@ -1,0 +1,75 @@
+{
+  "name": "sanction",
+  "display_name": "Sanction — Agent Wallet & Governance",
+  "description": "The permission stack for autonomous AI agents. Sanction enforces spend policy before transactions, tracks LLM token budgets, issues scoped execution credentials, and maintains a full audit trail. Integrates via MCP (stdio), REST API, or AWS Bedrock Action Groups.",
+  "version": "1.0.0",
+  "homepage": "https://sanction.ai",
+  "repository": "https://github.com/ericlovold/sanction",
+  "license": "MIT",
+  "transport": ["stdio"],
+  "install": {
+    "npm": "sanction-mcp",
+    "command": "npx sanction-mcp"
+  },
+  "configuration": {
+    "required": ["SANCTION_API_KEY"],
+    "optional": ["SANCTION_API_URL", "SANCTION_WALLET_ID"],
+    "schema": {
+      "SANCTION_API_KEY": {
+        "type": "string",
+        "description": "Agent API key (prefix: pxy_). Obtain from your Sanction wallet dashboard.",
+        "secret": true
+      },
+      "SANCTION_API_URL": {
+        "type": "string",
+        "description": "Sanction API base URL. Defaults to https://sanction.ai/api/v1.",
+        "default": "https://sanction.ai/api/v1"
+      },
+      "SANCTION_WALLET_ID": {
+        "type": "string",
+        "description": "Wallet ID for status queries. Required only for sanction_wallet_status."
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "sanction_authorize",
+      "description": "Check spend authorization before any purchase, subscription, or transfer. Returns approved/denied/escalated with machine-readable codes for agent replanning.",
+      "tags": ["finance", "governance", "authorization"]
+    },
+    {
+      "name": "sanction_log_tokens",
+      "description": "Record LLM token consumption and cost against the wallet's daily budget. Returns budget status after each call.",
+      "tags": ["tokens", "budget", "observability"]
+    },
+    {
+      "name": "sanction_request_execution",
+      "description": "Issue a short-lived scoped JWT for credential access within a hard spend cap. Required for secure secret injection into subprocesses or delegated agents.",
+      "tags": ["credentials", "security", "execution"]
+    },
+    {
+      "name": "sanction_inject_credential",
+      "description": "Retrieve a decrypted credential using a scoped execution JWT. AES-256-GCM encrypted at rest. Every injection is audit-logged.",
+      "tags": ["credentials", "vault", "secrets"]
+    },
+    {
+      "name": "sanction_wallet_status",
+      "description": "Check today and MTD spend, token cost, and pending human approval count for the configured wallet.",
+      "tags": ["budget", "observability", "status"]
+    }
+  ],
+  "categories": ["finance", "security", "governance", "infrastructure"],
+  "keywords": ["agent", "wallet", "spend", "authorization", "credentials", "vault", "governance", "budget", "audit"],
+  "claude_desktop": {
+    "mcpServers": {
+      "sanction": {
+        "command": "npx",
+        "args": ["sanction-mcp"],
+        "env": {
+          "SANCTION_API_KEY": "<your pxy_ key>",
+          "SANCTION_WALLET_ID": "<your wallet id>"
+        }
+      }
+    }
+  }
+}
