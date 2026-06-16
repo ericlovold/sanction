@@ -130,47 +130,26 @@
   }
 }
 
-/* --- Landing hero: neon highway + Sanction access card --- */
-@keyframes neon-flow {
-  to {
-    stroke-dashoffset: -1200;
-  }
-}
-@keyframes neon-pulse {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.75;
-  }
-}
+/* --- Landing hero: Sanction access card --- */
 @keyframes card-float {
   0%,
   100% {
     transform: rotateX(7deg) rotateY(-13deg) translateY(0);
   }
   50% {
-    transform: rotateX(7deg) rotateY(-13deg) translateY(-12px);
+    transform: rotateX(7deg) rotateY(-13deg) translateY(-10px);
   }
 }
-@keyframes card-sheen {
+@keyframes chip-shimmer {
   0% {
-    transform: translateX(-130%) rotate(8deg);
+    transform: translateX(-160%) skewX(-12deg);
   }
   55%,
   100% {
-    transform: translateX(240%) rotate(8deg);
+    transform: translateX(220%) skewX(-12deg);
   }
 }
 
-.neon-line {
-  stroke-dasharray: 16 240;
-  animation: neon-flow 7s linear infinite;
-}
-.neon-node {
-  animation: neon-pulse 3.5s ease-in-out infinite;
-}
 .card-perspective {
   perspective: 1300px;
 }
@@ -179,24 +158,22 @@
   transform-style: preserve-3d;
   animation: card-float 8s ease-in-out infinite;
 }
-.card-sheen {
+.chip-shimmer {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    100deg,
-    transparent 32%,
-    rgba(255, 255, 255, 0.16) 50%,
-    transparent 68%
+    105deg,
+    transparent 38%,
+    rgba(255, 248, 220, 0.85) 50%,
+    transparent 62%
   );
-  transform: translateX(-130%) rotate(8deg);
-  animation: card-sheen 7s ease-in-out infinite;
+  transform: translateX(-160%) skewX(-12deg);
+  animation: chip-shimmer 3.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .neon-line,
-  .neon-node,
   .card-3d,
-  .card-sheen {
+  .chip-shimmer {
     animation: none;
   }
 }
