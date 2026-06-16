@@ -48,13 +48,15 @@ export async function POST(req: NextRequest) {
   const jti = randomBytes(16).toString("hex")
   const expiresAt = new Date(Date.now() + ttl_seconds * 1000)
 
+  // Pass the same jti used for the ExecutionToken row below so /inject can find
+  // it (it looks up by the JWT's jti).
   const jwt = await issueExecutionJWT({
     wallet: agent.walletId,
     agent: agent.id,
     clearance: clearanceLevel,
     scope,
     budget_usd,
-  }, ttl_seconds)
+  }, ttl_seconds, jti)
 
   await db.executionToken.create({
     data: {

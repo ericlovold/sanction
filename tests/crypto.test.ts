@@ -87,4 +87,12 @@ describe("execution JWT", () => {
     const tampered = jwt.slice(0, -2) + (jwt.endsWith("a") ? "bb" : "aa")
     await expect(verifyExecutionJWT(tampered)).rejects.toThrow()
   })
+
+  it("uses a caller-supplied jti so the JWT and its DB row share one id", async () => {
+    // Regression: /exec writes the ExecutionToken row under a jti and /inject
+    // looks it up by the JWT's jti — they MUST match or every inject 401s.
+    const jwt = await issueExecutionJWT(claims, 900, "shared-jti-deadbeef")
+    const v = await verifyExecutionJWT(jwt)
+    expect(v.jti).toBe("shared-jti-deadbeef")
+  })
 })
