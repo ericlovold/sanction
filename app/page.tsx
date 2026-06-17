@@ -3,9 +3,9 @@ import Link from "next/link"
 import { integrations } from "@/lib/integrations"
 
 export const metadata: Metadata = {
-  title: "Sanction — Trust & governance for autonomous agents",
+  title: "Sanction — Financial control for autonomous AI agents",
   description:
-    "The trust layer for autonomous AI agents. Spend authorization, an encrypted credential vault, and clearance levels — the financial identity that travels with your agent.",
+    "Track and cap what every AI agent spends, and approve, gate, or deny each action before the money moves or a secret is used. One key governs spend and access.",
 }
 
 const pillars = [
@@ -270,28 +270,29 @@ export default function Landing() {
               Sanction
             </span>
             <span className="mt-4 block font-display text-2xl sm:text-4xl font-semibold tracking-tight text-zinc-200">
-              The trust layer for autonomous agents.
+              Financial control for autonomous agents.
             </span>
           </h1>
 
-          <p className="mt-6 max-w-2xl text-lg text-zinc-300 text-pretty">
-            Agents need agency. Sanction is the financial identity that travels with your agent —
-            a wallet, a credential vault, and a clearance system. Before an agent spends money,
-            touches a secret, or acts in a sensitive domain, it asks Sanction. Sanction decides,
-            logs, and audits everything.
+          <p className="mt-6 max-w-2xl text-xl font-medium text-zinc-100 text-pretty">
+            Don&apos;t give your agent your credit card. Give it a Sanction key.
+          </p>
+          <p className="mt-3 max-w-2xl text-lg text-zinc-400 text-pretty">
+            Track and cap what every agent spends, and approve, gate, or deny each action before the
+            money moves or a secret is used. One key governs spend and access.
           </p>
           <div className="mt-9 flex items-center justify-center gap-3">
             <a
               href="#pricing"
               className="rounded-md bg-emerald-500 text-zinc-950 px-5 py-2.5 text-sm font-semibold hover:bg-emerald-400 transition-colors"
             >
-              Get started — free
+              Start free
             </a>
             <a
-              href="/api/openapi.json"
+              href="/dashboard/spend"
               className="rounded-md border border-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
             >
-              View the API
+              See it live →
             </a>
           </div>
           <p className="mt-5 text-xs text-zinc-600 font-mono">
