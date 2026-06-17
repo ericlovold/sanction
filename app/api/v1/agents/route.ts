@@ -9,6 +9,18 @@ const schema = z.object({
   name: z.string().min(1).max(64),
 })
 
+// Per-agent budget overrides. A number sets a $ override; null clears it (back
+// to inheriting the wallet policy); an omitted field is left unchanged.
+const budget = z.number().min(0).max(1_000_000).nullable().optional()
+const patchSchema = z.object({
+  wallet_id: z.string(),
+  agent_id: z.string(),
+  daily_token_budget_usd: budget,
+  daily_spend_budget_usd: budget,
+  per_transaction_max_usd: budget,
+  escalate_over_usd: budget,
+})
+
 // Register a new agent and return its API key (shown once).
 // Management-plane: requires the wallet's management key (x-mgmt-key).
 export async function POST(req: NextRequest) {
@@ -55,4 +67,43 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json({ agents })
+}
+
+// Set or clear per-agent budget overrides (management plane).
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => null)
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { wallet_id, agent_id, ...overrides } = parsed.data
+
+  const owner = await authenticateOwner(req, wallet_id)
+  if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
+
+  const agent = await db.agent.findUnique({ where: { id: agent_id } })
+  if (!agent || agent.walletId !== wallet_id) {
+    return NextResponse.json({ error: "Agent not found in this wallet" }, { status: 404 })
+  }
+
+  const toCents = (n: number | null | undefined) => (n === null ? null : n === undefined ? undefined : Math.round(n * 100))
+  const data = {
+    dailyTokenBudgetUsd: toCents(overrides.daily_token_budget_usd),
+    dailySpendBudgetUsd: toCents(overrides.daily_spend_budget_usd),
+    perTransactionMaxUsd: toCents(overrides.per_transaction_max_usd),
+    escalateOverUsd: toCents(overrides.escalate_over_usd),
+  }
+
+  const updated = await db.agent.update({ where: { id: agent_id }, data })
+
+  return NextResponse.json({
+    id: updated.id,
+    name: updated.name,
+    overrides: {
+      daily_token_budget_usd: updated.dailyTokenBudgetUsd === null ? null : updated.dailyTokenBudgetUsd / 100,
+      daily_spend_budget_usd: updated.dailySpendBudgetUsd === null ? null : updated.dailySpendBudgetUsd / 100,
+      per_transaction_max_usd: updated.perTransactionMaxUsd === null ? null : updated.perTransactionMaxUsd / 100,
+      escalate_over_usd: updated.escalateOverUsd === null ? null : updated.escalateOverUsd / 100,
+    },
+  }, { headers: { "Cache-Control": "no-store" } })
 }
