@@ -4,6 +4,10 @@ import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { AccountControl } from "@/components/account-control"
+import { getViewWallet } from "@/lib/session"
+
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Sanction — Dashboard",
@@ -49,19 +53,22 @@ function fmt(d: Date) {
 }
 
 export default async function Dashboard() {
-  const walletId = process.env.SANCTION_WALLET_ID
-  if (!walletId) {
+  const view = await getViewWallet()
+  if (!view) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-2">
-          <p className="text-zinc-400 font-mono text-sm">SANCTION_WALLET_ID not set</p>
-          <p className="text-zinc-600 text-xs">Create a wallet via POST /api/v1/wallets and set the ID in .env.local</p>
+        <div className="text-center space-y-3">
+          <p className="text-zinc-400 text-sm">No wallet to show.</p>
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
+            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
+          </div>
         </div>
       </div>
     )
   }
 
-  const { agents, tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens, pendingCount } = await getStats(walletId)
+  const { agents, tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens, pendingCount } = await getStats(view.id)
 
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
@@ -69,7 +76,7 @@ export default async function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-zinc-500 text-sm">Agent wallet &amp; governance</p>
+          <p className="text-zinc-500 text-sm">{view.name} · agent wallet &amp; governance</p>
         </div>
         <div className="flex items-center gap-3">
           {pendingCount > 0 && (
@@ -78,6 +85,7 @@ export default async function Dashboard() {
             </Badge>
           )}
           <DashboardNav active="overview" />
+          <AccountControl view={view} />
         </div>
       </div>
 
