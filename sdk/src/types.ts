@@ -10,6 +10,27 @@ export interface ClientOptions {
   fetch?: Fetch
 }
 
+/** Options for the agent (data-plane) client, including local-first resilience. */
+export interface AgentClientOptions extends ClientOptions {
+  /**
+   * Local-first resilience: a copy of the wallet's policy the SDK evaluates
+   * against when Sanction is unreachable or slow. The agent key can't read the
+   * policy (it's management-plane), so the owner supplies it here — e.g. the
+   * same `policy` block applied via the admin client / a blueprint.
+   */
+  localPolicy?: PolicyInput
+  /**
+   * When Sanction is unreachable AND no local policy is available to decide,
+   * deny (true, default) or allow-and-log (false). A governance layer that
+   * fails open is worthless, so this defaults to fail-closed.
+   */
+  failClosed?: boolean
+  /** Abort the network authorize() after this many ms and fall back to local. Default 3000. */
+  networkTimeoutMs?: number
+  /** Skip the network entirely and always decide locally (air-gapped / testing). */
+  offline?: boolean
+}
+
 // ---- Authorization (data plane: pxy_ key) ----
 
 export type SpendAction = "purchase" | "subscribe" | "transfer"
@@ -42,6 +63,8 @@ export interface Decision {
   agent: string
   amountUsd: number
   merchant: string
+  /** True when this decision was made locally (Sanction was unreachable). */
+  decidedLocally?: boolean
 }
 
 export interface LogTokensInput {

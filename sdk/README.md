@@ -43,6 +43,31 @@ if (decision.status === "denied") {
 await sanction.logTokens({ model: "claude-opus-4-8", tokensIn: 1200, tokensOut: 800, costUsd: 0.06, task: "backlog #42" })
 ```
 
+## Local-first / fail-safe (safe to leave running)
+
+`authorize()` sits in your agent's hot path, so an outage must never silently
+fail open or hang the run. Give the client a copy of the policy and it decides
+**locally** when Sanction is unreachable, slow, or 5xx-ing:
+
+```ts
+import policy from "../examples/policies/secure-nightly-coding-agent.json" assert { type: "json" }
+
+const sanction = new SanctionClient(process.env.SANCTION_API_KEY!, {
+  localPolicy: policy.policy,   // same block the owner applied via the admin client
+  networkTimeoutMs: 3000,       // fall back to local if slower than this
+  // failClosed: true,          // default — see below
+})
+```
+
+- **Normal path:** calls Sanction; that decision wins and warms the local daily-spend tally.
+- **Outage path:** network error / timeout / 5xx → decides locally against `localPolicy`, mirroring the server's exact decision order. The decision is marked `decidedLocally: true`.
+- **No local policy + unreachable:** **fails closed (deny)** by default — a governance layer that fails open is worthless. Set `failClosed: false` to allow-and-log instead (only for low-stakes agents).
+- **Genuine auth errors (401/403/400) still throw** — they're real answers, not outages, and are never masked.
+- **Audit catch-up:** locally-approved/escalated actions are queued; call `await sanction.syncOfflineDecisions()` when back online to record them server-side (idempotency-keyed, safe to retry). `sanction.pendingOfflineDecisions()` reports the backlog.
+- **`offline: true`** skips the network entirely (air-gapped / testing).
+
+> Note: the local daily-spend tally is per-process and best-effort; Sanction remains the source of truth when reachable.
+
 ## Scoped credential access (15-min execution JWT)
 
 ```ts
