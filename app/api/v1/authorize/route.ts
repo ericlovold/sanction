@@ -43,12 +43,17 @@ export async function POST(req: NextRequest) {
 
   const amountCents = Math.round(amount_usd * 100)
 
+  // Effective limits: a per-agent override wins over the wallet policy; null inherits.
+  const perTxnMax = agent.perTransactionMaxUsd ?? policy.perTransactionMaxUsd
+  const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
+  const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
+
   // Stateless gates (no budget state involved)
   if (policy.blockedCategories.includes(category)) {
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
   }
-  if (amountCents > policy.perTransactionMaxUsd) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}` }, agent.name)
+  if (amountCents > perTxnMax) {
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${perTxnMax / 100}` }, agent.name)
   }
 
   // Stateful gate: daily-spend check + write must be atomic, otherwise two
@@ -66,11 +71,11 @@ export async function POST(req: NextRequest) {
         _sum: { amountUsd: true },
       })
       const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
-      if (dailyTotalCents > policy.dailySpendBudgetUsd) {
+      if (dailyTotalCents > dailySpendBudget) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
       }
 
-      if (amountCents > policy.escalateOverUsd) {
+      if (amountCents > escalateOver) {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 

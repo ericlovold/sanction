@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Sanction">
+  <defs>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18181b"/>
+      <stop offset="1" stop-color="#052e25"/>
+    </linearGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ee7b7"/>
+      <stop offset="0.5" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="46" fill="url(#coin)" stroke="#34d399" stroke-width="3"/>
+  <g transform="translate(50,50) scale(0.07418,-0.07418) translate(-304.500,-350.000)"><path d="M310 -14Q230 -14 168.5 14.5Q107 43 72 97Q37 151 37 229L37 255L156 255L156 229Q156 160 198 126Q240 92 310 92Q381 92 417 121Q453 150 453 196Q453 227 436 246.5Q419 266 386.5 278Q354 290 308 301L278 307Q209 323 158.5 347.5Q108 372 81 411Q54 450 54 513Q54 576 84 621Q114 666 169 690Q224 714 298 714Q372 714 430 689Q488 664 521.5 614Q555 564 555 489L555 456L436 456L436 489Q436 532 419 558Q402 584 371 596Q340 608 298 608Q236 608 204 584Q172 560 172 516Q172 488 186.5 468.5Q201 449 229.5 436.5Q258 424 301 415L331 408Q403 392 457 367.5Q511 343 541.5 303Q572 263 572 199Q572 136 539.5 88Q507 40 448.5 13Q390 -14 310 -14Z" fill="url(#s)"/></g>
+</svg>
