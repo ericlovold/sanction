@@ -180,11 +180,18 @@ authorizations, recent token logs, and a count of pending escalations.
 Also try with `x-api-key: $AGENT_KEY` instead of the mgmt key (agents may read their own wallet).
 
 ### C2. Change a limit (the real test of "simple")
-**Attempt to lower the daily spend budget from $50 to $20, and add `marketing` to blocked
-categories.** Find and use whatever mechanism exists (API endpoint, dashboard, CLI).
-- Document the exact steps you took.
-- If you **cannot** find a way to change policy variables, say so plainly and stop — that is
-  itself the finding for Part C.
+**Lower the per-transaction max to $20 and add `marketing` to blocked categories.** Two ways:
+
+REST:
+```bash
+curl -s -X PATCH "$SANCTION_API/wallets/policy" -H "x-mgmt-key: $MGMT_KEY" -H "content-type: application/json" \
+  -d "{\"wallet_id\":\"$WALLET_ID\",\"per_transaction_max_usd\":20,\"blocked_categories\":[\"crypto\",\"marketing\"]}"
+```
+Or the **Spend tab → Policy editor** in the dashboard (no key needed when SANCTION_WALLET_ID
+is set; saves server-side).
+- Document which you used and how many steps it took.
+- Bonus: set `escalate_over_usd` **below** `per_transaction_max_usd` (e.g. $15) and confirm a
+  charge between them now returns `status:"escalated"` — escalation is unreachable unless this holds.
 
 ### C3. Verify the change took effect
 If C2 succeeded, re-run B1 against the new limit and confirm the new threshold is enforced.
@@ -263,6 +270,8 @@ TOP 3 THINGS TO FIX:
 | POST | `/authorize` | `x-api-key` | Spend decision (approve/escalate/deny) |
 | POST | `/tokens` | `x-api-key` | Log token usage + enforce token budget |
 | GET | `/wallets/stats?wallet_id=` | `x-mgmt-key` or `x-api-key` | Usage rollups |
+| GET | `/wallets/policy?wallet_id=` | `x-mgmt-key` | Read current policy |
+| PATCH | `/wallets/policy` | `x-mgmt-key` | Update budgets / thresholds / categories (dollars) |
 | POST | `/wallets/bootstrap-key` | `x-admin-secret` | One-time mgmt-key bootstrap for legacy wallets |
 | POST | `/credentials/vault` | `x-mgmt-key` | Store an encrypted credential |
 | POST | `/credentials/inject` | `x-api-key` | Get a scoped exec token for a credential |

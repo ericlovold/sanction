@@ -2,8 +2,9 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { PolicyEditor } from "@/components/policy-editor"
+import { policyToDollars } from "@/lib/policy"
 
 export const metadata: Metadata = {
   title: "Sanction — Spend",
@@ -280,40 +281,16 @@ export default async function SpendPage() {
         </Card>
       </div>
 
-      {/* Active policy (read-only for now) */}
-      <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader className="px-5 pt-5 pb-2 flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium text-zinc-300">Active policy</CardTitle>
-          <Badge className="bg-zinc-800 text-zinc-500 border border-zinc-700 text-[10px]">read-only · editing coming</Badge>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          {!s.policy && <p className="text-sm text-zinc-600">No policy configured.</p>}
-          {s.policy && (
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
-              {[
-                ["Daily token budget", dollars(s.policy.dailyTokenBudgetUsd / 100)],
-                ["Daily spend budget", dollars(s.policy.dailySpendBudgetUsd / 100)],
-                ["Per-transaction max", dollars(s.policy.perTransactionMaxUsd / 100)],
-                ["Auto-approve under", dollars(s.policy.autoApproveUnderUsd / 100)],
-                ["Escalate over", dollars(s.policy.escalateOverUsd / 100)],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <p className="text-[11px] uppercase tracking-wide text-zinc-600">{label}</p>
-                  <p className="font-mono text-sm text-zinc-200">{value}</p>
-                </div>
-              ))}
-              <div className="col-span-2 sm:col-span-3">
-                <p className="text-[11px] uppercase tracking-wide text-zinc-600">Blocked categories</p>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {s.policy.blockedCategories.map((c) => (
-                    <span key={c} className="rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[11px] text-red-400">{c}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Policy editor */}
+      {s.policy ? (
+        <PolicyEditor policy={policyToDollars(s.policy)} />
+      ) : (
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardContent className="px-5 py-5">
+            <p className="text-sm text-zinc-600">No policy configured.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
