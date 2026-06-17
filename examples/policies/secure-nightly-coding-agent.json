@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "blueprint": "secure-nightly-coding-agent",
+    "description": "Overnight coding/research agent that calls model providers, sandboxes, and secret-backed tools (GitHub/Vercel/staging DB). Budgets are accounting caps over the dev's own rails — Sanction holds no money (control-plane, FUND-1 = no custody).",
+    "version": "0.1.0",
+    "enforcement": {
+      "policy.blockedCategories": "ENFORCED — authorize denies on exact category match",
+      "policy.perTransactionMaxUsd": "ENFORCED — denies amount over ceiling",
+      "policy.dailySpendBudgetUsd": "ENFORCED — atomic daily cap (SEC-4)",
+      "policy.escalateOverUsd": "ENFORCED — escalate above this amount",
+      "policy.allowedCategories": "NOT YET ENFORCED — authorize only checks blockedCategories; allowlist is documentation of intent until UX-3",
+      "policy.autoApproveUnderUsd": "NOT YET WIRED — present in schema; authorize auto-approves anything within budget and at/under escalateOverUsd",
+      "clearance": "MODELED ONLY — AgentClearance is not yet enforced and has no assignment endpoint (NEXT phase)",
+      "vault": "ENFORCED — exec issues scoped 15-min JWT; inject checks scope + expiry + audit-logs"
+    },
+    "apply": "No policy-management API exists yet (POST /wallets creates defaults only). Until a PATCH /wallets/:id/policy endpoint ships (UX-3), set these values directly in the Policy row. See README.md."
+  },
+
+  "policy": {
+    "dailyTokenBudgetUsd": 2000,
+    "dailySpendBudgetUsd": 5000,
+    "perTransactionMaxUsd": 2000,
+    "autoApproveUnderUsd": 500,
+    "escalateOverUsd": 500,
+    "allowedCategories": ["software", "research", "infrastructure", "services"],
+    "blockedCategories": [
+      "gambling",
+      "adult",
+      "crypto",
+      "marketing",
+      "contractor_payment",
+      "production_data_export",
+      "unknown_vendor"
+    ]
+  },
+
+  "clearance": {
+    "level": 3,
+    "industry": "general",
+    "restrictions": {
+      "repo_write": ["pr_branch_only"],
+      "deploy": ["preview_only"],
+      "database": ["staging_read"],
+      "fail_closed_on": ["production_secrets", "billing_admin", "prod_migrations"]
+    }
+  },
+
+  "vault": {
+    "executionTokenTtlSeconds": 900,
+    "credentials": [
+      { "label": "github", "scopes": ["pull_requests:write", "contents:read"] },
+      { "label": "vercel", "scopes": ["preview_deploy:create"] },
+      { "label": "postgres-staging", "scopes": ["staging:read"] }
+    ]
+  },
+
+  "telemetry": {
+    "required_token_log_fields": ["model", "tokensIn", "tokensOut", "costUsd", "taskLabel"],
+    "required_authorize_fields": ["action", "amount_usd", "merchant", "category", "description"]
+  }
+}

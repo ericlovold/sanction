@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "blueprint": "safe-research-agent",
+    "description": "Read-only research agent: queries model/data/news vendors, no write privileges, no production connections. Tighter caps than the coding-agent blueprint. Control-plane only — Sanction holds no money.",
+    "version": "0.1.0",
+    "enforcement": {
+      "policy.blockedCategories": "ENFORCED — authorize denies on exact category match",
+      "policy.perTransactionMaxUsd": "ENFORCED — denies amount over ceiling",
+      "policy.dailySpendBudgetUsd": "ENFORCED — atomic daily cap (SEC-4)",
+      "policy.escalateOverUsd": "ENFORCED — escalate above this amount",
+      "policy.allowedCategories": "NOT YET ENFORCED — documentation of intent until UX-3",
+      "policy.autoApproveUnderUsd": "NOT YET WIRED",
+      "clearance": "MODELED ONLY — not yet enforced",
+      "vault": "ENFORCED — scoped 15-min JWT; read-only credential scopes"
+    },
+    "apply": "Set directly in the Policy row until a policy-management endpoint ships. See README.md."
+  },
+
+  "policy": {
+    "dailyTokenBudgetUsd": 1000,
+    "dailySpendBudgetUsd": 1500,
+    "perTransactionMaxUsd": 500,
+    "autoApproveUnderUsd": 200,
+    "escalateOverUsd": 200,
+    "allowedCategories": ["research", "software"],
+    "blockedCategories": [
+      "gambling",
+      "adult",
+      "crypto",
+      "marketing",
+      "contractor_payment",
+      "production_data_export",
+      "unknown_vendor",
+      "infrastructure",
+      "services"
+    ]
+  },
+
+  "clearance": {
+    "level": 1,
+    "industry": "general",
+    "restrictions": {
+      "repo_write": [],
+      "deploy": [],
+      "database": [],
+      "fail_closed_on": ["any_write", "production_secrets", "billing_admin", "code_execution"]
+    }
+  },
+
+  "vault": {
+    "executionTokenTtlSeconds": 900,
+    "credentials": [
+      { "label": "data-vendor", "scopes": ["query:read"] },
+      { "label": "news-api", "scopes": ["articles:read"] }
+    ]
+  },
+
+  "telemetry": {
+    "required_token_log_fields": ["model", "tokensIn", "tokensOut", "costUsd", "taskLabel"],
+    "required_authorize_fields": ["action", "amount_usd", "merchant", "category", "description"]
+  }
+}
