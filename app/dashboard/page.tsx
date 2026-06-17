@@ -3,6 +3,7 @@ import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { DashboardNav } from "@/components/dashboard-nav"
 
 export const metadata: Metadata = {
   title: "Sanction — Dashboard",
@@ -70,11 +71,14 @@ export default async function Dashboard() {
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
           <p className="text-zinc-500 text-sm">Agent wallet &amp; governance</p>
         </div>
-        {pendingCount > 0 && (
-          <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">
-            {pendingCount} pending approval{pendingCount > 1 ? "s" : ""}
-          </Badge>
-        )}
+        <div className="flex items-center gap-3">
+          {pendingCount > 0 && (
+            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">
+              {pendingCount} pending approval{pendingCount > 1 ? "s" : ""}
+            </Badge>
+          )}
+          <DashboardNav active="overview" />
+        </div>
       </div>
 
       {/* Stats */}
