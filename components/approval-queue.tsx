@@ -16,7 +16,7 @@ export type PendingApproval = {
 
 const initial: ApprovalActionState = { ok: false, message: "" }
 
-function ApprovalRow({ a }: { a: PendingApproval }) {
+function ApprovalRow({ a, editable }: { a: PendingApproval; editable: boolean }) {
   const [state, formAction, pending] = useActionState(resolveApprovalAction, initial)
 
   return (
@@ -33,33 +33,39 @@ function ApprovalRow({ a }: { a: PendingApproval }) {
         </p>
       </div>
 
-      <form action={formAction} className="flex items-center gap-2 shrink-0">
-        <input type="hidden" name="request_id" value={a.id} />
-        {state.message && !state.ok && <span className="text-xs text-red-400">{state.message}</span>}
-        <button
-          type="submit"
-          name="decision"
-          value="reject"
-          disabled={pending}
-          className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-red-500/40 hover:text-red-400 disabled:opacity-50"
-        >
-          Reject
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="approve"
-          disabled={pending}
-          className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
-        >
-          {pending ? "…" : "Approve"}
-        </button>
-      </form>
+      {editable ? (
+        <form action={formAction} className="flex items-center gap-2 shrink-0">
+          <input type="hidden" name="request_id" value={a.id} />
+          {state.message && !state.ok && <span className="text-xs text-red-400">{state.message}</span>}
+          <button
+            type="submit"
+            name="decision"
+            value="reject"
+            disabled={pending}
+            className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-red-500/40 hover:text-red-400 disabled:opacity-50"
+          >
+            Reject
+          </button>
+          <button
+            type="submit"
+            name="decision"
+            value="approve"
+            disabled={pending}
+            className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+          >
+            {pending ? "…" : "Approve"}
+          </button>
+        </form>
+      ) : (
+        <a href="/login" className="shrink-0 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800">
+          Log in to manage
+        </a>
+      )}
     </div>
   )
 }
 
-export function ApprovalQueue({ pending }: { pending: PendingApproval[] }) {
+export function ApprovalQueue({ pending, editable }: { pending: PendingApproval[]; editable: boolean }) {
   if (pending.length === 0) {
     return (
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-10 text-center">
@@ -71,7 +77,7 @@ export function ApprovalQueue({ pending }: { pending: PendingApproval[] }) {
   return (
     <div className="space-y-3">
       {pending.map((a) => (
-        <ApprovalRow key={a.id} a={a} />
+        <ApprovalRow key={a.id} a={a} editable={editable} />
       ))}
     </div>
   )

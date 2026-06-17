@@ -4,8 +4,10 @@ import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { AccountControl } from "@/components/account-control"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
 import { listPendingApprovals } from "@/lib/approvals"
+import { getViewWallet } from "@/lib/session"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -15,17 +17,21 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic"
 
 export default async function ApprovalsPage() {
-  const walletId = process.env.SANCTION_WALLET_ID
-  if (!walletId) {
+  const view = await getViewWallet()
+  if (!view) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-2 text-center">
-          <p className="font-mono text-sm text-zinc-400">SANCTION_WALLET_ID not set</p>
-          <p className="text-xs text-zinc-600">Create a wallet via POST /api/v1/wallets and set the ID in .env.local</p>
+        <div className="space-y-3 text-center">
+          <p className="text-sm text-zinc-400">No wallet to show.</p>
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
+            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
+          </div>
         </div>
       </div>
     )
   }
+  const walletId = view.id
 
   const pendingRows = await listPendingApprovals(walletId)
   const pending: PendingApproval[] = pendingRows.map((r) => ({
@@ -53,9 +59,12 @@ export default async function ApprovalsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">Escalated charges awaiting your decision</p>
+          <p className="text-sm text-zinc-500">{view.name} · escalated charges awaiting a decision</p>
         </div>
-        <DashboardNav active="approvals" />
+        <div className="flex items-center gap-3">
+          <DashboardNav active="approvals" />
+          <AccountControl view={view} />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -64,7 +73,7 @@ export default async function ApprovalsPage() {
           <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">{pending.length}</Badge>
         )}
       </div>
-      <ApprovalQueue pending={pending} />
+      <ApprovalQueue pending={pending} editable={view.isSession} />
 
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">Recently resolved</CardTitle></CardHeader>

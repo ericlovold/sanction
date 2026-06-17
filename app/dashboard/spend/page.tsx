@@ -3,8 +3,12 @@ import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { AccountControl } from "@/components/account-control"
 import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
+import { getViewWallet } from "@/lib/session"
+
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Sanction — Spend",
@@ -135,19 +139,22 @@ async function getSpend(walletId: string) {
 }
 
 export default async function SpendPage() {
-  const walletId = process.env.SANCTION_WALLET_ID
-  if (!walletId) {
+  const view = await getViewWallet()
+  if (!view) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-2 text-center">
-          <p className="font-mono text-sm text-zinc-400">SANCTION_WALLET_ID not set</p>
-          <p className="text-xs text-zinc-600">Create a wallet via POST /api/v1/wallets and set the ID in .env.local</p>
+        <div className="space-y-3 text-center">
+          <p className="text-sm text-zinc-400">No wallet to show.</p>
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
+            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
+          </div>
         </div>
       </div>
     )
   }
 
-  const s = await getSpend(walletId)
+  const s = await getSpend(view.id)
   const tokenBudget = (s.policy?.dailyTokenBudgetUsd ?? 0) / 100
   const spendBudget = (s.policy?.dailySpendBudgetUsd ?? 0) / 100
   const tokensMonth = (s.tokMonth._sum.tokensIn ?? 0) + (s.tokMonth._sum.tokensOut ?? 0)
@@ -158,9 +165,12 @@ export default async function SpendPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">{s.wallet?.name ?? "Wallet"} · spend &amp; token usage</p>
+          <p className="text-sm text-zinc-500">{view.name} · spend &amp; token usage</p>
         </div>
-        <DashboardNav active="spend" />
+        <div className="flex items-center gap-3">
+          <DashboardNav active="spend" />
+          <AccountControl view={view} />
+        </div>
       </div>
 
       {/* Budget vs. actual — today */}
@@ -303,7 +313,7 @@ export default async function SpendPage() {
 
       {/* Policy editor */}
       {s.policy ? (
-        <PolicyEditor policy={policyToDollars(s.policy)} />
+        <PolicyEditor policy={policyToDollars(s.policy)} editable={view.isSession} />
       ) : (
         <Card className="bg-zinc-900 border-zinc-800">
           <CardContent className="px-5 py-5">
