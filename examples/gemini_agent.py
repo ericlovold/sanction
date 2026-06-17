@@ -28,6 +28,7 @@ SANCTION_KEY = os.environ.get("SANCTION_API_KEY", "")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY", "")
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 POLL_TRIES = int(os.environ.get("SANCTION_POLL_TRIES", "30"))
+PACING = float(os.environ.get("SANCTION_DEMO_PACING", "0"))  # seconds between steps, for recording
 
 # Rough Gemini Flash pricing per 1M tokens (USD). Override to taste.
 IN_RATE = float(os.environ.get("GEMINI_IN_PER_M", "0.075"))
@@ -59,6 +60,7 @@ def gemini(prompt):
 
 def think(task, prompt):
     """One real Gemini call, metered through Sanction's token budget."""
+    time.sleep(PACING)
     print(f"\n\U0001F916 {task}")
     text, usage = gemini(prompt)
     tin, tout = usage.get("promptTokenCount", 0), usage.get("candidatesTokenCount", 0)
@@ -73,6 +75,7 @@ def think(task, prompt):
 
 def buy(amount, merchant, category, why):
     """Ask Sanction before spending. Honors approve / escalate / deny."""
+    time.sleep(PACING)
     print(f"\n\U0001F4B3 wants ${amount} at {merchant} ({category}) — {why}")
     code, d = _req(f"{SANCTION_API}/authorize", {"x-api-key": SANCTION_KEY},
                    {"action": "purchase", "amount_usd": amount, "merchant": merchant,
