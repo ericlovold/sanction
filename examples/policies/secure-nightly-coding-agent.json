@@ -13,7 +13,7 @@
       "clearance": "MODELED ONLY — AgentClearance is not yet enforced and has no assignment endpoint (NEXT phase)",
       "vault": "ENFORCED — exec issues scoped 15-min JWT; inject checks scope + expiry + audit-logs"
     },
-    "apply": "No policy-management API exists yet (POST /wallets creates defaults only). Until a PATCH /wallets/:id/policy endpoint ships (UX-3), set these values directly in the Policy row. See README.md."
+    "apply": "Send this 'policy' block to PATCH /v1/wallets/policy with the wallet_id + x-mgmt-key (partial update; omitted fields unchanged). The 'clearance' and 'vault' blocks are documentation until those control planes are wired. See README.md."
   },
 
   "policy": {

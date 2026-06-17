@@ -13,7 +13,7 @@
       "clearance": "MODELED ONLY — not yet enforced",
       "vault": "ENFORCED — scoped 15-min JWT; read-only credential scopes"
     },
-    "apply": "Set directly in the Policy row until a policy-management endpoint ships. See README.md."
+    "apply": "Send this 'policy' block to PATCH /v1/wallets/policy with the wallet_id + x-mgmt-key (partial update; omitted fields unchanged). See README.md."
   },
 
   "policy": {

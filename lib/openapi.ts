@@ -148,6 +148,42 @@ export const spec = {
           pending_approvals: { type: "integer" },
         },
       },
+      Policy: {
+        type: "object",
+        description: "Wallet spend/governance policy. All *Usd fields are integer cents.",
+        properties: {
+          dailyTokenBudgetUsd: { type: "integer", minimum: 0, description: "Daily LLM token-cost cap (cents)" },
+          dailySpendBudgetUsd: { type: "integer", minimum: 0, description: "Daily real-money spend cap (cents)" },
+          perTransactionMaxUsd: { type: "integer", minimum: 0, description: "Hard per-transaction ceiling (cents); spend above this is denied" },
+          autoApproveUnderUsd: { type: "integer", minimum: 0, description: "Spend at/under this auto-approves (cents)" },
+          escalateOverUsd: { type: "integer", minimum: 0, description: "Spend above this escalates to a human (cents); must be < perTransactionMaxUsd" },
+          allowedCategories: { type: "array", items: { type: "string" } },
+          blockedCategories: { type: "array", items: { type: "string" } },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      PolicyUpdateRequest: {
+        type: "object",
+        required: ["wallet_id"],
+        description: "Partial update — only the fields supplied are changed. Field shape matches the `policy` block in examples/policies/*.json.",
+        properties: {
+          wallet_id: { type: "string" },
+          dailyTokenBudgetUsd: { type: "integer", minimum: 0 },
+          dailySpendBudgetUsd: { type: "integer", minimum: 0 },
+          perTransactionMaxUsd: { type: "integer", minimum: 0 },
+          autoApproveUnderUsd: { type: "integer", minimum: 0 },
+          escalateOverUsd: { type: "integer", minimum: 0 },
+          allowedCategories: { type: "array", items: { type: "string" } },
+          blockedCategories: { type: "array", items: { type: "string" } },
+        },
+      },
+      PolicyResponse: {
+        type: "object",
+        properties: {
+          wallet_id: { type: "string" },
+          policy: { $ref: "#/components/schemas/Policy" },
+        },
+      },
       Error: {
         type: "object",
         properties: {
@@ -259,6 +295,37 @@ export const spec = {
           "401": { description: "Invalid or expired JWT" },
           "403": { description: "Credential not in JWT scope" },
           "404": { description: "Credential not found in vault" },
+        },
+      },
+    },
+    "/wallets/policy": {
+      get: {
+        operationId: "getWalletPolicy",
+        summary: "Read a wallet's policy",
+        description: "Returns the current spend/governance policy for a wallet. Management-plane: requires the wallet management key.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Wallet policy", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyResponse" } } } },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "No policy for this wallet" },
+        },
+      },
+      patch: {
+        operationId: "updateWalletPolicy",
+        summary: "Update a wallet's policy",
+        description:
+          "Partial-update the wallet's spend/governance policy. Only supplied fields change; omitted fields are unchanged. Apply a policy blueprint by sending its `policy` block. Management-plane: requires the wallet management key.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyUpdateRequest" } } },
+        },
+        responses: {
+          "200": { description: "Updated policy", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyResponse" } } } },
+          "400": { description: "Invalid request or no fields supplied" },
+          "401": { description: "Missing or invalid management key" },
+          "422": { description: "Policy invariant violated (e.g. escalateOverUsd >= perTransactionMaxUsd)" },
         },
       },
     },

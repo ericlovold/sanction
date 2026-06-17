@@ -65,6 +65,7 @@ So the ceiling for escalation to be reachable is `escalateOverUsd < perTransacti
 |---|---|
 | `blockedCategories`, `perTransactionMaxUsd`, `dailySpendBudgetUsd`, `escalateOverUsd` | ✅ **Enforced** (daily cap is atomic, SEC-4) |
 | Vault scopes + 15-min execution JWT + injection audit | ✅ **Enforced** |
+| Applying a blueprint via API (`PATCH /v1/wallets/policy`) | ✅ **Live** — partial update, mgmt-key gated, validates invariants |
 | `allowedCategories` | ⚠️ **Not enforced** — `/authorize` only checks the *blocklist*. Treat the allowlist as documentation of intent until policy-as-allowlist lands (UX-3). |
 | `autoApproveUnderUsd` | ⚠️ **Not wired** — present in schema; anything within budget and ≤ `escalateOverUsd` is auto-approved. |
 | `clearance` (level/industry/restrictions) | ⚠️ **Modeled only** — `AgentClearance` exists but does not yet gate scopes/categories, and there is no assignment endpoint. Roadmap NEXT: "wire it, then lead with it." |
@@ -75,10 +76,8 @@ So the ceiling for escalation to be reachable is `escalateOverUsd < perTransacti
 
 ## Applying a blueprint
 
-There is **no policy-management API yet** — `POST /v1/wallets` creates a Policy
-row from schema defaults only. Until a `PATCH /v1/wallets/:id/policy` endpoint
-ships (tracked as UX-3), apply a blueprint by writing the `policy` block to the
-Policy row directly.
+Each blueprint's `policy` block is the exact body the policy endpoint accepts —
+apply it in one call with `PATCH /v1/wallets/policy` (management-key gated).
 
 ```bash
 # 1. Create a wallet (returns a one-time sk_ management key — store it)
@@ -89,10 +88,17 @@ curl -sX POST https://proxy-ai-three.vercel.app/api/v1/wallets \
 # 2. Register an agent under that wallet (needs x-mgmt-key: sk_...)
 curl -sX POST https://proxy-ai-three.vercel.app/api/v1/agents \
   -H 'content-type: application/json' -H 'x-mgmt-key: sk_...' \
-  -d '{"name":"nightly-coder"}'   # returns the pxy_ key (store it)
+  -d '{"wallet_id":"wal_...","name":"nightly-coder"}'   # returns the pxy_ key (store it)
 
-# 3. Apply the blueprint's "policy" block to the wallet's Policy row
-#    (until PATCH /policy lands, set the cents fields directly).
+# 3. Apply the blueprint in one call — pipe its "policy" block straight in:
+jq '.policy + {wallet_id:"wal_..."}' examples/policies/secure-nightly-coding-agent.json \
+  | curl -sX PATCH https://proxy-ai-three.vercel.app/api/v1/wallets/policy \
+      -H 'content-type: application/json' -H 'x-mgmt-key: sk_...' --data-binary @-
+# → { "wallet_id":"wal_...", "policy": { ...applied values... } }
+
+# (read it back any time)
+curl -s "https://proxy-ai-three.vercel.app/api/v1/wallets/policy?wallet_id=wal_..." \
+  -H 'x-mgmt-key: sk_...'
 
 # 4. From the agent, gate every spend before it happens:
 curl -sX POST https://proxy-ai-three.vercel.app/api/v1/authorize \
@@ -105,6 +111,7 @@ curl -sX POST https://proxy-ai-three.vercel.app/api/v1/authorize \
 ## Roadmap hooks
 
 These blueprints are the concrete form of **UX-3 (policy templates)** and feed
-**DIST-3 (OSS quickstart)**. The gaps flagged above are the work that makes them
-fully real: enforce `allowedCategories`, wire `autoApproveUnderUsd`, and enforce
-clearance + add an assignment endpoint. See `docs/ROADMAP.md` / `docs/BACKLOG.md`.
+**DIST-3 (OSS quickstart)**. `PATCH /v1/wallets/policy` (this commit) makes them
+one-call applyable. The remaining gaps that make them fully real: enforce
+`allowedCategories`, wire `autoApproveUnderUsd`, and enforce clearance + add an
+assignment endpoint. See `docs/ROADMAP.md` / `docs/BACKLOG.md`.
