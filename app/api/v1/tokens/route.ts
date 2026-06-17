@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
 
   // Atomic budget check + write: serialize per agent so concurrent calls can't
   // both pass the check and overshoot the daily token budget.
-  const budgetDollars = policy.dailyTokenBudgetUsd / 100
+  // Per-agent override wins over the wallet policy.
+  const budgetDollars = (agent.dailyTokenBudgetUsd ?? policy.dailyTokenBudgetUsd) / 100
   const outcome = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 

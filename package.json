@@ -1,14 +1,11 @@
 {
-  "name": "sanction-mcp",
+  "name": "sanction-app",
   "version": "0.1.0",
-  "private": false,
-  "bin": {
-    "sanction-mcp": "./mcp-server.js"
-  },
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma migrate deploy && next build",
-    "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
+    "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=packages/sanction-mcp/mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"

@@ -36,6 +36,12 @@ model Agent {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  // Per-agent budget overrides (cents). Null = inherit the wallet policy.
+  dailyTokenBudgetUsd  Int?
+  dailySpendBudgetUsd  Int?
+  perTransactionMaxUsd Int?
+  escalateOverUsd      Int?
+
   wallet          Wallet                 @relation(fields: [walletId], references: [id])
   tokenLogs       TokenLog[]
   authRequests    AuthorizationRequest[]
