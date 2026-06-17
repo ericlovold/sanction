@@ -1,9 +1,11 @@
 import { DEFAULT_BASE_URL, request } from "./http"
 import type {
+  AuditEventsPage,
   ClientOptions,
   CreateWalletInput,
   CreatedAgent,
   CreatedWallet,
+  DailySummary,
   Fetch,
   Policy,
   PolicyBlueprint,
@@ -125,6 +127,44 @@ export class SanctionAdminClient {
       name: r.name as string,
       apiKeyPrefix: r.api_key_prefix as string,
       isActive: r.is_active as boolean,
+    }
+  }
+
+  /** Unified audit feed for a wallet (spend decisions, token usage, secret access). */
+  async getAuditEvents(
+    walletId: string,
+    opts: { type?: "authorization" | "token" | "injection"; limit?: number; before?: string } = {},
+  ): Promise<AuditEventsPage> {
+    const r = await request<{ events: AuditEventsPage["events"]; next_before: string | null }>({
+      baseUrl: this.baseUrl,
+      fetch: this.fetch,
+      method: "GET",
+      path: "/audit-events",
+      headers: this.mgmtHeaders(),
+      query: { wallet_id: walletId, type: opts.type, limit: opts.limit?.toString(), before: opts.before },
+    })
+    return { events: r.events, nextBefore: r.next_before }
+  }
+
+  /** One UTC-day rollup: spend, decision counts, token cost, secret access, costliest tasks. */
+  async getDailySummary(walletId: string, date?: string): Promise<DailySummary> {
+    const r = await request<Record<string, any>>({
+      baseUrl: this.baseUrl,
+      fetch: this.fetch,
+      method: "GET",
+      path: "/reporting/daily-summary",
+      headers: this.mgmtHeaders(),
+      query: { wallet_id: walletId, date },
+    })
+    return {
+      date: r.date,
+      spendUsd: r.spend_usd,
+      decisions: r.decisions,
+      tokenCostUsd: r.token_cost_usd,
+      tokensIn: r.tokens_in,
+      tokensOut: r.tokens_out,
+      secretAccesses: r.secret_accesses,
+      mostExpensiveTasks: (r.most_expensive_tasks ?? []).map((t: any) => ({ taskLabel: t.task_label, costUsd: t.cost_usd })),
     }
   }
 

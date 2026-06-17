@@ -202,6 +202,51 @@ export const spec = {
           policy: { $ref: "#/components/schemas/Policy" },
         },
       },
+      AuditEvent: {
+        type: "object",
+        description: "Normalized audit-feed entry. `type` is e.g. authorization.approved, token.logged, vault.injection. Extra fields vary by type.",
+        properties: {
+          type: { type: "string" },
+          id: { type: "string" },
+          at: { type: "string", format: "date-time" },
+          agent_id: { type: "string" },
+          agent_name: { type: "string" },
+        },
+        additionalProperties: true,
+      },
+      AuditEventsResponse: {
+        type: "object",
+        properties: {
+          wallet_id: { type: "string" },
+          events: { type: "array", items: { $ref: "#/components/schemas/AuditEvent" } },
+          next_before: { type: "string", format: "date-time", nullable: true, description: "Cursor for the next page, or null when caught up." },
+        },
+      },
+      DailySummaryResponse: {
+        type: "object",
+        properties: {
+          wallet_id: { type: "string" },
+          date: { type: "string" },
+          spend_usd: { type: "number" },
+          decisions: {
+            type: "object",
+            properties: {
+              approved: { type: "integer" },
+              denied: { type: "integer" },
+              escalated: { type: "integer" },
+              pending: { type: "integer" },
+            },
+          },
+          token_cost_usd: { type: "number" },
+          tokens_in: { type: "integer" },
+          tokens_out: { type: "integer" },
+          secret_accesses: { type: "integer" },
+          most_expensive_tasks: {
+            type: "array",
+            items: { type: "object", properties: { task_label: { type: "string" }, cost_usd: { type: "number" } } },
+          },
+        },
+      },
       Error: {
         type: "object",
         properties: {
@@ -362,6 +407,43 @@ export const spec = {
           "400": { description: "Invalid request or no fields supplied" },
           "401": { description: "Missing or invalid management key" },
           "422": { description: "Policy invariant violated (e.g. escalateOverUsd >= perTransactionMaxUsd)" },
+        },
+      },
+    },
+    "/audit-events": {
+      get: {
+        operationId: "getAuditEvents",
+        summary: "Unified audit feed for a wallet",
+        description:
+          "Time-sorted feed of spend decisions, token usage, and credential injections (secret access). Filter by type (authorization|token|injection), page with limit + before (ISO cursor). Readable by the wallet management key or any active agent in the wallet.",
+        security: [{ ManagementKey: [] }, { AgentApiKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "type", required: false, schema: { type: "string", enum: ["authorization", "token", "injection"] } },
+          { in: "query", name: "limit", required: false, schema: { type: "integer", default: 50, minimum: 1, maximum: 200 } },
+          { in: "query", name: "before", required: false, schema: { type: "string", format: "date-time" }, description: "Return events strictly before this timestamp (cursor)." },
+        ],
+        responses: {
+          "200": { description: "Audit events", content: { "application/json": { schema: { $ref: "#/components/schemas/AuditEventsResponse" } } } },
+          "401": { description: "Unauthorized" },
+        },
+      },
+    },
+    "/reporting/daily-summary": {
+      get: {
+        operationId: "getDailySummary",
+        summary: "One UTC-day activity rollup for a wallet",
+        description:
+          "Spend, approve/deny/escalate counts, token cost, secret-access count, and the most expensive tasks for a single UTC day. Defaults to today. Readable by the wallet management key or any active agent in the wallet.",
+        security: [{ ManagementKey: [] }, { AgentApiKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "date", required: false, schema: { type: "string", example: "2026-06-17" }, description: "UTC day (YYYY-MM-DD). Defaults to today." },
+        ],
+        responses: {
+          "200": { description: "Daily summary", content: { "application/json": { schema: { $ref: "#/components/schemas/DailySummaryResponse" } } } },
+          "400": { description: "Bad date" },
+          "401": { description: "Unauthorized" },
         },
       },
     },

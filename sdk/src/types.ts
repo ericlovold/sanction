@@ -157,3 +157,32 @@ export interface PolicyBlueprint {
   policy: PolicyInput
   [key: string]: unknown
 }
+
+// ---- Observability ----
+
+/** A normalized audit-feed entry. `type` is e.g. authorization.approved / token.logged / vault.injection. */
+export interface AuditEvent {
+  type: string
+  id: string
+  at: string
+  agent_id: string
+  agent_name?: string
+  [key: string]: unknown
+}
+
+export interface AuditEventsPage {
+  events: AuditEvent[]
+  /** Pass as `before` to fetch the next page, or null when caught up. */
+  nextBefore: string | null
+}
+
+export interface DailySummary {
+  date: string
+  spendUsd: number
+  decisions: { approved: number; denied: number; escalated: number; pending: number }
+  tokenCostUsd: number
+  tokensIn: number
+  tokensOut: number
+  secretAccesses: number
+  mostExpensiveTasks: Array<{ taskLabel: string; costUsd: number }>
+}
