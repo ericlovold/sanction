@@ -1,0 +1,40 @@
+{
+  "name": "sanction-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Sanction — spend authorization, token budgets, and an encrypted credential vault for autonomous AI agents.",
+  "type": "module",
+  "bin": {
+    "sanction-mcp": "./mcp-server.js"
+  },
+  "files": [
+    "mcp-server.js",
+    "server.json",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "agent",
+    "agent-governance",
+    "spend-authorization",
+    "budget",
+    "wallet",
+    "token-tracking",
+    "claude",
+    "gemini"
+  ],
+  "homepage": "https://getsanction.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ericlovold/sanction.git",
+    "directory": "packages/sanction-mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/ericlovold/sanction/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

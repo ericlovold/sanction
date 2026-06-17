@@ -6,7 +6,7 @@
  * (Claude Desktop, AIIA, etc.).
  *
  * Configuration (env vars):
- *   SANCTION_API_URL   — Sanction API base URL (default: https://sanction.ai/api/v1)
+ *   SANCTION_API_URL   — Sanction API base URL (default: https://getsanction.vercel.app/api/v1)
  *   SANCTION_API_KEY   — Agent API key (pxy_...)
  *   SANCTION_WALLET_ID — Wallet ID for status queries
  *
@@ -21,9 +21,8 @@
  *       "command": "npx",
  *       "args": ["sanction-mcp"],
  *       "env": {
- *         "SANCTION_API_URL": "http://localhost:3000/api/v1",
  *         "SANCTION_API_KEY": "pxy_...",
- *         "SANCTION_WALLET_ID": "wallet_..."
+ *         "SANCTION_WALLET_ID": "<wallet_id>"
  *       }
  *     }
  *   }
@@ -34,7 +33,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 
-const API_URL = process.env.SANCTION_API_URL ?? "https://sanction.ai/api/v1"
+const API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.vercel.app/api/v1"
 const API_KEY = process.env.SANCTION_API_KEY ?? ""
 const WALLET_ID = process.env.SANCTION_WALLET_ID ?? ""
 
