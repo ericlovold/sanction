@@ -1,0 +1,16 @@
+{
+  "name": "sanction-example-nightly-coding-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable reference for @sanction/sdk: a governed overnight coding agent (DIST-3).",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "demo": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.0"
+  }
+}
