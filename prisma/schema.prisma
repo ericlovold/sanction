@@ -25,6 +25,29 @@ model Wallet {
   credentials      CredentialVault[]
   clearances       AgentClearance[]
   executionTokens  ExecutionToken[]
+  tenantKeys       TenantKey[]
+}
+
+// Per-tenant Data Encryption Key (DEK), stored WRAPPED by the KMS root key
+// (SEC-1 envelope encryption). Credential values are encrypted with the raw
+// DEK; the DEK never sits in the DB unwrapped. `keyId` versions the DEK so a
+// tenant can rotate its DEK while old ciphertext (which names the keyId it was
+// written under) still decrypts. `rootKeyId` records which root key wrapped
+// this DEK so a future root-key rotation can find DEKs that need re-wrapping.
+model TenantKey {
+  id         String    @id @default(cuid())
+  walletId   String
+  keyId      String    // version label for this DEK, unique within a wallet
+  wrappedDek String    // base64 DEK ciphertext (wrapped by the root key)
+  rootKeyId  String    // fingerprint of the root key that wrapped this DEK
+  isActive   Boolean   @default(true) // the DEK new writes should use
+  createdAt  DateTime  @default(now())
+  rotatedAt  DateTime?
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@unique([walletId, keyId])
+  @@index([walletId, isActive])
 }
 
 model Agent {
@@ -85,6 +108,11 @@ model CredentialVault {
   label         String
   type          String    // api_key | oauth_token | certificate | license | password
   encryptedValue String
+  // DEK version this value was encrypted under (SEC-1). Null = legacy/v1 blob
+  // encrypted with the global key; upgrades to a TenantKey.keyId on next write.
+  // The ciphertext is self-describing, but this column makes "which DEK?"
+  // queryable for rotation/re-encrypt tooling.
+  keyId         String?
   allowedAgentIds String[] @default([]) // empty = all agents in wallet
   scopes        String[]  @default([])  // what this credential grants
   expiresAt     DateTime?

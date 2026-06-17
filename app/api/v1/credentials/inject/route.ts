@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { db } from "@/lib/db"
 import { verifyExecutionJWT } from "@/lib/jwt"
-import { decryptCredential } from "@/lib/jwt"
+import { decryptCredentialValue } from "@/lib/envelope"
+import { withTenant } from "@/lib/tenantDb"
 
 const schema = z.object({
   credential_label: z.string(),
@@ -36,31 +36,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403 })
   }
 
-  // Check execution token is still active and not expired
-  const execToken = await db.executionToken.findUnique({ where: { id: claims.jti } })
-  if (!execToken || execToken.status !== "active" || execToken.expiresAt < new Date()) {
-    return NextResponse.json({ error: "Execution token expired or revoked" }, { status: 401 })
-  }
+  // All tenant-scoped reads/writes run inside the wallet's RLS context (SEC-3):
+  // the DB will only surface this wallet's execution token, credential, and
+  // injection rows even if a query forgot to filter by walletId.
+  const result = await withTenant(claims.wallet, async (tx) => {
+    // Check execution token is still active and not expired. (Keyed by jti, but
+    // RLS additionally guarantees it belongs to claims.wallet.)
+    const execToken = await tx.executionToken.findUnique({ where: { id: claims.jti } })
+    if (!execToken || execToken.status !== "active" || execToken.expiresAt < new Date()) {
+      return { error: "Execution token expired or revoked", status: 401 as const }
+    }
 
-  // Fetch and decrypt the credential
-  const credential = await db.credentialVault.findFirst({
-    where: { walletId: claims.wallet, label: credential_label },
+    // Fetch the credential
+    const credential = await tx.credentialVault.findFirst({
+      where: { walletId: claims.wallet, label: credential_label },
+    })
+    if (!credential) {
+      return { error: "Credential not found", status: 404 as const }
+    }
+
+    // Reject expired credentials — a rotated/expired secret must not be injectable.
+    if (credential.expiresAt && credential.expiresAt < new Date()) {
+      return { error: "Credential has expired", status: 410 as const }
+    }
+
+    // Audit the injection
+    await tx.credentialInjection.create({
+      data: { executionTokenId: execToken.id, credentialId: credential.id },
+    })
+
+    return { credential, execToken }
   })
-  if (!credential) {
-    return NextResponse.json({ error: "Credential not found" }, { status: 404 })
+
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
   }
 
-  // Reject expired credentials — a rotated/expired secret must not be injectable.
-  if (credential.expiresAt && credential.expiresAt < new Date()) {
-    return NextResponse.json({ error: "Credential has expired" }, { status: 410 })
-  }
+  const { credential, execToken } = result
 
-  // Audit the injection
-  await db.credentialInjection.create({
-    data: { executionTokenId: execToken.id, credentialId: credential.id },
-  })
-
-  const value = decryptCredential(credential.encryptedValue, `${credential.walletId}:${credential.label}`)
+  // Decrypt outside the tx: unwrapping the tenant DEK may hit the KMS, which we
+  // don't want holding a DB transaction open. Envelope (v2) and legacy (v1/
+  // unversioned) blobs are both handled by decryptCredentialValue.
+  const value = await decryptCredentialValue(
+    credential.walletId,
+    credential.label,
+    credential.encryptedValue,
+  )
 
   return NextResponse.json(
     {
