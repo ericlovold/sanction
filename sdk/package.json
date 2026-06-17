@@ -1,0 +1,25 @@
+{
+  "name": "@sanction/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Sanction — the trust layer for autonomous agents. Spend authorization, scoped credential injection, and policy management.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["sanction", "ai-agents", "agent-governance", "spend-authorization", "credential-vault"]
+}
