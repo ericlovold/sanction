@@ -13,6 +13,7 @@ describe("decisionCode (UX-1 typed DENY)", () => {
   it("maps each denial note to its stable code", () => {
     expect(decisionCode("denied", "No policy configured")).toBe("NO_POLICY")
     expect(decisionCode("denied", "Category 'gambling' is blocked")).toBe("CATEGORY_BLOCKED")
+    expect(decisionCode("denied", "Category 'travel' is not on the allowed-categories list")).toBe("CATEGORY_NOT_ALLOWED")
     expect(decisionCode("denied", "Exceeds per-transaction limit of $50")).toBe("PER_TXN_LIMIT")
     expect(decisionCode("denied", "Daily spend budget exceeded")).toBe("DAILY_BUDGET_EXCEEDED")
   })
@@ -27,6 +28,7 @@ describe("decisionCode (UX-1 typed DENY)", () => {
       decisionCode("escalated", null),
       decisionCode("denied", "No policy configured"),
       decisionCode("denied", "Category 'x' is blocked"),
+      decisionCode("denied", "Category 'x' is not on the allowed-categories list"),
       decisionCode("denied", "Exceeds per-transaction limit of $50"),
       decisionCode("denied", "Daily spend budget exceeded"),
       decisionCode("denied", null),

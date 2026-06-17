@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { issueExecutionJWT } from "@/lib/jwt"
+import { clearanceDenials } from "@/lib/clearance"
 import { randomBytes } from "crypto"
 
 const schema = z.object({
@@ -24,9 +25,11 @@ export async function POST(req: NextRequest) {
 
   const { scope, budget_usd, ttl_seconds, container_id } = parsed.data
 
-  // Get agent clearance level
+  // Get agent clearance level. An expired clearance grant falls back to the
+  // safe default (level 1) rather than retaining elevated access.
   const clearance = await db.agentClearance.findUnique({ where: { agentId: agent.id } })
-  const clearanceLevel = clearance?.level ?? 1
+  const clearanceActive = clearance && (!clearance.expiresAt || clearance.expiresAt > new Date())
+  const clearanceLevel = clearanceActive ? clearance!.level : 1
 
   // Verify requested credential labels exist and agent is allowed to access them
   const credentials = await db.credentialVault.findMany({
@@ -43,6 +46,21 @@ export async function POST(req: NextRequest) {
   )
   if (denied.length > 0) {
     return NextResponse.json({ error: "Agent not authorized for credentials", denied }, { status: 403 })
+  }
+
+  // Clearance gate: a credential may require a minimum clearance via a
+  // `clearance:N` scope tag. Deny any requested credential whose required level
+  // exceeds the agent's clearance — modeled clearance is now actually enforced.
+  const underCleared = clearanceDenials(clearanceLevel, credentials)
+  if (underCleared.length > 0) {
+    return NextResponse.json(
+      {
+        error: "Agent clearance insufficient for credentials",
+        denied: underCleared,
+        clearance: clearanceLevel,
+      },
+      { status: 403 },
+    )
   }
 
   const jti = randomBytes(16).toString("hex")

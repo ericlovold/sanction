@@ -50,7 +50,7 @@ export const spec = {
           reason: { type: "string", description: "Human-readable explanation of the decision" },
           code: {
             type: "string",
-            enum: ["ESCALATION_REQUIRED", "NO_POLICY", "CATEGORY_BLOCKED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "POLICY_DENIED"],
+            enum: ["ESCALATION_REQUIRED", "NO_POLICY", "CATEGORY_BLOCKED", "CATEGORY_NOT_ALLOWED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "POLICY_DENIED"],
             description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
           },
           remediation: { type: "string", description: "Suggested next step for the agent when not approved" },
@@ -247,6 +247,30 @@ export const spec = {
           },
         },
       },
+      ClearanceAssignRequest: {
+        type: "object",
+        required: ["wallet_id", "agent_id", "level"],
+        properties: {
+          wallet_id: { type: "string", description: "Wallet that owns the agent" },
+          agent_id: { type: "string", description: "Agent to assign clearance to" },
+          level: { type: "integer", minimum: 1, maximum: 5, description: "Clearance level 1-5. Higher levels satisfy lower credential requirements." },
+          industry: { type: "string", enum: ["general", "healthcare", "legal", "financial", "enterprise"], default: "general", description: "Industry domain this clearance applies to" },
+          expires_at: { type: "string", format: "date-time", description: "Optional expiry; an expired clearance falls back to level 1." },
+          restrictions: { type: "object", additionalProperties: true, description: "Optional additional constraints at this clearance level" },
+        },
+      },
+      ClearanceResponse: {
+        type: "object",
+        properties: {
+          agent_id: { type: "string" },
+          wallet_id: { type: "string" },
+          level: { type: "integer", minimum: 1, maximum: 5 },
+          industry: { type: "string", enum: ["general", "healthcare", "legal", "financial", "enterprise"] },
+          granted_at: { type: "string", format: "date-time" },
+          expires_at: { type: "string", format: "date-time", nullable: true },
+          restrictions: { type: "object", additionalProperties: true },
+        },
+      },
       Error: {
         type: "object",
         properties: {
@@ -314,7 +338,29 @@ export const spec = {
             content: { "application/json": { schema: { $ref: "#/components/schemas/ExecTokenResponse" } } },
           },
           "401": { description: "Invalid API key" },
-          "403": { description: "Agent not authorized for requested credentials" },
+          "403": { description: "Agent not authorized for requested credentials, or clearance insufficient for a credential requiring a higher level" },
+        },
+      },
+    },
+    "/agents/clearance": {
+      post: {
+        operationId: "assignAgentClearance",
+        summary: "Assign or update an agent's clearance",
+        description:
+          "Set an agent's clearance level (1-5) and industry domain. Upserts the agent's clearance record. Clearance gates credential access in /exec: a credential tagged with a `clearance:N` scope can only be issued to an agent at level N or higher. Management-plane: requires the wallet management key.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/ClearanceAssignRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Clearance assigned",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ClearanceResponse" } } },
+          },
+          "400": { description: "Invalid request (e.g. level out of 1-5 range or unknown industry)" },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "Agent not found in this wallet" },
         },
       },
     },
