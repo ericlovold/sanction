@@ -159,6 +159,16 @@ curl -s -X POST "$SANCTION_API/tokens" -H "x-api-key: $AGENT_KEY" -H "content-ty
 Repeat until daily token cost would exceed **$10**.
 **Expected:** logs succeed until the cap; the call that crosses $10 → error `"Daily token budget exceeded"`.
 
+### B8. Approval loop — resolve an escalation
+Once a charge is `escalated` (see B5 / set `escalate_over_usd` below `per_transaction_max_usd`):
+1. **Agent waits:** poll `GET /authorize/<request_id>` (x-api-key) — status stays `escalated`.
+2. **Owner sees it:** `GET /approvals?wallet_id=$WALLET_ID` (x-mgmt-key), or the dashboard **Approvals** tab.
+3. **Owner decides:** `POST /approvals {wallet_id, request_id, decision:"approve"|"reject", note}` — or click Approve/Reject.
+4. **Agent learns the outcome:** re-poll `GET /authorize/<request_id>` → now `approved` / `denied` with the note.
+
+**Expected:** the agent can poll a stable result; the owner sees the queue; resolving flips the
+status once (a second resolve returns `409`).
+
 **B — Report (incl. UX/UI):**
 - Did real money-stops fire exactly at the thresholds? Any off-by-one or race?
 - Were denials **actionable**? Rate the `code` + `remediation` 1–5 for "could I replan from this without a human?"
@@ -268,6 +278,9 @@ TOP 3 THINGS TO FIX:
 | POST | `/agents` | `x-mgmt-key` | Register agent → agent key |
 | GET | `/agents?wallet_id=` | `x-mgmt-key` | List agents |
 | POST | `/authorize` | `x-api-key` | Spend decision (approve/escalate/deny) |
+| GET | `/authorize/{id}` | `x-api-key` or `x-mgmt-key` | Poll a request's status (for escalations) |
+| GET | `/approvals?wallet_id=` | `x-mgmt-key` | List escalations awaiting a decision |
+| POST | `/approvals` | `x-mgmt-key` | Approve or reject an escalated request |
 | POST | `/tokens` | `x-api-key` | Log token usage + enforce token budget |
 | GET | `/wallets/stats?wallet_id=` | `x-mgmt-key` or `x-api-key` | Usage rollups |
 | GET | `/wallets/policy?wallet_id=` | `x-mgmt-key` | Read current policy |
