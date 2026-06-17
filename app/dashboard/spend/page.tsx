@@ -57,9 +57,22 @@ async function getSpend(walletId: string) {
   trendStart.setHours(0, 0, 0, 0)
 
   const wallet = await db.wallet.findUnique({ where: { id: walletId }, include: { policy: true } })
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true, name: true } })
+  const agents = await db.agent.findMany({
+    where: { walletId },
+    select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true, perTransactionMaxUsd: true, escalateOverUsd: true },
+  })
   const agentIds = agents.map((a) => a.id)
   const nameOf = new Map(agents.map((a) => [a.id, a.name]))
+  const overrideOf = new Map(
+    agents.map((a) => {
+      const parts: string[] = []
+      if (a.dailyTokenBudgetUsd != null) parts.push(`token $${a.dailyTokenBudgetUsd / 100}/day`)
+      if (a.dailySpendBudgetUsd != null) parts.push(`spend $${a.dailySpendBudgetUsd / 100}/day`)
+      if (a.perTransactionMaxUsd != null) parts.push(`per-txn $${a.perTransactionMaxUsd / 100}`)
+      if (a.escalateOverUsd != null) parts.push(`escalate $${a.escalateOverUsd / 100}`)
+      return [a.id, parts.join(" · ")]
+    }),
+  )
 
   const monthScope = { agentId: { in: agentIds }, createdAt: { gte: monthStart } }
 
@@ -81,8 +94,8 @@ async function getSpend(walletId: string) {
   ])
 
   // Per-agent merge: token cost + approved spend + decision counts
-  const agentRows = new Map<string, { name: string; tokenCost: number; tokens: number; spend: number; approved: number; denied: number; escalated: number }>()
-  for (const id of agentIds) agentRows.set(id, { name: nameOf.get(id) ?? id, tokenCost: 0, tokens: 0, spend: 0, approved: 0, denied: 0, escalated: 0 })
+  const agentRows = new Map<string, { name: string; override: string; tokenCost: number; tokens: number; spend: number; approved: number; denied: number; escalated: number }>()
+  for (const id of agentIds) agentRows.set(id, { name: nameOf.get(id) ?? id, override: overrideOf.get(id) ?? "", tokenCost: 0, tokens: 0, spend: 0, approved: 0, denied: 0, escalated: 0 })
   for (const r of tokByAgent) {
     const row = agentRows.get(r.agentId)
     if (row) { row.tokenCost = r._sum.costUsd ?? 0; row.tokens = (r._sum.tokensIn ?? 0) + (r._sum.tokensOut ?? 0) }
@@ -231,7 +244,14 @@ export default async function SpendPage() {
               {s.agentList.map((a) => (
                 <div key={a.name} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
-                    <p className="truncate text-zinc-300">{a.name}</p>
+                    <p className="flex items-center gap-1.5 truncate text-zinc-300">
+                      {a.name}
+                      {a.override && (
+                        <span title={a.override} className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1 py-0.5 text-[9px] font-medium text-emerald-400">
+                          custom budget
+                        </span>
+                      )}
+                    </p>
                     <p className="text-[11px] text-zinc-600">
                       {a.tokens.toLocaleString()} tok · {a.approved} appr
                       {a.denied > 0 && <span className="text-red-400/70"> · {a.denied} deny</span>}
