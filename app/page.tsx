@@ -283,7 +283,7 @@ export default function Landing() {
           </p>
           <div className="mt-9 flex items-center justify-center gap-3">
             <a
-              href="#pricing"
+              href="/start"
               className="rounded-md bg-emerald-500 text-zinc-950 px-5 py-2.5 text-sm font-semibold hover:bg-emerald-400 transition-colors"
             >
               Start free
