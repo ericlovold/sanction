@@ -93,6 +93,10 @@ export class SanctionClient {
           merchant: input.merchant,
           category: input.category,
           description: input.description,
+          task_label: input.taskLabel,
+          job_id: input.jobId,
+          repo: input.repo,
+          tool_name: input.toolName,
         },
       })
     } catch {
@@ -174,7 +178,7 @@ export class SanctionClient {
           path: "/authorize",
           timeoutMs: this.networkTimeoutMs,
           headers: this.authHeaders({ "idempotency-key": item.idempotencyKey }),
-          body: { action: item.action, amount_usd: item.amountUsd, merchant: item.merchant, category: item.category, description: item.description },
+          body: { action: item.action, amount_usd: item.amountUsd, merchant: item.merchant, category: item.category, description: item.description, task_label: item.taskLabel, job_id: item.jobId, repo: item.repo, tool_name: item.toolName },
         })
       } catch {
         break // still offline — leave the rest queued

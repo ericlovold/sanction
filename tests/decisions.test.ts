@@ -16,6 +16,7 @@ describe("decisionCode (UX-1 typed DENY)", () => {
     expect(decisionCode("denied", "Category 'travel' is not on the allowed-categories list")).toBe("CATEGORY_NOT_ALLOWED")
     expect(decisionCode("denied", "Exceeds per-transaction limit of $50")).toBe("PER_TXN_LIMIT")
     expect(decisionCode("denied", "Daily spend budget exceeded")).toBe("DAILY_BUDGET_EXCEEDED")
+    expect(decisionCode("denied", "Monthly spend budget exceeded")).toBe("MONTHLY_BUDGET_EXCEEDED")
   })
 
   it("falls back to POLICY_DENIED for an unknown/empty note", () => {

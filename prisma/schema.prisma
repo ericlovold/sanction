@@ -78,6 +78,7 @@ model Policy {
   perTransactionMaxUsd Int @default(5000)  // $50
   autoApproveUnderUsd  Int @default(2500)  // $25
   escalateOverUsd      Int @default(10000) // $100
+  monthlySpendBudgetUsd Int?               // null = no monthly cap
 
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])
@@ -192,6 +193,10 @@ model AuthorizationRequest {
   decidedAt      DateTime?
   decisionNote   String?
   idempotencyKey String?   // client-supplied; dedupes retries per agent
+  taskLabel      String?   // attribution metadata (optional)
+  jobId          String?
+  repo           String?
+  toolName       String?
   createdAt      DateTime  @default(now())
 
   agent Agent @relation(fields: [agentId], references: [id])

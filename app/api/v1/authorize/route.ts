@@ -11,6 +11,11 @@ const schema = z.object({
   merchant: z.string(),
   category: z.string(),
   description: z.string().optional(),
+  // Optional attribution metadata — powers per-task reporting / audit.
+  task_label: z.string().max(200).optional(),
+  job_id: z.string().max(200).optional(),
+  repo: z.string().max(200).optional(),
+  tool_name: z.string().max(200).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { action, amount_usd, merchant, category, description } = parsed.data
+  const { action, amount_usd, merchant, category, description, task_label, job_id, repo, tool_name } = parsed.data
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
 
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
   }
 
-  const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
+  const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey, taskLabel: task_label, jobId: job_id, repo, toolName: tool_name }
 
   // No policy = deny by default
   if (!policy) {
@@ -64,6 +69,9 @@ export async function POST(req: NextRequest) {
   // agent with a transaction-scoped advisory lock, then re-read inside the lock.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -76,6 +84,18 @@ export async function POST(req: NextRequest) {
       const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
       if (dailyTotalCents > policy.dailySpendBudgetUsd) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
+      }
+
+      // Optional monthly cap (null = no monthly limit).
+      if (policy.monthlySpendBudgetUsd != null) {
+        const monthlySpend = await tx.authorizationRequest.aggregate({
+          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+          _sum: { amountUsd: true },
+        })
+        const monthlyTotalCents = Math.round(((monthlySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
+        if (monthlyTotalCents > policy.monthlySpendBudgetUsd) {
+          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Monthly spend budget exceeded" } })
+        }
       }
 
       // Spend tier: < autoApproveUnder auto-approves; at/under escalateOver still

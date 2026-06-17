@@ -22,6 +22,7 @@
     "perTransactionMaxUsd": 2000,
     "autoApproveUnderUsd": 500,
     "escalateOverUsd": 500,
+    "monthlySpendBudgetUsd": 80000,
     "allowedCategories": ["software", "research", "infrastructure", "services"],
     "blockedCategories": [
       "gambling",

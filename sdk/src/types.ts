@@ -39,8 +39,10 @@ export type DecisionCode =
   | "ESCALATION_REQUIRED"
   | "NO_POLICY"
   | "CATEGORY_BLOCKED"
+  | "CATEGORY_NOT_ALLOWED"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
+  | "MONTHLY_BUDGET_EXCEEDED"
   | "POLICY_DENIED"
 
 export interface AuthorizeInput {
@@ -51,6 +53,11 @@ export interface AuthorizeInput {
   description?: string
   /** Dedupes retries server-side; the same key returns the original decision. */
   idempotencyKey?: string
+  /** Optional attribution metadata — powers per-task reporting / audit. */
+  taskLabel?: string
+  jobId?: string
+  repo?: string
+  toolName?: string
 }
 
 export interface Decision {
@@ -144,6 +151,8 @@ export interface PolicyInput {
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
   escalateOverUsd?: number
+  /** Optional monthly spend cap (cents); null clears it. */
+  monthlySpendBudgetUsd?: number | null
   allowedCategories?: string[]
   blockedCategories?: string[]
 }

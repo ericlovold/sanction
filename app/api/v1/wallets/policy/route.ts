@@ -17,6 +17,7 @@ const policySchema = z
     perTransactionMaxUsd: cents.optional(),
     autoApproveUnderUsd: cents.optional(),
     escalateOverUsd: cents.optional(),
+    monthlySpendBudgetUsd: cents.nullable().optional(),
     allowedCategories: categories.optional(),
     blockedCategories: categories.optional(),
   })
@@ -30,6 +31,7 @@ const PUBLIC_FIELDS = {
   perTransactionMaxUsd: true,
   autoApproveUnderUsd: true,
   escalateOverUsd: true,
+  monthlySpendBudgetUsd: true,
   allowedCategories: true,
   blockedCategories: true,
   updatedAt: true,
