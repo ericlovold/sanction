@@ -74,7 +74,15 @@ export function CreateWallet() {
             <li>• Set budgets &amp; categories via <code className="font-mono text-xs text-zinc-300">PATCH /api/v1/wallets/policy</code> (use your management key).</li>
           </ul>
         </div>
-        <Link href="/" className="inline-block text-sm text-zinc-500 hover:text-zinc-300">← Back to home</Link>
+        <div className="flex items-center gap-3 pt-1">
+          <Link href="/dashboard" className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+            Open my dashboard →
+          </Link>
+          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">Back to home</Link>
+        </div>
+        <p className="text-[11px] text-zinc-600">
+          You&apos;re signed in on this device. To return later, go to <span className="font-mono">/login</span> and paste your management key.
+        </p>
       </div>
     )
   }
