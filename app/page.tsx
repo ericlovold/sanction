@@ -155,11 +155,12 @@ export default function Landing() {
             <a href="#integrations" className="hidden md:inline hover:text-zinc-100 transition-colors">Integrations</a>
             <a href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing</a>
             <a href="/api/openapi.json" className="hidden sm:inline hover:text-zinc-100 transition-colors">API</a>
+            <Link href="/login" className="hover:text-zinc-100 transition-colors">Sign in</Link>
             <Link
-              href="/dashboard"
+              href="/start"
               className="rounded-md bg-zinc-100 text-zinc-950 px-3 py-1.5 text-sm font-medium hover:bg-white transition-colors"
             >
-              Dashboard
+              Start free
             </Link>
           </div>
         </nav>

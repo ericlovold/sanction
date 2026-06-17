@@ -3,6 +3,7 @@
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateManagementKey, generateApiKey } from "@/lib/apiKey"
+import { setSession } from "@/lib/session"
 
 const schema = z.object({
   name: z.string().trim().min(1).max(64),
@@ -41,6 +42,9 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
   await db.agent.create({
     data: { walletId: wallet.id, name: agentName, apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
   })
+
+  // Log them in immediately so the dashboard is one click away.
+  await setSession(mgmt.raw)
 
   return { ok: true, walletId: wallet.id, managementKey: mgmt.raw, agentKey: key.raw, agentName }
 }

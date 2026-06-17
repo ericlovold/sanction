@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { applyPolicyUpdate } from "@/lib/policy"
+import { getSessionWallet } from "@/lib/session"
 
 export type PolicyActionState = { ok: boolean; message: string }
 
@@ -23,8 +24,8 @@ export async function updatePolicyAction(
   _prev: PolicyActionState,
   form: FormData,
 ): Promise<PolicyActionState> {
-  const walletId = process.env.SANCTION_WALLET_ID
-  if (!walletId) return { ok: false, message: "SANCTION_WALLET_ID not set" }
+  const wallet = await getSessionWallet()
+  if (!wallet) return { ok: false, message: "Log in to edit your policy." }
 
   const input = {
     daily_token_budget_usd: num(form.get("daily_token_budget_usd")),
@@ -36,7 +37,7 @@ export async function updatePolicyAction(
     blocked_categories: parseCategories(form.get("blocked_categories")),
   }
 
-  const result = await applyPolicyUpdate(walletId, input)
+  const result = await applyPolicyUpdate(wallet.id, input)
   if (!result.ok) return { ok: false, message: result.error ?? "Update failed" }
 
   revalidatePath("/dashboard/spend")

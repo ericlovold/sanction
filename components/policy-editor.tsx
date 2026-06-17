@@ -24,7 +24,7 @@ const fields = [
 
 const initial: PolicyActionState = { ok: false, message: "" }
 
-export function PolicyEditor({ policy }: { policy: PolicyDollars }) {
+export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; editable: boolean }) {
   const [state, formAction, pending] = useActionState(updatePolicyAction, initial)
   const [perTxn, setPerTxn] = useState(policy.per_transaction_max_usd)
   const [escalate, setEscalate] = useState(policy.escalate_over_usd)
@@ -48,6 +48,7 @@ export function PolicyEditor({ policy }: { policy: PolicyDollars }) {
                     name={f.name}
                     step="0.01"
                     min="0"
+                    disabled={!editable}
                     defaultValue={policy[f.name]}
                     onChange={
                       f.name === "per_transaction_max_usd"
@@ -75,6 +76,7 @@ export function PolicyEditor({ policy }: { policy: PolicyDollars }) {
               <span className="text-[11px] uppercase tracking-wide text-zinc-600">Allowed categories</span>
               <input
                 name="allowed_categories"
+                disabled={!editable}
                 defaultValue={policy.allowed_categories.join(", ")}
                 placeholder="software, services, research"
                 className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600"
@@ -84,6 +86,7 @@ export function PolicyEditor({ policy }: { policy: PolicyDollars }) {
               <span className="text-[11px] uppercase tracking-wide text-zinc-600">Blocked categories</span>
               <input
                 name="blocked_categories"
+                disabled={!editable}
                 defaultValue={policy.blocked_categories.join(", ")}
                 placeholder="gambling, adult, crypto"
                 className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-red-300 outline-none focus:border-zinc-600"
@@ -91,21 +94,30 @@ export function PolicyEditor({ policy }: { policy: PolicyDollars }) {
             </label>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <span
-              className={`text-xs ${state.message ? (state.ok ? "text-emerald-400" : "text-red-400") : "text-transparent"}`}
-              aria-live="polite"
-            >
-              {state.message || "."}
-            </span>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {pending ? "Saving…" : "Save policy"}
-            </button>
-          </div>
+          {editable ? (
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className={`text-xs ${state.message ? (state.ok ? "text-emerald-400" : "text-red-400") : "text-transparent"}`}
+                aria-live="polite"
+              >
+                {state.message || "."}
+              </span>
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {pending ? "Saving…" : "Save policy"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-zinc-500">Viewing the demo — log in to edit your own policy.</span>
+              <a href="/login" className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800">
+                Log in
+              </a>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>
