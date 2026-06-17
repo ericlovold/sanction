@@ -107,6 +107,27 @@ export class SanctionAdminClient {
     return this.updatePolicy(walletId, blueprint.policy)
   }
 
+  /**
+   * Owner-only: deactivate an agent's API key (default) so it fails auth
+   * immediately — use for key rotation. Pass `active = true` to re-enable.
+   */
+  async setAgentActive(walletId: string, agentId: string, active = false): Promise<{ id: string; name: string; apiKeyPrefix: string; isActive: boolean }> {
+    const r = await request<Record<string, unknown>>({
+      baseUrl: this.baseUrl,
+      fetch: this.fetch,
+      method: "POST",
+      path: "/agents/deactivate",
+      headers: this.mgmtHeaders(),
+      body: { wallet_id: walletId, agent_id: agentId, active },
+    })
+    return {
+      id: r.id as string,
+      name: r.name as string,
+      apiKeyPrefix: r.api_key_prefix as string,
+      isActive: r.is_active as boolean,
+    }
+  }
+
   /** Owner-only: revoke an outstanding execution token before its TTL elapses. */
   async revokeExecutionToken(walletId: string, jti: string): Promise<void> {
     await request<void>({

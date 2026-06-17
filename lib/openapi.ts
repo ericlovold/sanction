@@ -148,6 +148,24 @@ export const spec = {
           pending_approvals: { type: "integer" },
         },
       },
+      AgentDeactivateRequest: {
+        type: "object",
+        required: ["wallet_id", "agent_id"],
+        properties: {
+          wallet_id: { type: "string" },
+          agent_id: { type: "string" },
+          active: { type: "boolean", description: "Default false (deactivate). Pass true to re-activate.", default: false },
+        },
+      },
+      AgentStateResponse: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          api_key_prefix: { type: "string" },
+          is_active: { type: "boolean" },
+        },
+      },
       Policy: {
         type: "object",
         description: "Wallet spend/governance policy. All *Usd fields are integer cents.",
@@ -295,6 +313,24 @@ export const spec = {
           "401": { description: "Invalid or expired JWT" },
           "403": { description: "Credential not in JWT scope" },
           "404": { description: "Credential not found in vault" },
+        },
+      },
+    },
+    "/agents/deactivate": {
+      post: {
+        operationId: "setAgentActive",
+        summary: "Deactivate or re-activate an agent key",
+        description:
+          "Owner-only. Deactivates an agent's API key (default) so it fails authentication immediately — use this to rotate a leaked or retired key. Pass active=true to re-enable. Idempotent; scoped to the owner's wallet.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AgentDeactivateRequest" } } },
+        },
+        responses: {
+          "200": { description: "Updated agent state", content: { "application/json": { schema: { $ref: "#/components/schemas/AgentStateResponse" } } } },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "Agent not found in this wallet" },
         },
       },
     },
