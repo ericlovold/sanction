@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION } from "@/lib/decisions"
+import { evaluateCategory, classifySpend } from "@/lib/policy"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -44,8 +45,15 @@ export async function POST(req: NextRequest) {
   const amountCents = Math.round(amount_usd * 100)
 
   // Stateless gates (no budget state involved)
-  if (policy.blockedCategories.includes(category)) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
+  // Category gate: blocklist always wins; a non-empty allowlist is enforced as a
+  // strict allowlist (empty = allow-all, preserving legacy/AIIA behavior).
+  const categoryVerdict = evaluateCategory(category, policy.allowedCategories, policy.blockedCategories)
+  if (!categoryVerdict.allowed) {
+    const note =
+      categoryVerdict.reason === "blocked"
+        ? `Category '${category}' is blocked`
+        : `Category '${category}' is not on the allowed-categories list`
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
   }
   if (amountCents > policy.perTransactionMaxUsd) {
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${policy.perTransactionMaxUsd / 100}` }, agent.name)
@@ -70,7 +78,9 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
       }
 
-      if (amountCents > policy.escalateOverUsd) {
+      // Spend tier: < autoApproveUnder auto-approves; at/under escalateOver still
+      // auto-approves; above escalateOver escalates to a human.
+      if (classifySpend(amountCents, policy.autoApproveUnderUsd, policy.escalateOverUsd) === "escalate") {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 
