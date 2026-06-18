@@ -53,10 +53,16 @@ Every call lands in your Spend dashboard by agent, model, and `gateway:<provider
 task label, against the same daily token budget the policy enforces. Set per-agent
 budgets with `PATCH /api/v1/agents`.
 
-## Notes / limits (v1)
+## Streaming
 
-- **Non-streaming** responses are fully metered. Streaming (`stream: true`) passes
-  through but isn't metered yet — coming next.
+Streaming is metered. The gateway tees the SSE stream to your client untouched and
+parses the usage event as it ends:
+- **Anthropic** & **Gemini** — usage is in the stream by default; metered automatically.
+- **OpenAI** — set `stream_options: {include_usage: true}` so the final chunk carries
+  usage; otherwise a streamed OpenAI call can't be metered.
+
+## Notes / limits
+
 - Pricing is an **estimate** per model (see `lib/gateway.ts`); tune as needed.
 - The agent still holds the provider key today. A vault-injected mode (the agent
   never sees the provider key) is the natural next step.

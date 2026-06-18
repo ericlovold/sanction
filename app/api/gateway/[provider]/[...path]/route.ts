@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { hashApiKey } from "@/lib/apiKey"
-import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage } from "@/lib/gateway"
+import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter } from "@/lib/gateway"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -68,7 +68,47 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
 
   const ct = upstream.headers.get("content-type") ?? ""
 
-  // JSON response → read, meter, return. (Streaming responses pass through unmetered for now.)
+  // Streaming (SSE) → tee bytes straight through to the client, parse `data:`
+  // events as they pass, and meter the accumulated usage when the stream ends.
+  if (ct.includes("text/event-stream") && upstream.body) {
+    const meter = makeStreamMeter(provider)
+    const decoder = new TextDecoder()
+    let buf = ""
+    const transform = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk)
+        buf += decoder.decode(chunk, { stream: true })
+        let nl: number
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim()
+          buf = buf.slice(nl + 1)
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim()
+            if (payload && payload !== "[DONE]") {
+              try {
+                meter.feed(JSON.parse(payload))
+              } catch {
+                // partial/non-JSON event line — ignore
+              }
+            }
+          }
+        }
+      },
+      async flush() {
+        const u = meter.result()
+        if (u.tokensIn || u.tokensOut) {
+          try {
+            await meterUsage(agent.id, provider, u)
+          } catch {
+            // metering failure must not break the client's stream
+          }
+        }
+      },
+    })
+    return passthroughResponse(upstream, upstream.body.pipeThrough(transform))
+  }
+
+  // JSON response → read, meter, return.
   if (ct.includes("application/json")) {
     const buf = await upstream.arrayBuffer()
     try {
