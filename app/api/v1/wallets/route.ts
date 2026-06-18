@@ -20,18 +20,30 @@ export async function POST(req: NextRequest) {
   const { name, owner_email } = parsed.data
   const mgmt = generateManagementKey()
 
-  const wallet = await db.wallet.create({
-    data: {
-      name,
-      ownerEmail: owner_email,
-      mgmtKeyHash: mgmt.hash,
-      mgmtKeyPrefix: mgmt.prefix,
-      policy: {
-        create: {}, // defaults from schema
+  let wallet
+  try {
+    wallet = await db.wallet.create({
+      data: {
+        name,
+        ownerEmail: owner_email,
+        mgmtKeyHash: mgmt.hash,
+        mgmtKeyPrefix: mgmt.prefix,
+        policy: {
+          create: {}, // defaults from schema
+        },
       },
-    },
-    include: { policy: true },
-  })
+      include: { policy: true },
+    })
+  } catch (e: unknown) {
+    // Unique violation on ownerEmail => a wallet already exists for this email.
+    if (typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002") {
+      return NextResponse.json(
+        { error: "A wallet already exists for this email. Sign in with your management key instead." },
+        { status: 409 },
+      )
+    }
+    throw e
+  }
 
   return NextResponse.json({
     id: wallet.id,
