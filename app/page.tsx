@@ -36,37 +36,31 @@ const tiers = [
   {
     name: "Free",
     price: "$0",
-    cadence: "forever",
-    blurb: "For a single agent finding its feet.",
-    features: ["1 wallet, 1 agent", "100 authorizations / mo", "Token usage logging", "Community support"],
+    cadence: "no card",
+    blurb: "The whole platform. Govern as many agents as you want.",
+    features: [
+      "Unlimited agents & wallets",
+      "Unlimited authorizations",
+      "Token budgets + the LLM gateway",
+      "Approvals, credential vault & audit log",
+    ],
     cta: "Start free",
-    highlight: false,
-  },
-  {
-    name: "Pro",
-    price: "$19",
-    cadence: "/ month",
-    blurb: "For builders running real agents.",
-    features: ["3 agents", "10,000 authorizations / mo", "Credential vault (AES-256)", "Execution JWTs", "Email support"],
-    cta: "Start Pro",
+    href: "/start",
     highlight: true,
   },
   {
-    name: "Team",
-    price: "$49",
-    cadence: "/ month",
-    blurb: "For fleets that need governance.",
-    features: ["10 agents", "Unlimited authorizations", "Clearance levels 1–5", "Audit log export", "Priority support"],
-    cta: "Start Team",
-    highlight: false,
-  },
-  {
     name: "Enterprise",
-    price: "Custom",
+    price: "Talk to us",
     cadence: "",
-    blurb: "For regulated, high-volume deployments.",
-    features: ["Unlimited agents", "SSO & custom clearance domains", "On-prem / VPC deployment", "SLA & dedicated support"],
-    cta: "Contact sales",
+    blurb: "For teams and regulated deployments — when you're ready.",
+    features: [
+      "SSO & team roles",
+      "Audit log export",
+      "On-prem / VPC deployment",
+      "SLA & dedicated support",
+    ],
+    cta: "Contact us",
+    href: "mailto:ericlovold@gmail.com?subject=Sanction%20Enterprise",
     highlight: false,
   },
 ]
@@ -462,10 +456,10 @@ export default function Landing() {
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-zinc-900">
         <div className="text-center">
           <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Pricing</h2>
-          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Trust through limits.</h3>
-          <p className="mt-3 text-zinc-400">Start free. Scale when your fleet does.</p>
+          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Free while we grow.</h3>
+          <p className="mt-3 text-zinc-400">Unlimited agents, no card. The whole platform is free today — paid plans for teams and enterprises come later.</p>
         </div>
-        <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="mt-10 grid sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
           {tiers.map((t) => (
             <div
               key={t.name}
@@ -475,7 +469,7 @@ export default function Landing() {
             >
               {t.highlight && (
                 <span className="absolute -top-2.5 left-6 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-950">
-                  Most popular
+                  Start here
                 </span>
               )}
               <h4 className="text-sm font-semibold text-zinc-200">{t.name}</h4>
@@ -493,7 +487,7 @@ export default function Landing() {
                 ))}
               </ul>
               <Link
-                href="/dashboard"
+                href={t.href}
                 className={`mt-6 rounded-md px-4 py-2 text-sm font-medium text-center transition-colors ${
                   t.highlight
                     ? "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
