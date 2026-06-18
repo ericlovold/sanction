@@ -2,7 +2,7 @@
 
 **Spend authorization, token budgets, and a credential vault for autonomous AI agents — over MCP.**
 
-Give your agent a [Sanction](https://getsanction.vercel.app) key instead of your credit card.
+Give your agent a [Sanction](https://onesanction.com) key instead of your credit card.
 Before it buys anything, calls a paid API, or touches a secret, it asks Sanction — which
 approves, escalates to you, or denies based on the policy you set. Every decision is logged.
 
@@ -27,7 +27,7 @@ No install needed — run via `npx`. Add to your MCP host config:
 
 Get a key: create a wallet and agent against the API (see
 [the quickstart](https://github.com/ericlovold/sanction/blob/main/examples/README.md)), or
-`POST https://getsanction.vercel.app/api/v1/wallets`.
+`POST https://onesanction.com/api/v1/wallets`.
 
 ## Tools
 
@@ -45,7 +45,7 @@ Get a key: create a wallet and agent against the API (see
 |-----|----------|---------|
 | `SANCTION_API_KEY` | yes | — |
 | `SANCTION_WALLET_ID` | no (needed for `sanction_wallet_status`) | — |
-| `SANCTION_API_URL` | no | `https://getsanction.vercel.app/api/v1` |
+| `SANCTION_API_URL` | no | `https://onesanction.com/api/v1` |
 
 ## License
 
