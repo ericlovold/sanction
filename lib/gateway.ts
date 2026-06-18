@@ -91,6 +91,50 @@ export async function isBudgetExhausted(agent: GatewayAgent): Promise<{ exhauste
   return { exhausted: spent >= budget, spent, budget }
 }
 
+type StreamData = {
+  type?: string
+  model?: string
+  modelVersion?: string
+  message?: { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
+  usage?: { output_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+}
+
+/**
+ * Accumulates token usage from a provider's SSE stream. Anthropic and Gemini
+ * emit usage in-stream by default; OpenAI only when the client sets
+ * stream_options.include_usage. feed() each parsed `data:` JSON; result() at end.
+ */
+export function makeStreamMeter(provider: string) {
+  const acc: Usage = { model: "", tokensIn: 0, tokensOut: 0 }
+  return {
+    feed(d: StreamData) {
+      if (provider === "anthropic") {
+        if (d.type === "message_start" && d.message) {
+          acc.model = d.message.model ?? acc.model
+          acc.tokensIn = d.message.usage?.input_tokens ?? acc.tokensIn
+          acc.tokensOut = d.message.usage?.output_tokens ?? acc.tokensOut
+        } else if (d.type === "message_delta" && d.usage) {
+          acc.tokensOut = d.usage.output_tokens ?? acc.tokensOut
+        }
+      } else if (provider === "openai") {
+        if (d.model) acc.model = d.model
+        if (d.usage) {
+          acc.tokensIn = d.usage.prompt_tokens ?? acc.tokensIn
+          acc.tokensOut = d.usage.completion_tokens ?? acc.tokensOut
+        }
+      } else if (provider === "gemini") {
+        if (d.modelVersion) acc.model = d.modelVersion
+        if (d.usageMetadata) {
+          acc.tokensIn = d.usageMetadata.promptTokenCount ?? acc.tokensIn
+          acc.tokensOut = d.usageMetadata.candidatesTokenCount ?? acc.tokensOut
+        }
+      }
+    },
+    result: () => acc,
+  }
+}
+
 /** Record metered usage from a proxied call. */
 export async function meterUsage(agentId: string, provider: string, usage: Usage): Promise<number> {
   const cost = costUsd(usage.model, usage.tokensIn, usage.tokensOut)
