@@ -11,10 +11,10 @@ Run:
     python3 examples/gemini_agent.py
 
 Env:
-    SANCTION_API_URL   default https://getsanction.vercel.app/api/v1
+    SANCTION_API_URL   default https://onesanction.com/api/v1
     SANCTION_API_KEY   agent key (pxy_...)         [required]
     GOOGLE_API_KEY     your Gemini key             [required]
-    GEMINI_MODEL       default gemini-2.0-flash
+    GEMINI_MODEL       default gemini-flash-latest
     SANCTION_POLL_TRIES  escalation poll attempts (2s each), default 30
 """
 import json
@@ -23,7 +23,7 @@ import time
 import urllib.error
 import urllib.request
 
-SANCTION_API = os.environ.get("SANCTION_API_URL", "https://getsanction.vercel.app/api/v1")
+SANCTION_API = os.environ.get("SANCTION_API_URL", "https://onesanction.com/api/v1")
 SANCTION_KEY = os.environ.get("SANCTION_API_KEY", "")
 GOOGLE_KEY = os.environ.get("GOOGLE_API_KEY", "")
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")

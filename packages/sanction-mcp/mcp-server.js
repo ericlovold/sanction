@@ -36649,7 +36649,7 @@ var StdioServerTransport = class {
 };
 
 // mcp-server.ts
-var API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.vercel.app/api/v1";
+var API_URL = process.env.SANCTION_API_URL ?? "https://onesanction.com/api/v1";
 var API_KEY = process.env.SANCTION_API_KEY ?? "";
 var WALLET_ID = process.env.SANCTION_WALLET_ID ?? "";
 if (!API_KEY) {
