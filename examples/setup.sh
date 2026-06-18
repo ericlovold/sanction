@@ -6,7 +6,7 @@
 #   python3 examples/gemini_agent.py
 set -euo pipefail
 
-API="${SANCTION_API_URL:-https://getsanction.vercel.app/api/v1}"
+API="${SANCTION_API_URL:-https://onesanction.com/api/v1}"
 EMAIL="${1:-test+$RANDOM@sanction.dev}"
 py(){ python3 -c "import sys,json;print(json.load(sys.stdin)['$1'])"; }
 

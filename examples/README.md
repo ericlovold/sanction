@@ -48,7 +48,7 @@ Send `null` for any field to clear it (inherit the wallet policy again).
 
 | Env | Default | Notes |
 |-----|---------|-------|
-| `SANCTION_API_URL` | `https://getsanction.vercel.app/api/v1` | point at local `npm run dev` if you prefer |
+| `SANCTION_API_URL` | `https://onesanction.com/api/v1` | point at local `npm run dev` if you prefer |
 | `SANCTION_API_KEY` | — | agent key (`pxy_…`), from `setup.sh` |
 | `GOOGLE_API_KEY` | — | your Gemini key |
 | `GEMINI_MODEL` | `gemini-flash-latest` | any generateContent model |
