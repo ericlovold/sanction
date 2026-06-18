@@ -20,7 +20,7 @@
       "environmentVariables": [
         {
           "name": "SANCTION_API_KEY",
-          "description": "Agent API key (pxy_...). Create one at https://getsanction.vercel.app or via POST /api/v1/wallets then POST /api/v1/agents.",
+          "description": "Agent API key (pxy_...). Create one at https://onesanction.com or via POST /api/v1/wallets then POST /api/v1/agents.",
           "isRequired": true,
           "isSecret": true
         },
@@ -33,7 +33,7 @@
           "name": "SANCTION_API_URL",
           "description": "Sanction API base URL.",
           "isRequired": false,
-          "default": "https://getsanction.vercel.app/api/v1"
+          "default": "https://onesanction.com/api/v1"
         }
       ]
     }
