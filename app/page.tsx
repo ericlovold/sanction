@@ -60,7 +60,7 @@ const tiers = [
       "SLA & dedicated support",
     ],
     cta: "Contact us",
-    href: "mailto:ericlovold@gmail.com?subject=Sanction%20Enterprise",
+    href: "mailto:hello@onesanction.com?subject=Sanction%20Enterprise",
     highlight: false,
   },
 ]
