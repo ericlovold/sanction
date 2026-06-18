@@ -1,0 +1,108 @@
+import { db } from "./db"
+
+// LLM gateway: agents point their provider client at /api/gateway/<provider>/…
+// and authenticate with their Sanction agent key (x-sanction-key header). We
+// forward the request to the real provider, read token usage off the response,
+// and meter it — no per-call instrumentation by the agent.
+
+type Usage = { model: string; tokensIn: number; tokensOut: number }
+
+export const GATEWAY_PROVIDERS: Record<
+  string,
+  { baseUrl: string; extract: (body: unknown, path: string) => Usage | null }
+> = {
+  anthropic: {
+    baseUrl: "https://api.anthropic.com",
+    extract: (body) => {
+      const b = body as { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
+      if (!b?.usage) return null
+      return { model: b.model ?? "claude", tokensIn: b.usage.input_tokens ?? 0, tokensOut: b.usage.output_tokens ?? 0 }
+    },
+  },
+  openai: {
+    baseUrl: "https://api.openai.com",
+    extract: (body) => {
+      const b = body as { model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number } }
+      if (!b?.usage) return null
+      return { model: b.model ?? "gpt", tokensIn: b.usage.prompt_tokens ?? 0, tokensOut: b.usage.completion_tokens ?? 0 }
+    },
+  },
+  gemini: {
+    baseUrl: "https://generativelanguage.googleapis.com",
+    extract: (body, path) => {
+      const b = body as { modelVersion?: string; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }
+      if (!b?.usageMetadata) return null
+      const model = b.modelVersion ?? path.match(/models\/([^:/]+)/)?.[1] ?? "gemini"
+      return { model, tokensIn: b.usageMetadata.promptTokenCount ?? 0, tokensOut: b.usageMetadata.candidatesTokenCount ?? 0 }
+    },
+  },
+}
+
+// Approximate USD per 1M tokens [input, output]. Longest prefix match wins.
+// These are estimates for cost tracking; tune as provider pricing changes.
+const PRICING: Array<[string, number, number]> = [
+  ["claude-opus", 15, 75],
+  ["claude-sonnet", 3, 15],
+  ["claude-haiku", 1, 5],
+  ["gpt-4o-mini", 0.15, 0.6],
+  ["gpt-4o", 2.5, 10],
+  ["gpt-4.1", 2, 8],
+  ["o1", 15, 60],
+  ["gemini-2.5-pro", 1.25, 10],
+  ["gemini-3-pro", 2, 12],
+  ["gemini-pro", 1.25, 5],
+  ["gemini-flash-lite", 0.0375, 0.15],
+  ["gemini-flash", 0.075, 0.3],
+  ["gemini", 0.075, 0.3],
+]
+
+export function costUsd(model: string, tokensIn: number, tokensOut: number): number {
+  const m = model.toLowerCase()
+  const hit = PRICING.filter(([k]) => m.includes(k)).sort((a, b) => b[0].length - a[0].length)[0]
+  if (!hit) return 0
+  return Number((((tokensIn * hit[1]) + (tokensOut * hit[2])) / 1e6).toFixed(6))
+}
+
+export function dayStart(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+type GatewayAgent = {
+  id: string
+  isActive: boolean
+  dailyTokenBudgetUsd: number | null
+  wallet: { policy: { dailyTokenBudgetUsd: number } | null }
+}
+
+/** Effective daily token budget in dollars, or null if no policy (no enforcement). */
+export function tokenBudgetUsd(agent: GatewayAgent): number | null {
+  const cents = agent.dailyTokenBudgetUsd ?? agent.wallet.policy?.dailyTokenBudgetUsd
+  return cents == null ? null : cents / 100
+}
+
+/** True if the agent has already spent its daily token budget. */
+export async function isBudgetExhausted(agent: GatewayAgent): Promise<{ exhausted: boolean; spent: number; budget: number | null }> {
+  const budget = tokenBudgetUsd(agent)
+  if (budget == null) return { exhausted: false, spent: 0, budget: null }
+  const agg = await db.tokenLog.aggregate({ where: { agentId: agent.id, createdAt: { gte: dayStart() } }, _sum: { costUsd: true } })
+  const spent = agg._sum.costUsd ?? 0
+  return { exhausted: spent >= budget, spent, budget }
+}
+
+/** Record metered usage from a proxied call. */
+export async function meterUsage(agentId: string, provider: string, usage: Usage): Promise<number> {
+  const cost = costUsd(usage.model, usage.tokensIn, usage.tokensOut)
+  await db.tokenLog.create({
+    data: {
+      agentId,
+      model: usage.model,
+      tokensIn: usage.tokensIn,
+      tokensOut: usage.tokensOut,
+      costUsd: cost,
+      taskLabel: `gateway:${provider}`,
+    },
+  })
+  return cost
+}
