@@ -75,15 +75,18 @@ describe("execution JWT", () => {
   const claims = { wallet: "w1", agent: "a1", clearance: 3, scope: ["openai"], budget_usd: 5 }
 
   it("issues and verifies, preserving claims + jti", async () => {
-    const jwt = await issueExecutionJWT(claims)
+    const { jwt, jti } = await issueExecutionJWT(claims)
     const v = await verifyExecutionJWT(jwt)
     expect(v.wallet).toBe("w1")
     expect(v.scope).toEqual(["openai"])
     expect(v.jti).toMatch(/^[0-9a-f]{32}$/)
+    // Regression: the returned jti (used as the execution-token row id) MUST
+    // equal the jti signed into the JWT, or inject() can never find the token.
+    expect(v.jti).toBe(jti)
   })
 
   it("rejects a tampered token", async () => {
-    const jwt = await issueExecutionJWT(claims)
+    const { jwt } = await issueExecutionJWT(claims)
     const tampered = jwt.slice(0, -2) + (jwt.endsWith("a") ? "bb" : "aa")
     await expect(verifyExecutionJWT(tampered)).rejects.toThrow()
   })
