@@ -55,6 +55,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Credential has expired" }, { status: 410 })
   }
 
+  // Enforce clearance: the execution token's clearance must meet the credential's
+  // minimum. Fail closed — a lower-cleared agent never sees the secret.
+  if ((claims.clearance ?? 1) < credential.minClearance) {
+    return NextResponse.json(
+      { error: `Insufficient clearance: credential requires level ${credential.minClearance}` },
+      { status: 403 },
+    )
+  }
+
   // Audit the injection
   await db.credentialInjection.create({
     data: { executionTokenId: execToken.id, credentialId: credential.id },

@@ -19,6 +19,7 @@ const patchSchema = z.object({
   daily_spend_budget_usd: budget,
   per_transaction_max_usd: budget,
   escalate_over_usd: budget,
+  clearance: z.number().int().min(1).max(5).optional(),
 })
 
 // Register a new agent and return its API key (shown once).
@@ -96,9 +97,21 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await db.agent.update({ where: { id: agent_id }, data })
 
+  // Clearance lives in its own row; upsert it when provided.
+  let clearance: number | undefined
+  if (overrides.clearance !== undefined) {
+    const c = await db.agentClearance.upsert({
+      where: { agentId: agent_id },
+      update: { level: overrides.clearance },
+      create: { walletId: wallet_id, agentId: agent_id, level: overrides.clearance },
+    })
+    clearance = c.level
+  }
+
   return NextResponse.json({
     id: updated.id,
     name: updated.name,
+    clearance,
     overrides: {
       daily_token_budget_usd: updated.dailyTokenBudgetUsd === null ? null : updated.dailyTokenBudgetUsd / 100,
       daily_spend_budget_usd: updated.dailySpendBudgetUsd === null ? null : updated.dailySpendBudgetUsd / 100,

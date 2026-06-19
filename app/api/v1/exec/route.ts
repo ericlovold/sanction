@@ -37,11 +37,14 @@ export async function POST(req: NextRequest) {
 
   const denied = scope.filter(
     (s) => !credentials.find(
-      (c) => c.label === s && (c.allowedAgentIds.length === 0 || c.allowedAgentIds.includes(agent.id))
+      (c) =>
+        c.label === s &&
+        (c.allowedAgentIds.length === 0 || c.allowedAgentIds.includes(agent.id)) &&
+        clearanceLevel >= c.minClearance
     )
   )
   if (denied.length > 0) {
-    return NextResponse.json({ error: "Agent not authorized for credentials", denied }, { status: 403 })
+    return NextResponse.json({ error: "Agent not authorized for credentials (check allow-list and clearance)", denied }, { status: 403 })
   }
 
   const expiresAt = new Date(Date.now() + ttl_seconds * 1000)

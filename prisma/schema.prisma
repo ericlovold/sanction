@@ -110,6 +110,7 @@ model CredentialVault {
   encryptedValue String
   allowedAgentIds String[] @default([]) // empty = all agents in wallet
   scopes        String[]  @default([])  // what this credential grants
+  minClearance  Int       @default(1)   // 1-5; agent clearance must be >= this to access
   expiresAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
