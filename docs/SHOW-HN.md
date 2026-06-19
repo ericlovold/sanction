@@ -66,5 +66,6 @@ Stack: Next.js + Prisma/Postgres on Vercel; the MCP server is a zero-dep stdio b
 - **Credentials:** AES-256-GCM at rest, injected only via a scoped JWT with a 15-min TTL;
   every injection is audit-logged, raw values never are.
 
-Known gaps: no SSO yet, single-region, and the agent learns escalation outcomes by polling
-(push/webhooks are next). Happy to go deeper on any of it.
+When a charge escalates, the owner gets a signed webhook (wire it to Slack/PagerDuty);
+the agent polls for the outcome. Known gaps: no SSO yet, single-region. Happy to go
+deeper on any of it.
