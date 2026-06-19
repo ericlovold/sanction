@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION } from "@/lib/decisions"
+import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -81,6 +83,23 @@ export async function POST(req: NextRequest) {
 
       return tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" } })
     })
+
+    // Notify the owner (best-effort, after the response) when a human is needed
+    // or a budget tripped — the make-or-break human-in-the-loop moment.
+    if (result.status === "escalated") {
+      after(() =>
+        deliverEvent(agent.walletId, "escalation.created", {
+          request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
+        }),
+      )
+    } else if (result.status === "denied" && result.decisionNote === "Daily spend budget exceeded") {
+      after(() =>
+        deliverEvent(agent.walletId, "budget.exhausted", {
+          agent: agent.name, scope: "daily_spend", amount_usd, merchant, category,
+        }),
+      )
+    }
+
     return NextResponse.json(decisionResponse(result, agent.name), { status: statusCode(result.status) })
   } catch (e: unknown) {
     // Unique violation on (agentId, idempotencyKey) => concurrent duplicate; return the winner.

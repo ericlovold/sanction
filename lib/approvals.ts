@@ -1,4 +1,6 @@
+import { after } from "next/server"
 import { db } from "./db"
+import { deliverEvent } from "./webhooks"
 
 // Resolving an escalation = an owner overriding a paused charge to approved or
 // denied. Shared by the REST endpoint (x-mgmt-key) and the dashboard server
@@ -32,6 +34,13 @@ export async function resolveApproval(
     where: { id: requestId },
     data: { status, decidedAt: new Date(), decisionNote },
   })
+
+  after(() =>
+    deliverEvent(walletId, "escalation.resolved", {
+      request_id: updated.id, status: updated.status, decision, agent: reqRow.agent.name,
+      amount_usd: updated.amountUsd, merchant: updated.merchant, note: updated.decisionNote,
+    }),
+  )
 
   return { ok: true as const, request: updated, status: 200 as const }
 }
