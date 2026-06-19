@@ -159,6 +159,7 @@ export const CredentialVaultScalarFieldEnum = {
   encryptedValue: 'encryptedValue',
   allowedAgentIds: 'allowedAgentIds',
   scopes: 'scopes',
+  minClearance: 'minClearance',
   expiresAt: 'expiresAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
