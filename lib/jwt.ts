@@ -15,15 +15,22 @@ export interface SanctionClaims extends JWTPayload {
   budget_usd: number
 }
 
-export async function issueExecutionJWT(claims: Omit<SanctionClaims, "iss" | "iat">, ttlSeconds = 900): Promise<string> {
+export async function issueExecutionJWT(
+  claims: Omit<SanctionClaims, "iss" | "iat">,
+  ttlSeconds = 900,
+): Promise<{ jwt: string; jti: string }> {
+  // The jti IS the execution-token id. The caller persists a row with this exact
+  // id, and inject() looks the token up by the jti carried in the JWT — they
+  // must be the same value or injection can never find the token.
   const jti = randomBytes(16).toString("hex")
-  return new SignJWT({ ...claims, jti })
+  const jwt = await new SignJWT({ ...claims, jti })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer("sanction")
     .setIssuedAt()
     .setExpirationTime(`${ttlSeconds}s`)
     .setJti(jti)
     .sign(getSigningKey())
+  return { jwt, jti }
 }
 
 export async function verifyExecutionJWT(token: string): Promise<SanctionClaims & { jti: string }> {
