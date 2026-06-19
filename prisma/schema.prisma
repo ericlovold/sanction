@@ -7,6 +7,16 @@ datasource db {
   provider = "postgresql"
 }
 
+// Fixed-window rate-limit counter, keyed by "<bucket>:<ip>". Approximate (good
+// enough to stop mass abuse without Redis); rows reset per window.
+model RateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  windowEnd DateTime
+
+  @@index([windowEnd])
+}
+
 model Wallet {
   id         String   @id @default(cuid())
   name       String
