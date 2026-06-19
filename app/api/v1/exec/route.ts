@@ -3,7 +3,6 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { issueExecutionJWT } from "@/lib/jwt"
-import { randomBytes } from "crypto"
 
 const schema = z.object({
   scope: z.array(z.string()).min(1),   // credential labels this execution needs
@@ -45,10 +44,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Agent not authorized for credentials", denied }, { status: 403 })
   }
 
-  const jti = randomBytes(16).toString("hex")
   const expiresAt = new Date(Date.now() + ttl_seconds * 1000)
 
-  const jwt = await issueExecutionJWT({
+  const { jwt, jti } = await issueExecutionJWT({
     wallet: agent.walletId,
     agent: agent.id,
     clearance: clearanceLevel,
