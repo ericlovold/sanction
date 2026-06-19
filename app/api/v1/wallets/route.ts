@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateManagementKey } from "@/lib/apiKey"
+import { rateLimit, clientIp } from "@/lib/rateLimit"
 
 const schema = z.object({
   name: z.string().min(1).max(64),
@@ -11,6 +12,15 @@ const schema = z.object({
 // Sign-up entry point — intentionally unauthenticated. Returns a management
 // key (shown once) that gates every other management-plane endpoint.
 export async function POST(req: NextRequest) {
+  // Unauthenticated + creates rows: throttle to stop mass wallet spam.
+  const rl = await rateLimit("wallet_create", clientIp(req), 15, 3600)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many wallets created from this IP. Try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 3600) } },
+    )
+  }
+
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) {

@@ -1,9 +1,11 @@
 "use server"
 
 import { z } from "zod"
+import { headers } from "next/headers"
 import { db } from "@/lib/db"
 import { generateManagementKey, generateApiKey } from "@/lib/apiKey"
 import { setSession } from "@/lib/session"
+import { rateLimit, ipFromHeaders } from "@/lib/rateLimit"
 
 const schema = z.object({
   name: z.string().trim().min(1).max(64),
@@ -18,6 +20,9 @@ export type CreateState =
 // first agent, returning both keys once. Same trust model as POST /api/v1/wallets
 // (intentionally unauthenticated entry point) — the keys are the user's to keep.
 export async function createWalletAction(_prev: CreateState, form: FormData): Promise<CreateState> {
+  const rl = await rateLimit("wallet_create", ipFromHeaders(await headers()), 15, 3600)
+  if (!rl.ok) return { ok: false, error: "Too many signups from this network. Try again later." }
+
   const parsed = schema.safeParse({ name: form.get("name"), email: form.get("email") })
   if (!parsed.success) return { ok: false, error: "Enter a workspace name and a valid email." }
 
