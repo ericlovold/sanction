@@ -25,6 +25,23 @@ model Wallet {
   credentials      CredentialVault[]
   clearances       AgentClearance[]
   executionTokens  ExecutionToken[]
+  webhooks         Webhook[]
+}
+
+// Owner-registered HTTP endpoint notified on events (escalations, budget trips).
+// The owner verifies delivery with an HMAC-SHA256 signature over the body.
+model Webhook {
+  id        String   @id @default(cuid())
+  walletId  String
+  url       String
+  secret    String
+  events    String[] @default(["escalation.created"])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
 }
 
 model Agent {

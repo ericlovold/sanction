@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { AccountControl } from "@/components/account-control"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
+import { WebhookSettings } from "@/components/webhook-settings"
 import { listPendingApprovals } from "@/lib/approvals"
 import { getViewWallet } from "@/lib/session"
 
@@ -54,6 +55,12 @@ export default async function ApprovalsPage() {
     include: { agent: { select: { name: true } } },
   })
 
+  const webhooks = await db.webhook.findMany({
+    where: { walletId },
+    select: { id: true, url: true, events: true },
+    orderBy: { createdAt: "desc" },
+  })
+
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
       <div className="flex items-center justify-between gap-4">
@@ -95,6 +102,8 @@ export default async function ApprovalsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <WebhookSettings webhooks={webhooks} editable={view.isSession} />
     </div>
   )
 }
