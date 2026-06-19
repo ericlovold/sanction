@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION } from "@/lib/decisions"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
+import { verifyExecutionJWT } from "@/lib/jwt"
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -50,6 +51,23 @@ export async function POST(req: NextRequest) {
   const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
   const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
 
+  // Optional execution context: if the agent presents its exec JWT, this call is
+  // additionally capped by that execution's hard budget (enforced in the lock).
+  let execTokenId: string | null = null
+  const authz = req.headers.get("authorization")
+  if (authz?.startsWith("Bearer ")) {
+    let claims
+    try {
+      claims = await verifyExecutionJWT(authz.slice(7))
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired execution token" }, { status: 401 })
+    }
+    if (claims.agent !== agent.id || claims.wallet !== agent.walletId) {
+      return NextResponse.json({ error: "Execution token does not belong to this agent" }, { status: 403 })
+    }
+    execTokenId = claims.jti
+  }
+
   // Stateless gates (no budget state involved)
   if (policy.blockedCategories.includes(category)) {
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
@@ -77,11 +95,27 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
       }
 
+      // Execution-scoped hard cap (re-read under the lock for atomicity).
+      if (execTokenId) {
+        const et = await tx.executionToken.findUnique({ where: { id: execTokenId } })
+        if (!et || et.status !== "active" || et.expiresAt < new Date()) {
+          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Execution token expired or revoked" } })
+        }
+        if (Math.round((et.spentUsd + amount_usd) * 100) > Math.round(et.budgetUsd * 100)) {
+          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Execution budget exceeded" } })
+        }
+      }
+
       if (amountCents > escalateOver) {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 
-      return tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" } })
+      const approved = await tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" } })
+      // Debit the execution budget only on actual (auto-)approval.
+      if (execTokenId) {
+        await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })
+      }
+      return approved
     })
 
     // Notify the owner (best-effort, after the response) when a human is needed
