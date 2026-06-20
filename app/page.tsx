@@ -75,12 +75,13 @@ const authorizeSnippet = `curl -X POST https://onesanction.com/api/v1/authorize 
   -H "x-api-key: pxy_••••" \\
   -H "content-type: application/json" \\
   -d '{
+    "action": "purchase",
     "merchant": "openai",
     "amount_usd": 12.50,
     "category": "services"
   }'
 
-# → { "decision": "approved", "remaining_daily_usd": 37.50 }`
+# → { "authorized": true, "status": "approved", "request_id": "req_…" }`
 
 const steps = [
   {

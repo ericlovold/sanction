@@ -101,13 +101,17 @@ A fresh wallet ships with this **default policy** (all USD):
 
 | Variable | Default | Enforced in `/authorize`? |
 |---|---|---|
-| `perTransactionMaxUsd` | $50 | ✅ deny over |
+| `perTransactionMaxUsd` | $50 | ✅ deny over (hard cap) |
 | `dailySpendBudgetUsd` | $50 | ✅ deny when day total would exceed |
-| `escalateOverUsd` | $100 | ⚠️ escalate over (see B5) |
-| `autoApproveUnderUsd` | $25 | ❓ verify whether this is honored |
+| `escalateOverUsd` | $25 | ✅ escalate over (reachable: $25 < $50 per-txn — see B5) |
+| `autoApproveUnderUsd` | $10 | ✅ at/under → approved silently |
 | `dailyTokenBudgetUsd` | $10 | ✅ enforced in `/tokens` |
-| `blockedCategories` | gambling, adult, crypto | ✅ hard deny |
-| `allowedCategories` | software, services, research, infrastructure | ❓ verify whether non-allowed is rejected |
+| `blockedCategories` | gambling, adult, crypto | ✅ hard deny (`CATEGORY_BLOCKED`) |
+| `allowedCategories` | software, services, research, infrastructure | ✅ deny when set & category not listed (`CATEGORY_NOT_ALLOWED`) |
+
+The decision ladder (within budget): `≤ $10` approved silently · `$10–$25` approved ·
+`$25–$50` **escalated** · `> $50` denied (`PER_TXN_LIMIT`). Categories: blocked → deny;
+allow-list set and category not on it → deny.
 
 Run each case with the agent key. Record `status`, `authorized`, `code`, HTTP code.
 
@@ -132,20 +136,29 @@ curl -s -X POST "$SANCTION_API/authorize" -H "x-api-key: $AGENT_KEY" -H "content
 ```
 **Expected:** `403`, `code:"CATEGORY_BLOCKED"`.
 
+### B3b. Deny — category not on the allow-list
+A category that is neither blocked nor in `allowedCategories` (which defaults to
+software/services/research/infrastructure):
+```bash
+curl -s -X POST "$SANCTION_API/authorize" -H "x-api-key: $AGENT_KEY" -H "content-type: application/json" \
+  -d '{"action":"purchase","amount_usd":5,"merchant":"SomeVendor","category":"consulting"}' -w "\nHTTP %{http_code}\n"
+```
+**Expected:** `403`, `code:"CATEGORY_NOT_ALLOWED"`. (Empty allow-list = allow all categories.)
+
 ### B4. Deny — daily budget exhausted
 Approve repeatedly under the per-txn cap until the **day total** would cross $50
 (e.g. five $12 charges, then one more).
 **Expected:** first calls `approved`; the one that crosses $50 → `403`, `code:"DAILY_BUDGET_EXCEEDED"`.
 
-### B5. Escalation — does it ever trigger?
-Try to force an escalation (amount above `escalateOverUsd` $100):
+### B5. Escalation — does it trigger?
+Send an amount in the escalation band (`escalateOverUsd` $25 < amount ≤ `perTransactionMaxUsd` $50):
 ```bash
 curl -s -X POST "$SANCTION_API/authorize" -H "x-api-key: $AGENT_KEY" -H "content-type: application/json" \
-  -d '{"action":"purchase","amount_usd":150,"merchant":"Bigco","category":"services"}' -w "\nHTTP %{http_code}\n"
+  -d '{"action":"purchase","amount_usd":30,"merchant":"Bigco","category":"services"}' -w "\nHTTP %{http_code}\n"
 ```
-**Report exactly what happens.** (Note: per-transaction max is $50 by default, so $150 may be
-denied as `PER_TXN_LIMIT` *before* it can escalate. Tell us whether you could ever reach
-`status:"escalated"` with the default policy. This is a key finding.)
+**Expected:** `200`, `status:"escalated"`, `code:"ESCALATION_REQUIRED"` — the request pauses for
+a human (resolve it in B8). A larger amount (e.g. $150) is denied as `PER_TXN_LIMIT` because it
+exceeds the $50 hard cap before it can escalate. Confirm both: $30 escalates, $150 denies.
 
 ### B6. Idempotency
 Repeat B1 twice with the same `Idempotency-Key: test-123` header.
@@ -291,4 +304,5 @@ TOP 3 THINGS TO FIX:
 | POST | `/exec` / `/exec/revoke` | Bearer | Use / revoke a 15-min execution token |
 
 **Decision codes:** `ESCALATION_REQUIRED`, `NO_POLICY`, `CATEGORY_BLOCKED`,
-`PER_TXN_LIMIT`, `DAILY_BUDGET_EXCEEDED`, `POLICY_DENIED`. Approvals return no code.
+`CATEGORY_NOT_ALLOWED`, `PER_TXN_LIMIT`, `DAILY_BUDGET_EXCEEDED`, `POLICY_DENIED`.
+Approvals return no code.

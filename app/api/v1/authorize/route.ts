@@ -52,6 +52,10 @@ export async function POST(req: NextRequest) {
   if (policy.blockedCategories.includes(category)) {
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
   }
+  // Allow-list: when set (non-empty), only listed categories may spend. Empty = allow all.
+  if (policy.allowedCategories.length > 0 && !policy.allowedCategories.includes(category)) {
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is not in the allow-list` }, agent.name)
+  }
   if (amountCents > perTxnMax) {
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${perTxnMax / 100}` }, agent.name)
   }
@@ -73,6 +77,11 @@ export async function POST(req: NextRequest) {
       const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
       if (dailyTotalCents > dailySpendBudget) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
+      }
+
+      // Silent auto-approve floor: at or under this, never escalate (autoApprove is policy-level, not overridable per agent).
+      if (amountCents <= policy.autoApproveUnderUsd) {
+        return tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved (under auto-approve floor)" } })
       }
 
       if (amountCents > escalateOver) {
