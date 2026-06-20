@@ -82,15 +82,26 @@ model Policy {
   id       String @id @default(cuid())
   walletId String @unique
 
-  // All values in cents
+  // All values in cents. The spend ladder (enforced in /authorize) reads:
+  //   amount <= autoApproveUnderUsd            -> approved (silent)
+  //   autoApproveUnderUsd < amount <= escalateOverUsd -> approved
+  //   escalateOverUsd < amount <= perTransactionMaxUsd -> escalated (human)
+  //   amount > perTransactionMaxUsd            -> denied (hard cap)
+  // For escalation to be reachable, keep escalateOverUsd < perTransactionMaxUsd.
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
-  perTransactionMaxUsd Int @default(5000)  // $50
-  autoApproveUnderUsd  Int @default(2500)  // $25
-  escalateOverUsd      Int @default(10000) // $100
+  perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
+  autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor
+  escalateOverUsd      Int @default(2500)  // $25  — escalate above this (must be < perTransactionMaxUsd)
 
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])
+
+  // Escalation deadlock guard (UX-2): an escalated request that no human resolves
+  // within escalationTimeoutMins is settled to the fallback terminal state on the
+  // next read. 0 = wait indefinitely. Default action is fail-closed (deny).
+  escalationTimeoutMins   Int    @default(60)
+  escalationTimeoutAction String @default("deny") // deny | approve
 
   updatedAt DateTime @updatedAt
   wallet    Wallet   @relation(fields: [walletId], references: [id])
