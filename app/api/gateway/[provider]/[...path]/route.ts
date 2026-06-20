@@ -124,5 +124,11 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   return passthroughResponse(upstream, upstream.body)
 }
 
-export const POST = handle
-export const GET = handle
+// Next detects route methods by static named-export analysis; declaring them as
+// functions (not `export const POST = handle`) is required for the route to register.
+export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: string; path?: string[] }> }) {
+  return handle(req, ctx)
+}
+export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: string; path?: string[] }> }) {
+  return handle(req, ctx)
+}
