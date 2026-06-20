@@ -108,6 +108,8 @@ A fresh wallet ships with this **default policy** (all USD):
 | `dailyTokenBudgetUsd` | $10 | ✅ enforced in `/tokens` |
 | `blockedCategories` | gambling, adult, crypto | ✅ hard deny (`CATEGORY_BLOCKED`) |
 | `allowedCategories` | software, services, research, infrastructure | ✅ deny when set & category not listed (`CATEGORY_NOT_ALLOWED`) |
+| `escalationTimeoutMins` | 60 | ✅ unresolved escalation auto-settles on next read (UX-2) |
+| `escalationTimeoutAction` | deny | ✅ fail-closed fallback when an escalation times out |
 
 The decision ladder (within budget): `≤ $10` approved silently · `$10–$25` approved ·
 `$25–$50` **escalated** · `> $50` denied (`PER_TXN_LIMIT`). Categories: blocked → deny;
@@ -181,6 +183,18 @@ Once a charge is `escalated` (see B5 / set `escalate_over_usd` below `per_transa
 
 **Expected:** the agent can poll a stable result; the owner sees the queue; resolving flips the
 status once (a second resolve returns `409`).
+
+### B8b. Escalation timeout — the agent never deadlocks
+An escalation that no human resolves within `escalationTimeoutMins` settles to the fallback
+(`escalationTimeoutAction`, default `deny`) on the next read — so a polling agent always reaches
+a terminal state. To test fast without waiting an hour, set the timeout to 1 minute:
+```bash
+curl -s -X PATCH "$SANCTION_API/wallets/policy" -H "x-mgmt-key: $MGMT_KEY" -H "content-type: application/json" \
+  -d "{\"wallet_id\":\"$WALLET_ID\",\"escalation_timeout_mins\":1}"
+```
+Force an escalation (B5), wait ~70s, then `GET /authorize/<request_id>`.
+**Expected:** `status:"denied"`, `code:"ESCALATION_TIMED_OUT"`, with a `reason` noting the timeout.
+Set `escalation_timeout_action:"approve"` to make the fallback approve instead (optimistic mode).
 
 **B — Report (incl. UX/UI):**
 - Did real money-stops fire exactly at the thresholds? Any off-by-one or race?
@@ -303,6 +317,6 @@ TOP 3 THINGS TO FIX:
 | POST | `/credentials/inject` | `x-api-key` | Get a scoped exec token for a credential |
 | POST | `/exec` / `/exec/revoke` | Bearer | Use / revoke a 15-min execution token |
 
-**Decision codes:** `ESCALATION_REQUIRED`, `NO_POLICY`, `CATEGORY_BLOCKED`,
-`CATEGORY_NOT_ALLOWED`, `PER_TXN_LIMIT`, `DAILY_BUDGET_EXCEEDED`, `POLICY_DENIED`.
-Approvals return no code.
+**Decision codes:** `ESCALATION_REQUIRED`, `ESCALATION_TIMED_OUT`, `NO_POLICY`,
+`CATEGORY_BLOCKED`, `CATEGORY_NOT_ALLOWED`, `PER_TXN_LIMIT`, `DAILY_BUDGET_EXCEEDED`,
+`POLICY_DENIED`. Approvals (incl. timeout-approve) return no code.

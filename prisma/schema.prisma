@@ -70,6 +70,12 @@ model Policy {
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])
 
+  // Escalation deadlock guard (UX-2): an escalated request that no human resolves
+  // within escalationTimeoutMins is settled to the fallback terminal state on the
+  // next read. 0 = wait indefinitely. Default action is fail-closed (deny).
+  escalationTimeoutMins   Int    @default(60)
+  escalationTimeoutAction String @default("deny") // deny | approve
+
   updatedAt DateTime @updatedAt
   wallet    Wallet   @relation(fields: [walletId], references: [id])
 }
