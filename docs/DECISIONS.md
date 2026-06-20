@@ -4,6 +4,32 @@
 
 ---
 
+## ADR-0007 ACCEPTED — Spend-ladder semantics + reachable escalation on the default policy
+**Date:** 2026-06-20 · **Status:** Accepted & implemented (branch `claude/sanction-ai-gtm-nhqfzx`)
+**Context:** Two launch-blocking gaps between the marketed model and the `/authorize` engine.
+(1) **Escalation was unreachable on a fresh wallet:** defaults were `perTransactionMaxUsd $50`,
+`escalateOverUsd $100`, and the per-txn cap is checked *before* escalation — so any amount large
+enough to escalate ($100+) was already denied as `PER_TXN_LIMIT`. `status:"escalated"` — the heart
+of the approve/escalate/deny pitch and the public Test Kit (B5) — could never fire out of the box.
+(2) **`autoApproveUnderUsd` and `allowedCategories` were sold but unenforced** — neither was read by
+`/authorize` (only `blockedCategories`, `perTransactionMaxUsd`, `dailySpendBudgetUsd`, `escalateOverUsd`).
+On a governance product, an advertised-but-unenforced control is a trust liability.
+**Decision:** Define one explicit ladder and enforce all of it. Within budget and allowed category:
+`amount ≤ autoApproveUnderUsd` → approved (silent floor) · `≤ escalateOverUsd` → approved ·
+`escalateOverUsd < amount ≤ perTransactionMaxUsd` → escalated · `> perTransactionMaxUsd` → denied.
+Invariant `autoApproveUnder ≤ escalateOver < perTransactionMax`. New defaults: autoApprove **$10**,
+escalateOver **$25** (was $100), per-txn $50 — so escalation fires in the $25–$50 band. Enforce
+`allowedCategories` (non-empty allow-list denies unlisted categories) with a new `CATEGORY_NOT_ALLOWED`
+decision code, distinct from `CATEGORY_BLOCKED`.
+**Implementation:** `app/api/v1/authorize/route.ts` (allow-list gate + auto-approve floor), `lib/decisions.ts`
++ `lib/openapi.ts` (new code), `prisma/schema.prisma` + migration `20260620180000_policy_escalation_defaults`
+(column DEFAULT only — existing Policy rows keep their configured values, no data rewritten). Landing
+`/authorize` snippet corrected to the real request/response shape. Test Kit B5/B3b updated. 17 tests pass.
+**Consequences:** Escalation is demoable on any new wallet; the Test Kit passes as written; advertised
+policy knobs are now truthful. Live wallets (incl. AIIA) are unaffected — defaults apply only to new
+Policy rows, and data-plane behavior for already-configured policies is unchanged except that an
+allow-list, *if set*, now actually denies unlisted categories (previously a silent no-op).
+
 ## ADR-0006 ACCEPTED — Adopt the agent-team planning docs as canonical; consolidate to `docs/`
 **Date:** 2026-06-15 · **Status:** Accepted
 **Context:** The agent team supplied richer, market-aware `SIGNALS.md` / `BACKLOG.md` / `ROADMAP.md` (cleaner ID scheme: `SEC-/UX-/DIST-/FUND-/POS-/SIG-`; RICE + Gate model; signals my first-pass missed — MCP Registry, Connectors Directory, AgentCore, AP2/x402, prompt-injection moat, custody question). My first-pass used `S-/N-/L-/F-` ids and lived partly at repo root.

@@ -66,6 +66,26 @@
 | FUND-1 | Resolve funding/custody model + ship simulation mode | 10 | 3 | 0.6 | 4 | 4.5 | ✅* | *Decision-gated. **Current state resolved: no custody** (stripe unused). Decision = stay control-plane vs. add rails → ADR-0005. Gates GA. |
 | POS-1 | AP2 Intent-Mandate issuer + x402 facilitator | 6 | 2.5 | 0.5 | 5 | 1.5 | | The category position AP2 left open (SIG-1/2). Depends on FUND-1. |
 
+## GTM launch round (added 2026-06-20, `claude/sanction-ai-gtm-nhqfzx`)
+> Surfaced while prepping the budget-firewall launch (`docs/GTM.md`). The first two were
+> launch-blocking correctness gaps — the demo and the public Test Kit couldn't pass as written.
+
+| ID | Item | R | I | C | E | RICE | Gate | Code status / notes |
+|----|------|---|---|---|---|------|------|---------------------|
+| GTM-1 | **Reachable escalation on default policy** (ladder `autoApprove ≤ escalateOver < perTxnMax`; new defaults $10/$25/$50) | 10 | 3 | 1.0 | 0.3 | 100.0 | ✅ | **✅ SHIPPED.** Was unreachable (escalate $100 > per-txn $50, per-txn checked first). ADR-0007 + migration `20260620180000`. |
+| GTM-2 | **Enforce advertised policy knobs** — wire `allowedCategories` (`CATEGORY_NOT_ALLOWED`) + honor `autoApproveUnderUsd` | 9 | 2 | 1.0 | 0.5 | 36.0 | ✅ | **✅ SHIPPED.** Both were sold but unread by `/authorize`. New code in `lib/decisions.ts`/`openapi.ts`; landing snippet corrected to real shape. |
+
+**Dev-workflow wedges (from GTM §6 — not yet built, ranked for the "into dev workflows" push):**
+
+| ID | Item | R | I | C | E | RICE | Gate | Notes |
+|----|------|---|---|---|---|------|------|-------|
+| GTM-3 | `sanction.yaml` **policy-as-code** in the repo (budgets/categories/clearance, reviewed in PRs) | 8 | 3 | 0.7 | 3 | 5.6 | | Highest-conviction wedge: makes Sanction a file devs own, not a SaaS they log into. |
+| GTM-4 | **Sanction GitHub Action / CI gate** — authorize agent spend, post approve/deny as a PR check | 7 | 2.5 | 0.6 | 3 | 3.5 | | Targets coding agents (Claude Code, Devin, Cursor bg) provisioning paid infra in CI. |
+| GTM-5 | `npx sanction run -- <cmd>` **CLI wrapper** — meter/gate any agent subprocess, zero code change | 7 | 2 | 0.6 | 2 | 4.2 | | Lowest-friction adoption path. |
+| GTM-6 | **Framework middleware** (Vercel AI SDK, LangGraph/CrewAI/Mastra/Pydantic-AI `authorize()` hooks) | 7 | 2 | 0.7 | 3 | 3.3 | | Distribution rides the frameworks; one small package each. |
+| GTM-7 | **Dogfood Claude Code + film it** — give a coding agent a $20 budget via the Sanction MCP | 6 | 2 | 0.9 | 0.5 | 21.6 | | Free this week; the demo *and* the LinkedIn post. Pairs with `DIST-4`. |
+| GTM-8 | **"Agent Spend Incidents" tracker** — public list of runaway-agent bill stories | 5 | 1.5 | 0.7 | 2 | 2.6 | | Category-defining SEO + reason-to-believe content engine. |
+
 ## Top of the list by RICE (non-gated, do-these-for-leverage)
 1. **DIST-1** (48.6) — MCP manifest + tool descriptions.
 2. **SEC-2** (24.0) — GCM nonce/AAD (also a gate; nonce half-done).

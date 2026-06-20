@@ -10,6 +10,7 @@ export type DecisionCode =
   | "ESCALATION_REQUIRED"
   | "NO_POLICY"
   | "CATEGORY_BLOCKED"
+  | "CATEGORY_NOT_ALLOWED"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
   | "POLICY_DENIED"
@@ -21,6 +22,8 @@ export const REMEDIATION: Record<DecisionCode, string> = {
     "No spend policy is configured for this wallet. The owner must create one before purchases can be authorized.",
   CATEGORY_BLOCKED:
     "This category is on the wallet's blocked list. Use an allowed category or ask the owner to unblock it.",
+  CATEGORY_NOT_ALLOWED:
+    "This category is not on the wallet's allow-list. Use an allowed category or ask the owner to add it.",
   PER_TXN_LIMIT:
     "Amount exceeds the per-transaction limit. Split into smaller charges or ask the owner to raise the limit.",
   DAILY_BUDGET_EXCEEDED:
@@ -35,6 +38,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   // denied
   if (!note) return "POLICY_DENIED"
   if (note === "No policy configured") return "NO_POLICY"
+  if (note.includes("not in the allow-list")) return "CATEGORY_NOT_ALLOWED"
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"
   if (note.startsWith("Exceeds per-transaction")) return "PER_TXN_LIMIT"
   if (note === "Daily spend budget exceeded") return "DAILY_BUDGET_EXCEEDED"
