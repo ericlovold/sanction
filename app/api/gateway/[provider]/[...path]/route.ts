@@ -35,16 +35,19 @@ function passthroughResponse(upstream: Response, body: BodyInit | null): Respons
   upstream.headers.forEach((v, k) => {
     if (!STRIP_RES.has(k.toLowerCase())) h.set(k, v)
   })
+  // Proxied LLM responses are per-request and must never be cached at the edge.
+  h.set("cache-control", "no-store")
   return new Response(body, { status: upstream.status, headers: h })
 }
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ provider: string; path?: string[] }> }) {
   const { provider, path = [] } = await ctx.params
+  const noStore = { "cache-control": "no-store" }
   const cfg = GATEWAY_PROVIDERS[provider]
-  if (!cfg) return NextResponse.json({ error: `Unknown gateway provider '${provider}'` }, { status: 404 })
+  if (!cfg) return NextResponse.json({ error: `Unknown gateway provider '${provider}'` }, { status: 404, headers: noStore })
 
   const agent = await authAgent(req)
-  if (!agent) return NextResponse.json({ error: "Missing or invalid x-sanction-key" }, { status: 401 })
+  if (!agent) return NextResponse.json({ error: "Missing or invalid x-sanction-key" }, { status: 401, headers: noStore })
 
   // Enforce the daily token budget before the call: if exhausted, don't spend.
   const { exhausted, spent, budget } = await isBudgetExhausted(agent)
