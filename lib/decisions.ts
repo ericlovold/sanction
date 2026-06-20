@@ -8,6 +8,7 @@
 
 export type DecisionCode =
   | "ESCALATION_REQUIRED"
+  | "ESCALATION_TIMED_OUT"
   | "NO_POLICY"
   | "CATEGORY_BLOCKED"
   | "CATEGORY_NOT_ALLOWED"
@@ -18,6 +19,8 @@ export type DecisionCode =
 export const REMEDIATION: Record<DecisionCode, string> = {
   ESCALATION_REQUIRED:
     "Over the auto-approve threshold; a human must approve. Poll request_id for status, or wait for the escalation to resolve.",
+  ESCALATION_TIMED_OUT:
+    "The escalation passed its approval deadline and was auto-resolved by policy. Treat as denied; ask the owner to approve manually or raise the limit.",
   NO_POLICY:
     "No spend policy is configured for this wallet. The owner must create one before purchases can be authorized.",
   CATEGORY_BLOCKED:
@@ -37,6 +40,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (status === "escalated") return "ESCALATION_REQUIRED"
   // denied
   if (!note) return "POLICY_DENIED"
+  if (note.startsWith("Escalation timed out")) return "ESCALATION_TIMED_OUT"
   if (note === "No policy configured") return "NO_POLICY"
   if (note.includes("not in the allow-list")) return "CATEGORY_NOT_ALLOWED"
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"

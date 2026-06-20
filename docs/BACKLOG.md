@@ -44,7 +44,7 @@
 | ID | Item | R | I | C | E | RICE | Gate | Notes |
 |----|------|---|---|---|---|------|------|-------|
 | UX-1 | Typed, remediable DENY responses (reason + remediation hint) | 9 | 2 | 0.8 | 1 | 14.4 | | **✅ SHIPPED PR #1.** `/authorize` now returns stable `code` (`BUDGET_EXCEEDED`-class) + `remediation`, additive to `reason`/`status` (AIIA-safe). Codes derived purely from persisted decision → stable on replay; unit-tested. |
-| UX-2 | First-class ESCALATE/`pending` state + mandatory timeout fallback | 8 | 3 | 0.7 | 3 | 5.6 | | #1 reliability risk: escalation deadlock. Confirmed: no resolution path exists today. |
+| UX-2 | First-class ESCALATE/`pending` state + mandatory timeout fallback | 8 | 3 | 0.7 | 3 | 5.6 | | **✅ SHIPPED (timeout fallback).** `escalationTimeoutMins`/`Action` (fail-closed) settle unresolved escalations on read; `ESCALATION_TIMED_OUT` code. ADR-0008. Remaining: dashboard form controls. |
 | UX-3 | Policy templates + plain-English clearance ladder (safest default) | 7 | 2 | 0.8 | 2 | 5.6 | | Confirmed: no policy-management API; defaults only. Replaces the blank-form cliff. |
 | UX-6 | First-run live dry-run authorize (activation aha) | 7 | 2 | 0.7 | 2 | 4.9 | | "We simulated a $5 charge — here's the audit row." |
 | UX-4 | One-glance mobile approvals (Approve/Deny/"Always allow under $X") | 6 | 2 | 0.7 | 3 | 2.8 | | Graduates an escalation into a rule. |

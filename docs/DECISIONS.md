@@ -4,6 +4,25 @@
 
 ---
 
+## ADR-0008 ACCEPTED — Escalation timeout: no agent deadlocks on an unresolved escalation
+**Date:** 2026-06-20 · **Status:** Accepted & implemented (branch `claude/sanction-ai-gtm-nhqfzx`)
+**Context:** ADR-0007 made `status:"escalated"` reachable. That exposed the #1 reliability risk
+(BACKLOG `UX-2`): an escalated request has no resolution path if the owner never acts, so a
+polling agent waits forever — a hung agent, possibly mid-task with a held budget.
+**Decision:** Add two policy knobs — `escalationTimeoutMins` (default 60; 0 = wait indefinitely)
+and `escalationTimeoutAction` (`deny` | `approve`, default **deny** = fail-closed). An escalation
+past its deadline is settled to the fallback terminal state **lazily, on the next read** (no cron —
+serverless-friendly), via a guarded `updateMany (where status='escalated')` that races safely
+against a concurrent owner decision; the loser returns the authoritative row. Surfaced on the agent
+poll path (`GET /authorize/{id}`) and the owner queue (`listPendingApprovals` settles-then-drops).
+New typed code `ESCALATION_TIMED_OUT` (a timeout-approve returns no code — it is an approval).
+**Implementation:** `lib/approvals.ts` (`escalationExpired`, `settleIfExpired`), `app/api/v1/authorize/[id]`,
+`lib/decisions.ts` + `lib/openapi.ts`, `lib/policy.ts` (editable via PATCH /wallets/policy), schema +
+migration `20260620190000_escalation_timeout` (columns default-backfilled). Tests in `tests/approvals.test.ts`.
+**Consequences:** The approve/escalate/deny loop is now terminating and production-safe. Dashboard form
+controls for the two knobs are a follow-up (REST/PATCH already accept them). Fail-closed default means a
+silent owner denies the charge; owners who want optimism opt into `approve`.
+
 ## ADR-0007 ACCEPTED — Spend-ladder semantics + reachable escalation on the default policy
 **Date:** 2026-06-20 · **Status:** Accepted & implemented (branch `claude/sanction-ai-gtm-nhqfzx`)
 **Context:** Two launch-blocking gaps between the marketed model and the `/authorize` engine.
