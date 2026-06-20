@@ -30,7 +30,8 @@ ck "register agent" "true" "$([ -n "$AK" ] && echo true || echo false)"
 AID=$(curl -s "$API/agents?wallet_id=$WID" -H "x-mgmt-key: $MGMT" | python3 -c "import sys,json;print(json.load(sys.stdin)['agents'][0]['id'])" 2>/dev/null)
 curl -s -X PATCH "$API/wallets/policy" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" \
   -d "{\"wallet_id\":\"$WID\",\"per_transaction_max_usd\":50,\"escalate_over_usd\":20,\"daily_spend_budget_usd\":500,\"daily_token_budget_usd\":25,\"blocked_categories\":[\"crypto\"]}" >/dev/null
-ck "set policy" "200" "$(code -X PATCH "$API/wallets/policy" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"daily_spend_budget_usd\":500}")"
+setpol(){ code -X PATCH "$API/wallets/policy" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"daily_spend_budget_usd\":500}"; }
+ck "set policy" "200" "$(setpol)"
 
 az(){ curl -s -X POST "$API/authorize" -H "x-api-key: $AK" -H "content-type: application/json" -d "{\"action\":\"purchase\",\"amount_usd\":$1,\"merchant\":\"M\",\"category\":\"$2\"}" | J status; }
 echo "authorize decision engine:"
@@ -70,12 +71,15 @@ azx 6 >/dev/null   # spent 6
 ck "exec cap denies over budget" "EXEC_BUDGET_EXCEEDED" "$(azx 6)"  # 12 > 10
 
 echo "webhooks:"
-ck "register webhook" "201" "$(code -X POST "$API/webhooks" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"url\":\"https://example.com/hook\"}")"
-ck "reject non-https webhook" "400" "$(code -X POST "$API/webhooks" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"url\":\"http://localhost/x\"}")"
+whreg(){ code -X POST "$API/webhooks" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"url\":\"https://example.com/hook\"}"; }
+whbad(){ code -X POST "$API/webhooks" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"url\":\"http://localhost/x\"}"; }
+ck "register webhook" "201" "$(whreg)"
+ck "reject non-https webhook" "400" "$(whbad)"
 
 echo "approvals:"
 PID=$(curl -s "$API/approvals?wallet_id=$WID" -H "x-mgmt-key: $MGMT" | python3 -c "import sys,json;p=json.load(sys.stdin).get('pending',[]);print(p[0]['id'] if p else '')" 2>/dev/null)
-ck "resolve escalation" "approved" "$(curl -s -X POST "$API/approvals" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"request_id\":\"$PID\",\"decision\":\"approve\"}" | J status)"
+resolve(){ curl -s -X POST "$API/approvals" -H "x-mgmt-key: $MGMT" -H "content-type: application/json" -d "{\"wallet_id\":\"$WID\",\"request_id\":\"$PID\",\"decision\":\"approve\"}" | J status; }
+ck "resolve escalation" "approved" "$(resolve)"
 
 echo
 echo "RESULT: $pass passed, $fail failed"
