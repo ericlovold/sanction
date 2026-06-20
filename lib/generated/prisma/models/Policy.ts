@@ -32,6 +32,7 @@ export type PolicyAvgAggregateOutputType = {
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
+  escalationTimeoutMins: number | null
 }
 
 export type PolicySumAggregateOutputType = {
@@ -40,6 +41,7 @@ export type PolicySumAggregateOutputType = {
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
+  escalationTimeoutMins: number | null
 }
 
 export type PolicyMinAggregateOutputType = {
@@ -50,6 +52,8 @@ export type PolicyMinAggregateOutputType = {
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
+  escalationTimeoutMins: number | null
+  escalationTimeoutAction: string | null
   updatedAt: Date | null
 }
 
@@ -61,6 +65,8 @@ export type PolicyMaxAggregateOutputType = {
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
+  escalationTimeoutMins: number | null
+  escalationTimeoutAction: string | null
   updatedAt: Date | null
 }
 
@@ -74,6 +80,8 @@ export type PolicyCountAggregateOutputType = {
   escalateOverUsd: number
   allowedCategories: number
   blockedCategories: number
+  escalationTimeoutMins: number
+  escalationTimeoutAction: number
   updatedAt: number
   _all: number
 }
@@ -85,6 +93,7 @@ export type PolicyAvgAggregateInputType = {
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
+  escalationTimeoutMins?: true
 }
 
 export type PolicySumAggregateInputType = {
@@ -93,6 +102,7 @@ export type PolicySumAggregateInputType = {
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
+  escalationTimeoutMins?: true
 }
 
 export type PolicyMinAggregateInputType = {
@@ -103,6 +113,8 @@ export type PolicyMinAggregateInputType = {
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
+  escalationTimeoutMins?: true
+  escalationTimeoutAction?: true
   updatedAt?: true
 }
 
@@ -114,6 +126,8 @@ export type PolicyMaxAggregateInputType = {
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
+  escalationTimeoutMins?: true
+  escalationTimeoutAction?: true
   updatedAt?: true
 }
 
@@ -127,6 +141,8 @@ export type PolicyCountAggregateInputType = {
   escalateOverUsd?: true
   allowedCategories?: true
   blockedCategories?: true
+  escalationTimeoutMins?: true
+  escalationTimeoutAction?: true
   updatedAt?: true
   _all?: true
 }
@@ -227,6 +243,8 @@ export type PolicyGroupByOutputType = {
   escalateOverUsd: number
   allowedCategories: string[]
   blockedCategories: string[]
+  escalationTimeoutMins: number
+  escalationTimeoutAction: string
   updatedAt: Date
   _count: PolicyCountAggregateOutputType | null
   _avg: PolicyAvgAggregateOutputType | null
@@ -263,6 +281,8 @@ export type PolicyWhereInput = {
   escalateOverUsd?: Prisma.IntFilter<"Policy"> | number
   allowedCategories?: Prisma.StringNullableListFilter<"Policy">
   blockedCategories?: Prisma.StringNullableListFilter<"Policy">
+  escalationTimeoutMins?: Prisma.IntFilter<"Policy"> | number
+  escalationTimeoutAction?: Prisma.StringFilter<"Policy"> | string
   updatedAt?: Prisma.DateTimeFilter<"Policy"> | Date | string
   wallet?: Prisma.XOR<Prisma.WalletScalarRelationFilter, Prisma.WalletWhereInput>
 }
@@ -277,6 +297,8 @@ export type PolicyOrderByWithRelationInput = {
   escalateOverUsd?: Prisma.SortOrder
   allowedCategories?: Prisma.SortOrder
   blockedCategories?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
+  escalationTimeoutAction?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   wallet?: Prisma.WalletOrderByWithRelationInput
 }
@@ -294,6 +316,8 @@ export type PolicyWhereUniqueInput = Prisma.AtLeast<{
   escalateOverUsd?: Prisma.IntFilter<"Policy"> | number
   allowedCategories?: Prisma.StringNullableListFilter<"Policy">
   blockedCategories?: Prisma.StringNullableListFilter<"Policy">
+  escalationTimeoutMins?: Prisma.IntFilter<"Policy"> | number
+  escalationTimeoutAction?: Prisma.StringFilter<"Policy"> | string
   updatedAt?: Prisma.DateTimeFilter<"Policy"> | Date | string
   wallet?: Prisma.XOR<Prisma.WalletScalarRelationFilter, Prisma.WalletWhereInput>
 }, "id" | "walletId">
@@ -308,6 +332,8 @@ export type PolicyOrderByWithAggregationInput = {
   escalateOverUsd?: Prisma.SortOrder
   allowedCategories?: Prisma.SortOrder
   blockedCategories?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
+  escalationTimeoutAction?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.PolicyCountOrderByAggregateInput
   _avg?: Prisma.PolicyAvgOrderByAggregateInput
@@ -329,6 +355,8 @@ export type PolicyScalarWhereWithAggregatesInput = {
   escalateOverUsd?: Prisma.IntWithAggregatesFilter<"Policy"> | number
   allowedCategories?: Prisma.StringNullableListFilter<"Policy">
   blockedCategories?: Prisma.StringNullableListFilter<"Policy">
+  escalationTimeoutMins?: Prisma.IntWithAggregatesFilter<"Policy"> | number
+  escalationTimeoutAction?: Prisma.StringWithAggregatesFilter<"Policy"> | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Policy"> | Date | string
 }
 
@@ -341,6 +369,8 @@ export type PolicyCreateInput = {
   escalateOverUsd?: number
   allowedCategories?: Prisma.PolicyCreateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyCreateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: number
+  escalationTimeoutAction?: string
   updatedAt?: Date | string
   wallet: Prisma.WalletCreateNestedOneWithoutPolicyInput
 }
@@ -355,6 +385,8 @@ export type PolicyUncheckedCreateInput = {
   escalateOverUsd?: number
   allowedCategories?: Prisma.PolicyCreateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyCreateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: number
+  escalationTimeoutAction?: string
   updatedAt?: Date | string
 }
 
@@ -367,6 +399,8 @@ export type PolicyUpdateInput = {
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
   allowedCategories?: Prisma.PolicyUpdateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyUpdateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: Prisma.IntFieldUpdateOperationsInput | number
+  escalationTimeoutAction?: Prisma.StringFieldUpdateOperationsInput | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   wallet?: Prisma.WalletUpdateOneRequiredWithoutPolicyNestedInput
 }
@@ -381,6 +415,8 @@ export type PolicyUncheckedUpdateInput = {
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
   allowedCategories?: Prisma.PolicyUpdateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyUpdateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: Prisma.IntFieldUpdateOperationsInput | number
+  escalationTimeoutAction?: Prisma.StringFieldUpdateOperationsInput | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -394,6 +430,8 @@ export type PolicyCreateManyInput = {
   escalateOverUsd?: number
   allowedCategories?: Prisma.PolicyCreateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyCreateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: number
+  escalationTimeoutAction?: string
   updatedAt?: Date | string
 }
 
@@ -406,6 +444,8 @@ export type PolicyUpdateManyMutationInput = {
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
   allowedCategories?: Prisma.PolicyUpdateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyUpdateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: Prisma.IntFieldUpdateOperationsInput | number
+  escalationTimeoutAction?: Prisma.StringFieldUpdateOperationsInput | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -419,6 +459,8 @@ export type PolicyUncheckedUpdateManyInput = {
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
   allowedCategories?: Prisma.PolicyUpdateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyUpdateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: Prisma.IntFieldUpdateOperationsInput | number
+  escalationTimeoutAction?: Prisma.StringFieldUpdateOperationsInput | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -437,6 +479,8 @@ export type PolicyCountOrderByAggregateInput = {
   escalateOverUsd?: Prisma.SortOrder
   allowedCategories?: Prisma.SortOrder
   blockedCategories?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
+  escalationTimeoutAction?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -446,6 +490,7 @@ export type PolicyAvgOrderByAggregateInput = {
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
 }
 
 export type PolicyMaxOrderByAggregateInput = {
@@ -456,6 +501,8 @@ export type PolicyMaxOrderByAggregateInput = {
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
+  escalationTimeoutAction?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -467,6 +514,8 @@ export type PolicyMinOrderByAggregateInput = {
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
+  escalationTimeoutAction?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -476,6 +525,7 @@ export type PolicySumOrderByAggregateInput = {
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
+  escalationTimeoutMins?: Prisma.SortOrder
 }
 
 export type PolicyCreateNestedOneWithoutWalletInput = {
@@ -537,6 +587,8 @@ export type PolicyCreateWithoutWalletInput = {
   escalateOverUsd?: number
   allowedCategories?: Prisma.PolicyCreateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyCreateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: number
+  escalationTimeoutAction?: string
   updatedAt?: Date | string
 }
 
@@ -549,6 +601,8 @@ export type PolicyUncheckedCreateWithoutWalletInput = {
   escalateOverUsd?: number
   allowedCategories?: Prisma.PolicyCreateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyCreateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: number
+  escalationTimeoutAction?: string
   updatedAt?: Date | string
 }
 
@@ -577,6 +631,8 @@ export type PolicyUpdateWithoutWalletInput = {
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
   allowedCategories?: Prisma.PolicyUpdateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyUpdateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: Prisma.IntFieldUpdateOperationsInput | number
+  escalationTimeoutAction?: Prisma.StringFieldUpdateOperationsInput | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -589,6 +645,8 @@ export type PolicyUncheckedUpdateWithoutWalletInput = {
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
   allowedCategories?: Prisma.PolicyUpdateallowedCategoriesInput | string[]
   blockedCategories?: Prisma.PolicyUpdateblockedCategoriesInput | string[]
+  escalationTimeoutMins?: Prisma.IntFieldUpdateOperationsInput | number
+  escalationTimeoutAction?: Prisma.StringFieldUpdateOperationsInput | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -604,6 +662,8 @@ export type PolicySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   escalateOverUsd?: boolean
   allowedCategories?: boolean
   blockedCategories?: boolean
+  escalationTimeoutMins?: boolean
+  escalationTimeoutAction?: boolean
   updatedAt?: boolean
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["policy"]>
@@ -618,6 +678,8 @@ export type PolicySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   escalateOverUsd?: boolean
   allowedCategories?: boolean
   blockedCategories?: boolean
+  escalationTimeoutMins?: boolean
+  escalationTimeoutAction?: boolean
   updatedAt?: boolean
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["policy"]>
@@ -632,6 +694,8 @@ export type PolicySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   escalateOverUsd?: boolean
   allowedCategories?: boolean
   blockedCategories?: boolean
+  escalationTimeoutMins?: boolean
+  escalationTimeoutAction?: boolean
   updatedAt?: boolean
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["policy"]>
@@ -646,10 +710,12 @@ export type PolicySelectScalar = {
   escalateOverUsd?: boolean
   allowedCategories?: boolean
   blockedCategories?: boolean
+  escalationTimeoutMins?: boolean
+  escalationTimeoutAction?: boolean
   updatedAt?: boolean
 }
 
-export type PolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "dailyTokenBudgetUsd" | "dailySpendBudgetUsd" | "perTransactionMaxUsd" | "autoApproveUnderUsd" | "escalateOverUsd" | "allowedCategories" | "blockedCategories" | "updatedAt", ExtArgs["result"]["policy"]>
+export type PolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "dailyTokenBudgetUsd" | "dailySpendBudgetUsd" | "perTransactionMaxUsd" | "autoApproveUnderUsd" | "escalateOverUsd" | "allowedCategories" | "blockedCategories" | "escalationTimeoutMins" | "escalationTimeoutAction" | "updatedAt", ExtArgs["result"]["policy"]>
 export type PolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
 }
@@ -675,6 +741,8 @@ export type $PolicyPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     escalateOverUsd: number
     allowedCategories: string[]
     blockedCategories: string[]
+    escalationTimeoutMins: number
+    escalationTimeoutAction: string
     updatedAt: Date
   }, ExtArgs["result"]["policy"]>
   composites: {}
@@ -1109,6 +1177,8 @@ export interface PolicyFieldRefs {
   readonly escalateOverUsd: Prisma.FieldRef<"Policy", 'Int'>
   readonly allowedCategories: Prisma.FieldRef<"Policy", 'String[]'>
   readonly blockedCategories: Prisma.FieldRef<"Policy", 'String[]'>
+  readonly escalationTimeoutMins: Prisma.FieldRef<"Policy", 'Int'>
+  readonly escalationTimeoutAction: Prisma.FieldRef<"Policy", 'String'>
   readonly updatedAt: Prisma.FieldRef<"Policy", 'DateTime'>
 }
     
