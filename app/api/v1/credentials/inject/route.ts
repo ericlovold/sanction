@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
-import { verifyExecutionJWT } from "@/lib/jwt"
-import { decryptCredential } from "@/lib/jwt"
+import { verifyExecutionJWT, decryptCredential } from "@/lib/jwt"
+import { logger } from "@/lib/log"
+
+const log = logger("v1/credentials/inject")
 
 const schema = z.object({
   credential_label: z.string(),
@@ -18,6 +20,8 @@ export async function POST(req: NextRequest) {
   const token = authHeader.slice(7)
   let claims
   try {
+    // Partial verify first (no aud yet — we need claims.wallet to enforce aud).
+    // Full audience check happens below once we have the walletId from the DB.
     claims = await verifyExecutionJWT(token)
   } catch {
     return NextResponse.json({ error: "Invalid or expired JWT" }, { status: 401 })
@@ -36,13 +40,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403 })
   }
 
+  // SEC-5: verify JWT audience matches the wallet claimed in the token body.
+  // We already have claims.wallet from the initial verify; now enforce it.
+  try {
+    await verifyExecutionJWT(token, claims.wallet)
+  } catch {
+    return NextResponse.json({ error: "JWT audience mismatch" }, { status: 401 })
+  }
+
   // Check execution token is still active and not expired
   const execToken = await db.executionToken.findUnique({ where: { id: claims.jti } })
   if (!execToken || execToken.status !== "active" || execToken.expiresAt < new Date()) {
     return NextResponse.json({ error: "Execution token expired or revoked" }, { status: 401 })
   }
 
-  // Fetch and decrypt the credential
+  // Fetch and decrypt the credential — scope the query to the wallet from the
+  // JWT so a token forged with a different wallet claim can never reach another
+  // tenant's credentials (defence-in-depth on top of the aud check above).
   const credential = await db.credentialVault.findFirst({
     where: { walletId: claims.wallet, label: credential_label },
   })
@@ -69,7 +83,7 @@ export async function POST(req: NextRequest) {
     data: { executionTokenId: execToken.id, credentialId: credential.id },
   })
 
-  const value = decryptCredential(credential.encryptedValue, `${credential.walletId}:${credential.label}`)
+  const value = decryptCredential(credential.encryptedValue, credential.walletId, credential.label)
 
   return NextResponse.json(
     {

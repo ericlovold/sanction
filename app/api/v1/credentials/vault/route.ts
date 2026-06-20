@@ -3,6 +3,9 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { encryptCredential } from "@/lib/jwt"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { logger } from "@/lib/log"
+
+const log = logger("v1/credentials/vault")
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   // Bind the ciphertext to its tenant+label so a leaked blob can't be replayed
   // under a different wallet/label (AAD must match on decrypt).
-  const encrypted = encryptCredential(value, `${wallet_id}:${label}`)
+  const encrypted = encryptCredential(value, wallet_id, label)
 
   const cred = await db.credentialVault.create({
     data: {
