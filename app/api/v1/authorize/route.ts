@@ -6,6 +6,9 @@ import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION } from "@/lib/decisions"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { verifyExecutionJWT } from "@/lib/jwt"
+import { logger } from "@/lib/log"
+
+const log = logger("v1/authorize")
 
 const schema = z.object({
   action: z.enum(["purchase", "subscribe", "transfer"]),
@@ -17,7 +20,15 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   const { agent, error } = await authenticateAgent(req)
-  if (!agent) return NextResponse.json({ error }, { status: 401 })
+  if (!agent) {
+    log.warn("auth failed", { error })
+    return NextResponse.json({ error }, { status: 401 })
+  }
+
+  // FUND-1: simulate=true runs all policy checks and returns the decision
+  // without persisting anything. Lets devs validate their policy config without
+  // real spend flowing. Response is identical to a live call plus { simulated: true }.
+  const simulate = req.nextUrl.searchParams.get("simulate") === "true"
 
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest) {
   if (authz?.startsWith("Bearer ")) {
     let claims
     try {
-      claims = await verifyExecutionJWT(authz.slice(7))
+      claims = await verifyExecutionJWT(authz.slice(7), agent.walletId)
     } catch {
       return NextResponse.json({ error: "Invalid or expired execution token" }, { status: 401 })
     }
@@ -70,10 +81,14 @@ export async function POST(req: NextRequest) {
 
   // Stateless gates (no budget state involved)
   if (policy.blockedCategories.includes(category)) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Category '${category}' is blocked` }, agent.name)
+    const note = `Category '${category}' is blocked`
+    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
   }
   if (amountCents > perTxnMax) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: `Exceeds per-transaction limit of $${perTxnMax / 100}` }, agent.name)
+    const note = `Exceeds per-transaction limit of $${perTxnMax / 100}`
+    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
   }
 
   // Stateful gate: daily-spend check + write must be atomic, otherwise two
@@ -81,6 +96,18 @@ export async function POST(req: NextRequest) {
   // agent with a transaction-scoped advisory lock, then re-read inside the lock.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
+
+  // Simulation: read current daily spend and compute the decision without locking or writing.
+  if (simulate) {
+    const dailySpend = await db.authorizationRequest.aggregate({
+      where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+      _sum: { amountUsd: true },
+    })
+    const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
+    if (dailyTotalCents > dailySpendBudget) return simulateResponse("denied", "Daily spend budget exceeded", agent.name, amount_usd, merchant)
+    if (amountCents > escalateOver) return simulateResponse("escalated", "Exceeds escalation threshold", agent.name, amount_usd, merchant)
+    return simulateResponse("approved", "Auto-approved by policy", agent.name, amount_usd, merchant)
+  }
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -178,4 +205,24 @@ function statusCode(status: string): number {
 
 function isUniqueViolation(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002"
+}
+
+// FUND-1: dry-run response — same shape as a live decision, no DB write.
+function simulateResponse(status: string, note: string, agentName: string, amount_usd: number, merchant: string) {
+  const code = decisionCode(status, note)
+  return NextResponse.json(
+    {
+      simulated: true,
+      authorized: status === "approved",
+      status,
+      request_id: null,
+      reason: note,
+      code,
+      remediation: code ? REMEDIATION[code] : undefined,
+      agent: agentName,
+      amount_usd,
+      merchant,
+    },
+    { status: statusCode(status) },
+  )
 }
