@@ -11,8 +11,22 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "Sanction — Trust & governance for autonomous agents",
-  description: "Spend authorization, an encrypted credential vault, and clearance levels for autonomous AI agents.",
+  metadataBase: new URL("https://onesanction.com"),
+  title: "Sanction — Financial control for autonomous AI agents",
+  description:
+    "Track and cap what every AI agent spends, and approve, gate, or deny each action before the money moves or a secret is used. One key governs spend and access.",
+  openGraph: {
+    title: "Sanction — Financial control for autonomous AI agents",
+    description: "Don't give your agent your credit card. Give it a Sanction key.",
+    url: "https://onesanction.com",
+    siteName: "Sanction",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sanction — Financial control for autonomous AI agents",
+    description: "Don't give your agent your credit card. Give it a Sanction key.",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
