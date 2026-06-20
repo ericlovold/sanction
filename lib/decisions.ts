@@ -8,8 +8,10 @@
 
 export type DecisionCode =
   | "ESCALATION_REQUIRED"
+  | "ESCALATION_TIMED_OUT"
   | "NO_POLICY"
   | "CATEGORY_BLOCKED"
+  | "CATEGORY_NOT_ALLOWED"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
   | "EXEC_BUDGET_EXCEEDED"
@@ -18,10 +20,14 @@ export type DecisionCode =
 export const REMEDIATION: Record<DecisionCode, string> = {
   ESCALATION_REQUIRED:
     "Over the auto-approve threshold; a human must approve. Poll request_id for status, or wait for the escalation to resolve.",
+  ESCALATION_TIMED_OUT:
+    "The escalation passed its approval deadline and was auto-resolved by policy. Treat as denied; ask the owner to approve manually or raise the limit.",
   NO_POLICY:
     "No spend policy is configured for this wallet. The owner must create one before purchases can be authorized.",
   CATEGORY_BLOCKED:
     "This category is on the wallet's blocked list. Use an allowed category or ask the owner to unblock it.",
+  CATEGORY_NOT_ALLOWED:
+    "This category is not on the wallet's allow-list. Use an allowed category or ask the owner to add it.",
   PER_TXN_LIMIT:
     "Amount exceeds the per-transaction limit. Split into smaller charges or ask the owner to raise the limit.",
   DAILY_BUDGET_EXCEEDED:
@@ -37,7 +43,9 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (status === "escalated") return "ESCALATION_REQUIRED"
   // denied
   if (!note) return "POLICY_DENIED"
+  if (note.startsWith("Escalation timed out")) return "ESCALATION_TIMED_OUT"
   if (note === "No policy configured") return "NO_POLICY"
+  if (note.includes("not in the allow-list")) return "CATEGORY_NOT_ALLOWED"
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"
   if (note.startsWith("Exceeds per-transaction")) return "PER_TXN_LIMIT"
   if (note === "Daily spend budget exceeded") return "DAILY_BUDGET_EXCEEDED"

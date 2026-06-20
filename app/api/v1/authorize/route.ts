@@ -85,6 +85,12 @@ export async function POST(req: NextRequest) {
     if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
   }
+  // Allow-list: when set (non-empty), only listed categories may spend. Empty = allow all.
+  if (policy.allowedCategories.length > 0 && !policy.allowedCategories.includes(category)) {
+    const note = `Category '${category}' is not in the allow-list`
+    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
+  }
   if (amountCents > perTxnMax) {
     const note = `Exceeds per-transaction limit of $${perTxnMax / 100}`
     if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
@@ -105,6 +111,8 @@ export async function POST(req: NextRequest) {
     })
     const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
     if (dailyTotalCents > dailySpendBudget) return simulateResponse("denied", "Daily spend budget exceeded", agent.name, amount_usd, merchant)
+    // Mirror the live floor-over-escalation precedence so simulate matches a real call.
+    if (amountCents <= policy.autoApproveUnderUsd) return simulateResponse("approved", "Auto-approved (under auto-approve floor)", agent.name, amount_usd, merchant)
     if (amountCents > escalateOver) return simulateResponse("escalated", "Exceeds escalation threshold", agent.name, amount_usd, merchant)
     return simulateResponse("approved", "Auto-approved by policy", agent.name, amount_usd, merchant)
   }
@@ -122,7 +130,9 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
       }
 
-      // Execution-scoped hard cap (re-read under the lock for atomicity).
+      // Execution-scoped hard cap (re-read under the lock for atomicity). This is a
+      // deny gate and must run before the auto-approve floor below, so a sub-floor
+      // charge can never bypass the execution's hard budget.
       if (execTokenId) {
         const et = await tx.executionToken.findUnique({ where: { id: execTokenId } })
         if (!et || et.status !== "active" || et.expiresAt < new Date()) {
@@ -133,12 +143,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (amountCents > escalateOver) {
+      // Silent auto-approve floor: at or under this, never escalate (autoApprove is
+      // policy-level, not overridable per agent). The floor wins over escalation.
+      const underFloor = amountCents <= policy.autoApproveUnderUsd
+      if (!underFloor && amountCents > escalateOver) {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 
-      const approved = await tx.authorizationRequest.create({ data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: "Auto-approved by policy" } })
-      // Debit the execution budget only on actual (auto-)approval.
+      // Single approval path so the execution budget is debited on every approval,
+      // including sub-floor ones — otherwise repeated small charges never decrement it.
+      const approved = await tx.authorizationRequest.create({
+        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: underFloor ? "Auto-approved (under auto-approve floor)" : "Auto-approved by policy" },
+      })
       if (execTokenId) {
         await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })
       }
