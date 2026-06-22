@@ -78,12 +78,13 @@ SANCTION_WALLET_ID                — Primary wallet ID (for dashboard)
 
 ## Live Production
 
-- **API:** `https://proxy-ai-three.vercel.app/api/v1`
-- **Dashboard:** `https://proxy-ai-three.vercel.app`
-- **OpenAPI spec:** `https://proxy-ai-three.vercel.app/api/openapi.json`
+- **API:** `https://onesanction.com/api/v1`
+- **Dashboard:** `https://onesanction.com`
+- **OpenAPI spec:** `https://onesanction.com/api/openapi.json`
 - **Bedrock Agent:** `JXRNIJRMCX` (us-east-1), Action Group `sanction-api`
-- **GitHub:** `github.com/ericlovold/autoflux` (rename pending to `sanction`)
-- **Custom domain pending:** `sanction.ai`
+- **GitHub:** `github.com/ericlovold/sanction`
+- **npm:** `sanction-mcp` (published; `npx sanction-mcp`)
+- **Canonical domain:** `onesanction.com` (`sanction.ai` not pursued — cost)
 
 ## AIIA Integration
 
