@@ -61,7 +61,13 @@ export async function requestMagicLinkAction(_prev: MagicLinkRequestState, form:
     const host = h.get("host") ?? "onesanction.com"
     const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
     const link = `${proto}://${host}/auth/verify?token=${rawToken}`
-    await sendMagicLinkEmail(email, link)
+    // A provider failure must not 500 the request or reveal account existence —
+    // the token row exists, the user can retry; the operator sees the log.
+    try {
+      await sendMagicLinkEmail(email, link)
+    } catch (e) {
+      console.error("magic-link email send failed:", e)
+    }
   }
 
   // Same response whether or not a wallet existed.
