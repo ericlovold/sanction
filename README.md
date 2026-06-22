@@ -93,4 +93,5 @@ Agent API calls use `x-api-key: pxy_...` header. Credential injection requires a
 
 ## License
 
-MIT
+- **`packages/sanction-mcp`** (the MCP client) — [MIT](packages/sanction-mcp/LICENSE). Embed it anywhere.
+- **Everything else** (server, dashboard, API) — [Functional Source License 1.1](LICENSE) (FSL-1.1-MIT). Source-available: use and self-host it for any purpose except offering a competing service. Converts to MIT two years after release.
