@@ -1,19 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.ericlovold/sanction",
-  "description": "Spend authorization, token budgets, and an encrypted credential vault for autonomous AI agents. The agent asks before it spends; you set the policy.",
+  "description": "Spend authorization, token budgets, and an encrypted credential vault for AI agents.",
   "status": "active",
   "repository": {
     "url": "https://github.com/ericlovold/sanction",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "sanction-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": {
         "type": "stdio"
       },
