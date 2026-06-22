@@ -386,6 +386,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 export const ModelName = {
   RateLimit: 'RateLimit',
   Wallet: 'Wallet',
+  MagicLink: 'MagicLink',
   Webhook: 'Webhook',
   Agent: 'Agent',
   Policy: 'Policy',
@@ -410,7 +411,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "rateLimit" | "wallet" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest"
+    modelProps: "rateLimit" | "wallet" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -559,6 +560,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.WalletCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.WalletCountAggregateOutputType> | number
+        }
+      }
+    }
+    MagicLink: {
+      payload: Prisma.$MagicLinkPayload<ExtArgs>
+      fields: Prisma.MagicLinkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MagicLinkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MagicLinkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>
+        }
+        findFirst: {
+          args: Prisma.MagicLinkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MagicLinkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>
+        }
+        findMany: {
+          args: Prisma.MagicLinkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>[]
+        }
+        create: {
+          args: Prisma.MagicLinkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>
+        }
+        createMany: {
+          args: Prisma.MagicLinkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MagicLinkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>[]
+        }
+        delete: {
+          args: Prisma.MagicLinkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>
+        }
+        update: {
+          args: Prisma.MagicLinkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>
+        }
+        deleteMany: {
+          args: Prisma.MagicLinkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MagicLinkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MagicLinkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>[]
+        }
+        upsert: {
+          args: Prisma.MagicLinkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MagicLinkPayload>
+        }
+        aggregate: {
+          args: Prisma.MagicLinkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMagicLink>
+        }
+        groupBy: {
+          args: Prisma.MagicLinkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MagicLinkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MagicLinkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MagicLinkCountAggregateOutputType> | number
         }
       }
     }
@@ -1288,6 +1363,19 @@ export const WalletScalarFieldEnum = {
 export type WalletScalarFieldEnum = (typeof WalletScalarFieldEnum)[keyof typeof WalletScalarFieldEnum]
 
 
+export const MagicLinkScalarFieldEnum = {
+  id: 'id',
+  tokenHash: 'tokenHash',
+  walletId: 'walletId',
+  email: 'email',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MagicLinkScalarFieldEnum = (typeof MagicLinkScalarFieldEnum)[keyof typeof MagicLinkScalarFieldEnum]
+
+
 export const WebhookScalarFieldEnum = {
   id: 'id',
   walletId: 'walletId',
@@ -1662,6 +1750,7 @@ export type PrismaClientOptions = ({
 export type GlobalOmitConfig = {
   rateLimit?: Prisma.RateLimitOmit
   wallet?: Prisma.WalletOmit
+  magicLink?: Prisma.MagicLinkOmit
   webhook?: Prisma.WebhookOmit
   agent?: Prisma.AgentOmit
   policy?: Prisma.PolicyOmit

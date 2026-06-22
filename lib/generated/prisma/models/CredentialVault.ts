@@ -553,10 +553,6 @@ export type CredentialVaultUpdatescopesInput = {
   push?: string | string[]
 }
 
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type CredentialVaultCreateNestedOneWithoutInjectionsInput = {
   create?: Prisma.XOR<Prisma.CredentialVaultCreateWithoutInjectionsInput, Prisma.CredentialVaultUncheckedCreateWithoutInjectionsInput>
   connectOrCreate?: Prisma.CredentialVaultCreateOrConnectWithoutInjectionsInput

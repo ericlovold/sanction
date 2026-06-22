@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { LoginForm } from "@/components/login-form"
+import { MagicLinkForm } from "@/components/magic-link-form"
 
 export const metadata: Metadata = {
   title: "Sanction — Sign in",
@@ -28,6 +29,15 @@ export default function LoginPage() {
         <div className="mt-8">
           <LoginForm />
         </div>
+
+        <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide text-zinc-600">
+          <span className="h-px flex-1 bg-zinc-900" />
+          lost your key?
+          <span className="h-px flex-1 bg-zinc-900" />
+        </div>
+
+        <MagicLinkForm />
+
         <p className="mt-6 text-xs text-zinc-600">
           No wallet yet? <Link href="/start" className="text-emerald-400 hover:text-emerald-300">Create one free →</Link>
         </p>

@@ -36,6 +36,25 @@ model Wallet {
   clearances       AgentClearance[]
   executionTokens  ExecutionToken[]
   webhooks         Webhook[]
+  magicLinks       MagicLink[]
+}
+
+// One-time email sign-in / recovery token. The raw token is emailed; only its
+// sha256 hash is stored. Single-use (usedAt) + short TTL (expiresAt). Verifying
+// a link rotates the wallet's management key, so losing the key is recoverable
+// without ever storing it in the clear.
+model MagicLink {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  walletId  String
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  wallet    Wallet    @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
 }
 
 // Owner-registered HTTP endpoint notified on events (escalations, budget trips).

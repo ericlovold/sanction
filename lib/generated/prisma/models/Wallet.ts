@@ -196,6 +196,7 @@ export type WalletWhereInput = {
   clearances?: Prisma.AgentClearanceListRelationFilter
   executionTokens?: Prisma.ExecutionTokenListRelationFilter
   webhooks?: Prisma.WebhookListRelationFilter
+  magicLinks?: Prisma.MagicLinkListRelationFilter
 }
 
 export type WalletOrderByWithRelationInput = {
@@ -211,6 +212,7 @@ export type WalletOrderByWithRelationInput = {
   clearances?: Prisma.AgentClearanceOrderByRelationAggregateInput
   executionTokens?: Prisma.ExecutionTokenOrderByRelationAggregateInput
   webhooks?: Prisma.WebhookOrderByRelationAggregateInput
+  magicLinks?: Prisma.MagicLinkOrderByRelationAggregateInput
 }
 
 export type WalletWhereUniqueInput = Prisma.AtLeast<{
@@ -229,6 +231,7 @@ export type WalletWhereUniqueInput = Prisma.AtLeast<{
   clearances?: Prisma.AgentClearanceListRelationFilter
   executionTokens?: Prisma.ExecutionTokenListRelationFilter
   webhooks?: Prisma.WebhookListRelationFilter
+  magicLinks?: Prisma.MagicLinkListRelationFilter
 }, "id" | "ownerEmail" | "mgmtKeyHash">
 
 export type WalletOrderByWithAggregationInput = {
@@ -268,6 +271,7 @@ export type WalletCreateInput = {
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateInput = {
@@ -283,6 +287,7 @@ export type WalletUncheckedCreateInput = {
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUpdateInput = {
@@ -298,6 +303,7 @@ export type WalletUpdateInput = {
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateInput = {
@@ -313,6 +319,7 @@ export type WalletUncheckedUpdateInput = {
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletCreateManyInput = {
@@ -376,6 +383,20 @@ export type WalletScalarRelationFilter = {
 
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
+}
+
+export type WalletCreateNestedOneWithoutMagicLinksInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutMagicLinksInput, Prisma.WalletUncheckedCreateWithoutMagicLinksInput>
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutMagicLinksInput
+  connect?: Prisma.WalletWhereUniqueInput
+}
+
+export type WalletUpdateOneRequiredWithoutMagicLinksNestedInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutMagicLinksInput, Prisma.WalletUncheckedCreateWithoutMagicLinksInput>
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutMagicLinksInput
+  upsert?: Prisma.WalletUpsertWithoutMagicLinksInput
+  connect?: Prisma.WalletWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.WalletUpdateToOneWithWhereWithoutMagicLinksInput, Prisma.WalletUpdateWithoutMagicLinksInput>, Prisma.WalletUncheckedUpdateWithoutMagicLinksInput>
 }
 
 export type WalletCreateNestedOneWithoutWebhooksInput = {
@@ -462,6 +483,82 @@ export type WalletUpdateOneRequiredWithoutExecutionTokensNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.WalletUpdateToOneWithWhereWithoutExecutionTokensInput, Prisma.WalletUpdateWithoutExecutionTokensInput>, Prisma.WalletUncheckedUpdateWithoutExecutionTokensInput>
 }
 
+export type WalletCreateWithoutMagicLinksInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+  agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
+  policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
+  credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
+  clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
+  executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+}
+
+export type WalletUncheckedCreateWithoutMagicLinksInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+  agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
+  policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
+  credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
+  clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+}
+
+export type WalletCreateOrConnectWithoutMagicLinksInput = {
+  where: Prisma.WalletWhereUniqueInput
+  create: Prisma.XOR<Prisma.WalletCreateWithoutMagicLinksInput, Prisma.WalletUncheckedCreateWithoutMagicLinksInput>
+}
+
+export type WalletUpsertWithoutMagicLinksInput = {
+  update: Prisma.XOR<Prisma.WalletUpdateWithoutMagicLinksInput, Prisma.WalletUncheckedUpdateWithoutMagicLinksInput>
+  create: Prisma.XOR<Prisma.WalletCreateWithoutMagicLinksInput, Prisma.WalletUncheckedCreateWithoutMagicLinksInput>
+  where?: Prisma.WalletWhereInput
+}
+
+export type WalletUpdateToOneWithWhereWithoutMagicLinksInput = {
+  where?: Prisma.WalletWhereInput
+  data: Prisma.XOR<Prisma.WalletUpdateWithoutMagicLinksInput, Prisma.WalletUncheckedUpdateWithoutMagicLinksInput>
+}
+
+export type WalletUpdateWithoutMagicLinksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
+  policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
+  credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
+  clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
+  executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+}
+
+export type WalletUncheckedUpdateWithoutMagicLinksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
+  policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
+  credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
+  clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+}
+
 export type WalletCreateWithoutWebhooksInput = {
   id?: string
   name: string
@@ -474,6 +571,7 @@ export type WalletCreateWithoutWebhooksInput = {
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateWithoutWebhooksInput = {
@@ -488,6 +586,7 @@ export type WalletUncheckedCreateWithoutWebhooksInput = {
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletCreateOrConnectWithoutWebhooksInput = {
@@ -518,6 +617,7 @@ export type WalletUpdateWithoutWebhooksInput = {
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateWithoutWebhooksInput = {
@@ -532,6 +632,7 @@ export type WalletUncheckedUpdateWithoutWebhooksInput = {
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletCreateWithoutAgentsInput = {
@@ -546,6 +647,7 @@ export type WalletCreateWithoutAgentsInput = {
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateWithoutAgentsInput = {
@@ -560,6 +662,7 @@ export type WalletUncheckedCreateWithoutAgentsInput = {
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletCreateOrConnectWithoutAgentsInput = {
@@ -590,6 +693,7 @@ export type WalletUpdateWithoutAgentsInput = {
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateWithoutAgentsInput = {
@@ -604,6 +708,7 @@ export type WalletUncheckedUpdateWithoutAgentsInput = {
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletCreateWithoutPolicyInput = {
@@ -618,6 +723,7 @@ export type WalletCreateWithoutPolicyInput = {
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateWithoutPolicyInput = {
@@ -632,6 +738,7 @@ export type WalletUncheckedCreateWithoutPolicyInput = {
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletCreateOrConnectWithoutPolicyInput = {
@@ -662,6 +769,7 @@ export type WalletUpdateWithoutPolicyInput = {
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateWithoutPolicyInput = {
@@ -676,6 +784,7 @@ export type WalletUncheckedUpdateWithoutPolicyInput = {
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletCreateWithoutCredentialsInput = {
@@ -690,6 +799,7 @@ export type WalletCreateWithoutCredentialsInput = {
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateWithoutCredentialsInput = {
@@ -704,6 +814,7 @@ export type WalletUncheckedCreateWithoutCredentialsInput = {
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletCreateOrConnectWithoutCredentialsInput = {
@@ -734,6 +845,7 @@ export type WalletUpdateWithoutCredentialsInput = {
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateWithoutCredentialsInput = {
@@ -748,6 +860,7 @@ export type WalletUncheckedUpdateWithoutCredentialsInput = {
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletCreateWithoutClearancesInput = {
@@ -762,6 +875,7 @@ export type WalletCreateWithoutClearancesInput = {
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateWithoutClearancesInput = {
@@ -776,6 +890,7 @@ export type WalletUncheckedCreateWithoutClearancesInput = {
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletCreateOrConnectWithoutClearancesInput = {
@@ -806,6 +921,7 @@ export type WalletUpdateWithoutClearancesInput = {
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateWithoutClearancesInput = {
@@ -820,6 +936,7 @@ export type WalletUncheckedUpdateWithoutClearancesInput = {
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletCreateWithoutExecutionTokensInput = {
@@ -834,6 +951,7 @@ export type WalletCreateWithoutExecutionTokensInput = {
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
 }
 
 export type WalletUncheckedCreateWithoutExecutionTokensInput = {
@@ -848,6 +966,7 @@ export type WalletUncheckedCreateWithoutExecutionTokensInput = {
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
 }
 
 export type WalletCreateOrConnectWithoutExecutionTokensInput = {
@@ -878,6 +997,7 @@ export type WalletUpdateWithoutExecutionTokensInput = {
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
 }
 
 export type WalletUncheckedUpdateWithoutExecutionTokensInput = {
@@ -892,6 +1012,7 @@ export type WalletUncheckedUpdateWithoutExecutionTokensInput = {
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
 
@@ -905,6 +1026,7 @@ export type WalletCountOutputType = {
   clearances: number
   executionTokens: number
   webhooks: number
+  magicLinks: number
 }
 
 export type WalletCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -913,6 +1035,7 @@ export type WalletCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   clearances?: boolean | WalletCountOutputTypeCountClearancesArgs
   executionTokens?: boolean | WalletCountOutputTypeCountExecutionTokensArgs
   webhooks?: boolean | WalletCountOutputTypeCountWebhooksArgs
+  magicLinks?: boolean | WalletCountOutputTypeCountMagicLinksArgs
 }
 
 /**
@@ -960,6 +1083,13 @@ export type WalletCountOutputTypeCountWebhooksArgs<ExtArgs extends runtime.Types
   where?: Prisma.WebhookWhereInput
 }
 
+/**
+ * WalletCountOutputType without action
+ */
+export type WalletCountOutputTypeCountMagicLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MagicLinkWhereInput
+}
+
 
 export type WalletSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -974,6 +1104,7 @@ export type WalletSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   clearances?: boolean | Prisma.Wallet$clearancesArgs<ExtArgs>
   executionTokens?: boolean | Prisma.Wallet$executionTokensArgs<ExtArgs>
   webhooks?: boolean | Prisma.Wallet$webhooksArgs<ExtArgs>
+  magicLinks?: boolean | Prisma.Wallet$magicLinksArgs<ExtArgs>
   _count?: boolean | Prisma.WalletCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["wallet"]>
 
@@ -1012,6 +1143,7 @@ export type WalletInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   clearances?: boolean | Prisma.Wallet$clearancesArgs<ExtArgs>
   executionTokens?: boolean | Prisma.Wallet$executionTokensArgs<ExtArgs>
   webhooks?: boolean | Prisma.Wallet$webhooksArgs<ExtArgs>
+  magicLinks?: boolean | Prisma.Wallet$magicLinksArgs<ExtArgs>
   _count?: boolean | Prisma.WalletCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type WalletIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1026,6 +1158,7 @@ export type $WalletPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     clearances: Prisma.$AgentClearancePayload<ExtArgs>[]
     executionTokens: Prisma.$ExecutionTokenPayload<ExtArgs>[]
     webhooks: Prisma.$WebhookPayload<ExtArgs>[]
+    magicLinks: Prisma.$MagicLinkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1434,6 +1567,7 @@ export interface Prisma__WalletClient<T, Null = never, ExtArgs extends runtime.T
   clearances<T extends Prisma.Wallet$clearancesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$clearancesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentClearancePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   executionTokens<T extends Prisma.Wallet$executionTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$executionTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExecutionTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   webhooks<T extends Prisma.Wallet$webhooksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$webhooksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WebhookPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  magicLinks<T extends Prisma.Wallet$magicLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$magicLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MagicLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1998,6 +2132,30 @@ export type Wallet$webhooksArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.WebhookScalarFieldEnum | Prisma.WebhookScalarFieldEnum[]
+}
+
+/**
+ * Wallet.magicLinks
+ */
+export type Wallet$magicLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MagicLink
+   */
+  select?: Prisma.MagicLinkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MagicLink
+   */
+  omit?: Prisma.MagicLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MagicLinkInclude<ExtArgs> | null
+  where?: Prisma.MagicLinkWhereInput
+  orderBy?: Prisma.MagicLinkOrderByWithRelationInput | Prisma.MagicLinkOrderByWithRelationInput[]
+  cursor?: Prisma.MagicLinkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MagicLinkScalarFieldEnum | Prisma.MagicLinkScalarFieldEnum[]
 }
 
 /**
