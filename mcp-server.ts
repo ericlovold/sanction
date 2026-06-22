@@ -43,11 +43,11 @@ if (!API_KEY) {
 }
 
 async function callSanction(path: string, method: "GET" | "POST", body?: unknown, bearerToken?: string) {
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  // x-api-key identifies the agent on every call; a Bearer token (execution JWT)
+  // is additive — used by inject and to enforce an execution's spend cap.
+  const headers: Record<string, string> = { "Content-Type": "application/json", "x-api-key": API_KEY }
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`
-  } else {
-    headers["x-api-key"] = API_KEY
   }
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -73,9 +73,10 @@ server.tool(
     merchant: z.string().describe("Vendor or service name, e.g. 'Anthropic', 'AWS', 'Stripe'"),
     category: z.string().describe("Spend category — one of: software, services, research, infrastructure, marketing, legal, other"),
     description: z.string().optional().describe("Brief human-readable description of what this spend is for — helps the wallet owner understand escalations"),
+    execution_jwt: z.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap."),
   },
-  async ({ action, amount_usd, merchant, category, description }) => {
-    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description })
+  async ({ action, amount_usd, merchant, category, description, execution_jwt }) => {
+    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description }, execution_jwt)
     const authorized = result.authorized === true
     return {
       content: [{
