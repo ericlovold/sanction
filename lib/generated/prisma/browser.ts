@@ -28,6 +28,11 @@ export type RateLimit = Prisma.RateLimitModel
  */
 export type Wallet = Prisma.WalletModel
 /**
+ * Model MagicLink
+ * 
+ */
+export type MagicLink = Prisma.MagicLinkModel
+/**
  * Model Webhook
  * 
  */

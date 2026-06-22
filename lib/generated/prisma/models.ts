@@ -10,6 +10,7 @@
  */
 export type * from './models/RateLimit'
 export type * from './models/Wallet'
+export type * from './models/MagicLink'
 export type * from './models/Webhook'
 export type * from './models/Agent'
 export type * from './models/Policy'

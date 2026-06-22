@@ -53,6 +53,7 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   RateLimit: 'RateLimit',
   Wallet: 'Wallet',
+  MagicLink: 'MagicLink',
   Webhook: 'Webhook',
   Agent: 'Agent',
   Policy: 'Policy',
@@ -99,6 +100,19 @@ export const WalletScalarFieldEnum = {
 } as const
 
 export type WalletScalarFieldEnum = (typeof WalletScalarFieldEnum)[keyof typeof WalletScalarFieldEnum]
+
+
+export const MagicLinkScalarFieldEnum = {
+  id: 'id',
+  tokenHash: 'tokenHash',
+  walletId: 'walletId',
+  email: 'email',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MagicLinkScalarFieldEnum = (typeof MagicLinkScalarFieldEnum)[keyof typeof MagicLinkScalarFieldEnum]
 
 
 export const WebhookScalarFieldEnum = {
