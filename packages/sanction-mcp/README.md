@@ -6,9 +6,35 @@ Give your agent a [Sanction](https://onesanction.com) key instead of your credit
 Before it buys anything, calls a paid API, or touches a secret, it asks Sanction — which
 approves, escalates to you, or denies based on the policy you set. Every decision is logged.
 
-## Install
+Even if your agent is hijacked at runtime, it can't spend, leak, or act beyond the limits
+you set — the budget cap, per-transaction limit, clearance gate, and short-lived scoped
+tokens bound the blast radius.
 
-No install needed — run via `npx`. Add to your MCP host config:
+This package is a thin stdio MCP client for the hosted Sanction API at `onesanction.com`.
+
+## Quickstart
+
+### 1. Get a key (self-serve, ~60s)
+
+```bash
+# Create a wallet — returns a management key (sk_...) and a wallet id. Save both;
+# the management key is shown only once.
+curl -s -X POST https://onesanction.com/api/v1/wallets \
+  -H "content-type: application/json" \
+  -d '{"name":"My Wallet","owner_email":"you@example.com"}'
+
+# Create an agent under that wallet — returns its API key (pxy_...), shown once.
+# Use the management key from step 1 as x-mgmt-key, and the wallet id as wallet_id.
+curl -s -X POST https://onesanction.com/api/v1/agents \
+  -H "content-type: application/json" \
+  -H "x-mgmt-key: sk_REPLACE_ME" \
+  -d '{"wallet_id":"REPLACE_WITH_WALLET_ID","name":"My Agent"}'
+```
+
+You now have a `pxy_...` agent key (→ `SANCTION_API_KEY`) and a wallet id
+(→ `SANCTION_WALLET_ID`).
+
+### 2. Add to your MCP host
 
 ```json
 {
@@ -25,9 +51,8 @@ No install needed — run via `npx`. Add to your MCP host config:
 }
 ```
 
-Get a key: create a wallet and agent against the API (see
-[the quickstart](https://github.com/ericlovold/sanction/blob/main/examples/README.md)), or
-`POST https://onesanction.com/api/v1/wallets`.
+Works with any MCP host — Claude Code, Claude Desktop, Cursor. No install needed; `npx`
+fetches it on first run.
 
 ## Tools
 
@@ -46,6 +71,12 @@ Get a key: create a wallet and agent against the API (see
 | `SANCTION_API_KEY` | yes | — |
 | `SANCTION_WALLET_ID` | no (needed for `sanction_wallet_status`) | — |
 | `SANCTION_API_URL` | no | `https://onesanction.com/api/v1` |
+
+## Set a spend policy
+
+New wallets start with sane defaults (auto-approve under $10, escalate over $25, hard-cap
+at $50/txn, $50/day). Tune per-agent limits and clearance with the management key — see the
+[full quickstart and examples](https://github.com/ericlovold/sanction/blob/main/examples/README.md).
 
 ## License
 
