@@ -1,0 +1,27 @@
+name: Publish MCP
+
+# Manual, one-click publish of packages/sanction-mcp to npm. Uses an automation
+# token (repo secret NPM_TOKEN) so there is no interactive 2FA/OTP prompt — token
+# auth bypasses it. To ship: bump the version in packages/sanction-mcp/{package,server}.json,
+# push, then run this workflow from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Build MCP bundle
+        run: npm run build:mcp
+      - name: Publish to npm
+        run: npm publish
+        working-directory: packages/sanction-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
