@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react"
 import Link from "next/link"
 import { createWalletAction, type CreateState } from "@/app/start/actions"
+import { GatewayProviders } from "@/components/gateway-providers"
 
 const initial: CreateState = { ok: false, error: "" }
 
@@ -73,6 +74,8 @@ export function CreateWallet() {
             Returns <span className="font-mono text-emerald-400">approved</span>. Change <span className="font-mono text-zinc-300">amount_usd</span> to <span className="font-mono">40</span> and it comes back <span className="font-mono text-amber-400">escalated</span> — then open your dashboard to see both decisions logged.
           </p>
         </div>
+
+        <GatewayProviders agentKey={state.agentKey} />
 
         <div>
           <div className="flex items-center justify-between">
