@@ -38,7 +38,27 @@ const API_KEY = process.env.SANCTION_API_KEY ?? ""
 const WALLET_ID = process.env.SANCTION_WALLET_ID ?? ""
 
 if (!API_KEY) {
-  process.stderr.write("SANCTION_API_KEY is required\n")
+  process.stderr.write(
+    [
+      "",
+      "Sanction MCP — SANCTION_API_KEY is not set.",
+      "",
+      "This server is started by your MCP host (Claude Desktop, agent runtimes),",
+      "not run directly. Add it to your host config with your keys:",
+      "",
+      '  "sanction": {',
+      '    "command": "npx",',
+      '    "args": ["sanction-mcp"],',
+      '    "env": { "SANCTION_API_KEY": "pxy_...", "SANCTION_WALLET_ID": "..." }',
+      "  }",
+      "",
+      "Or run it directly to test:",
+      "  SANCTION_API_KEY=pxy_... SANCTION_WALLET_ID=... npx sanction-mcp",
+      "",
+      "No keys yet? Create a wallet free at https://getsanction.com/start",
+      "",
+    ].join("\n") + "\n",
+  )
   process.exit(1)
 }
 
