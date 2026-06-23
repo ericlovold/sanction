@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { AccountControl } from "@/components/account-control"
+import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
@@ -88,6 +89,20 @@ export default async function Dashboard() {
           <AccountControl view={view} />
         </div>
       </div>
+
+      {/* First-run guidance — only for a logged-in wallet with no activity yet */}
+      {view.isSession && recentAuth.length === 0 && recentTokens.length === 0 && (
+        <Card className="border-emerald-500/25 bg-emerald-500/[0.04]">
+          <CardContent className="px-5 py-4 text-sm">
+            <p className="font-semibold text-emerald-300">Get started</p>
+            <ol className="mt-2 space-y-1 text-zinc-400">
+              <li>1. Create an agent below — you get a key and a one-line test call.</li>
+              <li>2. Run it: watch Sanction approve a $5 and escalate a $40.</li>
+              <li>3. The decisions land here. Then drop the key into your real agent.</li>
+            </ol>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -192,6 +207,12 @@ export default async function Dashboard() {
               </div>
             ))}
           </div>
+          {view.isSession && (
+            <div className="mt-4 border-t border-zinc-800 pt-4">
+              <p className="mb-2 text-xs text-zinc-500">Add an agent — get a scoped key + a test call:</p>
+              <AgentCreator />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
