@@ -73,12 +73,12 @@ export default async function Dashboard() {
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
           <p className="text-zinc-500 text-sm">{view.name} · agent wallet &amp; governance</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {pendingCount > 0 && (
             <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">
               {pendingCount} pending approval{pendingCount > 1 ? "s" : ""}

@@ -162,12 +162,12 @@ export default async function SpendPage() {
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
           <p className="text-sm text-zinc-500">{view.name} · spend &amp; token usage</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <DashboardNav active="spend" />
           <AccountControl view={view} />
         </div>
