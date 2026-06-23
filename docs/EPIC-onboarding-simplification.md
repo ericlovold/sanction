@@ -1,6 +1,6 @@
 # EPIC: Radically simplify onboarding UX
 
-**Status:** proposed
+**Status:** in progress — S1, S2, S4 shipped 2026-06-23; S3, S5 remaining
 **Opened:** 2026-06-23
 **Owner:** Eric
 
@@ -35,11 +35,11 @@ Create agent → **one** visible next step → a successful first call. Everythi
 
 ## Proposed slices (ship independently)
 
-- **S1 — Collapse the reveal.** Default view = key (once) + a single "Make your first call" snippet (defaulted to Node/OpenAI) + a "Done — open dashboard" button. Move curl, the provider grid, and the SDK example behind a single "Other ways to connect" disclosure.
-- **S2 — Stack picker.** Language × provider toggle that rewrites the one snippet in place. Kills the 4-row grid for most users.
-- **S3 — Live "first call" confirmation.** A status line that flips to "✓ first call received" when the gateway/authorize sees traffic for this key — closes the loop without making them refresh the dashboard.
-- **S4 — Apply the same pattern to /start.** The signup success screen has the same overload (keys + curl + gateway + MCP config). Same progressive-disclosure treatment.
-- **S5 — Instrumentation.** Activation funnel events: created → snippet copied → first call received.
+- **S1 — Collapse the reveal.** ✅ DONE. Default view = key (once) + an in-browser **TestDecision** button as the single primary action. Curl, SDK wiring, and MCP config moved behind native `<details>` disclosures (`components/disclosure.tsx`). Even better than the planned static snippet: the primary action *runs a real /authorize decision in the browser* — no curl, no provider key, no terminal — and persists to the log.
+- **S2 — Stack picker.** ✅ DONE. `components/connect-app.tsx` — Node/Python × OpenAI/Anthropic/Gemini toggle rewrites one drop-in snippet in place. Killed the 4-row grid. Fixed real breakage: OpenAI base URL needs `/v1`; all snippets now include the provider key (the gateway forwards it, doesn't vault it yet).
+- **S3 — Live "first call" confirmation.** TODO. A status line that flips to "✓ first call received" when the gateway sees traffic for this key — closes the loop for the *gateway* path without a dashboard refresh. (TestDecision already gives live feedback for the authorize path.)
+- **S4 — Apply the same pattern to /start.** ✅ DONE. Signup success screen now uses TestDecision + the same three disclosures (Connect / raw HTTP / MCP). Dropped the verbose "Next" list.
+- **S5 — Instrumentation.** TODO. Activation funnel events: created → test decision run → snippet copied → first real gateway call. We have Vercel Analytics; add client events + a server signal on first gateway 2xx.
 
 ## Out of scope (for now)
 
