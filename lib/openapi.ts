@@ -6,9 +6,9 @@ export const spec = {
     version: "1.0.0",
     description:
       "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
-    contact: { name: "Sanction", url: "https://onesanction.com" },
+    contact: { name: "Sanction", url: "https://getsanction.com" },
   },
-  servers: [{ url: "https://onesanction.com/api/v1", description: "Production" }],
+  servers: [{ url: "https://getsanction.com/api/v1", description: "Production" }],
   components: {
     securitySchemes: {
       AgentApiKey: {

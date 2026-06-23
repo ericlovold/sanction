@@ -2,7 +2,7 @@
 # End-to-end smoke test against a live Sanction deployment. Creates a throwaway
 # wallet and exercises every subsystem, printing PASS/FAIL per check.
 #
-#   SANCTION_API_URL=https://onesanction.com/api/v1 GOOGLE_API_KEY=... bash scripts/smoke.sh
+#   SANCTION_API_URL=https://getsanction.com/api/v1 GOOGLE_API_KEY=... bash scripts/smoke.sh
 #
 # GOOGLE_API_KEY is optional (skips the live gateway check if absent).
 #
@@ -11,7 +11,7 @@
 # create step (and then everything downstream fails). That's the limiter working.
 set -uo pipefail
 
-API="${SANCTION_API_URL:-https://onesanction.com/api/v1}"
+API="${SANCTION_API_URL:-https://getsanction.com/api/v1}"
 pass=0; fail=0
 J(){ python3 -c "import sys,json;print(json.load(sys.stdin).get('$1',''))" 2>/dev/null; }
 ck(){ # label  expected  actual

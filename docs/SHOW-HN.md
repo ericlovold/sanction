@@ -27,9 +27,9 @@ a few lines:
 
     npx sanction-mcp
 
-- Live dashboard (real data): https://onesanction.com/dashboard/spend
+- Live dashboard (real data): https://getsanction.com/dashboard/spend
 - 2-min quickstart + a runnable Gemini agent example: https://github.com/ericlovold/sanction/tree/main/examples
-- Create a wallet: `POST https://onesanction.com/api/v1/wallets`
+- Create a wallet: `POST https://getsanction.com/api/v1/wallets`
 
 How it works: you create a wallet with a policy (per-transaction max, daily spend budget,
 daily token budget, escalate-over threshold, blocked categories). Each agent gets its own
