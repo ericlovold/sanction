@@ -1,6 +1,6 @@
 # EPIC: Radically simplify onboarding UX
 
-**Status:** in progress — S1, S2, S4 shipped 2026-06-23; S3, S5 remaining
+**Status:** all slices (S1–S5) shipped 2026-06-23
 **Opened:** 2026-06-23
 **Owner:** Eric
 
@@ -37,9 +37,9 @@ Create agent → **one** visible next step → a successful first call. Everythi
 
 - **S1 — Collapse the reveal.** ✅ DONE. Default view = key (once) + an in-browser **TestDecision** button as the single primary action. Curl, SDK wiring, and MCP config moved behind native `<details>` disclosures (`components/disclosure.tsx`). Even better than the planned static snippet: the primary action *runs a real /authorize decision in the browser* — no curl, no provider key, no terminal — and persists to the log.
 - **S2 — Stack picker.** ✅ DONE. `components/connect-app.tsx` — Node/Python × OpenAI/Anthropic/Gemini toggle rewrites one drop-in snippet in place. Killed the 4-row grid. Fixed real breakage: OpenAI base URL needs `/v1`; all snippets now include the provider key (the gateway forwards it, doesn't vault it yet).
-- **S3 — Live "first call" confirmation.** TODO. A status line that flips to "✓ first call received" when the gateway sees traffic for this key — closes the loop for the *gateway* path without a dashboard refresh. (TestDecision already gives live feedback for the authorize path.)
+- **S3 — Live "first call" confirmation.** ✅ DONE. `components/gateway-watch.tsx` polls `GET /api/v1/activity` (new route) with the agent key and flips to "✓ first call received — model · tokens · $cost" when the gateway meters a real call. Bounded poll (5s, ~5min cap, pauses on hidden tab).
 - **S4 — Apply the same pattern to /start.** ✅ DONE. Signup success screen now uses TestDecision + the same three disclosures (Connect / raw HTTP / MCP). Dropped the verbose "Next" list.
-- **S5 — Instrumentation.** TODO. Activation funnel events: created → test decision run → snippet copied → first real gateway call. We have Vercel Analytics; add client events + a server signal on first gateway 2xx.
+- **S5 — Instrumentation.** ✅ DONE. Vercel Analytics funnel events: `agent_created` / `wallet_created` → `test_decision` {amount, status} → `snippet_copied` {provider, lang} → `first_gateway_call` {model}. View in the Vercel Analytics dashboard (Events tab).
 
 ## Out of scope (for now)
 
