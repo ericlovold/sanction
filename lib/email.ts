@@ -3,7 +3,7 @@
 // flows are testable in dev without an email provider.
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const EMAIL_FROM = process.env.EMAIL_FROM ?? "Sanction <no-reply@onesanction.com>"
+const EMAIL_FROM = process.env.EMAIL_FROM ?? "Sanction <no-reply@getsanction.com>"
 
 type SendArgs = { to: string; subject: string; html: string; text: string }
 
