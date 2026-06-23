@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react"
 import { createAgentAction, type CreateAgentState } from "@/app/dashboard/actions"
+import { GatewayProviders } from "@/components/gateway-providers"
 
 const initial: CreateAgentState = { ok: false, error: "" }
 
@@ -56,6 +57,7 @@ export function AgentCreator() {
               the log above.
             </p>
           </div>
+          <GatewayProviders agentKey={state.agentKey} />
         </div>
       )}
 
