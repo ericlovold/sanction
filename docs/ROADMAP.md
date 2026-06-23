@@ -7,6 +7,35 @@
 ## The thesis this roadmap serves
 Sanction's defensible product is **the cross-platform governance + human-escalation plane on top of AP2/MCP that no single platform owns**, made trustworthy by provable security and sold **clearance-first**. The vault is table stakes; the *policy + escalation + proof* is the product. Three independent discovery lenses (security, UX, distribution) converged here — that's where conviction is highest. Code discovery adds a fourth confirmation: the *injection core is well-built*, so the defensible work is enforcement, isolation, and escalation — not rebuilding the primitive.
 
+## Execution gating: pull before paywall (added 2026-06-23)
+
+The NOW/NEXT/LATER below is the engineering/security plan. This is the **GTM sequencing overlay** decided 2026-06-23 — *what to build in what order, and the signal that unlocks each step.* It reframes existing items; it doesn't replace them.
+
+**The constraint:** pre-traction, ~0 external agents. The bottleneck is **pull, not features.** Building the paid tier now is a paywall for an empty room.
+
+**Two wedges, reconciled** (resolves the recurring "what's *the* wedge?" question):
+- **Adoption wedge = the gateway** — zero-friction on-ramp (point base URL + `x-sanction-key`, metered + capped). Gets agents *in*.
+- **Monetization + positioning wedge = the human-in-the-loop approval layer** ("approval that finds you" — `POSITIONING.md` §0). It *is* roadmap items **UX-2** (escalate + timeout), **UX-4** (one-glance mobile approvals), and **SEC-7** (audit export) — already planned; this names them as *the* conversion engine, not just UX.
+
+**The signal-gated sequence:**
+1. **Phase 1 — get pull (now).** Goal: **3–5 external wallets that actually run an agent.** Distribution = framework integration guides (Vercel AI SDK, LangChain, CrewAI) + MCP discoverability + a great Cursor/Claude Code setup guide (cheap, no BD). **Measure:** `external.active` via `GET /api/admin/pulse`, plus the activation funnel events (`wallet_created → test_decision → snippet_copied → first_gateway_call`). Fix the biggest drop-off. **Do not build Team features yet.**
+2. **GATE →** when `external.active > 0` *and* someone hits a real escalation in the wild — that's the demand signal.
+3. **Phase 2 — build the wedge.** The approval + notification layer, one reach channel first: **email** (cheapest; `lib/email.ts`/Resend already wired) → **Slack** (highest team value) → SMS/push, plus audit export. (= UX-2/UX-4/SEC-7, pulled forward by the signal.)
+4. **Phase 3 — monetize.** Tier reframe: sell **agency-at-scale**, not "more agents." The buy = reliably reaching the *right* human (Slack routing, approver roles) + audit + SSO.
+
+**Tier reframe (the "why buy"):**
+
+| Tier | The line | Gated on |
+|---|---|---|
+| Free | solo dev, dogfood | 1 agent, basic caps, short retention, gateway |
+| Pro $19 | serious individual | more agents, longer retention, per-agent budgets |
+| **Team $49+** | **the real buy** | **approval routing (Slack/email/SMS/push), audit export, roles/SSO** |
+| Enterprise | regulated / security | Sanction ID (`NEXT-TIER.md`), clearance, VPC, SLA |
+
+The jump to **Team** is the money; the reason to jump is the approval layer. (Usage-based pricing is *available later* — the gateway already meters spend — but start tier-based: simpler pre-scale. Trade-off: tiers leave metered-value money on the table at scale; revisit post-traction.)
+
+**Done 2026-06-23 (Phase 0 — activation + measurement):** onboarding simplification — in-browser test decision, stack-picker SDK snippets, live first-call confirmation, activation funnel events (`docs/EPIC-onboarding-simplification.md`); adoption pulse endpoint (`/api/admin/pulse`); one-click MCP CI publish (`sanction-mcp@0.1.3`).
+
 ## The gate before everything
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:
 - ✅ **`SEC-15` authenticated management plane** — *shipped PR #1* (closed a live unauth credential-disclosure P0).

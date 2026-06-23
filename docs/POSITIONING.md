@@ -2,6 +2,35 @@
 
 > How Sanction should describe itself, the category it plays in, and the wedge. Grounded in `MARKET.md` (cited) and the code reality in `DISCOVERY.md`.
 
+## 0. The spine: human agency (the narrative above the category)
+
+> Added 2026-06-23. The category framing below (Layer 4 pre-action authorization) is *what* Sanction is to an analyst. This is *why it matters* to a human — the through-line beneath every feature and every line of copy.
+
+**One line:** Human agency over autonomous agents. *Your agents act; you stay in command.*
+
+**The flag we plant:** the **human oversight layer for autonomous AI agents** — the human-readable face of "Layer 4 pre-action authorization." Pre-action authorization *is* human agency, operationalized: a human sets the boundary and is pulled in at the moments that matter, before the agent acts.
+
+**Why it's ownable (contrarian + countercyclical):** the industry sprints toward *more* autonomy and *less* human friction. Layers 1–3 (observability, gateways, guardrails) sell *visibility and filtering* — none sell *agency*. "The human stays in command" is differentiated, grows in value exactly as agents get more capable and the headlines get worse, and is already in the name — to *sanction* is a human act of permission.
+
+**The trap — and the resolution (calibrated agency):** human-in-the-loop is friction, and friction gets ripped out. The principle on every surface is **not** "a human approves everything." It is: *the human sets the boundary, is pulled in only at the moments that matter, and every action is provably someone's decision.* Reframe brake → gas pedal: **you can deploy bolder, more autonomous agents *because* a human holds the reins.** Sell enablement, not restraint.
+
+**The six surfaces where agency must show up** (slogan → feature — this is how the spine stays concrete, not a vibe):
+1. **Decision** — escalation → a human approves/denies. *(Shipped primitive: `authorize` → `escalated`; webhook `escalation.created`.)*
+2. **Reach** — "approval that finds you": Slack / SMS / email / push. *Agency is worthless if you don't know to act.* The monetization wedge; mostly unbuilt → `ROADMAP.md` UX-2/UX-4.
+3. **Boundary** — the human authors the policy (auto-approve / escalate / deny).
+4. **Proof** — audit trail: "a human approved $X at 4:02pm." Agency made provable; the compliance sell → `ROADMAP.md` SEC-7.
+5. **Override** — instant pause / kill-switch on any agent.
+6. **Receipt** — every action labeled auto vs. human-decided.
+
+**How the spine reconciles the strategy:**
+- **Neutrality** (`STRATEGY.md`) = the **moat** (cross-provider / cross-runtime; no incumbent copies it without abandoning its own lock-in).
+- **Human agency** = the **spine** (how we say it, what we sell).
+- **Sanction ID** (`NEXT-TIER.md`) = human agency at the *identity* layer — you approve which agent is trusted, and it can't act if it's been tampered with.
+- **Gateway** = the **adoption** wedge (zero-friction on-ramp). **Approval layer** = the **positioning + monetization** wedge.
+
+**Words to own:** command, agency, decide, approve, oversight, the last word.
+**Messaging (homepage intentionally left alone for now — reference only):** draft lines to react to, not ship — *"Your agents act. You stay in command." / "Autonomy you don't have to fear." / "The last word stays human."* **Don't** position as anti-autonomy, and never claim we *prevent* prompt injection — we **contain** it (`NEXT-TIER.md` §3.3). Containment is the honest, defensible claim.
+
 ## 1. The category (and the naming reality)
 
 The category is real and analyst-recognized but **the name is unsettled** — competing labels in mid-2026: "non-human identity (NHI)," "agentic IAM," "agent control plane," "identity-first control plane" (Microsoft), "Agentic AI Ecosystem Security" (Gartner Emerging Tech radar, Oct 2025). NHI/agentic-IAM have the most analyst traction; "control plane / trust layer" is mostly VC/vendor framing.
