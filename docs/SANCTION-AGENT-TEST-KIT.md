@@ -18,10 +18,10 @@ Work through every step. Record the actual response, compare to **Expected**, ma
 
 ## 0. Environment
 
-**Target API (live):** `https://onesanction.com/api/v1`
+**Target API (live):** `https://getsanction.com/api/v1`
 
 ```bash
-export SANCTION_API="https://onesanction.com/api/v1"
+export SANCTION_API="https://getsanction.com/api/v1"
 ```
 
 > Local alternative: `npm install && npm run dev` → `export SANCTION_API="http://localhost:3000/api/v1"`
@@ -80,7 +80,7 @@ export AGENT_KEY="<api_key from response>"
       "command": "npx",
       "args": ["sanction-mcp"],
       "env": {
-        "SANCTION_API_URL": "https://onesanction.com/api/v1",
+        "SANCTION_API_URL": "https://getsanction.com/api/v1",
         "SANCTION_API_KEY": "pxy_...",
         "SANCTION_WALLET_ID": "wallet_..."
       }

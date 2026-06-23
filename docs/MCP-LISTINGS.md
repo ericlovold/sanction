@@ -6,7 +6,7 @@ entry exist). Each is a fork → edit one line → PR. Copy-paste ready.
 Canonical facts:
 - Repo: `https://github.com/ericlovold/sanction`
 - npm: `sanction-mcp` · run with `npx sanction-mcp`
-- Site: `https://onesanction.com`
+- Site: `https://getsanction.com`
 - Server type: TypeScript, connects to a hosted API → emoji `📇 ☁️`
 
 ---
@@ -22,7 +22,7 @@ Keep the list roughly alphabetical by repo name.
 ```
 
 PR title: `Add Sanction (financial control for AI agents)`
-PR body: `Adds Sanction — an MCP server for agent spend authorization, token budgets, and a credential vault. Hosted API + npx sanction-mcp. https://onesanction.com`
+PR body: `Adds Sanction — an MCP server for agent spend authorization, token budgets, and a credential vault. Hosted API + npx sanction-mcp. https://getsanction.com`
 
 ---
 

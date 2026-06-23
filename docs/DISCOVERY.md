@@ -108,7 +108,7 @@ This is the strongest part of the system: scoped, short-lived, audited, and the 
 
 - **Dashboard env var mismatch (functional):** `app/page.tsx:44` reads `process.env.PROXY_WALLET_ID`, but AGENTS.md/README document `SANCTION_WALLET_ID`. Unless both are set, the production dashboard renders "PROXY_WALLET_ID not set". (Also the dashboard `<h1>` still says "AutoFlux".)
 - **Incomplete rename:** JWT `iss` is `"autoflux"` (`lib/jwt.ts`); dashboard title "AutoFlux"; GitHub repo still `autoflux`. Cosmetic but user-visible.
-- **README base URL:** documents `https://onesanction.com/api/v1` — the canonical live domain (`sanction.ai` not pursued).
+- **README base URL:** documents `https://getsanction.com/api/v1` — the canonical live domain (`sanction.ai` not pursued).
 
 ## 8. Test / CI / branch state
 

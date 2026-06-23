@@ -30,7 +30,7 @@ Sanction is available through three channels:
 
 ## API
 
-Base URL: `https://onesanction.com/api/v1`
+Base URL: `https://getsanction.com/api/v1`
 
 ```
 POST /authorize           — Authorize a spend action before any transaction
@@ -59,7 +59,7 @@ Agent API calls use `x-api-key: pxy_...` header. Credential injection requires a
       "command": "npx",
       "args": ["sanction-mcp"],
       "env": {
-        "SANCTION_API_URL": "https://onesanction.com/api/v1",
+        "SANCTION_API_URL": "https://getsanction.com/api/v1",
         "SANCTION_API_KEY": "pxy_...",
         "SANCTION_WALLET_ID": "wallet_..."
       }

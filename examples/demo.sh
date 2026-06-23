@@ -11,7 +11,7 @@
 # set NO_AUTO_APPROVE=1 and open the Approvals tab (see examples/DEMO.md).
 set -euo pipefail
 
-API="${SANCTION_API_URL:-https://onesanction.com/api/v1}"
+API="${SANCTION_API_URL:-https://getsanction.com/api/v1}"
 : "${GOOGLE_API_KEY:?Set GOOGLE_API_KEY first}"
 py(){ python3 -c "import sys,json;print(json.load(sys.stdin)['$1'])"; }
 

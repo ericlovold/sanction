@@ -2,14 +2,14 @@
   "protocolVersion": "0.3.0",
   "name": "Sanction",
   "description": "The trust and governance layer for autonomous AI agents. Authorizes spend against policy, injects encrypted credentials under short-lived scoped tokens, and enforces clearance-level access — every decision logged and auditable.",
-  "url": "https://onesanction.com/api/v1",
+  "url": "https://getsanction.com/api/v1",
   "preferredTransport": "JSONRPC",
   "version": "1.0.0",
   "provider": {
     "organization": "Sanction",
-    "url": "https://onesanction.com"
+    "url": "https://getsanction.com"
   },
-  "documentationUrl": "https://onesanction.com/api/openapi.json",
+  "documentationUrl": "https://getsanction.com/api/openapi.json",
   "capabilities": {
     "streaming": false,
     "pushNotifications": false,

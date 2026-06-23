@@ -82,7 +82,7 @@ curl -XPOST $API/credentials/inject -H "Authorization: Bearer <jwt>" -d '{"crede
 | "Agent **Wallet**" / daily-monthly budgets | Spend **authorization** + audit. No funds movement; monthly budget not enforced (only daily). |
 | "Clearance Levels 1–5, industry domain auth" | Modeled, stamped into JWT, **never enforced**; no assignment endpoint. |
 | Scoped exec JWT "within a capped budget" | TTL + scope enforced; **budget not enforced** (`spentUsd` unused). |
-| Base URL `https://onesanction.com/api/v1` | Live and serving. |
+| Base URL `https://getsanction.com/api/v1` | Live and serving. |
 | `npx sanction-mcp` | bin exists in `package.json`; npm publication unverified. |
 | Pricing tiers (Free/Pro/Team/Enterprise) | No billing code; tiers unenforced (Stripe dep unused). |
 
