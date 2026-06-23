@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { track } from "@vercel/analytics"
 
 // The zero-setup first win: click a button, watch Sanction decide a real spend
 // request in the browser. Same /authorize call the agent would make — no curl,
@@ -27,7 +28,9 @@ export function TestDecision({ agentKey }: { agentKey: string }) {
         body: JSON.stringify({ action: "purchase", amount_usd: amount, merchant: "OpenAI", category: "software" }),
       })
       const d = await res.json().catch(() => ({}))
-      setDecisions((prev) => [...prev, { status: d.status ?? "error", amount, reason: d.reason }])
+      const status = d.status ?? "error"
+      track("test_decision", { amount, status })
+      setDecisions((prev) => [...prev, { status, amount, reason: d.reason }])
     } catch {
       setDecisions((prev) => [...prev, { status: "error", amount, reason: "Network error" }])
     } finally {
