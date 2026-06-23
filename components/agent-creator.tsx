@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from "react"
 import { createAgentAction, type CreateAgentState } from "@/app/dashboard/actions"
-import { GatewayProviders } from "@/components/gateway-providers"
+import { TestDecision } from "@/components/test-decision"
+import { ConnectApp } from "@/components/connect-app"
+import { Disclosure } from "@/components/disclosure"
 
 const initial: CreateAgentState = { ok: false, error: "" }
 
@@ -37,9 +39,15 @@ export function AgentCreator() {
             <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-200">{state.agentKey}</code>
             <Copy value={state.agentKey} />
           </div>
-          <div>
+          <TestDecision agentKey={state.agentKey} />
+
+          <Disclosure summary="Connect your app — drop-in SDK snippet">
+            <ConnectApp agentKey={state.agentKey} />
+          </Disclosure>
+
+          <Disclosure summary="Prefer raw HTTP? Copy the curl">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wide text-zinc-500">Try it — watch a decision (10s)</span>
+              <span className="text-[11px] uppercase tracking-wide text-zinc-500">authorize — one call</span>
               <Copy
                 value={`curl -X POST https://getsanction.com/api/v1/authorize \\\n  -H "x-api-key: ${state.agentKey}" \\\n  -H "content-type: application/json" \\\n  -d '{"action":"purchase","amount_usd":5,"merchant":"OpenAI","category":"software"}'`}
               />
@@ -50,14 +58,7 @@ export function AgentCreator() {
   -H "content-type: application/json" \\
   -d '{"action":"purchase","amount_usd":5,"merchant":"OpenAI","category":"software"}'`}</code>
             </pre>
-            <p className="mt-2 text-xs text-zinc-400">
-              Returns <span className="font-mono text-emerald-400">approved</span>. Change{" "}
-              <span className="font-mono text-zinc-300">amount_usd</span> to <span className="font-mono">40</span> and it
-              comes back <span className="font-mono text-amber-400">escalated</span> — refresh to see both decisions in
-              the log above.
-            </p>
-          </div>
-          <GatewayProviders agentKey={state.agentKey} />
+          </Disclosure>
         </div>
       )}
 

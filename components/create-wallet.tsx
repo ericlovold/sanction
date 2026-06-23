@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react"
 import Link from "next/link"
 import { createWalletAction, type CreateState } from "@/app/start/actions"
-import { GatewayProviders } from "@/components/gateway-providers"
+import { TestDecision } from "@/components/test-decision"
+import { ConnectApp } from "@/components/connect-app"
+import { Disclosure } from "@/components/disclosure"
 
 const initial: CreateState = { ok: false, error: "" }
 
@@ -61,40 +63,36 @@ export function CreateWallet() {
         <Field label="Management key (x-mgmt-key — gates policy, agents, approvals)" value={state.managementKey} hint="most sensitive" />
         <Field label="Wallet ID" value={state.walletId} />
 
-        {/* The aha: run one call, watch a real decision — no agent needed */}
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-emerald-300">Try it now — watch a decision (10s)</span>
+        {/* The aha: run a real decision in-browser — no setup, no agent needed */}
+        <TestDecision agentKey={state.agentKey} />
+
+        <Disclosure summary="Connect your app — drop-in SDK snippet">
+          <ConnectApp agentKey={state.agentKey} />
+        </Disclosure>
+
+        <Disclosure summary="Prefer raw HTTP? Copy the curl">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] uppercase tracking-wide text-zinc-500">authorize — one call</span>
             <Copy value={tryCurl} />
           </div>
-          <pre className="mt-3 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+          <pre className="mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
             <code>{tryCurl}</code>
           </pre>
-          <p className="mt-3 text-xs text-zinc-400">
-            Returns <span className="font-mono text-emerald-400">approved</span>. Change <span className="font-mono text-zinc-300">amount_usd</span> to <span className="font-mono">40</span> and it comes back <span className="font-mono text-amber-400">escalated</span> — then open your dashboard to see both decisions logged.
-          </p>
-        </div>
+        </Disclosure>
 
-        <GatewayProviders agentKey={state.agentKey} />
-
-        <div>
+        <Disclosure summary="Use it from an MCP host (Claude Desktop, agent runtimes)">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wide text-zinc-500">MCP config (Claude Desktop, etc.)</span>
+            <span className="text-[11px] uppercase tracking-wide text-zinc-500">MCP config</span>
             <Copy value={mcp} />
           </div>
           <pre className="mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
             <code>{mcp}</code>
           </pre>
-        </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            Set budgets &amp; categories via <code className="font-mono text-zinc-400">PATCH /api/v1/wallets/policy</code> with your management key.
+          </p>
+        </Disclosure>
 
-        <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-4 text-sm text-zinc-400">
-          <p className="font-medium text-zinc-300">Next</p>
-          <ul className="mt-2 space-y-1.5">
-            <li>• Drop the MCP config into your agent host, or send <code className="font-mono text-xs text-zinc-300">x-api-key</code> on REST calls.</li>
-            <li>• Try it in 2 minutes with the <a href="https://github.com/ericlovold/sanction/tree/main/examples" className="text-emerald-400 hover:text-emerald-300">Gemini example</a>.</li>
-            <li>• Set budgets &amp; categories via <code className="font-mono text-xs text-zinc-300">PATCH /api/v1/wallets/policy</code> (use your management key).</li>
-          </ul>
-        </div>
         <div className="flex items-center gap-3 pt-1">
           <Link href="/dashboard" className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
             Open my dashboard →

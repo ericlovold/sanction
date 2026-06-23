@@ -9,6 +9,22 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations/introspection (this config drives the Prisma CLI only) use a
+    // DIRECT, UNpooled connection so `migrate deploy` bypasses Neon's PgBouncer.
+    // A build canceled mid-migration through the pooler can leave a connection
+    // lingering that still holds pg_advisory_lock(72707369), causing subsequent
+    // `migrate deploy` runs to fail with P1002 (lock-acquire timeout). The data
+    // plane keeps using the pooled DATABASE_URL via @prisma/adapter-pg (lib/db.ts).
+    //
+    // Precedence:
+    //   DIRECT_URL              - explicit override / escape hatch (local .env)
+    //   DATABASE_URL_UNPOOLED   - Neon<>Vercel integration, direct host, auto-rotated
+    //   POSTGRES_URL_NON_POOLING- same, alternate name the integration also sets
+    //   DATABASE_URL            - pooled fallback (local Postgres has no pooler)
+    url:
+      process.env["DIRECT_URL"] ||
+      process.env["DATABASE_URL_UNPOOLED"] ||
+      process.env["POSTGRES_URL_NON_POOLING"] ||
+      process.env["DATABASE_URL"],
   },
 });
