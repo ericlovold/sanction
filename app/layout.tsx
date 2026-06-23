@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google"
 import "./globals.css"
 
@@ -27,6 +27,15 @@ export const metadata: Metadata = {
     title: "Sanction — Financial control for autonomous AI agents",
     description: "Don't give your agent your credit card. Give it a Sanction key.",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Sanction",
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
