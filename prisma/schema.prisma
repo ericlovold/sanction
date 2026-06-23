@@ -217,3 +217,14 @@ model AuthorizationRequest {
   @@index([agentId, createdAt])
   @@index([status])
 }
+
+// Awareness-stage marketing lead — captured before signup, owned in our DB so we
+// can message the list ourselves. Unique email = idempotent capture.
+model Lead {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  source    String?  // where it was captured: landing, hn, etc.
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
