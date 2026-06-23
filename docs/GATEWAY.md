@@ -8,7 +8,7 @@ base URL and add one header.
 If the agent has already spent its daily token budget, the gateway returns `402`
 **before** calling the provider — the spend is stopped, not just recorded.
 
-Base URL: `https://onesanction.com/api/gateway/<provider>`
+Base URL: `https://getsanction.com/api/gateway/<provider>`
 Auth: `x-sanction-key: pxy_…` (your agent key). Your provider key is forwarded as usual.
 
 ## Anthropic (Python SDK)
@@ -16,7 +16,7 @@ Auth: `x-sanction-key: pxy_…` (your agent key). Your provider key is forwarded
 ```python
 from anthropic import Anthropic
 client = Anthropic(
-    base_url="https://onesanction.com/api/gateway/anthropic",
+    base_url="https://getsanction.com/api/gateway/anthropic",
     api_key="<ANTHROPIC_API_KEY>",
     default_headers={"x-sanction-key": "pxy_…"},
 )
@@ -30,7 +30,7 @@ client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=100,
 ```python
 from openai import OpenAI
 client = OpenAI(
-    base_url="https://onesanction.com/api/gateway/openai/v1",
+    base_url="https://getsanction.com/api/gateway/openai/v1",
     api_key="<OPENAI_API_KEY>",
     default_headers={"x-sanction-key": "pxy_…"},
 )
@@ -42,7 +42,7 @@ client.chat.completions.create(model="gpt-4o-mini",
 
 ```bash
 curl -X POST \
-  "https://onesanction.com/api/gateway/gemini/v1beta/models/gemini-flash-latest:generateContent?key=$GOOGLE_API_KEY" \
+  "https://getsanction.com/api/gateway/gemini/v1beta/models/gemini-flash-latest:generateContent?key=$GOOGLE_API_KEY" \
   -H "x-sanction-key: pxy_…" -H "content-type: application/json" \
   -d '{"contents":[{"parts":[{"text":"hi"}]}]}'
 ```

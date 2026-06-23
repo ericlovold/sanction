@@ -60,12 +60,12 @@ const tiers = [
       "SLA & dedicated support",
     ],
     cta: "Contact us",
-    href: "mailto:eric@onesanction.com?subject=Sanction%20Enterprise",
+    href: "mailto:eric@getsanction.com?subject=Sanction%20Enterprise",
     highlight: false,
   },
 ]
 
-const authorizeSnippet = `curl -X POST https://onesanction.com/api/v1/authorize \\
+const authorizeSnippet = `curl -X POST https://getsanction.com/api/v1/authorize \\
   -H "x-api-key: pxy_••••" \\
   -H "content-type: application/json" \\
   -d '{

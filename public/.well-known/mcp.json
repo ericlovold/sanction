@@ -3,7 +3,7 @@
   "display_name": "Sanction — Agent Wallet & Governance",
   "description": "The permission stack for autonomous AI agents. Sanction enforces spend policy before transactions, tracks LLM token budgets, issues scoped execution credentials, and maintains a full audit trail. Integrates via MCP (stdio), REST API, or AWS Bedrock Action Groups.",
   "version": "1.0.0",
-  "homepage": "https://onesanction.com",
+  "homepage": "https://getsanction.com",
   "repository": "https://github.com/ericlovold/sanction",
   "license": "MIT",
   "transport": ["stdio"],
@@ -22,8 +22,8 @@
       },
       "SANCTION_API_URL": {
         "type": "string",
-        "description": "Sanction API base URL. Defaults to https://onesanction.com/api/v1.",
-        "default": "https://onesanction.com/api/v1"
+        "description": "Sanction API base URL. Defaults to https://getsanction.com/api/v1.",
+        "default": "https://getsanction.com/api/v1"
       },
       "SANCTION_WALLET_ID": {
         "type": "string",
