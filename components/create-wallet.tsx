@@ -1,6 +1,7 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
+import { track } from "@vercel/analytics"
 import Link from "next/link"
 import { createWalletAction, type CreateState } from "@/app/start/actions"
 import { TestDecision } from "@/components/test-decision"
@@ -43,6 +44,14 @@ function Field({ label, value, hint }: { label: string; value: string; hint?: st
 
 export function CreateWallet() {
   const [state, formAction, pending] = useActionState(createWalletAction, initial)
+  const tracked = useRef(false)
+
+  useEffect(() => {
+    if (state.ok && !tracked.current) {
+      tracked.current = true
+      track("wallet_created")
+    }
+  }, [state.ok])
 
   if (state.ok) {
     const mcp = JSON.stringify(

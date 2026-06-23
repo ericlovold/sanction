@@ -1,6 +1,7 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
+import { track } from "@vercel/analytics"
 import { createAgentAction, type CreateAgentState } from "@/app/dashboard/actions"
 import { TestDecision } from "@/components/test-decision"
 import { ConnectApp } from "@/components/connect-app"
@@ -27,6 +28,14 @@ function Copy({ value }: { value: string }) {
 
 export function AgentCreator() {
   const [state, formAction, pending] = useActionState(createAgentAction, initial)
+  const tracked = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (state.ok && state.agentKey && tracked.current !== state.agentKey) {
+      tracked.current = state.agentKey
+      track("agent_created")
+    }
+  }, [state.ok, state.agentKey])
 
   return (
     <div className="space-y-3">

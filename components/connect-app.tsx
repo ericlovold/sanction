@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { track } from "@vercel/analytics"
+import { GatewayWatch } from "@/components/gateway-watch"
 
 // "Connect your real app" — pick your stack, get one drop-in snippet that works.
 // You keep using your own provider key (Sanction forwards it); the x-sanction-key
@@ -116,13 +118,14 @@ r = client.models.generate_content(
 print(r.text)`
 }
 
-function Copy({ value }: { value: string }) {
+function Copy({ value, onCopy }: { value: string; onCopy?: () => void }) {
   const [done, setDone] = useState(false)
   return (
     <button
       type="button"
       onClick={() => {
         navigator.clipboard.writeText(value)
+        onCopy?.()
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
@@ -176,12 +179,13 @@ export function ConnectApp({ agentKey }: { agentKey: string }) {
           <span className="text-[11px] uppercase tracking-wide text-zinc-500">
             {provider} · {lang}
           </span>
-          <Copy value={code} />
+          <Copy value={code} onCopy={() => track("snippet_copied", { provider, lang })} />
         </div>
         <pre className="mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
           <code>{code}</code>
         </pre>
       </div>
+      <GatewayWatch agentKey={agentKey} />
     </div>
   )
 }
