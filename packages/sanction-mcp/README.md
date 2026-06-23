@@ -2,7 +2,7 @@
 
 **Spend authorization, token budgets, and a credential vault for autonomous AI agents — over MCP.**
 
-Give your agent a [Sanction](https://onesanction.com) key instead of your credit card.
+Give your agent a [Sanction](https://getsanction.com) key instead of your credit card.
 Before it buys anything, calls a paid API, or touches a secret, it asks Sanction — which
 approves, escalates to you, or denies based on the policy you set. Every decision is logged.
 
@@ -10,7 +10,7 @@ Even if your agent is hijacked at runtime, it can't spend, leak, or act beyond t
 you set — the budget cap, per-transaction limit, clearance gate, and short-lived scoped
 tokens bound the blast radius.
 
-This package is a thin stdio MCP client for the hosted Sanction API at `onesanction.com`.
+This package is a thin stdio MCP client for the hosted Sanction API at `getsanction.com`.
 
 ## Quickstart
 
@@ -19,13 +19,13 @@ This package is a thin stdio MCP client for the hosted Sanction API at `onesanct
 ```bash
 # Create a wallet — returns a management key (sk_...) and a wallet id. Save both;
 # the management key is shown only once.
-curl -s -X POST https://onesanction.com/api/v1/wallets \
+curl -s -X POST https://getsanction.com/api/v1/wallets \
   -H "content-type: application/json" \
   -d '{"name":"My Wallet","owner_email":"you@example.com"}'
 
 # Create an agent under that wallet — returns its API key (pxy_...), shown once.
 # Use the management key from step 1 as x-mgmt-key, and the wallet id as wallet_id.
-curl -s -X POST https://onesanction.com/api/v1/agents \
+curl -s -X POST https://getsanction.com/api/v1/agents \
   -H "content-type: application/json" \
   -H "x-mgmt-key: sk_REPLACE_ME" \
   -d '{"wallet_id":"REPLACE_WITH_WALLET_ID","name":"My Agent"}'
@@ -70,7 +70,7 @@ fetches it on first run.
 |-----|----------|---------|
 | `SANCTION_API_KEY` | yes | — |
 | `SANCTION_WALLET_ID` | no (needed for `sanction_wallet_status`) | — |
-| `SANCTION_API_URL` | no | `https://onesanction.com/api/v1` |
+| `SANCTION_API_URL` | no | `https://getsanction.com/api/v1` |
 
 ## Set a spend policy
 

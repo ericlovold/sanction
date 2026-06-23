@@ -78,13 +78,13 @@ SANCTION_WALLET_ID                — Primary wallet ID (for dashboard)
 
 ## Live Production
 
-- **API:** `https://onesanction.com/api/v1`
-- **Dashboard:** `https://onesanction.com`
-- **OpenAPI spec:** `https://onesanction.com/api/openapi.json`
+- **API:** `https://getsanction.com/api/v1`
+- **Dashboard:** `https://getsanction.com`
+- **OpenAPI spec:** `https://getsanction.com/api/openapi.json`
 - **Bedrock Agent:** `JXRNIJRMCX` (us-east-1), Action Group `sanction-api`
 - **GitHub:** `github.com/ericlovold/sanction`
 - **npm:** `sanction-mcp` (published; `npx sanction-mcp`)
-- **Canonical domain:** `onesanction.com` (`sanction.ai` not pursued — cost)
+- **Canonical domain:** `getsanction.com` (`sanction.ai` not pursued — cost)
 
 ## AIIA Integration
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { integrations } from "@/lib/integrations"
+import { LeadCapture } from "@/components/lead-capture"
 
 export const metadata: Metadata = {
   title: "Sanction — Financial control for autonomous AI agents",
@@ -60,12 +61,12 @@ const tiers = [
       "SLA & dedicated support",
     ],
     cta: "Contact us",
-    href: "mailto:eric@onesanction.com?subject=Sanction%20Enterprise",
+    href: "mailto:eric@getsanction.com?subject=Sanction%20Enterprise",
     highlight: false,
   },
 ]
 
-const authorizeSnippet = `curl -X POST https://onesanction.com/api/v1/authorize \\
+const authorizeSnippet = `curl -X POST https://getsanction.com/api/v1/authorize \\
   -H "x-api-key: pxy_••••" \\
   -H "content-type: application/json" \\
   -d '{
@@ -499,6 +500,21 @@ export default function Landing() {
               </Link>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Stay in the loop — awareness-stage capture for visitors not ready to wire an agent yet */}
+      <section className="border-t border-zinc-900">
+        <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">
+            Not ready to wire up an agent?
+          </h2>
+          <p className="mt-3 text-zinc-400">
+            Get launch updates and early access as we ship. One email when it matters — no spam.
+          </p>
+          <div className="mt-7 max-w-md mx-auto text-left">
+            <LeadCapture source="landing" />
+          </div>
         </div>
       </section>
 

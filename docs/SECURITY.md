@@ -77,5 +77,5 @@ Three credentials, each fail-closed:
 
 ## Reporting a vulnerability
 
-Email **eric@onesanction.com**. Please don't open a public issue for security reports.
+Email **eric@getsanction.com**. Please don't open a public issue for security reports.
 We'll acknowledge and work a fix; coordinated disclosure appreciated.
