@@ -62,7 +62,8 @@ export const ModelName = {
   AgentClearance: 'AgentClearance',
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
-  AuthorizationRequest: 'AuthorizationRequest'
+  AuthorizationRequest: 'AuthorizationRequest',
+  Lead: 'Lead'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -252,6 +253,16 @@ export const AuthorizationRequestScalarFieldEnum = {
 } as const
 
 export type AuthorizationRequestScalarFieldEnum = (typeof AuthorizationRequestScalarFieldEnum)[keyof typeof AuthorizationRequestScalarFieldEnum]
+
+
+export const LeadScalarFieldEnum = {
+  id: 'id',
+  email: 'email',
+  source: 'source',
+  createdAt: 'createdAt'
+} as const
+
+export type LeadScalarFieldEnum = (typeof LeadScalarFieldEnum)[keyof typeof LeadScalarFieldEnum]
 
 
 export const SortOrder = {

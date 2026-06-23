@@ -77,3 +77,8 @@ export type CredentialInjection = Prisma.CredentialInjectionModel
  * 
  */
 export type AuthorizationRequest = Prisma.AuthorizationRequestModel
+/**
+ * Model Lead
+ * 
+ */
+export type Lead = Prisma.LeadModel

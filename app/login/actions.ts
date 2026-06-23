@@ -58,7 +58,7 @@ export async function requestMagicLinkAction(_prev: MagicLinkRequestState, form:
         expiresAt: new Date(Date.now() + MAGIC_LINK_TTL_MS),
       },
     })
-    const host = h.get("host") ?? "onesanction.com"
+    const host = h.get("host") ?? "getsanction.com"
     const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
     const link = `${proto}://${host}/auth/verify?token=${rawToken}`
     // A provider failure must not 500 the request or reveal account existence —
