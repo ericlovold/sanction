@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { integrations } from "@/lib/integrations"
+import { LeadCapture } from "@/components/lead-capture"
 
 export const metadata: Metadata = {
   title: "Sanction — Financial control for autonomous AI agents",
@@ -499,6 +500,21 @@ export default function Landing() {
               </Link>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Stay in the loop — awareness-stage capture for visitors not ready to wire an agent yet */}
+      <section className="border-t border-zinc-900">
+        <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">
+            Not ready to wire up an agent?
+          </h2>
+          <p className="mt-3 text-zinc-400">
+            Get launch updates and early access as we ship. One email when it matters — no spam.
+          </p>
+          <div className="mt-7 max-w-md mx-auto text-left">
+            <LeadCapture source="landing" />
+          </div>
         </div>
       </section>
 
