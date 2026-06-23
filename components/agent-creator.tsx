@@ -31,7 +31,7 @@ export function AgentCreator() {
       {state.ok && state.agentKey && (
         <div className="space-y-3 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
           <p className="text-sm font-semibold text-emerald-300">
-            {state.agentName} created — copy the key now, it&apos;s shown once.
+            {state.agentName}{" "}created — copy the key now, it&apos;s shown once.
           </p>
           <div className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5">
             <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-200">{state.agentKey}</code>
@@ -66,7 +66,7 @@ export function AgentCreator() {
           name="name"
           required
           maxLength={64}
-          placeholder="New agent name — e.g. nightly-coder"
+          placeholder={state.ok ? "Name another agent…" : "New agent name — e.g. nightly-coder"}
           className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
         />
         <button
@@ -74,7 +74,7 @@ export function AgentCreator() {
           disabled={pending}
           className="shrink-0 rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
         >
-          {pending ? "Creating…" : "Create agent"}
+          {pending ? "Creating…" : state.ok ? "Create another" : "Create agent"}
         </button>
       </form>
       {!state.ok && state.error && <p className="text-sm text-red-400">{state.error}</p>}
