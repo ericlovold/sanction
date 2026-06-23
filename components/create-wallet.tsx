@@ -47,6 +47,10 @@ export function CreateWallet() {
       null,
       2,
     )
+    const tryCurl = `curl -X POST https://getsanction.com/api/v1/authorize \\
+  -H "x-api-key: ${state.agentKey}" \\
+  -H "content-type: application/json" \\
+  -d '{"action":"purchase","amount_usd":5,"merchant":"OpenAI","category":"software"}'`
     return (
       <div className="space-y-5">
         <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
@@ -55,6 +59,20 @@ export function CreateWallet() {
         <Field label="Agent key (x-api-key — for authorize, tokens)" value={state.agentKey} />
         <Field label="Management key (x-mgmt-key — gates policy, agents, approvals)" value={state.managementKey} hint="most sensitive" />
         <Field label="Wallet ID" value={state.walletId} />
+
+        {/* The aha: run one call, watch a real decision — no agent needed */}
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-emerald-300">Try it now — watch a decision (10s)</span>
+            <Copy value={tryCurl} />
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+            <code>{tryCurl}</code>
+          </pre>
+          <p className="mt-3 text-xs text-zinc-400">
+            Returns <span className="font-mono text-emerald-400">approved</span>. Change <span className="font-mono text-zinc-300">amount_usd</span> to <span className="font-mono">40</span> and it comes back <span className="font-mono text-amber-400">escalated</span> — then open your dashboard to see both decisions logged.
+          </p>
+        </div>
 
         <div>
           <div className="flex items-center justify-between">
