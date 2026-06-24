@@ -28,6 +28,8 @@
 - **Sanction ID** (`NEXT-TIER.md`) = human agency at the *identity* layer — you approve which agent is trusted, and it can't act if it's been tampered with.
 - **Gateway** = the **adoption** wedge (zero-friction on-ramp). **Approval layer** = the **positioning + monetization** wedge.
 
+**The enterprise expression — fleet governance.** At scale, human agency becomes a CFO's product: **one number at the top governs every agent below it.** The org sets a cap; it allocates down a tenant / cost-center tree; no agent at any depth can breach it; every dollar rolls up for chargeback — across providers, one place. Same spine (a human sets the boundary), told to the buyer who signs the check. This is the first *warm* enterprise pull (MMHC/David, 2026-06-24). Design: `NEXT-TIER.md` §4 (the account tree).
+
 **Words to own:** command, agency, decide, approve, oversight, the last word.
 **Messaging (homepage intentionally left alone for now — reference only):** draft lines to react to, not ship — *"Your agents act. You stay in command." / "Autonomy you don't have to fear." / "The last word stays human."* **Don't** position as anti-autonomy, and never claim we *prevent* prompt injection — we **contain** it (`NEXT-TIER.md` §3.3). Containment is the honest, defensible claim.
 

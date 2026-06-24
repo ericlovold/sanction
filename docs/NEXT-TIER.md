@@ -232,23 +232,96 @@ or act beyond the limits you set."
 
 ---
 
-## 4. Org / team layer (the enterprise conversion path)
+## 4. Org / team layer — the account tree (the enterprise conversion path)
 
-Once identity exists, the org layer is mostly aggregation:
+> Designed 2026-06-24, prompted by the MMHC/David prospect (many agents, one place
+> to govern budget). The CFO's product. Demand-validated; build deal-triggered.
 
-- **Teams / cost-centers** above wallets; roll spend + attestation status up.
-- **Roles** (owner, approver, viewer) on the management plane — today it's a
-  single `mgmt` key per wallet.
-- **Chargeback** — `TokenLog` + authorization spend already carry `agentId`; add
-  a team dimension and the reporting falls out.
-- **SSO** (SAML/OIDC) for the dashboard — table stakes for the finance/security
-  buyer.
-- **Audit export** — every attestation, injection, and decision is already
-  persisted; expose a signed, append-only export (the compliance artifact).
+**The reframe:** the product isn't "budgets per agent." It's **one number at the
+top that governs an entire fleet** — the CFO sets the org cap, it allocates down,
+and no agent at any depth can breach it, while every dollar rolls back up by team
+for chargeback. Pair it with the cross-provider gateway: *your entire agent spend,
+across Claude/OpenAI/Gemini and every team, one number, one place.* Neutrality
+compounds here — the CFO doesn't care which model, only the total.
 
-This is the layer that converts the CFO/CISO, and it's where neutrality pays off:
-one control plane reporting across agents on Claude Code, Cursor, Bedrock, and
-custom runtimes.
+### 4.1 The model: one recursive account tree
+
+Not a fixed Org→Team→Agent schema — a **node that can parent other nodes, arbitrary
+depth.** The labels are the customer's: MMHC calls them tenant/sub-tenant; an
+internal CFO calls them division/cost-center. Same structure, different words —
+that's the flexibility. A gentle evolution of today's schema, not a rewrite:
+
+- **Today's `Wallet` becomes the root node.** Generalize it: a node has an optional
+  `parentId` (null = root, arbitrary depth), an optional Policy (inherits the
+  parent's when unset), and agents + members attached.
+- **Agents attach to any node.** **Policy attaches to any node** and cascades down.
+- Migration is clean: every existing wallet = a root account. Backward compatible.
+
+```prisma
+model Account {              // generalizes Wallet
+  id        String   @id @default(cuid())
+  parentId  String?          // null = root; arbitrary depth
+  name      String
+  // ... existing wallet fields (ownerEmail, mgmtKeyHash, ...) live on the root
+  parent    Account?  @relation("tree", fields: [parentId], references: [id])
+  children  Account[] @relation("tree")
+  policy    Policy?
+  agents    Agent[]
+  members   AccountMember[]
+  @@index([parentId])
+}
+```
+
+For fast subtree reads (rollup/isolation) add a **materialized path** or closure
+table — adjacency-list alone makes subtree queries recursive.
+
+### 4.2 Budget physics — the elegant part
+
+- **Caps cascade DOWN:** an agent's effective ceiling = the *min* of its own cap and
+  every ancestor's *remaining* budget. A sub-tenant can't exceed the tenant, which
+  can't exceed the org. The top node is a hard throttle on its whole subtree.
+- **Spend rolls UP:** sum the subtree per node for chargeback + forecasting. One
+  tree, two directions.
+
+### 4.3 The hard part — hot-path enforcement under concurrency
+
+The central engineering risk. You **cannot** recursively re-aggregate subtree spend
+on every authorize call — too slow, and many agents under one ancestor spending
+concurrently can collectively blow that ancestor's cap. The answer:
+
+- **Per-node running counters**, incremented *inside* the authorize transaction with
+  a **conditional atomic write** at each ancestor:
+  `UPDATE account_budget SET spent = spent + :x WHERE spent + :x <= cap` — walk the
+  ancestor chain; any failed conditional = deny. Replaces today's per-agent advisory
+  lock; scales across shared ancestors without serializing the whole subtree.
+- **Rollover** (daily/monthly) resets counters; a **periodic reconcile job** corrects
+  drift against the authoritative `TokenLog`/`AuthorizationRequest` rows.
+- **If the counter logic leaks, the cap is a lie** — and a leaky cap on a CFO product
+  is fatal. This is the piece to test adversarially (concurrency + rollover races).
+
+### 4.4 Isolation, roles, and the table-stakes rest
+
+- **Tenant isolation** — sub-tenants under one master must not see each other's
+  spend/agents. Subtree-scoped row-level security (`SEC-3`). For MMHC's clinic
+  tenants, almost certainly contractual.
+- **Roles scoped to a node + subtree** (owner/approver/viewer) — CFO owns root; a
+  tenant admin owns their branch and self-manages budget under its allocation.
+  Replaces today's single `mgmt` key per wallet (`SEC-6` rotation feeds this).
+- **Chargeback** — `TokenLog` + authorization spend already carry `agentId`; add the
+  node dimension and per-cost-center reporting falls out.
+- **SSO** (SAML/OIDC) and **signed append-only audit export** (`SEC-7`) — table stakes
+  for the finance/security buyer.
+
+### 4.5 Recommendation (trade-off named)
+
+Model it as an **arbitrary-depth tree** (depth is *data*, so you never re-architect),
+but **enforce and ship shallow first** — org → team → agent covers ~95% of orgs —
+and don't promise infinite nesting in the UX until someone needs it. Arbitrary depth
+in the schema, pragmatic depth in the product. **Design now, build deal-triggered.**
+
+This is the layer that converts the CFO/CISO, and where neutrality pays off: one
+control plane governing + reporting across agents on Claude Code, Cursor, Bedrock,
+and custom runtimes — one number for the whole fleet.
 
 ---
 
