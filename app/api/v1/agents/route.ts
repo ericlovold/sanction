@@ -20,6 +20,8 @@ const patchSchema = z.object({
   per_transaction_max_usd: budget,
   escalate_over_usd: budget,
   clearance: z.number().int().min(1).max(5).optional(),
+  // Revoke (false) or reactivate (true) the agent's key. SEC-6.
+  active: z.boolean().optional(),
 })
 
 // Register a new agent and return its API key (shown once).
@@ -93,6 +95,7 @@ export async function PATCH(req: NextRequest) {
     dailySpendBudgetUsd: toCents(overrides.daily_spend_budget_usd),
     perTransactionMaxUsd: toCents(overrides.per_transaction_max_usd),
     escalateOverUsd: toCents(overrides.escalate_over_usd),
+    ...(overrides.active !== undefined ? { isActive: overrides.active } : {}),
   }
 
   const updated = await db.agent.update({ where: { id: agent_id }, data })
@@ -111,6 +114,7 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({
     id: updated.id,
     name: updated.name,
+    active: updated.isActive,
     clearance,
     overrides: {
       daily_token_budget_usd: updated.dailyTokenBudgetUsd === null ? null : updated.dailyTokenBudgetUsd / 100,

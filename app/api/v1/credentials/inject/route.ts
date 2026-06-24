@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { verifyExecutionJWT, decryptCredential } from "@/lib/jwt"
-import { logger } from "@/lib/log"
-
-const log = logger("v1/credentials/inject")
 
 const schema = z.object({
   credential_label: z.string(),
