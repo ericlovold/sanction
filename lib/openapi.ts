@@ -50,7 +50,7 @@ export const spec = {
           reason: { type: "string", description: "Human-readable explanation of the decision" },
           code: {
             type: "string",
-            enum: ["ESCALATION_REQUIRED", "ESCALATION_TIMED_OUT", "NO_POLICY", "CATEGORY_BLOCKED", "CATEGORY_NOT_ALLOWED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "POLICY_DENIED"],
+            enum: ["ESCALATION_REQUIRED", "ESCALATION_TIMED_OUT", "NO_POLICY", "CATEGORY_BLOCKED", "CATEGORY_NOT_ALLOWED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "EXEC_BUDGET_EXCEEDED", "POLICY_DENIED"],
             description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
           },
           remediation: { type: "string", description: "Suggested next step for the agent when not approved" },
@@ -148,6 +148,125 @@ export const spec = {
           pending_approvals: { type: "integer" },
         },
       },
+      RegisterAgentRequest: {
+        type: "object",
+        required: ["wallet_id", "name"],
+        properties: {
+          wallet_id: { type: "string" },
+          name: { type: "string", minLength: 1, maxLength: 64, description: "Agent name. Carry your tenant id here (e.g. tenant_<id>) to map one agent per tenant." },
+        },
+      },
+      AgentKeyResponse: {
+        type: "object",
+        description: "Returned on register and rotate. api_key is shown once and never retrievable again.",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          api_key: { type: "string", description: "The agent key (pxy_...). Store it now — shown once." },
+          api_key_prefix: { type: "string" },
+          wallet_id: { type: "string" },
+          created_at: { type: "string", format: "date-time" },
+          warning: { type: "string" },
+        },
+      },
+      AgentListResponse: {
+        type: "object",
+        properties: {
+          agents: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                apiKeyPrefix: { type: "string" },
+                isActive: { type: "boolean" },
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+      },
+      RotateAgentRequest: {
+        type: "object",
+        required: ["wallet_id", "agent_id"],
+        properties: {
+          wallet_id: { type: "string" },
+          agent_id: { type: "string" },
+        },
+      },
+      UpdateAgentRequest: {
+        type: "object",
+        required: ["wallet_id", "agent_id"],
+        description: "Per-agent overrides. A number sets a $ override; null clears it (inherit wallet policy); omitting a field leaves it unchanged.",
+        properties: {
+          wallet_id: { type: "string" },
+          agent_id: { type: "string" },
+          daily_token_budget_usd: { type: "number", minimum: 0, nullable: true },
+          daily_spend_budget_usd: { type: "number", minimum: 0, nullable: true },
+          per_transaction_max_usd: { type: "number", minimum: 0, nullable: true },
+          escalate_over_usd: { type: "number", minimum: 0, nullable: true },
+          clearance: { type: "integer", minimum: 1, maximum: 5 },
+          active: { type: "boolean", description: "false revokes the agent's key; true reactivates it (SEC-6)." },
+        },
+      },
+      UpdateAgentResponse: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          active: { type: "boolean" },
+          clearance: { type: "integer", nullable: true },
+          overrides: {
+            type: "object",
+            properties: {
+              daily_token_budget_usd: { type: "number", nullable: true },
+              daily_spend_budget_usd: { type: "number", nullable: true },
+              per_transaction_max_usd: { type: "number", nullable: true },
+              escalate_over_usd: { type: "number", nullable: true },
+            },
+          },
+        },
+      },
+      PolicyObject: {
+        type: "object",
+        description: "Wallet spend policy. Amounts in dollars.",
+        properties: {
+          daily_token_budget_usd: { type: "number" },
+          daily_spend_budget_usd: { type: "number" },
+          per_transaction_max_usd: { type: "number" },
+          auto_approve_under_usd: { type: "number", description: "At or under this, auto-approve and never escalate (floor wins over escalation)." },
+          escalate_over_usd: { type: "number", description: "Over this (and over the auto-approve floor), escalate to a human." },
+          allowed_categories: { type: "array", items: { type: "string" }, description: "Non-empty = allow-list (only these may spend). Empty = allow all." },
+          blocked_categories: { type: "array", items: { type: "string" } },
+          escalation_timeout_mins: { type: "integer", description: "0 = never auto-resolve an escalation." },
+          escalation_timeout_action: { type: "string", enum: ["deny", "approve"] },
+        },
+      },
+      PolicyUpdateRequest: {
+        type: "object",
+        required: ["wallet_id"],
+        description: "Partial — only the fields you send change. Amounts in dollars.",
+        properties: {
+          wallet_id: { type: "string" },
+          daily_token_budget_usd: { type: "number", minimum: 0 },
+          daily_spend_budget_usd: { type: "number", minimum: 0 },
+          per_transaction_max_usd: { type: "number", minimum: 0 },
+          auto_approve_under_usd: { type: "number", minimum: 0 },
+          escalate_over_usd: { type: "number", minimum: 0 },
+          allowed_categories: { type: "array", items: { type: "string" } },
+          blocked_categories: { type: "array", items: { type: "string" } },
+          escalation_timeout_mins: { type: "integer", minimum: 0, maximum: 10080 },
+          escalation_timeout_action: { type: "string", enum: ["deny", "approve"] },
+        },
+      },
+      PolicyResponse: {
+        type: "object",
+        properties: {
+          wallet_id: { type: "string" },
+          policy: { $ref: "#/components/schemas/PolicyObject" },
+        },
+      },
       Error: {
         type: "object",
         properties: {
@@ -171,8 +290,7 @@ export const spec = {
         },
         responses: {
           "200": {
-            description: "Authorization decision",
-            headers: { "x-autoflux-clearance": { schema: { type: "integer" }, description: "Agent clearance level used for this decision" } },
+            description: "Authorization decision (200 for approved/escalated; 403 for denied)",
             content: { "application/json": { schema: { $ref: "#/components/schemas/AuthorizeResponse" } } },
           },
           "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
@@ -274,6 +392,83 @@ export const spec = {
             description: "Wallet stats",
             content: { "application/json": { schema: { $ref: "#/components/schemas/WalletStatsResponse" } } },
           },
+        },
+      },
+    },
+    "/agents": {
+      post: {
+        operationId: "registerAgent",
+        summary: "Register (provision) a new agent",
+        description: "Create an agent under a wallet and receive its API key once. Use this to auto-provision one agent per tenant. Management-plane (x-mgmt-key).",
+        security: [{ ManagementKey: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RegisterAgentRequest" } } } },
+        responses: {
+          "201": { description: "Agent created; api_key shown once", content: { "application/json": { schema: { $ref: "#/components/schemas/AgentKeyResponse" } } } },
+          "400": { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid management key" },
+        },
+      },
+      get: {
+        operationId: "listAgents",
+        summary: "List a wallet's agents",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Agents", content: { "application/json": { schema: { $ref: "#/components/schemas/AgentListResponse" } } } },
+          "401": { description: "Missing or invalid management key" },
+        },
+      },
+      patch: {
+        operationId: "updateAgent",
+        summary: "Set per-agent budgets, clearance, or active state",
+        description: "Override budgets per agent (null clears to inherit the wallet policy), set clearance, or revoke/reactivate the key with { active }. Management-plane.",
+        security: [{ ManagementKey: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateAgentRequest" } } } },
+        responses: {
+          "200": { description: "Updated agent", content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateAgentResponse" } } } },
+          "400": { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "Agent not found in this wallet" },
+        },
+      },
+    },
+    "/agents/rotate": {
+      post: {
+        operationId: "rotateAgentKey",
+        summary: "Rotate an agent's API key",
+        description: "Issue a fresh key for an agent; the old key stops working immediately and the new key is shown once. To revoke without re-issuing, PATCH /agents with { active: false }. Management-plane (SEC-6).",
+        security: [{ ManagementKey: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RotateAgentRequest" } } } },
+        responses: {
+          "200": { description: "Key rotated; new api_key shown once", content: { "application/json": { schema: { $ref: "#/components/schemas/AgentKeyResponse" } } } },
+          "400": { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "Agent not found in this wallet" },
+        },
+      },
+    },
+    "/wallets/policy": {
+      get: {
+        operationId: "getPolicy",
+        summary: "Read a wallet's spend policy",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Policy", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyResponse" } } } },
+          "401": { description: "Missing or invalid management key" },
+          "404": { description: "No policy configured" },
+        },
+      },
+      patch: {
+        operationId: "updatePolicy",
+        summary: "Update budgets, thresholds, and categories",
+        description: "Partial update of the wallet spend policy. Only fields you send change. Amounts in dollars. Management-plane.",
+        security: [{ ManagementKey: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyUpdateRequest" } } } },
+        responses: {
+          "200": { description: "Updated policy", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyResponse" } } } },
+          "400": { description: "Invalid policy", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid management key" },
         },
       },
     },
