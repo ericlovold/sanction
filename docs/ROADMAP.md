@@ -36,6 +36,24 @@ The jump to **Team** is the money; the reason to jump is the approval layer. (Us
 
 **Done 2026-06-23 (Phase 0 — activation + measurement):** onboarding simplification — in-browser test decision, stack-picker SDK snippets, live first-call confirmation, activation funnel events (`docs/EPIC-onboarding-simplification.md`); adoption pulse endpoint (`/api/admin/pulse`); one-click MCP CI publish (`sanction-mcp@0.1.3`).
 
+## First prospect signal — David / MMHC (healthcare, 2026-06-24)
+
+First real inbound: a warm, technical healthcare prospect (MMHC — an AI-first platform replacing site/CRM/ITSM/portal → eventually the EMR, with an agentic layer of topical agents) got keys and sent an architecture-gating question list. ~1 month from wanting pilot customers; **no signed client yet**, so per the gating discipline above these are **demand-validated, build deal-triggered.** The notable strategic read: **the first pull is enterprise/healthcare-grade infra (BAA, SLA, vaulting, org) — not the prosumer approval wedge.** Both wedges are now demand-signaled; the warm one is enterprise.
+
+His 6 questions → roadmap:
+
+| # | Question | Status today | Action |
+|---|---|---|---|
+| 1 | PHI persistence / BAA | **Strong** — gateway persists metadata only; no prompt/response bodies stored or logged | **NEW: HIPAA/BAA-isolated gateway on Render** — stateless proxy on HIPAA-eligible infra (Render BAA upstream; sign BA with customer downstream). Deal-triggered, Enterprise, **price as pass-through + BA liability + ops**. Sub-fix: `/authorize` `description` persists free text → make PHI-safe (optional no-store / redaction). |
+| 2 | Fail-open/closed + SLA | in-path **fail-closed**, no formal SLA | **ELEVATE: gateway reliability** — document fail behavior + client fallback guidance now (clients default fail-open-with-alert + direct-to-provider); HA/redundancy + SLA at Enterprise. In-path-middleware buyers demand this ("been burned"). |
+| 3 | Provider-key vaulting (pxy_-only) | **roadmap** — agent passes its own provider key | **ELEVATE `NEXT-TIER` §2** vault-injected provider keys — demand-validated. Interim seam = env-resolved provider key, server-side. |
+| 4 | Control-plane API | **LIVE** — `sk_`: create/list agents, per-agent + wallet budgets, clearance | Validated. **Pull forward `SEC-6`** programmatic key rotation/revocation (per-tenant auto-provisioning needs it). |
+| 5 | Multi-tenant / org | interim works (agent-per-tenant; `tenantId`→`agentId`) | Interim sufficient for pilot (he agreed). **Org/team layer (`NEXT-TIER` §4)** demand-noted for master-account scale; not urgent. |
+| 6 | Gateway model routing | per-provider path; switch baseURL | Fine as-is. Optional low-pri DX: model-based routing on one base URL. |
+
+**Ships now (no client needed):** non-PHI gateway, control-plane auto-provisioning, env-resolved key seam, `tenantId`→`agentId` mapping — all usable today.
+**Deal-triggered (Enterprise/HIPAA bundle):** Render BAA gateway (#1) · reliability/SLA hardening (#2) · provider-key vaulting (#3) · key-rotation API (#4) · org layer (#5). Build when a paid pilot commits; entity (C-corp) stood up *before* any BAA/contract signature.
+
 ## The gate before everything
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:
 - ✅ **`SEC-15` authenticated management plane** — *shipped PR #1* (closed a live unauth credential-disclosure P0).
