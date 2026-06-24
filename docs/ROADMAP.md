@@ -62,7 +62,7 @@ A credential vault that can leak every tenant's secrets is uninvestable. These *
 - ◑ **`SEC-2`** GCM nonce uniqueness (✅ random-96-bit confirmed) **+ AAD binding** (⬜ TODO).
 - ⬜ **`SEC-3`** Postgres RLS tenant isolation (app-code filtering only today).
 - ⬜ **`SEC-5`** JWT binding/revocation (HS256 single secret; no revocation setter).
-- ◑ **`SEC-6`** `pxy_` key hashing (✅ already hashed) / scoping / rotation / revocation (⬜).
+- ◑ **`SEC-6`** `pxy_` key hashing (✅) / rotation + revocation (✅ `POST /api/v1/agents/rotate`, `PATCH /api/v1/agents {active:false}` — 2026-06-24) / scoping (⬜).
 - ⬜ **`FUND-1` decision** — *where does the money sit?* Current code answer: **nowhere (no custody)**. The decision is whether to keep it that way (control-plane, minimal regulatory surface) or add real rails. Reshapes security blast radius, money-transmission surface, and AP2 positioning at once. See ADR-0005.
 
 ---

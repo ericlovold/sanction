@@ -3,9 +3,6 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { encryptCredential } from "@/lib/jwt"
 import { authenticateOwner } from "@/lib/ownerAuth"
-import { logger } from "@/lib/log"
-
-const log = logger("v1/credentials/vault")
 
 const schema = z.object({
   wallet_id: z.string(),
