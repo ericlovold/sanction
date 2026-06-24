@@ -37,6 +37,45 @@ export const REMEDIATION: Record<DecisionCode, string> = {
   POLICY_DENIED: "Denied by policy. Review the reason and adjust the request.",
 }
 
+export type PolicyDecision = { status: "approved" | "escalated" | "denied"; note: string }
+
+export type DecideInput = {
+  amountUsd: number
+  category: string
+  blockedCategories: string[]
+  allowedCategories: string[]
+  perTxnMaxCents: number
+  dailySpentUsd: number
+  dailyBudgetCents: number
+  autoApproveUnderCents: number
+  escalateOverCents: number
+}
+
+/**
+ * The pure spend-decision ladder — no exec-token, no IO. This is the canonical
+ * logic the simulate path runs directly; the live locked transaction in
+ * app/api/v1/authorize/route.ts mirrors it (and adds the exec-budget gate).
+ * Keep the two in sync. Notes here must match the strings `decisionCode` maps.
+ *
+ * Precedence: blocked → allow-list → per-txn → daily budget → floor-over-escalation
+ * (at/under the auto-approve floor we never escalate).
+ */
+export function decidePolicy(i: DecideInput): PolicyDecision {
+  if (i.blockedCategories.includes(i.category)) return { status: "denied", note: `Category '${i.category}' is blocked` }
+  if (i.allowedCategories.length > 0 && !i.allowedCategories.includes(i.category)) {
+    return { status: "denied", note: `Category '${i.category}' is not in the allow-list` }
+  }
+  const amountCents = Math.round(i.amountUsd * 100)
+  if (amountCents > i.perTxnMaxCents) return { status: "denied", note: `Exceeds per-transaction limit of $${i.perTxnMaxCents / 100}` }
+  // Sum dollars then round, matching the live daily-budget comparison exactly.
+  if (Math.round((i.dailySpentUsd + i.amountUsd) * 100) > i.dailyBudgetCents) {
+    return { status: "denied", note: "Daily spend budget exceeded" }
+  }
+  if (amountCents <= i.autoApproveUnderCents) return { status: "approved", note: "Auto-approved (under auto-approve floor)" }
+  if (amountCents > i.escalateOverCents) return { status: "escalated", note: "Exceeds escalation threshold" }
+  return { status: "approved", note: "Auto-approved by policy" }
+}
+
 /** Map a persisted decision to a stable code. `undefined` for an approval. */
 export function decisionCode(status: string, note: string | null): DecisionCode | undefined {
   if (status === "approved") return undefined
