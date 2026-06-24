@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, REMEDIATION } from "@/lib/decisions"
+import { decidePolicy, decisionCode, REMEDIATION } from "@/lib/decisions"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
@@ -103,18 +103,24 @@ export async function POST(req: NextRequest) {
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
 
-  // Simulation: read current daily spend and compute the decision without locking or writing.
+  // Simulation: compute the decision via the shared ladder, no locking or writing.
   if (simulate) {
     const dailySpend = await db.authorizationRequest.aggregate({
       where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
       _sum: { amountUsd: true },
     })
-    const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
-    if (dailyTotalCents > dailySpendBudget) return simulateResponse("denied", "Daily spend budget exceeded", agent.name, amount_usd, merchant)
-    // Mirror the live floor-over-escalation precedence so simulate matches a real call.
-    if (amountCents <= policy.autoApproveUnderUsd) return simulateResponse("approved", "Auto-approved (under auto-approve floor)", agent.name, amount_usd, merchant)
-    if (amountCents > escalateOver) return simulateResponse("escalated", "Exceeds escalation threshold", agent.name, amount_usd, merchant)
-    return simulateResponse("approved", "Auto-approved by policy", agent.name, amount_usd, merchant)
+    const { status, note } = decidePolicy({
+      amountUsd: amount_usd,
+      category,
+      blockedCategories: policy.blockedCategories,
+      allowedCategories: policy.allowedCategories,
+      perTxnMaxCents: perTxnMax,
+      dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
+      dailyBudgetCents: dailySpendBudget,
+      autoApproveUnderCents: policy.autoApproveUnderUsd,
+      escalateOverCents: escalateOver,
+    })
+    return simulateResponse(status, note, agent.name, amount_usd, merchant)
   }
 
   try {
@@ -143,8 +149,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Silent auto-approve floor: at or under this, never escalate (autoApprove is
-      // policy-level, not overridable per agent). The floor wins over escalation.
+      // Mirrors decidePolicy() in lib/decisions.ts (the simulate path + tests use it
+      // directly); keep the two in sync. Silent auto-approve floor: at or under this,
+      // never escalate (policy-level, not per-agent). The floor wins over escalation.
       const underFloor = amountCents <= policy.autoApproveUnderUsd
       if (!underFloor && amountCents > escalateOver) {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
