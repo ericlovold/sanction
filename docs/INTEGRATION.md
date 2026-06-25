@@ -132,6 +132,10 @@ Base URLs per provider: `/api/gateway/anthropic`, `/api/gateway/openai/v1`,
 `/api/gateway/gemini`. If the daily token budget is exhausted, the gateway
 returns **402** before the call goes out.
 
+> Using the **Vercel AI SDK**? See [VERCEL-AI-SDK.md](VERCEL-AI-SDK.md) — same
+> idea (`baseURL` + `x-sanction-key`), with the per-provider config and the
+> per-request tenant-key pattern.
+
 ### 6. (Optional) authorize non-LLM spend
 
 Before a purchase/subscription/transfer, ask first:
