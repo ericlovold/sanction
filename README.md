@@ -32,17 +32,29 @@ Sanction is available through three channels:
 
 Base URL: `https://getsanction.com/api/v1`
 
+**Integrating a multi-tenant platform?** Start with the
+[Multi-Tenant Integration Runbook](docs/INTEGRATION.md) — provision an agent per
+tenant, govern budgets centrally, meter LLM calls through the gateway, rotate keys.
+
 ```
-POST /authorize           — Authorize a spend action before any transaction
-POST /tokens              — Log LLM token consumption for budget tracking
-POST /exec                — Issue a scoped execution JWT (15-min TTL)
-POST /credentials/vault   — Store an encrypted credential
-POST /credentials/inject  — Inject a decrypted credential (requires JWT)
-POST /agents              — Register an agent against a wallet
-POST /wallets             — Create a wallet with spend policy
-GET  /wallets/stats       — Dashboard stats (today + MTD)
-GET  /api/openapi.json    — OpenAPI 3.0 spec (Bedrock compatible)
+POST  /wallets               — Create a wallet (master account) + spend policy
+GET   /wallets/stats         — Dashboard stats (today + MTD)
+GET   /wallets/policy        — Read the wallet spend policy
+PATCH /wallets/policy        — Update budgets, thresholds, categories
+POST  /agents                — Register (provision) an agent under a wallet
+GET   /agents                — List a wallet's agents
+PATCH /agents                — Per-agent budgets, clearance, revoke/reactivate
+POST  /agents/rotate         — Rotate an agent's key (old dies immediately)
+POST  /authorize             — Authorize a spend action before any transaction
+POST  /tokens                — Log LLM token consumption for budget tracking
+POST  /exec                  — Issue a scoped execution JWT (15-min TTL)
+POST  /credentials/vault     — Store an encrypted credential
+POST  /credentials/inject    — Inject a decrypted credential (requires JWT)
+GET   /api/openapi.json      — OpenAPI 3.0 spec (Bedrock compatible)
 ```
+
+The LLM gateway lives at `https://getsanction.com/api/gateway/<provider>` (point
+your model SDK's base URL there, send `x-sanction-key`).
 
 ### Auth
 
