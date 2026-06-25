@@ -35,6 +35,7 @@ Base URL: `https://getsanction.com/api/v1`
 **Integrating a multi-tenant platform?** Start with the
 [Multi-Tenant Integration Runbook](docs/INTEGRATION.md) — provision an agent per
 tenant, govern budgets centrally, meter LLM calls through the gateway, rotate keys.
+Using the Vercel AI SDK? See the [AI SDK guide](docs/VERCEL-AI-SDK.md).
 
 ```
 POST  /wallets               — Create a wallet (master account) + spend policy
