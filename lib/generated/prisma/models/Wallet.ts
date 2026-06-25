@@ -29,6 +29,7 @@ export type WalletMinAggregateOutputType = {
   name: string | null
   ownerEmail: string | null
   createdAt: Date | null
+  parentId: string | null
   mgmtKeyHash: string | null
   mgmtKeyPrefix: string | null
 }
@@ -38,6 +39,7 @@ export type WalletMaxAggregateOutputType = {
   name: string | null
   ownerEmail: string | null
   createdAt: Date | null
+  parentId: string | null
   mgmtKeyHash: string | null
   mgmtKeyPrefix: string | null
 }
@@ -47,6 +49,7 @@ export type WalletCountAggregateOutputType = {
   name: number
   ownerEmail: number
   createdAt: number
+  parentId: number
   mgmtKeyHash: number
   mgmtKeyPrefix: number
   _all: number
@@ -58,6 +61,7 @@ export type WalletMinAggregateInputType = {
   name?: true
   ownerEmail?: true
   createdAt?: true
+  parentId?: true
   mgmtKeyHash?: true
   mgmtKeyPrefix?: true
 }
@@ -67,6 +71,7 @@ export type WalletMaxAggregateInputType = {
   name?: true
   ownerEmail?: true
   createdAt?: true
+  parentId?: true
   mgmtKeyHash?: true
   mgmtKeyPrefix?: true
 }
@@ -76,6 +81,7 @@ export type WalletCountAggregateInputType = {
   name?: true
   ownerEmail?: true
   createdAt?: true
+  parentId?: true
   mgmtKeyHash?: true
   mgmtKeyPrefix?: true
   _all?: true
@@ -158,6 +164,7 @@ export type WalletGroupByOutputType = {
   name: string
   ownerEmail: string
   createdAt: Date
+  parentId: string | null
   mgmtKeyHash: string | null
   mgmtKeyPrefix: string | null
   _count: WalletCountAggregateOutputType | null
@@ -188,8 +195,11 @@ export type WalletWhereInput = {
   name?: Prisma.StringFilter<"Wallet"> | string
   ownerEmail?: Prisma.StringFilter<"Wallet"> | string
   createdAt?: Prisma.DateTimeFilter<"Wallet"> | Date | string
+  parentId?: Prisma.StringNullableFilter<"Wallet"> | string | null
   mgmtKeyHash?: Prisma.StringNullableFilter<"Wallet"> | string | null
   mgmtKeyPrefix?: Prisma.StringNullableFilter<"Wallet"> | string | null
+  parent?: Prisma.XOR<Prisma.WalletNullableScalarRelationFilter, Prisma.WalletWhereInput> | null
+  children?: Prisma.WalletListRelationFilter
   agents?: Prisma.AgentListRelationFilter
   policy?: Prisma.XOR<Prisma.PolicyNullableScalarRelationFilter, Prisma.PolicyWhereInput> | null
   credentials?: Prisma.CredentialVaultListRelationFilter
@@ -204,8 +214,11 @@ export type WalletOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   ownerEmail?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  parentId?: Prisma.SortOrderInput | Prisma.SortOrder
   mgmtKeyHash?: Prisma.SortOrderInput | Prisma.SortOrder
   mgmtKeyPrefix?: Prisma.SortOrderInput | Prisma.SortOrder
+  parent?: Prisma.WalletOrderByWithRelationInput
+  children?: Prisma.WalletOrderByRelationAggregateInput
   agents?: Prisma.AgentOrderByRelationAggregateInput
   policy?: Prisma.PolicyOrderByWithRelationInput
   credentials?: Prisma.CredentialVaultOrderByRelationAggregateInput
@@ -224,7 +237,10 @@ export type WalletWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.WalletWhereInput | Prisma.WalletWhereInput[]
   name?: Prisma.StringFilter<"Wallet"> | string
   createdAt?: Prisma.DateTimeFilter<"Wallet"> | Date | string
+  parentId?: Prisma.StringNullableFilter<"Wallet"> | string | null
   mgmtKeyPrefix?: Prisma.StringNullableFilter<"Wallet"> | string | null
+  parent?: Prisma.XOR<Prisma.WalletNullableScalarRelationFilter, Prisma.WalletWhereInput> | null
+  children?: Prisma.WalletListRelationFilter
   agents?: Prisma.AgentListRelationFilter
   policy?: Prisma.XOR<Prisma.PolicyNullableScalarRelationFilter, Prisma.PolicyWhereInput> | null
   credentials?: Prisma.CredentialVaultListRelationFilter
@@ -239,6 +255,7 @@ export type WalletOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   ownerEmail?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  parentId?: Prisma.SortOrderInput | Prisma.SortOrder
   mgmtKeyHash?: Prisma.SortOrderInput | Prisma.SortOrder
   mgmtKeyPrefix?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.WalletCountOrderByAggregateInput
@@ -254,6 +271,7 @@ export type WalletScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"Wallet"> | string
   ownerEmail?: Prisma.StringWithAggregatesFilter<"Wallet"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Wallet"> | Date | string
+  parentId?: Prisma.StringNullableWithAggregatesFilter<"Wallet"> | string | null
   mgmtKeyHash?: Prisma.StringNullableWithAggregatesFilter<"Wallet"> | string | null
   mgmtKeyPrefix?: Prisma.StringNullableWithAggregatesFilter<"Wallet"> | string | null
 }
@@ -265,6 +283,8 @@ export type WalletCreateInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
@@ -279,8 +299,10 @@ export type WalletUncheckedCreateInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
@@ -297,6 +319,8 @@ export type WalletUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
@@ -311,8 +335,10 @@ export type WalletUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
@@ -327,6 +353,7 @@ export type WalletCreateManyInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
 }
@@ -345,8 +372,24 @@ export type WalletUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type WalletNullableScalarRelationFilter = {
+  is?: Prisma.WalletWhereInput | null
+  isNot?: Prisma.WalletWhereInput | null
+}
+
+export type WalletListRelationFilter = {
+  every?: Prisma.WalletWhereInput
+  some?: Prisma.WalletWhereInput
+  none?: Prisma.WalletWhereInput
+}
+
+export type WalletOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
 }
 
 export type WalletCountOrderByAggregateInput = {
@@ -354,6 +397,7 @@ export type WalletCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   ownerEmail?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  parentId?: Prisma.SortOrder
   mgmtKeyHash?: Prisma.SortOrder
   mgmtKeyPrefix?: Prisma.SortOrder
 }
@@ -363,6 +407,7 @@ export type WalletMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   ownerEmail?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  parentId?: Prisma.SortOrder
   mgmtKeyHash?: Prisma.SortOrder
   mgmtKeyPrefix?: Prisma.SortOrder
 }
@@ -372,6 +417,7 @@ export type WalletMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   ownerEmail?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  parentId?: Prisma.SortOrder
   mgmtKeyHash?: Prisma.SortOrder
   mgmtKeyPrefix?: Prisma.SortOrder
 }
@@ -381,8 +427,66 @@ export type WalletScalarRelationFilter = {
   isNot?: Prisma.WalletWhereInput
 }
 
+export type WalletCreateNestedOneWithoutChildrenInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutChildrenInput, Prisma.WalletUncheckedCreateWithoutChildrenInput>
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutChildrenInput
+  connect?: Prisma.WalletWhereUniqueInput
+}
+
+export type WalletCreateNestedManyWithoutParentInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutParentInput, Prisma.WalletUncheckedCreateWithoutParentInput> | Prisma.WalletCreateWithoutParentInput[] | Prisma.WalletUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutParentInput | Prisma.WalletCreateOrConnectWithoutParentInput[]
+  createMany?: Prisma.WalletCreateManyParentInputEnvelope
+  connect?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+}
+
+export type WalletUncheckedCreateNestedManyWithoutParentInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutParentInput, Prisma.WalletUncheckedCreateWithoutParentInput> | Prisma.WalletCreateWithoutParentInput[] | Prisma.WalletUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutParentInput | Prisma.WalletCreateOrConnectWithoutParentInput[]
+  createMany?: Prisma.WalletCreateManyParentInputEnvelope
+  connect?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+}
+
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
+}
+
+export type WalletUpdateOneWithoutChildrenNestedInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutChildrenInput, Prisma.WalletUncheckedCreateWithoutChildrenInput>
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutChildrenInput
+  upsert?: Prisma.WalletUpsertWithoutChildrenInput
+  disconnect?: Prisma.WalletWhereInput | boolean
+  delete?: Prisma.WalletWhereInput | boolean
+  connect?: Prisma.WalletWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.WalletUpdateToOneWithWhereWithoutChildrenInput, Prisma.WalletUpdateWithoutChildrenInput>, Prisma.WalletUncheckedUpdateWithoutChildrenInput>
+}
+
+export type WalletUpdateManyWithoutParentNestedInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutParentInput, Prisma.WalletUncheckedCreateWithoutParentInput> | Prisma.WalletCreateWithoutParentInput[] | Prisma.WalletUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutParentInput | Prisma.WalletCreateOrConnectWithoutParentInput[]
+  upsert?: Prisma.WalletUpsertWithWhereUniqueWithoutParentInput | Prisma.WalletUpsertWithWhereUniqueWithoutParentInput[]
+  createMany?: Prisma.WalletCreateManyParentInputEnvelope
+  set?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  disconnect?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  delete?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  connect?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  update?: Prisma.WalletUpdateWithWhereUniqueWithoutParentInput | Prisma.WalletUpdateWithWhereUniqueWithoutParentInput[]
+  updateMany?: Prisma.WalletUpdateManyWithWhereWithoutParentInput | Prisma.WalletUpdateManyWithWhereWithoutParentInput[]
+  deleteMany?: Prisma.WalletScalarWhereInput | Prisma.WalletScalarWhereInput[]
+}
+
+export type WalletUncheckedUpdateManyWithoutParentNestedInput = {
+  create?: Prisma.XOR<Prisma.WalletCreateWithoutParentInput, Prisma.WalletUncheckedCreateWithoutParentInput> | Prisma.WalletCreateWithoutParentInput[] | Prisma.WalletUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.WalletCreateOrConnectWithoutParentInput | Prisma.WalletCreateOrConnectWithoutParentInput[]
+  upsert?: Prisma.WalletUpsertWithWhereUniqueWithoutParentInput | Prisma.WalletUpsertWithWhereUniqueWithoutParentInput[]
+  createMany?: Prisma.WalletCreateManyParentInputEnvelope
+  set?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  disconnect?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  delete?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  connect?: Prisma.WalletWhereUniqueInput | Prisma.WalletWhereUniqueInput[]
+  update?: Prisma.WalletUpdateWithWhereUniqueWithoutParentInput | Prisma.WalletUpdateWithWhereUniqueWithoutParentInput[]
+  updateMany?: Prisma.WalletUpdateManyWithWhereWithoutParentInput | Prisma.WalletUpdateManyWithWhereWithoutParentInput[]
+  deleteMany?: Prisma.WalletScalarWhereInput | Prisma.WalletScalarWhereInput[]
 }
 
 export type WalletCreateNestedOneWithoutMagicLinksInput = {
@@ -483,6 +587,163 @@ export type WalletUpdateOneRequiredWithoutExecutionTokensNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.WalletUpdateToOneWithWhereWithoutExecutionTokensInput, Prisma.WalletUpdateWithoutExecutionTokensInput>, Prisma.WalletUncheckedUpdateWithoutExecutionTokensInput>
 }
 
+export type WalletCreateWithoutChildrenInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
+  policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
+  credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
+  clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
+  executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
+}
+
+export type WalletUncheckedCreateWithoutChildrenInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  parentId?: string | null
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+  agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
+  policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
+  credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
+  clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
+}
+
+export type WalletCreateOrConnectWithoutChildrenInput = {
+  where: Prisma.WalletWhereUniqueInput
+  create: Prisma.XOR<Prisma.WalletCreateWithoutChildrenInput, Prisma.WalletUncheckedCreateWithoutChildrenInput>
+}
+
+export type WalletCreateWithoutParentInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
+  agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
+  policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
+  credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
+  clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
+  executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutWalletInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkCreateNestedManyWithoutWalletInput
+}
+
+export type WalletUncheckedCreateWithoutParentInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
+  agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
+  policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
+  credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
+  clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutWalletInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutWalletInput
+  magicLinks?: Prisma.MagicLinkUncheckedCreateNestedManyWithoutWalletInput
+}
+
+export type WalletCreateOrConnectWithoutParentInput = {
+  where: Prisma.WalletWhereUniqueInput
+  create: Prisma.XOR<Prisma.WalletCreateWithoutParentInput, Prisma.WalletUncheckedCreateWithoutParentInput>
+}
+
+export type WalletCreateManyParentInputEnvelope = {
+  data: Prisma.WalletCreateManyParentInput | Prisma.WalletCreateManyParentInput[]
+  skipDuplicates?: boolean
+}
+
+export type WalletUpsertWithoutChildrenInput = {
+  update: Prisma.XOR<Prisma.WalletUpdateWithoutChildrenInput, Prisma.WalletUncheckedUpdateWithoutChildrenInput>
+  create: Prisma.XOR<Prisma.WalletCreateWithoutChildrenInput, Prisma.WalletUncheckedCreateWithoutChildrenInput>
+  where?: Prisma.WalletWhereInput
+}
+
+export type WalletUpdateToOneWithWhereWithoutChildrenInput = {
+  where?: Prisma.WalletWhereInput
+  data: Prisma.XOR<Prisma.WalletUpdateWithoutChildrenInput, Prisma.WalletUncheckedUpdateWithoutChildrenInput>
+}
+
+export type WalletUpdateWithoutChildrenInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
+  policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
+  credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
+  clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
+  executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
+}
+
+export type WalletUncheckedUpdateWithoutChildrenInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
+  policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
+  credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
+  clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
+}
+
+export type WalletUpsertWithWhereUniqueWithoutParentInput = {
+  where: Prisma.WalletWhereUniqueInput
+  update: Prisma.XOR<Prisma.WalletUpdateWithoutParentInput, Prisma.WalletUncheckedUpdateWithoutParentInput>
+  create: Prisma.XOR<Prisma.WalletCreateWithoutParentInput, Prisma.WalletUncheckedCreateWithoutParentInput>
+}
+
+export type WalletUpdateWithWhereUniqueWithoutParentInput = {
+  where: Prisma.WalletWhereUniqueInput
+  data: Prisma.XOR<Prisma.WalletUpdateWithoutParentInput, Prisma.WalletUncheckedUpdateWithoutParentInput>
+}
+
+export type WalletUpdateManyWithWhereWithoutParentInput = {
+  where: Prisma.WalletScalarWhereInput
+  data: Prisma.XOR<Prisma.WalletUpdateManyMutationInput, Prisma.WalletUncheckedUpdateManyWithoutParentInput>
+}
+
+export type WalletScalarWhereInput = {
+  AND?: Prisma.WalletScalarWhereInput | Prisma.WalletScalarWhereInput[]
+  OR?: Prisma.WalletScalarWhereInput[]
+  NOT?: Prisma.WalletScalarWhereInput | Prisma.WalletScalarWhereInput[]
+  id?: Prisma.StringFilter<"Wallet"> | string
+  name?: Prisma.StringFilter<"Wallet"> | string
+  ownerEmail?: Prisma.StringFilter<"Wallet"> | string
+  createdAt?: Prisma.DateTimeFilter<"Wallet"> | Date | string
+  parentId?: Prisma.StringNullableFilter<"Wallet"> | string | null
+  mgmtKeyHash?: Prisma.StringNullableFilter<"Wallet"> | string | null
+  mgmtKeyPrefix?: Prisma.StringNullableFilter<"Wallet"> | string | null
+}
+
 export type WalletCreateWithoutMagicLinksInput = {
   id?: string
   name: string
@@ -490,6 +751,8 @@ export type WalletCreateWithoutMagicLinksInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
@@ -503,8 +766,10 @@ export type WalletUncheckedCreateWithoutMagicLinksInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
@@ -536,6 +801,8 @@ export type WalletUpdateWithoutMagicLinksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
@@ -549,8 +816,10 @@ export type WalletUncheckedUpdateWithoutMagicLinksInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
@@ -566,6 +835,8 @@ export type WalletCreateWithoutWebhooksInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
@@ -579,8 +850,10 @@ export type WalletUncheckedCreateWithoutWebhooksInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
@@ -612,6 +885,8 @@ export type WalletUpdateWithoutWebhooksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
@@ -625,8 +900,10 @@ export type WalletUncheckedUpdateWithoutWebhooksInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
@@ -642,6 +919,8 @@ export type WalletCreateWithoutAgentsInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
@@ -655,8 +934,10 @@ export type WalletUncheckedCreateWithoutAgentsInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
@@ -688,6 +969,8 @@ export type WalletUpdateWithoutAgentsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
@@ -701,8 +984,10 @@ export type WalletUncheckedUpdateWithoutAgentsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
@@ -718,6 +1003,8 @@ export type WalletCreateWithoutPolicyInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
@@ -731,8 +1018,10 @@ export type WalletUncheckedCreateWithoutPolicyInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
@@ -764,6 +1053,8 @@ export type WalletUpdateWithoutPolicyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
@@ -777,8 +1068,10 @@ export type WalletUncheckedUpdateWithoutPolicyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
@@ -794,6 +1087,8 @@ export type WalletCreateWithoutCredentialsInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   clearances?: Prisma.AgentClearanceCreateNestedManyWithoutWalletInput
@@ -807,8 +1102,10 @@ export type WalletUncheckedCreateWithoutCredentialsInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   clearances?: Prisma.AgentClearanceUncheckedCreateNestedManyWithoutWalletInput
@@ -840,6 +1137,8 @@ export type WalletUpdateWithoutCredentialsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
@@ -853,8 +1152,10 @@ export type WalletUncheckedUpdateWithoutCredentialsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
@@ -870,6 +1171,8 @@ export type WalletCreateWithoutClearancesInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
@@ -883,8 +1186,10 @@ export type WalletUncheckedCreateWithoutClearancesInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
@@ -916,6 +1221,8 @@ export type WalletUpdateWithoutClearancesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
@@ -929,8 +1236,10 @@ export type WalletUncheckedUpdateWithoutClearancesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
@@ -946,6 +1255,8 @@ export type WalletCreateWithoutExecutionTokensInput = {
   createdAt?: Date | string
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  parent?: Prisma.WalletCreateNestedOneWithoutChildrenInput
+  children?: Prisma.WalletCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultCreateNestedManyWithoutWalletInput
@@ -959,8 +1270,10 @@ export type WalletUncheckedCreateWithoutExecutionTokensInput = {
   name: string
   ownerEmail: string
   createdAt?: Date | string
+  parentId?: string | null
   mgmtKeyHash?: string | null
   mgmtKeyPrefix?: string | null
+  children?: Prisma.WalletUncheckedCreateNestedManyWithoutParentInput
   agents?: Prisma.AgentUncheckedCreateNestedManyWithoutWalletInput
   policy?: Prisma.PolicyUncheckedCreateNestedOneWithoutWalletInput
   credentials?: Prisma.CredentialVaultUncheckedCreateNestedManyWithoutWalletInput
@@ -992,6 +1305,8 @@ export type WalletUpdateWithoutExecutionTokensInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parent?: Prisma.WalletUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
@@ -1005,8 +1320,10 @@ export type WalletUncheckedUpdateWithoutExecutionTokensInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
   agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
   policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
   credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
@@ -1015,12 +1332,65 @@ export type WalletUncheckedUpdateWithoutExecutionTokensInput = {
   magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
 }
 
+export type WalletCreateManyParentInput = {
+  id?: string
+  name: string
+  ownerEmail: string
+  createdAt?: Date | string
+  mgmtKeyHash?: string | null
+  mgmtKeyPrefix?: string | null
+}
+
+export type WalletUpdateWithoutParentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUpdateManyWithoutParentNestedInput
+  agents?: Prisma.AgentUpdateManyWithoutWalletNestedInput
+  policy?: Prisma.PolicyUpdateOneWithoutWalletNestedInput
+  credentials?: Prisma.CredentialVaultUpdateManyWithoutWalletNestedInput
+  clearances?: Prisma.AgentClearanceUpdateManyWithoutWalletNestedInput
+  executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutWalletNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUpdateManyWithoutWalletNestedInput
+}
+
+export type WalletUncheckedUpdateWithoutParentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  children?: Prisma.WalletUncheckedUpdateManyWithoutParentNestedInput
+  agents?: Prisma.AgentUncheckedUpdateManyWithoutWalletNestedInput
+  policy?: Prisma.PolicyUncheckedUpdateOneWithoutWalletNestedInput
+  credentials?: Prisma.CredentialVaultUncheckedUpdateManyWithoutWalletNestedInput
+  clearances?: Prisma.AgentClearanceUncheckedUpdateManyWithoutWalletNestedInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutWalletNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutWalletNestedInput
+  magicLinks?: Prisma.MagicLinkUncheckedUpdateManyWithoutWalletNestedInput
+}
+
+export type WalletUncheckedUpdateManyWithoutParentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerEmail?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mgmtKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mgmtKeyPrefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
 
 /**
  * Count Type WalletCountOutputType
  */
 
 export type WalletCountOutputType = {
+  children: number
   agents: number
   credentials: number
   clearances: number
@@ -1030,6 +1400,7 @@ export type WalletCountOutputType = {
 }
 
 export type WalletCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  children?: boolean | WalletCountOutputTypeCountChildrenArgs
   agents?: boolean | WalletCountOutputTypeCountAgentsArgs
   credentials?: boolean | WalletCountOutputTypeCountCredentialsArgs
   clearances?: boolean | WalletCountOutputTypeCountClearancesArgs
@@ -1046,6 +1417,13 @@ export type WalletCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Exten
    * Select specific fields to fetch from the WalletCountOutputType
    */
   select?: Prisma.WalletCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * WalletCountOutputType without action
+ */
+export type WalletCountOutputTypeCountChildrenArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.WalletWhereInput
 }
 
 /**
@@ -1096,8 +1474,11 @@ export type WalletSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name?: boolean
   ownerEmail?: boolean
   createdAt?: boolean
+  parentId?: boolean
   mgmtKeyHash?: boolean
   mgmtKeyPrefix?: boolean
+  parent?: boolean | Prisma.Wallet$parentArgs<ExtArgs>
+  children?: boolean | Prisma.Wallet$childrenArgs<ExtArgs>
   agents?: boolean | Prisma.Wallet$agentsArgs<ExtArgs>
   policy?: boolean | Prisma.Wallet$policyArgs<ExtArgs>
   credentials?: boolean | Prisma.Wallet$credentialsArgs<ExtArgs>
@@ -1113,8 +1494,10 @@ export type WalletSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   name?: boolean
   ownerEmail?: boolean
   createdAt?: boolean
+  parentId?: boolean
   mgmtKeyHash?: boolean
   mgmtKeyPrefix?: boolean
+  parent?: boolean | Prisma.Wallet$parentArgs<ExtArgs>
 }, ExtArgs["result"]["wallet"]>
 
 export type WalletSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1122,8 +1505,10 @@ export type WalletSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   name?: boolean
   ownerEmail?: boolean
   createdAt?: boolean
+  parentId?: boolean
   mgmtKeyHash?: boolean
   mgmtKeyPrefix?: boolean
+  parent?: boolean | Prisma.Wallet$parentArgs<ExtArgs>
 }, ExtArgs["result"]["wallet"]>
 
 export type WalletSelectScalar = {
@@ -1131,12 +1516,15 @@ export type WalletSelectScalar = {
   name?: boolean
   ownerEmail?: boolean
   createdAt?: boolean
+  parentId?: boolean
   mgmtKeyHash?: boolean
   mgmtKeyPrefix?: boolean
 }
 
-export type WalletOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "ownerEmail" | "createdAt" | "mgmtKeyHash" | "mgmtKeyPrefix", ExtArgs["result"]["wallet"]>
+export type WalletOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "ownerEmail" | "createdAt" | "parentId" | "mgmtKeyHash" | "mgmtKeyPrefix", ExtArgs["result"]["wallet"]>
 export type WalletInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  parent?: boolean | Prisma.Wallet$parentArgs<ExtArgs>
+  children?: boolean | Prisma.Wallet$childrenArgs<ExtArgs>
   agents?: boolean | Prisma.Wallet$agentsArgs<ExtArgs>
   policy?: boolean | Prisma.Wallet$policyArgs<ExtArgs>
   credentials?: boolean | Prisma.Wallet$credentialsArgs<ExtArgs>
@@ -1146,12 +1534,18 @@ export type WalletInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   magicLinks?: boolean | Prisma.Wallet$magicLinksArgs<ExtArgs>
   _count?: boolean | Prisma.WalletCountOutputTypeDefaultArgs<ExtArgs>
 }
-export type WalletIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
-export type WalletIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type WalletIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  parent?: boolean | Prisma.Wallet$parentArgs<ExtArgs>
+}
+export type WalletIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  parent?: boolean | Prisma.Wallet$parentArgs<ExtArgs>
+}
 
 export type $WalletPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Wallet"
   objects: {
+    parent: Prisma.$WalletPayload<ExtArgs> | null
+    children: Prisma.$WalletPayload<ExtArgs>[]
     agents: Prisma.$AgentPayload<ExtArgs>[]
     policy: Prisma.$PolicyPayload<ExtArgs> | null
     credentials: Prisma.$CredentialVaultPayload<ExtArgs>[]
@@ -1165,6 +1559,7 @@ export type $WalletPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     name: string
     ownerEmail: string
     createdAt: Date
+    parentId: string | null
     mgmtKeyHash: string | null
     mgmtKeyPrefix: string | null
   }, ExtArgs["result"]["wallet"]>
@@ -1561,6 +1956,8 @@ readonly fields: WalletFieldRefs;
  */
 export interface Prisma__WalletClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  parent<T extends Prisma.Wallet$parentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$parentArgs<ExtArgs>>): Prisma.Prisma__WalletClient<runtime.Types.Result.GetResult<Prisma.$WalletPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  children<T extends Prisma.Wallet$childrenArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$childrenArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WalletPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agents<T extends Prisma.Wallet$agentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$agentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   policy<T extends Prisma.Wallet$policyArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$policyArgs<ExtArgs>>): Prisma.Prisma__PolicyClient<runtime.Types.Result.GetResult<Prisma.$PolicyPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   credentials<T extends Prisma.Wallet$credentialsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Wallet$credentialsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CredentialVaultPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -1601,6 +1998,7 @@ export interface WalletFieldRefs {
   readonly name: Prisma.FieldRef<"Wallet", 'String'>
   readonly ownerEmail: Prisma.FieldRef<"Wallet", 'String'>
   readonly createdAt: Prisma.FieldRef<"Wallet", 'DateTime'>
+  readonly parentId: Prisma.FieldRef<"Wallet", 'String'>
   readonly mgmtKeyHash: Prisma.FieldRef<"Wallet", 'String'>
   readonly mgmtKeyPrefix: Prisma.FieldRef<"Wallet", 'String'>
 }
@@ -1857,6 +2255,10 @@ export type WalletCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensio
    */
   data: Prisma.WalletCreateManyInput | Prisma.WalletCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WalletIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1927,6 +2329,10 @@ export type WalletUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensio
    * Limit how many Wallets to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WalletIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1993,6 +2399,49 @@ export type WalletDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Limit how many Wallets to delete.
    */
   limit?: number
+}
+
+/**
+ * Wallet.parent
+ */
+export type Wallet$parentArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Wallet
+   */
+  select?: Prisma.WalletSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Wallet
+   */
+  omit?: Prisma.WalletOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WalletInclude<ExtArgs> | null
+  where?: Prisma.WalletWhereInput
+}
+
+/**
+ * Wallet.children
+ */
+export type Wallet$childrenArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Wallet
+   */
+  select?: Prisma.WalletSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Wallet
+   */
+  omit?: Prisma.WalletOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WalletInclude<ExtArgs> | null
+  where?: Prisma.WalletWhereInput
+  orderBy?: Prisma.WalletOrderByWithRelationInput | Prisma.WalletOrderByWithRelationInput[]
+  cursor?: Prisma.WalletWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.WalletScalarFieldEnum | Prisma.WalletScalarFieldEnum[]
 }
 
 /**

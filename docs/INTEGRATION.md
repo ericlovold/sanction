@@ -168,6 +168,37 @@ to branch on. Add `?simulate=true` to dry-run a decision without recording it.
 
 ---
 
+## Account tree — nesting tenants (optional)
+
+For an org that wants budgets and reporting to roll up a hierarchy (division →
+team → tenant), wallets can nest. A sub-account is a wallet with a `parent_id`;
+creating one requires the parent's management key.
+
+Create a sub-account under a master wallet:
+
+```bash
+curl -X POST https://getsanction.com/api/v1/wallets \
+  -H "x-mgmt-key: $PARENT_SK" -H "content-type: application/json" \
+  -d '{"name":"Clinic 12","owner_email":"clinic12@acme.com","parent_id":"'$PARENT_WALLET_ID'"}'
+```
+
+You get the sub-account's own `id` and management key — provision agents and set
+policy under it exactly as you would a root wallet.
+
+Read spend rolled up across the whole subtree:
+
+```bash
+curl -s "https://getsanction.com/api/v1/wallets/tree?wallet_id=$PARENT_WALLET_ID" \
+  -H "x-mgmt-key: $PARENT_SK" | jq
+```
+
+Each node reports its own `spend` and a `rollup` (itself + every descendant) for
+today, the month, and token cost — the one-number-for-the-fleet view.
+
+> Today this is **structure + reporting**. Cascade *enforcement* — a parent cap
+> that hard-limits its whole subtree — is the next slice. Budgets are still set
+> and enforced per wallet/agent for now.
+
 ## Degradation (design your circuit breaker)
 
 The gateway is **in-path and fail-closed** today — if Sanction is down, the call

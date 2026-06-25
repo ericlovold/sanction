@@ -3,31 +3,42 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateManagementKey } from "@/lib/apiKey"
 import { rateLimit, clientIp } from "@/lib/rateLimit"
+import { authenticateOwner } from "@/lib/ownerAuth"
 
 const schema = z.object({
   name: z.string().min(1).max(64),
   owner_email: z.string().email(),
+  // Create as a sub-account under this wallet (account tree). Requires the
+  // parent's management key. Omit for a normal root wallet sign-up.
+  parent_id: z.string().optional(),
 })
 
-// Sign-up entry point — intentionally unauthenticated. Returns a management
-// key (shown once) that gates every other management-plane endpoint.
+// Sign-up entry point. A root wallet is unauthenticated + IP-throttled; nesting
+// a sub-account under a parent (parent_id) is a management action that requires
+// the parent's management key. Returns a management key (shown once).
 export async function POST(req: NextRequest) {
-  // Unauthenticated + creates rows: throttle to stop mass wallet spam.
-  const rl = await rateLimit("wallet_create", clientIp(req), 15, 3600)
-  if (!rl.ok) {
-    return NextResponse.json(
-      { error: "Too many wallets created from this IP. Try again later." },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 3600) } },
-    )
-  }
-
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
+  const { name, owner_email, parent_id } = parsed.data
 
-  const { name, owner_email } = parsed.data
+  if (parent_id) {
+    // Authenticated nesting under a parent — no IP throttle (it's a trusted op).
+    const owner = await authenticateOwner(req, parent_id)
+    if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
+  } else {
+    // Unauthenticated root sign-up + creates rows: throttle to stop mass spam.
+    const rl = await rateLimit("wallet_create", clientIp(req), 15, 3600)
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many wallets created from this IP. Try again later." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 3600) } },
+      )
+    }
+  }
+
   const mgmt = generateManagementKey()
 
   let wallet
@@ -36,6 +47,7 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         ownerEmail: owner_email,
+        parentId: parent_id ?? null,
         mgmtKeyHash: mgmt.hash,
         mgmtKeyPrefix: mgmt.prefix,
         policy: {
@@ -59,6 +71,7 @@ export async function POST(req: NextRequest) {
     id: wallet.id,
     name: wallet.name,
     owner_email: wallet.ownerEmail,
+    parent_id: wallet.parentId,
     management_key: mgmt.raw,
     management_key_prefix: mgmt.prefix,
     warning: "Store this management key now. It will not be shown again. Required (x-mgmt-key) to manage this wallet.",
