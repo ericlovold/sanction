@@ -24,8 +24,29 @@ jobs:
         run: npx tsc --noEmit
       - name: Lint
         run: npm run lint
-      - name: Unit tests
-        run: npm test --if-present
+      - name: Unit tests + coverage
+        run: npm run test:coverage
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
         continue-on-error: true
+
+  db-tests:
+    # DB-backed budget-leak concurrency test against a disposable Neon test branch.
+    # Push-only (secrets aren't exposed to fork PRs). The test step skips until the
+    # TEST_DATABASE_URL secret is set, so it never blocks before you configure it.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    env:
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Budget-leak concurrency test
+        if: ${{ env.TEST_DATABASE_URL != '' }}
+        run: DATABASE_URL="$TEST_DATABASE_URL" npm run test:db
