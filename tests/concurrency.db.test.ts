@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest"
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { db } from "../lib/db"
 import { generateApiKey } from "../lib/apiKey"
+
+// Next's after() defers work past the response and only runs inside a real request
+// scope; calling the handler directly in a test trips it. Stub it to a no-op (the
+// deferred webhook delivery is irrelevant to what this test checks).
+vi.mock("next/server", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("next/server")>()
+  return { ...mod, after: () => {} }
+})
 
 // DB-backed concurrency test for the daily-budget advisory lock — the budget-leak
 // scenario the unit tests can't reach (Postgres locking has no mock equivalent).
