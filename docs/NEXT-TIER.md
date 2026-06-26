@@ -362,6 +362,37 @@ parent with `subtreeDailyCapUsd = $50`, several agents under it spending concurr
 proved the per-agent lock) **before** trusting it. It's fully additive, so until a
 cap is set nothing changes; ship it behind that green test.
 
+### 4.7 Provider as a dimension — per-provider visibility + caps
+
+The CFO view that's becoming a roadmap driver: see and govern spend **per provider**
+("$5k Anthropic, $2k OpenAI — cap the expensive one"). Real need; it's the
+provider-cost pain from the launch post.
+
+**Provider is an orthogonal dimension, NOT a tree level.** Putting agents under a
+provider node breaks the core promise — an agent calls Anthropic *and* OpenAI *and*
+Gemini on one key. Keep the tree as the *who* (org → team → agent); add provider as
+the *what*. Spend + caps become a grid: **(node × provider)**.
+
+**Scope — this lives on the token/gateway path.** Provider is known only for gateway
+LLM calls (`tokenLog.taskLabel = gateway:<provider>`), not for `/authorize` purchases
+(merchant/category). So two orthogonal controls, both rolling up the tree:
+- **Per-provider token caps + visibility** → gateway side (`tokenLog`, `isBudgetExhausted`).
+- **Subtree purchase caps (§4.6)** → `/authorize` side.
+
+**Visibility ships cheapest and is the headline CFO feature.** Spend is already
+provider-tagged, so break each node's rollup down by provider —
+`GET /wallets/tree` returns `rollup: { total, byProvider: { anthropic, openai, gemini } }`.
+
+**Caps:** optional per-`(node, provider)` daily token cap, settable at any level
+(macro at the org, finer down-tree). Enforced at the gateway — walk the ancestor
+chain, check the call's provider against each ancestor's provider cap (and any
+aggregate), same root-serialized discipline as §4.6. Storage: a small
+`BudgetCap(nodeId, provider?, dailyCapCents)` set (provider `null` = aggregate cap),
+or a JSON map on the node.
+
+**Build order within this:** per-provider **rollup** first (cheap, the CFO demo),
+then per-`(node, provider)` **caps** with the gateway concurrency test.
+
 ---
 
 ## Suggested build order
