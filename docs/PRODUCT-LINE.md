@@ -26,6 +26,14 @@ the top-of-funnel lead magnet; Assess is the high-touch enterprise on-ramp.
 discovers them on the **money** axis ("which agents and actors can *spend*, how
 much, under what policy — or none"). Different primitive, no incumbent in it.
 
+> **Operating principle — under-build on purpose.** The gap between what Scan/Assess
+> surface and what the software fully automates *is* the bespoke consulting product.
+> Don't auto-productize that gap: a tier ladder you ship for everyone, or a Scan that
+> self-resolves everything, deletes the reason a client pays for Assess. Leave the
+> mystery; the mystery is billable. Bespoke engagements first, SaaS automation only
+> where it doesn't cannibalize them. (So: no speculative tier ladder, no full Scan
+> automation, until a real engagement pulls it.)
+
 ---
 
 ## Sanction Scan
