@@ -195,6 +195,18 @@ curl -s "https://getsanction.com/api/v1/wallets/tree?wallet_id=$PARENT_WALLET_ID
 Each node reports its own `spend` and a `rollup` (itself + every descendant) for
 today, the month, and token cost — the one-number-for-the-fleet view.
 
+**Common shapes** — the tree is yours to model; the usual ones:
+- **One agent per tenant** (simplest — start here): a master wallet, one agent per
+  customer. Map `tenantId → agentId`.
+- **Org → team → agent** (the CFO shape): nest sub-accounts for departments /
+  cost-centers; spend rolls up for chargeback, caps cascade down.
+- **Isolated by provider or workload**: want hard separation? Make a dedicated
+  sub-account ("Anthropic ops", "nightly batch") with its own agents and budget.
+  The generic tree handles it — no special node type needed.
+
+> Per-provider visibility (and caps) are a *dimension* on any of these, not a
+> separate structure — spend breaks down by provider at every node.
+
 > Today this is **structure + reporting**. Cascade *enforcement* — a parent cap
 > that hard-limits its whole subtree — is the next slice. Budgets are still set
 > and enforced per wallet/agent for now.
