@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "MCP server for Sanction \u2014 spend authorization, token budgets, and an encrypted credential vault for autonomous AI agents.",
   "type": "module",
+  "author": "Eric Lovold <eric@onesanction.com>",
   "bin": {
     "sanction-mcp": "./mcp-server.js"
   },
