@@ -135,15 +135,14 @@ Set budgets and thresholds with the control-plane API — see the
 
 ---
 
-## Why `@ai-sdk/openai-compatible` and not `@ai-sdk/openai`
+## OpenAI: compatible vs. native provider
 
-The native `@ai-sdk/openai` provider defaults to OpenAI's **Responses API**, whose
-token-usage shape Sanction's gateway doesn't meter yet — your calls would route
-through but record **zero usage**. `@ai-sdk/openai-compatible` uses **Chat
-Completions**, which Sanction meters correctly (and `includeUsage: true` covers
-streaming). Native-provider / Responses-API metering is on the roadmap; until then,
-use the compatible provider for OpenAI. Anthropic and Google's native providers
-meter correctly as shown above.
+Either works — Sanction meters **both** OpenAI's Chat Completions (what
+`@ai-sdk/openai-compatible` uses) and the **Responses API** (what the native
+`@ai-sdk/openai` provider uses by default). We show the compatible provider above
+because it's explicit about `includeUsage` for streaming, but the native
+`@ai-sdk/openai` works the same way — just set `baseURL` + `headers` on
+`createOpenAI(...)`. Anthropic and Google's native providers meter correctly too.
 
 > **Degradation:** the gateway is in-path. If you need a fallback when it's slow or
 > down, wrap these calls so an error falls back to the provider's own base URL —
