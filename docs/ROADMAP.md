@@ -57,34 +57,33 @@ His 6 questions → roadmap:
 **Parked idea (don't lose):** *multiple gateway nodes per provider* — redundant gateway endpoints (per provider / per region) for HA + failover, feeding the SLA story in #2. Distinct from the account-tree "nodes" (those are budget/org nodes). Revisit with the reliability/SLA work.
 
 ## The gate before everything
+
+> **Reconciled against code 2026-06-26 (full audit).** The docs had drifted *behind* the build — most of this set is now SHIPPED. The **one genuinely open gate is `SEC-3` (Postgres RLS)**; `SEC-1` needs only its KMS-root/rotation finish (per-tenant key derivation is already done). You can lead with security.
+
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:
 - ✅ **`SEC-15` authenticated management plane** — *shipped PR #1* (closed a live unauth credential-disclosure P0).
-- ✅ **`SEC-4` atomic spend + idempotency** — *shipped PR #1*.
-- ⬜ **`SEC-1`** envelope encryption (KMS + per-tenant DEKs) — *open; single env-var key today*.
-- ◑ **`SEC-2`** GCM nonce uniqueness (✅ random-96-bit confirmed) **+ AAD binding** (⬜ TODO).
-- ⬜ **`SEC-3`** Postgres RLS tenant isolation (app-code filtering only today).
-- ⬜ **`SEC-5`** JWT binding/revocation (HS256 single secret; no revocation setter).
-- ◑ **`SEC-6`** `pxy_` key hashing (✅) / rotation + revocation (✅ `POST /api/v1/agents/rotate`, `PATCH /api/v1/agents {active:false}` — 2026-06-24) / scoping (⬜).
-- ⬜ **`FUND-1` decision** — *where does the money sit?* Current code answer: **nowhere (no custody)**. The decision is whether to keep it that way (control-plane, minimal regulatory surface) or add real rails. Reshapes security blast radius, money-transmission surface, and AP2 positioning at once. See ADR-0005.
+- ✅ **`SEC-4` atomic spend + idempotency** — *shipped PR #1*; **advisory lock verified under concurrency 2026-06-26** (`tests/concurrency.db.test.ts`: 10×$10 vs a $50/day budget → approves ≤ $50, no leak).
+- ◑ **`SEC-1`** envelope encryption — **per-wallet HKDF-derived keys SHIPPED** (V2 ciphertext, `walletId` salt → blast-radius isolation done; `lib/jwt.ts`). *Remaining:* move the master key from an env var to a KMS + a rotation runbook.
+- ✅ **`SEC-2`** GCM unique nonce (random 96-bit) **+ AAD binding** — `AAD=walletId:label` enforced; legacy V0/V1 fallback + upgrade-on-write (`lib/jwt.ts`, tested).
+- ⬜ **`SEC-3`** Postgres RLS tenant isolation — **the one open gate.** App-code `walletId` filtering is complete and correct on every route, but `lib/tenantDb.ts` is **unused** and there are no `CREATE POLICY` migrations. A single missed `where` = cross-tenant leak. **Table stakes for the MMHC healthcare pull.**
+- ✅ **`SEC-5`** JWT hardening — `alg` pinned to HS256; **`aud`=wallet bound and enforced on `/inject`**; `jti` = `ExecutionToken` id; revocation (`POST /api/v1/exec/revoke`). (`lib/jwt.ts`, tested.)
+- ◑ **`SEC-6`** `pxy_`/`sk_` key hashing (✅) + rotation/revocation (✅ `POST /api/v1/agents/rotate`, `PATCH /api/v1/agents {active:false}`) — finer-grained scoping (⬜).
+- ✅ **`FUND-1`** — **control-plane / no custody** (current code; `stripe` unused). Simulation mode (`?simulate=true` on `/authorize`) shipped so devs activate without funding. Formalize in ADR-0005.
 
 ---
 
 ## NOW — pre-GA (~0–6 weeks): earn the right to hold credentials
-- **Security gate (remaining):** `SEC-1`, `SEC-2`(AAD), `SEC-3`, `SEC-5`, `SEC-6`(rotation/revocation). *(`SEC-15`, `SEC-4` done.)*
-- **`SEC-16` hygiene follow-up** — rotate the AIIA agent key (prefix was committed; PR #1 scrubbed the doc) + add the unit-test suite.
-- **`FUND-1`** — ratify custody model (recommend: control-plane, no custody) + ship **simulation mode** so devs activate without funding.
-- **`DIST-1`** — MCP Registry `server.json` with best-in-class tool descriptions ("call BEFORE any spend/credential action; bypassing fails"). Highest effort:leverage play in the plan.
-- **`UX-1`** — typed, remediable DENY responses (`BUDGET_EXCEEDED` + remediation hint). PR #1 already returns a `reason`; formalize the code set.
+- **Security gate (remaining): only two items left.** `SEC-3` Postgres RLS + make `lib/tenantDb.ts` the mandatory query path; and `SEC-1`'s finish (KMS-root master key + rotation runbook — per-tenant derivation already shipped). *Everything else in the gate — `SEC-2/4/5/6/15` — is shipped, and `SEC-4`'s lock is concurrency-verified.*
+- ✅ **`FUND-1`, `DIST-1`, `UX-1`, simulation mode, clearance enforcement** — **all shipped** (control-plane confirmed; MCP `server.json` published; typed `code`+`remediation` on `/authorize`; `/inject` enforces `minClearance` fail-closed). Carried here only as a record.
+- **Gateway ↔ `/authorize` budget:** the gateway meters the **token** budget but not the **spend** budget — they're independent today. Decide: unify or document explicitly (one-liner either way).
 
 ## NEXT — GA → ~3 months: become the thing agents *choose* and devs trust
-- **`UX-2`** — first-class ESCALATE state + mandatory per-policy timeout fallback. The #1 reliability risk is escalation deadlock; confirmed there's no resolution path today.
-- **`UX-3` / `UX-4`** — policy templates + plain-English clearance ladder; one-glance mobile approvals.
-- **`UX-5` / `UX-6`** — expand the `/wallets/stats` dashboard + first-run live dry-run authorize (activation aha).
-- **`SEC-12` / `SEC-13` / `SEC-14`** — rate limiting + Neon protection, Next/Vercel hardening, mass-assignment/SSRF/SCA.
+- ◑ **`UX-2`** — the **in-app** ESCALATE loop is shipped (`/api/v1/approvals` approve/reject, policy-driven **timeout settlement**, `escalation.created/resolved` webhooks, `/dashboard/approvals`). *Remaining = the Phase-2 wedge:* notification **routing** ("approval that finds you" — email→Slack→SMS/push).
+- ◑ **`UX-3` / `UX-4`** — policy editor (`/wallets/policy` + `/dashboard/spend`) shipped; remaining = packaged templates / plain-English clearance ladder + one-glance **mobile** approvals.
+- ✅ **`SEC-12` / `SEC-13`** — IP rate limiting (`lib/rateLimit.ts`, wallet-create throttle) + `no-store` on secret responses shipped. `SEC-14` (SSRF/SCA) ongoing — webhook URL validation is in (`lib/webhooks.ts`, public-HTTPS-only).
+- ✅ **Clearance enforcement** — done (`/inject` fail-closed `minClearance`, `PATCH /agents` sets level). The brand wedge is real, not modeled-only.
 - **`SEC-8`** — purpose/egress-bound credential injection + anomaly detection. Defends the category-defining threat (a prompt-injected agent exfiltrating a secret) — moat *and* sellable.
-- **Clearance enforcement (per founder decision: "wire it, then lead with it")** — make clearance actually gate scopes/categories + add an assignment endpoint, so the brand wedge is real, not modeled-only.
-- **`DIST-3`** — AIIA dogfood → reference architecture + OSS quickstart. AIIA's AUTO/SUPERVISED/GATED execution maps ~1:1 onto clearance levels.
-- **`DIST-2` / `DIST-4`** — A2A AgentCard; submit to the Anthropic Connectors Directory.
+- ✅ **`DIST-2`** A2A AgentCard shipped (`/.well-known/agent-card.json`). **`DIST-3`** AIIA dogfood + **`DIST-4`** Anthropic Connectors Directory submission still open.
 
 ## LATER — 3–9 months: enterprise trust + ecosystem moat
 - **`SEC-7`** — tamper-evident, hash-chained audit log + export. Turns governance into cryptographic evidence — the enterprise unlock.

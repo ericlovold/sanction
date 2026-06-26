@@ -1,6 +1,27 @@
 # Sanction — Discovery (Phase 1)
 
 > Status: first-pass discovery, **verified against the repo at commit `e3e7269`** (branch `claude/modest-albattani-620j27`). Every capability claim below is tagged **REAL** (working code), **STUBBED** (data model or hook exists but not enforced/wired), or **ASPIRATIONAL** (claimed in README/marketing, no code).
+>
+> ---
+> ### ⚠️ SUPERSEDED — reconciliation 2026-06-26 (read this first)
+> This is a **point-in-time snapshot of the original MVP** (`e3e7269`). It is preserved as a historical record, **but most of the §6 "Stubbed / Missing" gaps and §7/§8 findings have since SHIPPED.** Do not treat this as current state. Verified against `main` on 2026-06-26:
+>
+> | This doc said (at `e3e7269`) | Reality on `main` (2026-06-26) |
+> |---|---|
+> | Clearance "read but never enforced; no assignment endpoint" | **Enforced** — `/inject` fail-closed `minClearance` vs token clearance; `PATCH /agents` sets level. |
+> | Per-execution / token budget "never incremented" | **Enforced** — `spentUsd` incremented on approval inside the per-agent advisory-locked tx. |
+> | Credential expiry "not checked on inject" | **Checked** — `/inject` returns 410 on expired creds. |
+> | Token revocation "no endpoint sets them" | **Shipped** — `POST /api/v1/exec/revoke` (owner-authed). |
+> | Escalation resolution "no endpoint to approve/deny" | **Shipped** — `/api/v1/approvals` + timeout settlement + `escalation.*` webhooks + `/dashboard/approvals`. |
+> | Policy management "no endpoint to read/update" | **Shipped** — `GET/PATCH /api/v1/wallets/policy` + `/dashboard/spend` editor. |
+> | "AuthN/AuthZ missing on /wallets,/agents,/stats,/vault" (P0) | **Closed** — `sk_` management plane (`lib/ownerAuth.ts`), fail-closed (SEC-15). |
+> | "No tests, no CI" | **85 tests** (9 suites + a verified DB concurrency test), CI in place. |
+> | "No rate limiting; no login" | **Rate limiting** (`lib/rateLimit.ts`); **magic-link auth** (`/auth/verify`, `MagicLink`). |
+> | "Crypto: single AES key" | **Per-wallet HKDF-derived keys** (V2) + `AAD=walletId:label`; JWT `aud`-bound. |
+> | "JWT `iss` still autoflux; dashboard says AutoFlux" | Renamed to `sanction`; dashboard fixed. |
+>
+> **What's still genuinely open:** Postgres **RLS** (`SEC-3` — app-code filtering only; `lib/tenantDb.ts` unused), `SEC-1`'s **KMS-root + rotation** finish, and gateway↔`/authorize` budget unification. See `ROADMAP.md` ("The gate before everything", reconciled 2026-06-26).
+> ---
 
 ## 1. What Sanction is (verified)
 
