@@ -1431,6 +1431,7 @@ export const WalletScalarFieldEnum = {
   name: 'name',
   ownerEmail: 'ownerEmail',
   createdAt: 'createdAt',
+  parentId: 'parentId',
   mgmtKeyHash: 'mgmtKeyHash',
   mgmtKeyPrefix: 'mgmtKeyPrefix'
 } as const

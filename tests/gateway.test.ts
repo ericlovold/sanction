@@ -36,9 +36,14 @@ describe("GATEWAY_PROVIDERS.extract — per-provider usage shape", () => {
     expect(u).toEqual({ model: "claude-x", tokensIn: 10, tokensOut: 4 })
   })
 
-  it("openai prompt/completion tokens", () => {
+  it("openai prompt/completion tokens (Chat Completions)", () => {
     const u = GATEWAY_PROVIDERS.openai.extract({ model: "gpt-4o", usage: { prompt_tokens: 20, completion_tokens: 5 } }, "v1/chat/completions")
     expect(u).toEqual({ model: "gpt-4o", tokensIn: 20, tokensOut: 5 })
+  })
+
+  it("openai input/output tokens (Responses API — the AI SDK native default)", () => {
+    const u = GATEWAY_PROVIDERS.openai.extract({ model: "gpt-5", usage: { input_tokens: 12, output_tokens: 8 } }, "v1/responses")
+    expect(u).toEqual({ model: "gpt-5", tokensIn: 12, tokensOut: 8 })
   })
 
   it("gemini usageMetadata, model from path when modelVersion absent", () => {
@@ -61,10 +66,16 @@ describe("makeStreamMeter — accumulates SSE usage", () => {
     expect(m.result()).toEqual({ model: "claude-x", tokensIn: 12, tokensOut: 48 })
   })
 
-  it("openai: reads usage from the final chunk", () => {
+  it("openai: reads usage from the final chunk (Chat Completions)", () => {
     const m = makeStreamMeter("openai")
     m.feed({ model: "gpt-4o", usage: { prompt_tokens: 20, completion_tokens: 30 } })
     expect(m.result()).toEqual({ model: "gpt-4o", tokensIn: 20, tokensOut: 30 })
+  })
+
+  it("openai: reads nested usage on the terminal event (Responses API)", () => {
+    const m = makeStreamMeter("openai")
+    m.feed({ type: "response.completed", response: { model: "gpt-5", usage: { input_tokens: 30, output_tokens: 12 } } })
+    expect(m.result()).toEqual({ model: "gpt-5", tokensIn: 30, tokensOut: 12 })
   })
 
   it("gemini: reads usageMetadata", () => {

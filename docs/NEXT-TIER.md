@@ -323,6 +323,76 @@ This is the layer that converts the CFO/CISO, and where neutrality pays off: one
 control plane governing + reporting across agents on Claude Code, Cursor, Bedrock,
 and custom runtimes — one number for the whole fleet.
 
+### 4.6 Cascade enforcement — implementation plan (next slice, this codebase)
+
+> Slice 1 (shipped on `feat/account-tree-slice`) is structure + reporting. This is
+> the enforcement slice — the riskiest in the product (concurrent budget control on
+> the live `/authorize` path). Build it on its own, verified by a cascade
+> concurrency test before it's relied on.
+
+**The semantic decision to make first (it's a product call):** today budgets are
+**per-agent** — `policy.dailySpendBudgetUsd` is a per-agent default, and `/authorize`
+aggregates spend *per agent*. Cascade adds a **node-level cap on a subtree's total**.
+Do NOT reinterpret the existing per-agent field as a subtree cap — that silently
+changes everyone's semantics (breaking). Add a **separate, additive** field.
+
+**Schema (additive):** `Policy.subtreeDailyCapUsd Int?` (nullable cents). Null = no
+subtree cap = today's behavior exactly. Settable via `PATCH /wallets/policy`.
+
+**Enforcement in the `/authorize` transaction:**
+1. Walk `parentId` up to the root; collect ancestors (including the agent's own
+   wallet) that have a `subtreeDailyCapUsd` set.
+2. **No capped ancestor → unchanged.** Lock on `agent.id`, run the existing checks.
+   (This is why it's safe: enforcement only activates when someone opts in.)
+3. **A capped ancestor exists →** acquire the advisory lock on the **root wallet id**
+   (serializes the tree, the only correct lock when siblings share a cap), then for
+   each capped ancestor aggregate today's approved spend across its whole subtree
+   (`+ amount`) and deny `SUBTREE_CAP_EXCEEDED` if over.
+
+**Why root-lock, not counters (yet):** the per-node atomic counters in §4.3 are the
+*scale* optimization. The root-serialized lock + bounded subtree aggregation is the
+*correct first cut* for pilot scale — simpler, no rollover/reconcile machinery. Cost:
+spend within one tree serializes. Swap to counters when throughput demands it.
+
+**Decision code:** add `SUBTREE_CAP_EXCEEDED` to `lib/decisions.ts` (+ remediation).
+
+**Verification (non-negotiable):** a `tests/concurrency.db.test.ts`-style test — a
+parent with `subtreeDailyCapUsd = $50`, several agents under it spending concurrently
+— must never approve over $50. Run it against a Neon branch (the same discipline that
+proved the per-agent lock) **before** trusting it. It's fully additive, so until a
+cap is set nothing changes; ship it behind that green test.
+
+### 4.7 Provider as a dimension — per-provider visibility + caps
+
+The CFO view that's becoming a roadmap driver: see and govern spend **per provider**
+("$5k Anthropic, $2k OpenAI — cap the expensive one"). Real need; it's the
+provider-cost pain from the launch post.
+
+**Provider is an orthogonal dimension, NOT a tree level.** Putting agents under a
+provider node breaks the core promise — an agent calls Anthropic *and* OpenAI *and*
+Gemini on one key. Keep the tree as the *who* (org → team → agent); add provider as
+the *what*. Spend + caps become a grid: **(node × provider)**.
+
+**Scope — this lives on the token/gateway path.** Provider is known only for gateway
+LLM calls (`tokenLog.taskLabel = gateway:<provider>`), not for `/authorize` purchases
+(merchant/category). So two orthogonal controls, both rolling up the tree:
+- **Per-provider token caps + visibility** → gateway side (`tokenLog`, `isBudgetExhausted`).
+- **Subtree purchase caps (§4.6)** → `/authorize` side.
+
+**Visibility ships cheapest and is the headline CFO feature.** Spend is already
+provider-tagged, so break each node's rollup down by provider —
+`GET /wallets/tree` returns `rollup: { total, byProvider: { anthropic, openai, gemini } }`.
+
+**Caps:** optional per-`(node, provider)` daily token cap, settable at any level
+(macro at the org, finer down-tree). Enforced at the gateway — walk the ancestor
+chain, check the call's provider against each ancestor's provider cap (and any
+aggregate), same root-serialized discipline as §4.6. Storage: a small
+`BudgetCap(nodeId, provider?, dailyCapCents)` set (provider `null` = aggregate cap),
+or a JSON map on the node.
+
+**Build order within this:** per-provider **rollup** first (cheap, the CFO demo),
+then per-`(node, provider)` **caps** with the gateway concurrency test.
+
 ---
 
 ## Suggested build order

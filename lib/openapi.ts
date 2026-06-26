@@ -267,6 +267,58 @@ export const spec = {
           policy: { $ref: "#/components/schemas/PolicyObject" },
         },
       },
+      CreateWalletRequest: {
+        type: "object",
+        required: ["name", "owner_email"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 64 },
+          owner_email: { type: "string", format: "email" },
+          parent_id: { type: "string", description: "Create as a sub-account under this wallet (account tree). Requires the parent's x-mgmt-key. Omit for a root wallet." },
+        },
+      },
+      CreateWalletResponse: {
+        type: "object",
+        description: "management_key is shown once and never retrievable again.",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          owner_email: { type: "string" },
+          parent_id: { type: "string", nullable: true },
+          management_key: { type: "string", description: "Owner key (sk_...). Store it now — shown once." },
+          management_key_prefix: { type: "string" },
+          warning: { type: "string" },
+          created_at: { type: "string", format: "date-time" },
+        },
+      },
+      SpendSummary: {
+        type: "object",
+        properties: {
+          today_usd: { type: "number" },
+          month_usd: { type: "number" },
+          token_today_usd: { type: "number" },
+        },
+      },
+      AccountTreeNode: {
+        type: "object",
+        description: "A wallet node with its own spend and the rolled-up total of its whole subtree.",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          parent_id: { type: "string", nullable: true },
+          spend: { $ref: "#/components/schemas/SpendSummary" },
+          rollup: { $ref: "#/components/schemas/SpendSummary" },
+          children: { type: "array", items: { $ref: "#/components/schemas/AccountTreeNode" } },
+        },
+      },
+      WalletTreeResponse: {
+        type: "object",
+        properties: {
+          wallet_id: { type: "string" },
+          nodes: { type: "integer", description: "Number of wallets in the returned subtree." },
+          truncated: { type: "boolean", description: "True if the subtree hit the depth/node cap." },
+          tree: { $ref: "#/components/schemas/AccountTreeNode" },
+        },
+      },
       Error: {
         type: "object",
         properties: {
@@ -468,6 +520,34 @@ export const spec = {
         responses: {
           "200": { description: "Updated policy", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyResponse" } } } },
           "400": { description: "Invalid policy", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid management key" },
+        },
+      },
+    },
+    "/wallets": {
+      post: {
+        operationId: "createWallet",
+        summary: "Create a wallet (master account) or a sub-account",
+        description: "Create a root wallet (unauthenticated sign-up), or — with parent_id plus the parent's x-mgmt-key — a sub-account in the account tree. Returns a management key once.",
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateWalletRequest" } } } },
+        responses: {
+          "201": { description: "Wallet created; management_key shown once", content: { "application/json": { schema: { $ref: "#/components/schemas/CreateWalletResponse" } } } },
+          "400": { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "parent_id given but the management key is missing/invalid" },
+          "409": { description: "A wallet already exists for this email" },
+          "429": { description: "Root sign-up rate limit (per IP) exceeded" },
+        },
+      },
+    },
+    "/wallets/tree": {
+      get: {
+        operationId: "getWalletTree",
+        summary: "Spend rolled up across a wallet's account subtree",
+        description: "Read-only. Returns the wallet and its descendant sub-accounts, each with its own spend and the rolled-up total of its whole subtree — one number for the fleet. Bounded depth/size. Management-plane.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Subtree with rolled-up spend", content: { "application/json": { schema: { $ref: "#/components/schemas/WalletTreeResponse" } } } },
           "401": { description: "Missing or invalid management key" },
         },
       },

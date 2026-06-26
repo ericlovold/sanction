@@ -54,6 +54,8 @@ His 6 questions → roadmap:
 **Ships now (no client needed):** non-PHI gateway, control-plane auto-provisioning, env-resolved key seam, `tenantId`→`agentId` mapping — all usable today.
 **Deal-triggered (Enterprise/HIPAA bundle):** Render BAA gateway (#1) · reliability/SLA hardening (#2) · provider-key vaulting (#3) · key-rotation API (#4) · org layer (#5). Build when a paid pilot commits; entity (C-corp) stood up *before* any BAA/contract signature.
 
+**Parked idea (don't lose):** *multiple gateway nodes per provider* — redundant gateway endpoints (per provider / per region) for HA + failover, feeding the SLA story in #2. Distinct from the account-tree "nodes" (those are budget/org nodes). Revisit with the reliability/SLA work.
+
 ## The gate before everything
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:
 - ✅ **`SEC-15` authenticated management plane** — *shipped PR #1* (closed a live unauth credential-disclosure P0).
