@@ -150,6 +150,7 @@ export default function Landing() {
             <a href="#use-cases" className="hidden md:inline hover:text-zinc-100 transition-colors">Use cases</a>
             <a href="#integrations" className="hidden md:inline hover:text-zinc-100 transition-colors">Integrations</a>
             <a href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing</a>
+            <Link href="/docs" className="hover:text-zinc-100 transition-colors">Docs</Link>
             <a href="/api/openapi.json" className="hidden sm:inline hover:text-zinc-100 transition-colors">API</a>
             <Link href="/login" className="hover:text-zinc-100 transition-colors">Sign in</Link>
             <Link
