@@ -1,0 +1,25 @@
+{
+  "name": "sanction-eve-testers",
+  "private": true,
+  "type": "module",
+  "description": "A suite of Vercel eve agents that exercise Sanction's governance (authorize / budgets / vault) end-to-end — built for live demos.",
+  "scripts": {
+    "dev": "eve dev",
+    "build": "eve build",
+    "start": "eve start",
+    "info": "eve info",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "provision": "bash scripts/provision-demo.sh",
+    "bridge": "bash scripts/start-bridge.sh",
+    "scenarios": "bash scripts/run-scenarios.sh",
+    "approve": "bash scripts/approve.sh"
+  },
+  "dependencies": {
+    "eve": "^0.15.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^5.6.0"
+  }
+}
