@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { DocsHeader } from "@/components/docs-header"
 
 export const metadata: Metadata = {
   title: "Sanction Docs — Get started",
@@ -66,19 +67,19 @@ const workflows = [
     title: "Govern many agents under one account",
     body: "Running agents for many customers? Provision one agent per tenant under a master account, set per-tenant budgets, and roll spend up for chargeback. One place to govern the whole fleet.",
     code: provisionSnippet,
-    link: { label: "Multi-tenant runbook", href: `${REPO}/INTEGRATION.md` },
+    link: { label: "Multi-tenant runbook", href: "/docs/multi-tenant" },
   },
   {
     tag: "Cross-provider cost control",
     title: "See and cap spend across every provider",
     body: "Token pricing is the digital Wild West — rates change mid-cycle, and the question becomes which provider to use. Route Anthropic, OpenAI, and Gemini through one gateway and one key; every call is metered and capped in one place.",
-    link: { label: "Vercel AI SDK guide", href: `${REPO}/VERCEL-AI-SDK.md` },
+    link: { label: "Vercel AI SDK guide", href: "/docs/ai-sdk" },
   },
 ]
 
 const deeper = [
-  { title: "Multi-tenant Integration Runbook", desc: "Provision per tenant, govern budgets, rotate keys.", href: `${REPO}/INTEGRATION.md` },
-  { title: "Vercel AI SDK guide", desc: "Drop Sanction into the AI SDK with two lines of config.", href: `${REPO}/VERCEL-AI-SDK.md` },
+  { title: "Multi-tenant Integration Runbook", desc: "Provision per tenant, govern budgets, rotate keys.", href: "/docs/multi-tenant" },
+  { title: "Vercel AI SDK guide", desc: "Drop Sanction into the AI SDK with two lines of config.", href: "/docs/ai-sdk" },
   { title: "Full API reference", desc: "OpenAPI 3.0 spec — every endpoint, Bedrock-compatible.", href: "/api/openapi.json" },
 ]
 
@@ -93,19 +94,7 @@ function Code({ children }: { children: string }) {
 export default function Docs() {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
-        <nav className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/" className="font-display font-semibold tracking-tight">Sanction</Link>
-          <div className="flex items-center gap-6 text-sm text-zinc-400">
-            <Link href="/" className="hidden sm:inline hover:text-zinc-100 transition-colors">Home</Link>
-            <a href="/api/openapi.json" className="hidden sm:inline hover:text-zinc-100 transition-colors">API</a>
-            <Link href="/login" className="hover:text-zinc-100 transition-colors">Sign in</Link>
-            <Link href="/start" className="rounded-md bg-zinc-100 text-zinc-950 px-3 py-1.5 text-sm font-medium hover:bg-white transition-colors">
-              Start free
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <DocsHeader />
 
       <main className="max-w-3xl mx-auto px-6 py-14">
         <p className="text-sm font-medium text-emerald-400">Docs</p>
