@@ -21,10 +21,17 @@ export const GATEWAY_PROVIDERS: Record<
   },
   openai: {
     baseUrl: "https://api.openai.com",
+    // Handles both Chat Completions (prompt/completion_tokens) and the Responses
+    // API (input/output_tokens) — the AI SDK's native OpenAI provider uses the
+    // latter by default, so we must meter both or those calls record zero.
     extract: (body) => {
-      const b = body as { model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number } }
-      if (!b?.usage) return null
-      return { model: b.model ?? "gpt", tokensIn: b.usage.prompt_tokens ?? 0, tokensOut: b.usage.completion_tokens ?? 0 }
+      const b = body as { model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number } }
+      const u = b?.usage
+      if (!u) return null
+      const tokensIn = u.prompt_tokens ?? u.input_tokens ?? 0
+      const tokensOut = u.completion_tokens ?? u.output_tokens ?? 0
+      if (!tokensIn && !tokensOut) return null
+      return { model: b.model ?? "gpt", tokensIn, tokensOut }
     },
   },
   gemini: {
@@ -96,8 +103,10 @@ type StreamData = {
   model?: string
   modelVersion?: string
   message?: { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
-  usage?: { output_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
+  usage?: { output_tokens?: number; input_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+  // OpenAI Responses API streaming nests usage on the terminal event.
+  response?: { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
 }
 
 /**
@@ -120,8 +129,14 @@ export function makeStreamMeter(provider: string) {
       } else if (provider === "openai") {
         if (d.model) acc.model = d.model
         if (d.usage) {
-          acc.tokensIn = d.usage.prompt_tokens ?? acc.tokensIn
-          acc.tokensOut = d.usage.completion_tokens ?? acc.tokensOut
+          acc.tokensIn = d.usage.prompt_tokens ?? d.usage.input_tokens ?? acc.tokensIn
+          acc.tokensOut = d.usage.completion_tokens ?? d.usage.output_tokens ?? acc.tokensOut
+        }
+        // Responses API: usage arrives nested on the terminal event.
+        if (d.response?.usage) {
+          acc.model = d.response.model ?? acc.model
+          acc.tokensIn = d.response.usage.input_tokens ?? acc.tokensIn
+          acc.tokensOut = d.response.usage.output_tokens ?? acc.tokensOut
         }
       } else if (provider === "gemini") {
         if (d.modelVersion) acc.model = d.modelVersion

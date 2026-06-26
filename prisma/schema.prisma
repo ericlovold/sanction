@@ -23,6 +23,13 @@ model Wallet {
   ownerEmail String   @unique
   createdAt  DateTime @default(now())
 
+  // Account tree (additive): a wallet may nest under a parent wallet, forming an
+  // org → tenant → sub-tenant hierarchy. Null = root (every existing wallet).
+  // Foundation for subtree spend rollup; cascade enforcement is a later slice.
+  parentId String?
+  parent   Wallet?  @relation("WalletTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Wallet[] @relation("WalletTree")
+
   // Owner management key (sk_ prefix), shown once at creation. Gates the
   // management plane (create agents, manage vault/policy, read stats).
   // Nullable for wallets created before auth was introduced — those fail
@@ -37,6 +44,8 @@ model Wallet {
   executionTokens  ExecutionToken[]
   webhooks         Webhook[]
   magicLinks       MagicLink[]
+
+  @@index([parentId])
 }
 
 // One-time email sign-in / recovery token. The raw token is emailed; only its

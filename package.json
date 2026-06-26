@@ -8,7 +8,9 @@
     "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=packages/sanction-mcp/mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:db": "RUN_DB_TESTS=1 vitest run tests/concurrency.db.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -40,6 +42,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^3.2.6",
     "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
