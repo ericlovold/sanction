@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { issueExecutionJWT } from "@/lib/jwt"
+import { withTenant } from "@/lib/rls"
 
 const schema = z.object({
   scope: z.array(z.string()).min(1),   // credential labels this execution needs
@@ -27,13 +28,17 @@ export async function POST(req: NextRequest) {
   const clearance = await db.agentClearance.findUnique({ where: { agentId: agent.id } })
   const clearanceLevel = clearance?.level ?? 1
 
-  // Verify requested credential labels exist and agent is allowed to access them
-  const credentials = await db.credentialVault.findMany({
-    where: {
-      walletId: agent.walletId,
-      label: { in: scope },
-    },
-  })
+  // Verify requested credential labels exist and agent is allowed to access them.
+  // RLS-scoped to the agent's wallet (SEC-3) — the DB will not return another
+  // tenant's credentials even if the where clause were wrong.
+  const credentials = await withTenant(agent.walletId, (tx) =>
+    tx.credentialVault.findMany({
+      where: {
+        walletId: agent.walletId,
+        label: { in: scope },
+      },
+    }),
+  )
 
   const denied = scope.filter(
     (s) => !credentials.find(

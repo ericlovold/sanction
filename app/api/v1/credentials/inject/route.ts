@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { verifyExecutionJWT, decryptCredential } from "@/lib/jwt"
+import { withTenant } from "@/lib/rls"
 
 const schema = z.object({
   credential_label: z.string(),
@@ -51,12 +52,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Execution token expired or revoked" }, { status: 401 })
   }
 
-  // Fetch and decrypt the credential — scope the query to the wallet from the
+  // Fetch and decrypt the credential — RLS-scoped (SEC-3) to the wallet from the
   // JWT so a token forged with a different wallet claim can never reach another
-  // tenant's credentials (defence-in-depth on top of the aud check above).
-  const credential = await db.credentialVault.findFirst({
-    where: { walletId: claims.wallet, label: credential_label },
-  })
+  // tenant's credentials (DB-level backstop beneath the aud check above).
+  const credential = await withTenant(claims.wallet, (tx) =>
+    tx.credentialVault.findFirst({
+      where: { walletId: claims.wallet, label: credential_label },
+    }),
+  )
   if (!credential) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 })
   }
