@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { db } from "@/lib/db"
 import { encryptCredential } from "@/lib/jwt"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { withTenant } from "@/lib/rls"
