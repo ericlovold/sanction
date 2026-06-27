@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { withTenant } from "@/lib/rls"
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -103,11 +104,13 @@ export async function PATCH(req: NextRequest) {
   // Clearance lives in its own row; upsert it when provided.
   let clearance: number | undefined
   if (overrides.clearance !== undefined) {
-    const c = await db.agentClearance.upsert({
-      where: { agentId: agent_id },
-      update: { level: overrides.clearance },
-      create: { walletId: wallet_id, agentId: agent_id, level: overrides.clearance },
-    })
+    const c = await withTenant(wallet_id, (tx) =>
+      tx.agentClearance.upsert({
+        where: { agentId: agent_id },
+        update: { level: overrides.clearance },
+        create: { walletId: wallet_id, agentId: agent_id, level: overrides.clearance },
+      }),
+    )
     clearance = c.level
   }
 

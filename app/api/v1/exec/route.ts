@@ -24,8 +24,10 @@ export async function POST(req: NextRequest) {
 
   const { scope, budget_usd, ttl_seconds, container_id } = parsed.data
 
-  // Get agent clearance level
-  const clearance = await db.agentClearance.findUnique({ where: { agentId: agent.id } })
+  // Get agent clearance level (RLS-scoped to the agent's wallet)
+  const clearance = await withTenant(agent.walletId, (tx) =>
+    tx.agentClearance.findUnique({ where: { agentId: agent.id } }),
+  )
   const clearanceLevel = clearance?.level ?? 1
 
   // Verify requested credential labels exist and agent is allowed to access them.
