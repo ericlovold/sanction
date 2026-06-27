@@ -18,14 +18,23 @@
 import { db } from "./db"
 import type { Prisma } from "./generated/prisma/client"
 
+/**
+ * Run `fn` with RLS scoped to one tenant — or, for the account-tree case, a set
+ * of tenants (a parent reading its subtree). The policies key on membership in
+ * `app.wallet_ids` (comma-joined), so the single-id and subtree cases share one
+ * primitive. Pass a single walletId for the common case; pass the BFS'd subtree
+ * id list for `/wallets/tree`.
+ */
 export function withTenant<T>(
-  walletId: string,
+  wallet: string | string[],
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
+  const ids = (Array.isArray(wallet) ? wallet : [wallet]).filter(Boolean)
   return db.$transaction(async (tx) => {
     // Transaction-local (is_local=true): auto-resets at COMMIT/ROLLBACK, so it
-    // can never leak to another tenant on a pooled connection. Parameterized.
-    await tx.$executeRaw`SELECT set_config('app.wallet_id', ${walletId}, true)`
+    // can never leak to another tenant on a pooled connection. The CSV is a
+    // bound parameter (cuids contain no commas → no injection / no ambiguity).
+    await tx.$executeRaw`SELECT set_config('app.wallet_ids', ${ids.join(",")}, true)`
     return fn(tx)
   })
 }

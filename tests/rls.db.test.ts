@@ -55,7 +55,7 @@ describe.skipIf(!run)("SEC-3: RLS confines CredentialVault to its tenant", () =>
   // Mirror lib/rls.ts withTenant() against the non-superuser client.
   function asTenant<T>(wallet: string, fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
     return appClient.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT set_config('app.wallet_id', ${wallet}, true)`
+      await tx.$executeRaw`SELECT set_config('app.wallet_ids', ${wallet}, true)`
       return fn(tx as unknown as PrismaClient)
     })
   }
