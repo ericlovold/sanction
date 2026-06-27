@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { encryptCredential } from "@/lib/jwt"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { withTenant } from "@/lib/rls"
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -31,19 +32,24 @@ export async function POST(req: NextRequest) {
   // under a different wallet/label (AAD must match on decrypt).
   const encrypted = encryptCredential(value, wallet_id, label)
 
-  const cred = await db.credentialVault.create({
-    data: {
-      walletId: wallet_id,
-      label,
-      type,
-      encryptedValue: encrypted,
-      allowedAgentIds: allowed_agent_ids,
-      scopes,
-      minClearance: min_clearance,
-      expiresAt: expires_at ? new Date(expires_at) : undefined,
-    },
-    select: { id: true, label: true, type: true, scopes: true, allowedAgentIds: true, minClearance: true, createdAt: true },
-  })
+  // RLS-scoped write (SEC-3): the policy's WITH CHECK refuses an insert whose
+  // walletId differs from the tenant context, so a credential can never be
+  // written into another tenant's vault.
+  const cred = await withTenant(wallet_id, (tx) =>
+    tx.credentialVault.create({
+      data: {
+        walletId: wallet_id,
+        label,
+        type,
+        encryptedValue: encrypted,
+        allowedAgentIds: allowed_agent_ids,
+        scopes,
+        minClearance: min_clearance,
+        expiresAt: expires_at ? new Date(expires_at) : undefined,
+      },
+      select: { id: true, label: true, type: true, scopes: true, allowedAgentIds: true, minClearance: true, createdAt: true },
+    }),
+  )
 
   return NextResponse.json({ ...cred, value: "[encrypted]" }, { status: 201 })
 }
@@ -55,11 +61,13 @@ export async function GET(req: NextRequest) {
   const owner = await authenticateOwner(req, walletId)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const credentials = await db.credentialVault.findMany({
-    where: { walletId },
-    select: { id: true, label: true, type: true, scopes: true, allowedAgentIds: true, minClearance: true, expiresAt: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  })
+  const credentials = await withTenant(walletId, (tx) =>
+    tx.credentialVault.findMany({
+      where: { walletId },
+      select: { id: true, label: true, type: true, scopes: true, allowedAgentIds: true, minClearance: true, expiresAt: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  )
 
   return NextResponse.json({ credentials })
 }
