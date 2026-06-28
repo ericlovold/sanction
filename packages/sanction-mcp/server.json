@@ -7,20 +7,20 @@
     "url": "https://github.com/ericlovold/sanction",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.4",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "sanction-mcp",
-      "version": "0.1.0",
+      "version": "0.1.4",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "SANCTION_API_KEY",
-          "description": "Agent API key (pxy_...). Create one at https://onesanction.com or via POST /api/v1/wallets then POST /api/v1/agents.",
+          "description": "Agent API key (pxy_...). Create one at https://getsanction.com or via POST /api/v1/wallets then POST /api/v1/agents.",
           "isRequired": true,
           "isSecret": true
         },
@@ -33,7 +33,7 @@
           "name": "SANCTION_API_URL",
           "description": "Sanction API base URL.",
           "isRequired": false,
-          "default": "https://onesanction.com/api/v1"
+          "default": "https://getsanction.com/api/v1"
         }
       ]
     }

@@ -26,7 +26,7 @@ Record the terminal with QuickTime (Cmd-Shift-5) or [asciinema](https://asciinem
 | 0:52 | 💳 `$5 crypto` → **⛔ denied (CATEGORY_BLOCKED)** | Hard guardrail holds |
 | 0:58 | Dashboard URL | "and it's all tracked" |
 
-End card suggestion: **"Sanction — the trust layer for autonomous agents. onesanction.com"**
+End card suggestion: **"Sanction — the trust layer for autonomous agents. getsanction.com"**
 
 ## Split-screen take (more compelling)
 

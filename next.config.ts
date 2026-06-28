@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         has: [{ type: "host", value: "getsanction.vercel.app" }],
-        destination: "https://onesanction.com/:path*",
+        destination: "https://getsanction.com/:path*",
         permanent: true,
       },
     ];

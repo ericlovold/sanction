@@ -18,10 +18,10 @@ The GTM/UX policy fixes have been **reconciled into the SEC/FUND `feat` branch, 
 | Thing | State |
 |-------|-------|
 | Branch `feat/landing-pricing-page` | `a9699d7` — local == origin, working tree clean |
-| Production (`onesanction.com`) | Aliased to `a9699d7` — escalation fixes **live** |
+| Production (`getsanction.com`) | Aliased to `a9699d7` — escalation fixes **live** |
 | Typecheck (`npx tsc --noEmit`) | Clean |
 | Tests (`npm test`) | 23/23 pass (crypto 12, decisions 6, approvals 5) |
-| MCP bundle (`packages/sanction-mcp/mcp-server.js`) | Rebuilt from merged source — points at `onesanction.com`, has `execution_jwt`, zero `sanction.ai` stragglers |
+| MCP bundle (`packages/sanction-mcp/mcp-server.js`) | Rebuilt from merged source — points at `getsanction.com`, has `execution_jwt`, zero `sanction.ai` stragglers |
 | npm package `sanction-mcp` | **Not yet published** — name unclaimed (registry 404), `0.1.0` ready |
 
 ---
@@ -81,7 +81,7 @@ npx -y sanction-mcp   # should start the stdio MCP server
 
 > ⚠️ `0.1.0` is a one-shot version number. The committed bundle is already the
 > reconciled one — if you rebuild first (`npm run build:mcp`), confirm it still
-> shows `onesanction.com` and `execution_jwt` before publishing.
+> shows `getsanction.com` and `execution_jwt` before publishing.
 
 ### Optional follow-up — MCP registry
 `packages/sanction-mcp/server.json` is already a valid MCP-registry manifest (`io.github.ericlovold/sanction`). Once the npm package is live, `mcp-publisher` can list it in the MCP registry too.
@@ -90,7 +90,7 @@ npx -y sanction-mcp   # should start the stdio MCP server
 
 ## Notes / caveats
 
-- **Prod smoke test wasn't possible from the web sandbox** — `onesanction.com` isn't in its egress allowlist. Recommend one manual check: `POST /api/v1/authorize` with `amount_usd` between `escalateOverUsd` and `perTransactionMaxUsd` should now return `status: "escalated"` (not auto-approve).
+- **Prod smoke test wasn't possible from the web sandbox** — `getsanction.com` isn't in its egress allowlist. Recommend one manual check: `POST /api/v1/authorize` with `amount_usd` between `escalateOverUsd` and `perTransactionMaxUsd` should now return `status: "escalated"` (not auto-approve).
 - **No automated test covers `authorize/route.ts` directly** (the existing suite needs no DB; the route uses Postgres advisory locks). The merge logic above is currently only typecheck-verified. Consider adding an integration test against a test DB for the floor / escalate / exec-budget interaction.
 - All production wallet IDs / API keys remain out of the repo (Vercel env + secret store), per `AGENTS.md`.
 

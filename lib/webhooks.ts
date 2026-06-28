@@ -4,7 +4,7 @@ import { db } from "./db"
 // Owner-registered webhooks notified on events. Each delivery is signed with
 // HMAC-SHA256 over the exact request body so the receiver can verify it's us.
 
-export const APPROVE_URL = "https://onesanction.com/dashboard/approvals"
+export const APPROVE_URL = "https://getsanction.com/dashboard/approvals"
 
 export function generateWebhookSecret(): string {
   return `whsec_${randomBytes(24).toString("hex")}`

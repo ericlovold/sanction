@@ -6,7 +6,7 @@
  * (Claude Desktop, AIIA, etc.).
  *
  * Configuration (env vars):
- *   SANCTION_API_URL   — Sanction API base URL (default: https://onesanction.com/api/v1)
+ *   SANCTION_API_URL   — Sanction API base URL (default: https://getsanction.com/api/v1)
  *   SANCTION_API_KEY   — Agent API key (pxy_...)
  *   SANCTION_WALLET_ID — Wallet ID for status queries
  *
@@ -33,7 +33,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 
-const API_URL = process.env.SANCTION_API_URL ?? "https://onesanction.com/api/v1"
+const API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1"
 const API_KEY = process.env.SANCTION_API_KEY ?? ""
 const WALLET_ID = process.env.SANCTION_WALLET_ID ?? ""
 
