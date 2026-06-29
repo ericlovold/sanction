@@ -63,7 +63,9 @@ export const ModelName = {
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
   AuthorizationRequest: 'AuthorizationRequest',
-  Lead: 'Lead'
+  Lead: 'Lead',
+  Idea: 'Idea',
+  IdeaVote: 'IdeaVote'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -264,6 +266,31 @@ export const LeadScalarFieldEnum = {
 } as const
 
 export type LeadScalarFieldEnum = (typeof LeadScalarFieldEnum)[keyof typeof LeadScalarFieldEnum]
+
+
+export const IdeaScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  detail: 'detail',
+  category: 'category',
+  status: 'status',
+  voteCount: 'voteCount',
+  isPublished: 'isPublished',
+  authorEmail: 'authorEmail',
+  createdAt: 'createdAt'
+} as const
+
+export type IdeaScalarFieldEnum = (typeof IdeaScalarFieldEnum)[keyof typeof IdeaScalarFieldEnum]
+
+
+export const IdeaVoteScalarFieldEnum = {
+  id: 'id',
+  ideaId: 'ideaId',
+  voterKey: 'voterKey',
+  createdAt: 'createdAt'
+} as const
+
+export type IdeaVoteScalarFieldEnum = (typeof IdeaVoteScalarFieldEnum)[keyof typeof IdeaVoteScalarFieldEnum]
 
 
 export const SortOrder = {
