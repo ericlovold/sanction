@@ -82,3 +82,13 @@ export type AuthorizationRequest = Prisma.AuthorizationRequestModel
  * 
  */
 export type Lead = Prisma.LeadModel
+/**
+ * Model Idea
+ * 
+ */
+export type Idea = Prisma.IdeaModel
+/**
+ * Model IdeaVote
+ * 
+ */
+export type IdeaVote = Prisma.IdeaVoteModel
