@@ -8,6 +8,13 @@ import type { Components } from "react-markdown"
 const ROUTES: Record<string, string> = {
   "INTEGRATION.md": "/docs/multi-tenant",
   "VERCEL-AI-SDK.md": "/docs/ai-sdk",
+  "vercel-ai-sdk.md": "/docs/ai-sdk",
+  "QUICKSTART.md": "/docs/quickstart",
+  "quickstart.md": "/docs/quickstart",
+  "LANGCHAIN.md": "/docs/langchain",
+  "langchain.md": "/docs/langchain",
+  "CREWAI.md": "/docs/crewai",
+  "crewai.md": "/docs/crewai",
 }
 
 function rewriteHref(href?: string): string | undefined {
