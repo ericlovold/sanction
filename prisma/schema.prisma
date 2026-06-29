@@ -256,3 +256,39 @@ model Lead {
 
   @@index([createdAt])
 }
+
+// Public, build-in-public feature request. Submitted by users on /roadmap, then
+// curated: only isPublished ideas show on the board. status drives the column it
+// appears in and ties the board to the published roadmap. authorEmail is captured
+// for follow-up (also mirrored into Lead) but never rendered publicly.
+model Idea {
+  id          String   @id @default(cuid())
+  title       String
+  detail      String?
+  category    String?
+  status      String   @default("open") // open | planned | in_progress | shipped | declined
+  voteCount   Int      @default(0) // denormalized for ordering; source of truth is votes
+  isPublished Boolean  @default(false) // moderation gate — only published ideas are public
+  authorEmail String? // captured for follow-up, never shown publicly
+  createdAt   DateTime @default(now())
+
+  votes IdeaVote[]
+
+  @@index([isPublished, voteCount])
+  @@index([createdAt])
+}
+
+// One vote per voter per idea. voterKey is "e:<email>" when an email is given,
+// else "ip:<sha256(ip)>" — approximate dedup (good enough without auth), enforced
+// by the unique constraint so a retry can never double-count.
+model IdeaVote {
+  id        String   @id @default(cuid())
+  ideaId    String
+  voterKey  String
+  createdAt DateTime @default(now())
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, voterKey])
+  @@index([ideaId])
+}
