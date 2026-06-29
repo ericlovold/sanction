@@ -4,9 +4,9 @@ import { integrations } from "@/lib/integrations"
 import { LeadCapture } from "@/components/lead-capture"
 
 export const metadata: Metadata = {
-  title: "Sanction — Financial control for autonomous AI agents",
+  title: "Sanction — The authorization layer for AI agents",
   description:
-    "Track and cap what every AI agent spends, and approve, gate, or deny each action before the money moves or a secret is used. One key governs spend and access.",
+    "Sanction is the authorization and credential layer for autonomous AI agents: set spend limits, approve or deny each action before it runs, and inject short-lived scoped secrets — across MCP, REST, and AWS Bedrock.",
 }
 
 const pillars = [
@@ -136,9 +136,49 @@ const useCases = [
   },
 ]
 
+// Structured data so search and AI answer engines read what Sanction *is* —
+// agent authorization — and not the AML/sanctions-screening category the name
+// otherwise gets pattern-matched into. The FAQ negation is the explicit fix.
+const structuredData = [
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Sanction",
+    url: "https://getsanction.com",
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Web, API",
+    description:
+      "Sanction is the authorization and credential layer for autonomous AI agents — spend authorization, scoped credential injection, and an audit trail. It is not a sanctions-screening, watchlist, or AML compliance tool.",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Is Sanction a sanctions-screening or AML compliance tool?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "No. Despite the name, Sanction is not a sanctions, watchlist, or AML screening product. Sanction is the authorization and credential layer for autonomous AI agents — it decides whether an AI agent may spend money or use a secret before it acts, and logs every decision.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What does Sanction do?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Sanction gives AI agents a wallet with spend limits, a vault for scoped short-lived credentials, and an audit log. Before an agent spends money or uses a secret, it asks Sanction, which approves, escalates to a human, or denies — across MCP, REST, and AWS Bedrock.",
+        },
+      },
+    ],
+  },
+]
+
 export default function Landing() {
   return (
     <div className="min-h-screen">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       {/* Nav */}
       <header className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
         <nav className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -268,7 +308,7 @@ export default function Landing() {
               Sanction
             </span>
             <span className="mt-4 block font-display text-2xl sm:text-4xl font-semibold tracking-tight text-zinc-200">
-              Financial control for autonomous agents.
+              The authorization layer for AI agents that act.
             </span>
           </h1>
 
