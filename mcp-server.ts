@@ -79,8 +79,8 @@ async function callSanction(path: string, method: "GET" | "POST", body?: unknown
 
 const server = new McpServer({
   name: "sanction",
-  version: "1.0.0",
-  description: "Sanction — agent wallet, credential vault, and governance layer",
+  version: "0.2.1",
+  description: "Sanction — pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)",
 })
 
 // Tool: Check spend authorization
