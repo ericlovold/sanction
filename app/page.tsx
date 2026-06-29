@@ -469,8 +469,9 @@ export default function Landing() {
               Governs your whole agent stack.
             </h3>
             <p className="mt-4 text-zinc-400 leading-relaxed">
-              Sanction is provider-agnostic. Meter spend across model providers, gate payment rails,
-              and vault credentials for the tools your agents already use.
+              Sanction is provider-agnostic. Meter model spend through the gateway, run a spend
+              authorization before an agent pays, and vault scoped credentials for the tools it uses.
+              These are the providers, rails, and tools your agents work with — one key governs across them.
             </p>
           </div>
           <div className="mt-12 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-px overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800">
