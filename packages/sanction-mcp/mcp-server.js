@@ -36690,8 +36690,8 @@ async function callSanction(path, method, body, bearerToken) {
 }
 var server = new McpServer({
   name: "sanction",
-  version: "1.0.0",
-  description: "Sanction \u2014 agent wallet, credential vault, and governance layer"
+  version: "0.2.1",
+  description: "Sanction \u2014 pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)"
 });
 server.tool(
   "sanction_authorize",
