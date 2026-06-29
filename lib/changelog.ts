@@ -15,6 +15,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-06-29",
+    title: "v0.2.0 — framework guides, public roadmap, clearer positioning",
+    version: "v0.2.0",
+    tags: ["release"],
+    body: `Our first feature release since going public:
+
+- **Framework guides** — drop Sanction into your agent in minutes: [Quickstart](/docs/quickstart), [Vercel AI SDK](/docs/ai-sdk), [LangChain](/docs/langchain), [CrewAI](/docs/crewai).
+- **Public roadmap + changelog + idea board** — [tell us what to build next](/roadmap) and vote on it.
+- **Account tree** — govern many agents under one master account, with per-tenant budgets and subtree spend rollup.
+- **Clearer positioning** — Sanction is the authorization layer for AI agents, with an honest integrations story.`,
+  },
+  {
     date: "2026-06-28",
     title: "Building Sanction in the open",
     tags: ["product"],
