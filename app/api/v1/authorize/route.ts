@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decidePolicy, decisionCode, REMEDIATION } from "@/lib/decisions"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
+import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 
@@ -172,9 +173,15 @@ export async function POST(req: NextRequest) {
     // or a budget tripped — the make-or-break human-in-the-loop moment.
     if (result.status === "escalated") {
       after(() =>
-        deliverEvent(agent.walletId, "escalation.created", {
-          request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
-        }),
+        Promise.all([
+          deliverEvent(agent.walletId, "escalation.created", {
+            request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
+          }),
+          // Email the owner directly, so escalations reach them even with no webhook registered.
+          sendEscalationEmail(agent.wallet.ownerEmail, {
+            agentName: agent.name, amountUsd: amount_usd, merchant, category, description, approveUrl: APPROVE_URL,
+          }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
+        ]),
       )
     } else if (result.status === "denied" && result.decisionNote === "Daily spend budget exceeded") {
       after(() =>
