@@ -1,10 +1,8 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { DashboardNav } from "@/components/dashboard-nav"
-import { AccountControl } from "@/components/account-control"
+import { NoWallet } from "@/components/no-wallet"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
 import { WebhookSettings } from "@/components/webhook-settings"
 import { listPendingApprovals } from "@/lib/approvals"
@@ -19,19 +17,7 @@ export const dynamic = "force-dynamic"
 
 export default async function ApprovalsPage() {
   const view = await getViewWallet()
-  if (!view) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-3 text-center">
-          <p className="text-sm text-zinc-400">No wallet to show.</p>
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!view) return <NoWallet />
   const walletId = view.id
 
   const pendingRows = await listPendingApprovals(walletId)
@@ -62,16 +48,10 @@ export default async function ApprovalsPage() {
   })
 
   return (
-    <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">{view.name} · escalated charges awaiting a decision</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <DashboardNav active="approvals" />
-          <AccountControl view={view} />
-        </div>
+    <>
+      <div>
+        <h1 className="font-display text-xl font-semibold tracking-tight">Approvals</h1>
+        <p className="mt-1 text-sm text-zinc-500">Escalated charges awaiting a decision.</p>
       </div>
 
       <div className="flex items-center gap-2">
@@ -104,6 +84,6 @@ export default async function ApprovalsPage() {
       </Card>
 
       <WebhookSettings webhooks={webhooks} editable={view.isSession} />
-    </div>
+    </>
   )
 }

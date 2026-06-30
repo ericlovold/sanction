@@ -1,11 +1,8 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DashboardNav } from "@/components/dashboard-nav"
-import { AccountControl } from "@/components/account-control"
 import { AgentCreator } from "@/components/agent-creator"
+import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
@@ -55,39 +52,15 @@ function fmt(d: Date) {
 
 export default async function Dashboard() {
   const view = await getViewWallet()
-  if (!view) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-3">
-          <p className="text-zinc-400 text-sm">No wallet to show.</p>
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!view) return <NoWallet />
 
-  const { agents, tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens, pendingCount } = await getStats(view.id)
+  const { agents, tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens } = await getStats(view.id)
 
   return (
-    <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-zinc-500 text-sm">{view.name} · agent wallet &amp; governance</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {pendingCount > 0 && (
-            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">
-              {pendingCount} pending approval{pendingCount > 1 ? "s" : ""}
-            </Badge>
-          )}
-          <DashboardNav active="overview" />
-          <AccountControl view={view} />
-        </div>
+    <>
+      <div>
+        <h1 className="font-display text-xl font-semibold tracking-tight">Overview</h1>
+        <p className="mt-1 text-sm text-zinc-500">Agent wallet &amp; governance at a glance.</p>
       </div>
 
       {/* First-run guidance — only for a logged-in wallet with no activity yet */}
@@ -215,6 +188,6 @@ export default async function Dashboard() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </>
   )
 }
