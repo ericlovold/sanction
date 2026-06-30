@@ -155,7 +155,7 @@ function Toggle<T extends string>({ options, value, onChange }: { options: reado
   )
 }
 
-export function ConnectApp({ agentKey }: { agentKey: string }) {
+export function ConnectApp({ agentKey, showWatch = true }: { agentKey: string; showWatch?: boolean }) {
   const [lang, setLang] = useState<Lang>("Node")
   const [provider, setProvider] = useState<Provider>("OpenAI")
   const code = snippet(provider, lang, agentKey)
@@ -185,7 +185,7 @@ export function ConnectApp({ agentKey }: { agentKey: string }) {
           <code>{code}</code>
         </pre>
       </div>
-      <GatewayWatch agentKey={agentKey} />
+      {showWatch && <GatewayWatch agentKey={agentKey} />}
     </div>
   )
 }
