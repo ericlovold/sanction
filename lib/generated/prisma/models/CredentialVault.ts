@@ -43,6 +43,7 @@ export type CredentialVaultMinAggregateOutputType = {
   keyId: string | null
   minClearance: number | null
   expiresAt: Date | null
+  revokedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -56,6 +57,7 @@ export type CredentialVaultMaxAggregateOutputType = {
   keyId: string | null
   minClearance: number | null
   expiresAt: Date | null
+  revokedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -71,6 +73,7 @@ export type CredentialVaultCountAggregateOutputType = {
   scopes: number
   minClearance: number
   expiresAt: number
+  revokedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -94,6 +97,7 @@ export type CredentialVaultMinAggregateInputType = {
   keyId?: true
   minClearance?: true
   expiresAt?: true
+  revokedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -107,6 +111,7 @@ export type CredentialVaultMaxAggregateInputType = {
   keyId?: true
   minClearance?: true
   expiresAt?: true
+  revokedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -122,6 +127,7 @@ export type CredentialVaultCountAggregateInputType = {
   scopes?: true
   minClearance?: true
   expiresAt?: true
+  revokedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -224,6 +230,7 @@ export type CredentialVaultGroupByOutputType = {
   scopes: string[]
   minClearance: number
   expiresAt: Date | null
+  revokedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: CredentialVaultCountAggregateOutputType | null
@@ -262,6 +269,7 @@ export type CredentialVaultWhereInput = {
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntFilter<"CredentialVault"> | number
   expiresAt?: Prisma.DateTimeNullableFilter<"CredentialVault"> | Date | string | null
+  revokedAt?: Prisma.DateTimeNullableFilter<"CredentialVault"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"CredentialVault"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"CredentialVault"> | Date | string
   wallet?: Prisma.XOR<Prisma.WalletScalarRelationFilter, Prisma.WalletWhereInput>
@@ -279,6 +287,7 @@ export type CredentialVaultOrderByWithRelationInput = {
   scopes?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   wallet?: Prisma.WalletOrderByWithRelationInput
@@ -299,6 +308,7 @@ export type CredentialVaultWhereUniqueInput = Prisma.AtLeast<{
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntFilter<"CredentialVault"> | number
   expiresAt?: Prisma.DateTimeNullableFilter<"CredentialVault"> | Date | string | null
+  revokedAt?: Prisma.DateTimeNullableFilter<"CredentialVault"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"CredentialVault"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"CredentialVault"> | Date | string
   wallet?: Prisma.XOR<Prisma.WalletScalarRelationFilter, Prisma.WalletWhereInput>
@@ -316,6 +326,7 @@ export type CredentialVaultOrderByWithAggregationInput = {
   scopes?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.CredentialVaultCountOrderByAggregateInput
@@ -339,6 +350,7 @@ export type CredentialVaultScalarWhereWithAggregatesInput = {
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntWithAggregatesFilter<"CredentialVault"> | number
   expiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"CredentialVault"> | Date | string | null
+  revokedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"CredentialVault"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"CredentialVault"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"CredentialVault"> | Date | string
 }
@@ -353,6 +365,7 @@ export type CredentialVaultCreateInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   wallet: Prisma.WalletCreateNestedOneWithoutCredentialsInput
@@ -370,6 +383,7 @@ export type CredentialVaultUncheckedCreateInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   injections?: Prisma.CredentialInjectionUncheckedCreateNestedManyWithoutCredentialInput
@@ -385,6 +399,7 @@ export type CredentialVaultUpdateInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   wallet?: Prisma.WalletUpdateOneRequiredWithoutCredentialsNestedInput
@@ -402,6 +417,7 @@ export type CredentialVaultUncheckedUpdateInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   injections?: Prisma.CredentialInjectionUncheckedUpdateManyWithoutCredentialNestedInput
@@ -418,6 +434,7 @@ export type CredentialVaultCreateManyInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -432,6 +449,7 @@ export type CredentialVaultUpdateManyMutationInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -447,6 +465,7 @@ export type CredentialVaultUncheckedUpdateManyInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -472,6 +491,7 @@ export type CredentialVaultCountOrderByAggregateInput = {
   scopes?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  revokedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -489,6 +509,7 @@ export type CredentialVaultMaxOrderByAggregateInput = {
   keyId?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  revokedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -502,6 +523,7 @@ export type CredentialVaultMinOrderByAggregateInput = {
   keyId?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  revokedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -599,6 +621,7 @@ export type CredentialVaultCreateWithoutWalletInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   injections?: Prisma.CredentialInjectionCreateNestedManyWithoutCredentialInput
@@ -614,6 +637,7 @@ export type CredentialVaultUncheckedCreateWithoutWalletInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   injections?: Prisma.CredentialInjectionUncheckedCreateNestedManyWithoutCredentialInput
@@ -659,6 +683,7 @@ export type CredentialVaultScalarWhereInput = {
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntFilter<"CredentialVault"> | number
   expiresAt?: Prisma.DateTimeNullableFilter<"CredentialVault"> | Date | string | null
+  revokedAt?: Prisma.DateTimeNullableFilter<"CredentialVault"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"CredentialVault"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"CredentialVault"> | Date | string
 }
@@ -673,6 +698,7 @@ export type CredentialVaultCreateWithoutInjectionsInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   wallet: Prisma.WalletCreateNestedOneWithoutCredentialsInput
@@ -689,6 +715,7 @@ export type CredentialVaultUncheckedCreateWithoutInjectionsInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -719,6 +746,7 @@ export type CredentialVaultUpdateWithoutInjectionsInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   wallet?: Prisma.WalletUpdateOneRequiredWithoutCredentialsNestedInput
@@ -735,6 +763,7 @@ export type CredentialVaultUncheckedUpdateWithoutInjectionsInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -749,6 +778,7 @@ export type CredentialVaultCreateManyWalletInput = {
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
   expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -763,6 +793,7 @@ export type CredentialVaultUpdateWithoutWalletInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   injections?: Prisma.CredentialInjectionUpdateManyWithoutCredentialNestedInput
@@ -778,6 +809,7 @@ export type CredentialVaultUncheckedUpdateWithoutWalletInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   injections?: Prisma.CredentialInjectionUncheckedUpdateManyWithoutCredentialNestedInput
@@ -793,6 +825,7 @@ export type CredentialVaultUncheckedUpdateManyWithoutWalletInput = {
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -839,6 +872,7 @@ export type CredentialVaultSelect<ExtArgs extends runtime.Types.Extensions.Inter
   scopes?: boolean
   minClearance?: boolean
   expiresAt?: boolean
+  revokedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
@@ -857,6 +891,7 @@ export type CredentialVaultSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   scopes?: boolean
   minClearance?: boolean
   expiresAt?: boolean
+  revokedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
@@ -873,6 +908,7 @@ export type CredentialVaultSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   scopes?: boolean
   minClearance?: boolean
   expiresAt?: boolean
+  revokedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
@@ -889,11 +925,12 @@ export type CredentialVaultSelectScalar = {
   scopes?: boolean
   minClearance?: boolean
   expiresAt?: boolean
+  revokedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type CredentialVaultOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "label" | "type" | "encryptedValue" | "keyId" | "allowedAgentIds" | "scopes" | "minClearance" | "expiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["credentialVault"]>
+export type CredentialVaultOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "label" | "type" | "encryptedValue" | "keyId" | "allowedAgentIds" | "scopes" | "minClearance" | "expiresAt" | "revokedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["credentialVault"]>
 export type CredentialVaultInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
   injections?: boolean | Prisma.CredentialVault$injectionsArgs<ExtArgs>
@@ -923,6 +960,7 @@ export type $CredentialVaultPayload<ExtArgs extends runtime.Types.Extensions.Int
     scopes: string[]
     minClearance: number
     expiresAt: Date | null
+    revokedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["credentialVault"]>
@@ -1360,6 +1398,7 @@ export interface CredentialVaultFieldRefs {
   readonly scopes: Prisma.FieldRef<"CredentialVault", 'String[]'>
   readonly minClearance: Prisma.FieldRef<"CredentialVault", 'Int'>
   readonly expiresAt: Prisma.FieldRef<"CredentialVault", 'DateTime'>
+  readonly revokedAt: Prisma.FieldRef<"CredentialVault", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"CredentialVault", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"CredentialVault", 'DateTime'>
 }

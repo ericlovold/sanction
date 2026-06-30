@@ -20,6 +20,8 @@ const patchSchema = z.object({
   per_transaction_max_usd: budget,
   escalate_over_usd: budget,
   clearance: z.number().int().min(1).max(5).optional(),
+  industry: z.enum(["general", "healthcare", "legal", "financial", "enterprise"]).optional(),
+  clearance_expires_at: z.string().datetime().nullable().optional(),
   // Revoke (false) or reactivate (true) the agent's key. SEC-6.
   active: z.boolean().optional(),
 })
@@ -100,13 +102,33 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await db.agent.update({ where: { id: agent_id }, data })
 
-  // Clearance lives in its own row; upsert it when provided.
+  // Clearance lives in its own row; upsert it when any clearance field is given.
   let clearance: number | undefined
-  if (overrides.clearance !== undefined) {
+  if (
+    overrides.clearance !== undefined ||
+    overrides.industry !== undefined ||
+    overrides.clearance_expires_at !== undefined
+  ) {
+    const expiresAt =
+      overrides.clearance_expires_at === undefined
+        ? undefined
+        : overrides.clearance_expires_at === null
+          ? null
+          : new Date(overrides.clearance_expires_at)
     const c = await db.agentClearance.upsert({
       where: { agentId: agent_id },
-      update: { level: overrides.clearance },
-      create: { walletId: wallet_id, agentId: agent_id, level: overrides.clearance },
+      update: {
+        ...(overrides.clearance !== undefined ? { level: overrides.clearance } : {}),
+        ...(overrides.industry !== undefined ? { industry: overrides.industry } : {}),
+        ...(expiresAt !== undefined ? { expiresAt } : {}),
+      },
+      create: {
+        walletId: wallet_id,
+        agentId: agent_id,
+        level: overrides.clearance ?? 1,
+        ...(overrides.industry !== undefined ? { industry: overrides.industry } : {}),
+        ...(expiresAt !== undefined && expiresAt !== null ? { expiresAt } : {}),
+      },
     })
     clearance = c.level
   }
