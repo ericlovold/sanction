@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest"
 import { createCipheriv, createHash, randomBytes } from "crypto"
 import { encryptCredential, decryptCredential, issueExecutionJWT, verifyExecutionJWT } from "../lib/jwt"
+import { encryptV3, decryptV3, decryptCredentialEnvelope } from "../lib/credentialCrypto"
+import { generateDataKey, unwrapDataKey } from "../lib/kms"
 import { generateApiKey, generateManagementKey, hashApiKey } from "../lib/apiKey"
 
 const WALLET = "wallet_1"
@@ -57,6 +59,40 @@ describe("credential encryption (AES-256-GCM)", () => {
     const legacyBlob = Buffer.concat([iv, tag, enc]).toString("base64")
     // walletId/label are passed but unused for V0 blobs (no AAD, legacy key path)
     expect(decryptCredential(legacyBlob, WALLET, LABEL)).toBe("legacy-secret")
+  })
+})
+
+describe("envelope encryption (V3, local-wrap)", () => {
+  it("local generateDataKey + unwrapDataKey round-trips the DEK", async () => {
+    const { plaintextDek, wrappedDek, keyRef } = await generateDataKey()
+    expect(keyRef).toBe("local") // no SANCTION_KMS_KEY_ARN in tests
+    const back = await unwrapDataKey(wrappedDek, keyRef)
+    expect(back.equals(plaintextDek)).toBe(true)
+  })
+
+  it("encryptV3/decryptV3 round-trips and writes the V3 version byte", () => {
+    const dek = randomBytes(32)
+    const blob = encryptV3("v3-secret", dek, WALLET, LABEL)
+    expect(Buffer.from(blob, "base64")[0]).toBe(0x03)
+    expect(decryptV3(blob, dek, WALLET, LABEL)).toBe("v3-secret")
+  })
+
+  it("V3 rejects a mismatched wallet or label (AAD binding)", () => {
+    const dek = randomBytes(32)
+    const blob = encryptV3("v3-secret", dek, WALLET, LABEL)
+    expect(() => decryptV3(blob, dek, "wallet_2", LABEL)).toThrow()
+    expect(() => decryptV3(blob, dek, WALLET, "stripe")).toThrow()
+  })
+
+  it("V3 with the wrong DEK fails (key binding)", () => {
+    const blob = encryptV3("v3-secret", randomBytes(32), WALLET, LABEL)
+    expect(() => decryptV3(blob, randomBytes(32), WALLET, LABEL)).toThrow()
+  })
+
+  it("decryptCredentialEnvelope falls back to V2 when keyId is null (backward compat)", async () => {
+    const v2 = encryptCredential("legacy-v2", WALLET, LABEL)
+    const value = await decryptCredentialEnvelope({ encryptedValue: v2, walletId: WALLET, label: LABEL, keyId: null })
+    expect(value).toBe("legacy-v2")
   })
 })
 

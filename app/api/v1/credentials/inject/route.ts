@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
-import { verifyExecutionJWT, decryptCredential } from "@/lib/jwt"
+import { verifyExecutionJWT } from "@/lib/jwt"
+import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 
 const schema = z.object({
   credential_label: z.string(),
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     data: { executionTokenId: execToken.id, credentialId: credential.id },
   })
 
-  const value = decryptCredential(credential.encryptedValue, credential.walletId, credential.label)
+  const value = await decryptCredentialEnvelope(credential)
 
   return NextResponse.json(
     {

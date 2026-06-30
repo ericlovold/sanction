@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
-import { encryptCredential } from "@/lib/jwt"
+import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { authenticateOwner } from "@/lib/ownerAuth"
 
 const schema = z.object({
@@ -27,16 +27,18 @@ export async function POST(req: NextRequest) {
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  // Bind the ciphertext to its tenant+label so a leaked blob can't be replayed
-  // under a different wallet/label (AAD must match on decrypt).
-  const encrypted = encryptCredential(value, wallet_id, label)
+  // Envelope-encrypt under the wallet's KMS-wrapped DEK (SEC-1). The ciphertext
+  // is bound to its tenant+label via AAD, and keyId names the wrapping key so the
+  // blob is unreadable from the database alone.
+  const { blob, keyId } = await encryptCredentialEnvelope(value, wallet_id, label)
 
   const cred = await db.credentialVault.create({
     data: {
       walletId: wallet_id,
       label,
       type,
-      encryptedValue: encrypted,
+      encryptedValue: blob,
+      keyId,
       allowedAgentIds: allowed_agent_ids,
       scopes,
       minClearance: min_clearance,
