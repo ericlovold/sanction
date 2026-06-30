@@ -89,7 +89,7 @@ export default function LocalOffering() {
       {/* The problem */}
       <section className="border-b border-zinc-900">
         <div className="mx-auto max-w-5xl px-6 py-16">
-          <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">Why cloud AI isn&apos;t an option</h2>
+          <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">When cloud AI isn&apos;t an option</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <p className="text-zinc-300">
               Confidentiality isn&apos;t optional. <span className="text-zinc-500">ABA Model Rule 1.6</span> means a
