@@ -1,10 +1,13 @@
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { db } from "./db"
-import { hashApiKey } from "./apiKey"
+import { hashApiKey, generateApiKey } from "./apiKey"
+import { auth } from "./auth-config"
 
-// Lightweight session: the cookie holds the wallet's management key (httpOnly,
-// 30-day). The server hashes it to resolve the wallet — the client never
-// supplies a wallet id, so there's no way to view someone else's wallet.
+// Two ways to be signed in, bridged here so the rest of the app never cares:
+//   1. Better Auth session (Google/GitHub) → a User → the Wallet it owns.
+//   2. Legacy: an httpOnly cookie holding the wallet's sk_ management key.
+// Both resolve to the same Prisma Wallet. New social users get a wallet
+// provisioned on first sign-in; existing wallets are claimed by matching email.
 export const SESSION_COOKIE = "sanction_session"
 const MAX_AGE = 60 * 60 * 24 * 30
 
@@ -20,12 +23,59 @@ export async function setSession(managementKey: string) {
 
 export async function clearSession() {
   ;(await cookies()).delete(SESSION_COOKIE)
+  // Also end any Better Auth session (nextCookies clears its cookie here).
+  try {
+    await auth.api.signOut({ headers: await headers() })
+  } catch {
+    // No social session to end — legacy logout only.
+  }
+}
+
+// Map a signed-in human to the wallet they control. Claim-by-email links a
+// pre-existing wallet (legacy/magic-link customer now using social login) to the
+// User exactly once; otherwise provision a fresh wallet like /start does.
+async function resolveWalletForUser(user: { id: string; email: string; name?: string | null }) {
+  const linked = await db.wallet.findFirst({ where: { userId: user.id } })
+  if (linked) return linked
+
+  const byEmail = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
+  if (byEmail) {
+    return db.wallet.update({ where: { id: byEmail.id }, data: { userId: user.id } })
+  }
+
+  try {
+    const wallet = await db.wallet.create({
+      data: {
+        name: user.name?.trim() || `${user.email.split("@")[0]}'s workspace`,
+        ownerEmail: user.email,
+        userId: user.id,
+        policy: { create: {} },
+      },
+    })
+    const key = generateApiKey()
+    await db.agent.create({
+      data: { walletId: wallet.id, name: "default-agent", apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
+    })
+    return wallet
+  } catch {
+    // Race: a concurrent render won the unique ownerEmail. Re-read its result.
+    return db.wallet.findUnique({ where: { ownerEmail: user.email } })
+  }
 }
 
 export async function getSessionWallet() {
+  // Social session first. Guarded so a not-yet-configured Better Auth (missing
+  // env on a fresh deploy) can never break the legacy key / magic-link login.
+  try {
+    const session = await auth.api.getSession({ headers: await headers() })
+    if (session?.user) return resolveWalletForUser(session.user)
+  } catch {
+    // fall through to the management-key path
+  }
+
   const raw = (await cookies()).get(SESSION_COOKIE)?.value
-  if (!raw) return null
-  return db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
+  if (raw) return db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
+  return null
 }
 
 /**
