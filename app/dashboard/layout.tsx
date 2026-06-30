@@ -16,7 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const pendingCount = (await listPendingApprovals(view.id)).length
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
       <DashboardSidebar
         view={{ name: view.name, isSession: view.isSession }}
         pendingCount={pendingCount}
