@@ -59,6 +59,7 @@ export const ModelName = {
   Policy: 'Policy',
   TokenLog: 'TokenLog',
   CredentialVault: 'CredentialVault',
+  WalletKey: 'WalletKey',
   AgentClearance: 'AgentClearance',
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
@@ -187,6 +188,7 @@ export const CredentialVaultScalarFieldEnum = {
   label: 'label',
   type: 'type',
   encryptedValue: 'encryptedValue',
+  keyId: 'keyId',
   allowedAgentIds: 'allowedAgentIds',
   scopes: 'scopes',
   minClearance: 'minClearance',
@@ -196,6 +198,17 @@ export const CredentialVaultScalarFieldEnum = {
 } as const
 
 export type CredentialVaultScalarFieldEnum = (typeof CredentialVaultScalarFieldEnum)[keyof typeof CredentialVaultScalarFieldEnum]
+
+
+export const WalletKeyScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  wrappedDek: 'wrappedDek',
+  keyRef: 'keyRef',
+  createdAt: 'createdAt'
+} as const
+
+export type WalletKeyScalarFieldEnum = (typeof WalletKeyScalarFieldEnum)[keyof typeof WalletKeyScalarFieldEnum]
 
 
 export const AgentClearanceScalarFieldEnum = {

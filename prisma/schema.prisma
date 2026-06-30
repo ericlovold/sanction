@@ -157,6 +157,10 @@ model CredentialVault {
   label         String
   type          String    // api_key | oauth_token | certificate | license | password
   encryptedValue String
+  // SEC-1 envelope encryption: id of the WalletKey whose wrapped DEK encrypts
+  // this credential (ciphertext V3). Null for pre-V3 blobs (V2/V1/V0), which
+  // decrypt via the synchronous fallthrough in lib/jwt.ts.
+  keyId         String?
   allowedAgentIds String[] @default([]) // empty = all agents in wallet
   scopes        String[]  @default([])  // what this credential grants
   minClearance  Int       @default(1)   // 1-5; agent clearance must be >= this to access
@@ -168,6 +172,20 @@ model CredentialVault {
   injections    CredentialInjection[]
 
   @@index([walletId])
+}
+
+// SEC-1 envelope encryption: per-wallet data-encryption key (DEK), stored
+// wrapped — never in plaintext. In production the DEK is wrapped by an AWS KMS
+// key (keyRef = the key ARN) so unwrapping requires a live, audited KMS call; in
+// local/CI/preview (no SANCTION_KMS_KEY_ARN) it's wrapped by the env master and
+// keyRef = "local". One key per wallet in Phase 1 (walletId unique); rotation in
+// Phase 2 relaxes this and adds versioning.
+model WalletKey {
+  id         String   @id @default(cuid())
+  walletId   String   @unique
+  wrappedDek String   // base64 of the KMS-wrapped (or env-master-wrapped) DEK
+  keyRef     String   // KMS key ARN, or "local" for the env-master fallback
+  createdAt  DateTime @default(now())
 }
 
 // Clearance level assigned to a specific agent
