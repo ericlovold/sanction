@@ -48,6 +48,7 @@ export type AgentMinAggregateOutputType = {
   apiKeyPrefix: string | null
   isActive: boolean | null
   createdAt: Date | null
+  lastUsedAt: Date | null
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
   perTransactionMaxUsd: number | null
@@ -62,6 +63,7 @@ export type AgentMaxAggregateOutputType = {
   apiKeyPrefix: string | null
   isActive: boolean | null
   createdAt: Date | null
+  lastUsedAt: Date | null
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
   perTransactionMaxUsd: number | null
@@ -76,6 +78,7 @@ export type AgentCountAggregateOutputType = {
   apiKeyPrefix: number
   isActive: number
   createdAt: number
+  lastUsedAt: number
   dailyTokenBudgetUsd: number
   dailySpendBudgetUsd: number
   perTransactionMaxUsd: number
@@ -106,6 +109,7 @@ export type AgentMinAggregateInputType = {
   apiKeyPrefix?: true
   isActive?: true
   createdAt?: true
+  lastUsedAt?: true
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
   perTransactionMaxUsd?: true
@@ -120,6 +124,7 @@ export type AgentMaxAggregateInputType = {
   apiKeyPrefix?: true
   isActive?: true
   createdAt?: true
+  lastUsedAt?: true
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
   perTransactionMaxUsd?: true
@@ -134,6 +139,7 @@ export type AgentCountAggregateInputType = {
   apiKeyPrefix?: true
   isActive?: true
   createdAt?: true
+  lastUsedAt?: true
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
   perTransactionMaxUsd?: true
@@ -235,6 +241,7 @@ export type AgentGroupByOutputType = {
   apiKeyPrefix: string
   isActive: boolean
   createdAt: Date
+  lastUsedAt: Date | null
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
   perTransactionMaxUsd: number | null
@@ -272,6 +279,7 @@ export type AgentWhereInput = {
   apiKeyPrefix?: Prisma.StringFilter<"Agent"> | string
   isActive?: Prisma.BoolFilter<"Agent"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Agent"> | Date | string
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"Agent"> | Date | string | null
   dailyTokenBudgetUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
   dailySpendBudgetUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
   perTransactionMaxUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
@@ -291,6 +299,7 @@ export type AgentOrderByWithRelationInput = {
   apiKeyPrefix?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -313,6 +322,7 @@ export type AgentWhereUniqueInput = Prisma.AtLeast<{
   apiKeyPrefix?: Prisma.StringFilter<"Agent"> | string
   isActive?: Prisma.BoolFilter<"Agent"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Agent"> | Date | string
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"Agent"> | Date | string | null
   dailyTokenBudgetUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
   dailySpendBudgetUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
   perTransactionMaxUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
@@ -332,6 +342,7 @@ export type AgentOrderByWithAggregationInput = {
   apiKeyPrefix?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -354,6 +365,7 @@ export type AgentScalarWhereWithAggregatesInput = {
   apiKeyPrefix?: Prisma.StringWithAggregatesFilter<"Agent"> | string
   isActive?: Prisma.BoolWithAggregatesFilter<"Agent"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Agent"> | Date | string
+  lastUsedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Agent"> | Date | string | null
   dailyTokenBudgetUsd?: Prisma.IntNullableWithAggregatesFilter<"Agent"> | number | null
   dailySpendBudgetUsd?: Prisma.IntNullableWithAggregatesFilter<"Agent"> | number | null
   perTransactionMaxUsd?: Prisma.IntNullableWithAggregatesFilter<"Agent"> | number | null
@@ -367,6 +379,7 @@ export type AgentCreateInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -386,6 +399,7 @@ export type AgentUncheckedCreateInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -403,6 +417,7 @@ export type AgentUpdateInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -422,6 +437,7 @@ export type AgentUncheckedUpdateInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -440,6 +456,7 @@ export type AgentCreateManyInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -453,6 +470,7 @@ export type AgentUpdateManyMutationInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -467,6 +485,7 @@ export type AgentUncheckedUpdateManyInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -491,6 +510,7 @@ export type AgentCountOrderByAggregateInput = {
   apiKeyPrefix?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
@@ -512,6 +532,7 @@ export type AgentMaxOrderByAggregateInput = {
   apiKeyPrefix?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
@@ -526,6 +547,7 @@ export type AgentMinOrderByAggregateInput = {
   apiKeyPrefix?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  lastUsedAt?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
@@ -657,6 +679,7 @@ export type AgentCreateWithoutWalletInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -674,6 +697,7 @@ export type AgentUncheckedCreateWithoutWalletInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -721,6 +745,7 @@ export type AgentScalarWhereInput = {
   apiKeyPrefix?: Prisma.StringFilter<"Agent"> | string
   isActive?: Prisma.BoolFilter<"Agent"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Agent"> | Date | string
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"Agent"> | Date | string | null
   dailyTokenBudgetUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
   dailySpendBudgetUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
   perTransactionMaxUsd?: Prisma.IntNullableFilter<"Agent"> | number | null
@@ -734,6 +759,7 @@ export type AgentCreateWithoutTokenLogsInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -752,6 +778,7 @@ export type AgentUncheckedCreateWithoutTokenLogsInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -784,6 +811,7 @@ export type AgentUpdateWithoutTokenLogsInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -802,6 +830,7 @@ export type AgentUncheckedUpdateWithoutTokenLogsInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -818,6 +847,7 @@ export type AgentCreateWithoutClearanceInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -836,6 +866,7 @@ export type AgentUncheckedCreateWithoutClearanceInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -868,6 +899,7 @@ export type AgentUpdateWithoutClearanceInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -886,6 +918,7 @@ export type AgentUncheckedUpdateWithoutClearanceInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -902,6 +935,7 @@ export type AgentCreateWithoutExecutionTokensInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -920,6 +954,7 @@ export type AgentUncheckedCreateWithoutExecutionTokensInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -952,6 +987,7 @@ export type AgentUpdateWithoutExecutionTokensInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -970,6 +1006,7 @@ export type AgentUncheckedUpdateWithoutExecutionTokensInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -986,6 +1023,7 @@ export type AgentCreateWithoutAuthRequestsInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -1004,6 +1042,7 @@ export type AgentUncheckedCreateWithoutAuthRequestsInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -1036,6 +1075,7 @@ export type AgentUpdateWithoutAuthRequestsInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1054,6 +1094,7 @@ export type AgentUncheckedUpdateWithoutAuthRequestsInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1070,6 +1111,7 @@ export type AgentCreateManyWalletInput = {
   apiKeyPrefix: string
   isActive?: boolean
   createdAt?: Date | string
+  lastUsedAt?: Date | string | null
   dailyTokenBudgetUsd?: number | null
   dailySpendBudgetUsd?: number | null
   perTransactionMaxUsd?: number | null
@@ -1083,6 +1125,7 @@ export type AgentUpdateWithoutWalletInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1100,6 +1143,7 @@ export type AgentUncheckedUpdateWithoutWalletInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1117,6 +1161,7 @@ export type AgentUncheckedUpdateManyWithoutWalletInput = {
   apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1180,6 +1225,7 @@ export type AgentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   apiKeyPrefix?: boolean
   isActive?: boolean
   createdAt?: boolean
+  lastUsedAt?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
   perTransactionMaxUsd?: boolean
@@ -1200,6 +1246,7 @@ export type AgentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   apiKeyPrefix?: boolean
   isActive?: boolean
   createdAt?: boolean
+  lastUsedAt?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
   perTransactionMaxUsd?: boolean
@@ -1215,6 +1262,7 @@ export type AgentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   apiKeyPrefix?: boolean
   isActive?: boolean
   createdAt?: boolean
+  lastUsedAt?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
   perTransactionMaxUsd?: boolean
@@ -1230,13 +1278,14 @@ export type AgentSelectScalar = {
   apiKeyPrefix?: boolean
   isActive?: boolean
   createdAt?: boolean
+  lastUsedAt?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
   perTransactionMaxUsd?: boolean
   escalateOverUsd?: boolean
 }
 
-export type AgentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "name" | "apiKeyHash" | "apiKeyPrefix" | "isActive" | "createdAt" | "dailyTokenBudgetUsd" | "dailySpendBudgetUsd" | "perTransactionMaxUsd" | "escalateOverUsd", ExtArgs["result"]["agent"]>
+export type AgentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "name" | "apiKeyHash" | "apiKeyPrefix" | "isActive" | "createdAt" | "lastUsedAt" | "dailyTokenBudgetUsd" | "dailySpendBudgetUsd" | "perTransactionMaxUsd" | "escalateOverUsd", ExtArgs["result"]["agent"]>
 export type AgentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
   tokenLogs?: boolean | Prisma.Agent$tokenLogsArgs<ExtArgs>
@@ -1269,6 +1318,7 @@ export type $AgentPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     apiKeyPrefix: string
     isActive: boolean
     createdAt: Date
+    lastUsedAt: Date | null
     dailyTokenBudgetUsd: number | null
     dailySpendBudgetUsd: number | null
     perTransactionMaxUsd: number | null
@@ -1708,6 +1758,7 @@ export interface AgentFieldRefs {
   readonly apiKeyPrefix: Prisma.FieldRef<"Agent", 'String'>
   readonly isActive: Prisma.FieldRef<"Agent", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"Agent", 'DateTime'>
+  readonly lastUsedAt: Prisma.FieldRef<"Agent", 'DateTime'>
   readonly dailyTokenBudgetUsd: Prisma.FieldRef<"Agent", 'Int'>
   readonly dailySpendBudgetUsd: Prisma.FieldRef<"Agent", 'Int'>
   readonly perTransactionMaxUsd: Prisma.FieldRef<"Agent", 'Int'>

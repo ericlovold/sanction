@@ -15,5 +15,12 @@ export async function authenticateAgent(req: NextRequest) {
   if (!agent) return { agent: null, error: "Invalid API key" }
   if (!agent.isActive) return { agent: null, error: "Agent is inactive" }
 
+  // Best-effort "last used" stamp for the console, throttled to ~5 min so it's
+  // not a write on every request. Fire-and-forget — never block or fail auth.
+  const STALE_MS = 5 * 60_000
+  if (!agent.lastUsedAt || Date.now() - agent.lastUsedAt.getTime() > STALE_MS) {
+    void db.agent.update({ where: { id: agent.id }, data: { lastUsedAt: new Date() } }).catch(() => {})
+  }
+
   return { agent, error: null }
 }

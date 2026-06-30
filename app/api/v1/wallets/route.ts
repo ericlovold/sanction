@@ -78,3 +78,45 @@ export async function POST(req: NextRequest) {
     created_at: wallet.createdAt,
   }, { status: 201, headers: { "Cache-Control": "no-store" } })
 }
+
+const patchSchema = z.object({
+  wallet_id: z.string(),
+  name: z.string().min(1).max(64).optional(),
+  owner_email: z.string().email().optional(),
+})
+
+// Update wallet account settings (name, owner email). Management plane.
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => null)
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { wallet_id, name, owner_email } = parsed.data
+  if (name === undefined && owner_email === undefined) {
+    return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+  }
+
+  const owner = await authenticateOwner(req, wallet_id)
+  if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
+
+  try {
+    const updated = await db.wallet.update({
+      where: { id: wallet_id },
+      data: {
+        ...(name !== undefined ? { name } : {}),
+        ...(owner_email !== undefined ? { ownerEmail: owner_email } : {}),
+      },
+      select: { id: true, name: true, ownerEmail: true },
+    })
+    return NextResponse.json(
+      { id: updated.id, name: updated.name, owner_email: updated.ownerEmail },
+      { headers: { "Cache-Control": "no-store" } },
+    )
+  } catch (e: unknown) {
+    if (typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002") {
+      return NextResponse.json({ error: "A wallet already exists for this email." }, { status: 409 })
+    }
+    throw e
+  }
+}

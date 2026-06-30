@@ -7,9 +7,11 @@ import { hashApiKey } from "../lib/apiKey"
 // revoke, sub-account). Concurrency/atomicity is a separate DB-backed test.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
-    wallet: { findUnique: vi.fn(), create: vi.fn() },
+    wallet: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     agentClearance: { upsert: vi.fn() },
+    webhook: { findUnique: vi.fn(), update: vi.fn() },
+    credentialVault: { findUnique: vi.fn(), update: vi.fn() },
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
@@ -20,8 +22,10 @@ vi.mock("@/lib/rateLimit", async (importOriginal) => {
 
 import { POST as rotate } from "../app/api/v1/agents/rotate/route"
 import { PATCH as patchAgent } from "../app/api/v1/agents/route"
-import { POST as createWallet } from "../app/api/v1/wallets/route"
+import { POST as createWallet, PATCH as patchWallet } from "../app/api/v1/wallets/route"
 import { GET as walletTree } from "../app/api/v1/wallets/tree/route"
+import { PATCH as patchWebhook } from "../app/api/v1/webhooks/route"
+import { DELETE as retireCredential } from "../app/api/v1/credentials/vault/route"
 
 const SK = "sk_testmanagementkey"
 const WID = "wallet_1"
@@ -105,5 +109,50 @@ describe("wallet creation — root vs sub-account", () => {
     expect(res.status).toBe(201)
     expect((await res.json()).parent_id).toBe(WID)
     expect(dbMock.wallet.create.mock.calls[0][0].data.parentId).toBe(WID)
+  })
+})
+
+describe("wallet settings (PATCH /wallets)", () => {
+  it("renames the wallet", async () => {
+    dbMock.wallet.update.mockResolvedValue({ id: WID, name: "Renamed", ownerEmail: "a@x.com" })
+    const res = await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, name: "Renamed" } }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).name).toBe("Renamed")
+    expect(dbMock.wallet.update.mock.calls[0][0].data).toEqual({ name: "Renamed" })
+  })
+  it("401 without a management key", async () => {
+    expect((await patchWallet(req("PATCH", "/api/v1/wallets", { body: { wallet_id: WID, name: "x" } }))).status).toBe(401)
+  })
+  it("400 when nothing to update", async () => {
+    expect((await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID } }))).status).toBe(400)
+  })
+})
+
+describe("webhook edit (PATCH /webhooks)", () => {
+  it("toggles isActive without re-creating the secret", async () => {
+    dbMock.webhook.findUnique.mockResolvedValue({ id: "wh1", walletId: WID })
+    dbMock.webhook.update.mockResolvedValue({ id: "wh1", url: "https://x.com/h", events: ["*"], isActive: false, createdAt: new Date() })
+    const res = await patchWebhook(req("PATCH", "/api/v1/webhooks", { headers: mgmt, body: { wallet_id: WID, id: "wh1", active: false } }))
+    expect(res.status).toBe(200)
+    expect(dbMock.webhook.update.mock.calls[0][0].data.isActive).toBe(false)
+  })
+  it("404 when the webhook is not in the wallet", async () => {
+    dbMock.webhook.findUnique.mockResolvedValue({ id: "wh1", walletId: "other" })
+    expect((await patchWebhook(req("PATCH", "/api/v1/webhooks", { headers: mgmt, body: { wallet_id: WID, id: "wh1", active: false } }))).status).toBe(404)
+  })
+})
+
+describe("credential retire (DELETE /credentials/vault)", () => {
+  it("soft-retires (sets revokedAt) instead of hard-deleting", async () => {
+    dbMock.credentialVault.findUnique.mockResolvedValue({ id: "cr1", walletId: WID })
+    dbMock.credentialVault.update.mockResolvedValue({ id: "cr1", revokedAt: new Date() })
+    const res = await retireCredential(req("DELETE", "/api/v1/credentials/vault?wallet_id=" + WID + "&id=cr1", { headers: mgmt }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).retired).toBe("cr1")
+    expect(dbMock.credentialVault.update.mock.calls[0][0].data.revokedAt).toBeInstanceOf(Date)
+  })
+  it("404 when the credential is not in the wallet", async () => {
+    dbMock.credentialVault.findUnique.mockResolvedValue({ id: "cr1", walletId: "other" })
+    expect((await retireCredential(req("DELETE", "/api/v1/credentials/vault?wallet_id=" + WID + "&id=cr1", { headers: mgmt }))).status).toBe(404)
   })
 })
