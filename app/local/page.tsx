@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Governed, on-premise AI for small regulated practices — law firms, clinics, accounting, manufacturing. Your data never leaves your hardware, and every action is logged for your assessor.",
 }
 
-const CONTACT = "mailto:eric@onesanction.com?subject=Sanction%20Local%20—%20fit%20call"
+const CONTACT = "mailto:eric@getsanction.com?subject=Sanction%20Local%20—%20fit%20call"
 
 const pillars = [
   {

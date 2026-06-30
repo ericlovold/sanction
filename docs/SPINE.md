@@ -22,7 +22,7 @@ Three roles, one object:
 
 Verified by reading `ericlovold/xcai-aiia` and `ericlovold/sanction`:
 
-- **XCAi-AIIA is a substrate, definitively.** `xcai_intelligence/config/tenants.yaml` is the "one engine, many skins" registry — a tenant = `{corpus + policy + features + subagent route}` in a YAML block. **Ten tenants** already exist; legal is three of them (Cathcap*, Aplora Legal, Family Law), and behavioral-health-adjacent skins exist too (Codeword crisis/988, AC Ping). *Legal-first is config + corpus work, not a new build.*  (*Cathcap is currently halted — no Render deploy; the "Production" tag in tenants.yaml is stale.*)
+- **XCAi-AIIA is a substrate, definitively.** `xcai_intelligence/config/tenants.yaml` is the "one engine, many skins" registry — a tenant = `{corpus + policy + features + subagent route}` in a YAML block. **Ten tenants** already exist; three are legal-domain (a financial-analysis tenant, a paralegal tenant, a family-law tenant), and behavioral-health-adjacent skins exist too (a crisis-intervention/988 tenant, an ethics tenant). *Legal-first is config + corpus work, not a new build.*  (*Cathcap is currently halted — no Render deploy; the "Production" tag in tenants.yaml is stale.*)
 - **AIIA is the air-gapped local harness.** `local_brain/eq_brain/knowledge_store.py` is a **ChromaDB vector store with built-in MiniLM/ONNX embeddings** — its own docstring: *"no cloud dependency. All data stays on the Mac Mini."* `ollama_client.py` does local `embed()`/`embed_batch()` (nomic-embed) + local generation (gemma). Local retrieval **and** embeddings already run on-box.
 - **Sanction is the governance/audit layer** — control plane (not custody), AES-256-GCM + KMS envelope encryption, per-tenant RLS, clearance levels, and a planned signed append-only audit export (SEC-7). These are compliance primitives, already shipped or scoped.
 
@@ -79,15 +79,17 @@ The buyer is the **owner**, not a procurement committee:
 
 ---
 
-## 5. Brand architecture — house of brands (already coherent)
+## 5. Brand architecture — consolidated on Sanction
 
-- **XCAi-AIIA** — the platform/substrate.
-- **AIIA** — the air-gapped local harness/runtime.
-- **Aplora** — the vertical product family (Legal, Family Law, Marketing, Sales).
-- **Codeword** — crisis-intervention vertical.
-- **Sanction** — the governance/audit layer **and the voice/vehicle.**
+- **XCAi-AIIA** — the platform/substrate (internal plumbing, not customer-facing).
+- **AIIA** — the air-gapped local harness/runtime (internal).
+- **Sanction** — the brand. The governance/audit layer, the voice/vehicle, **and** the
+  regulated-SMB offering itself, shipped as **Sanction Local**.
 
-The legal product ships as **Aplora Legal / Family Law**, NOT under the Sanction infra-developer brand. Sanction stays the governance gate + the community/channel megaphone.
+**Aplora is retired.** The earlier "the legal product needs its own name" tension is
+resolved by consolidating on Sanction: one brand carries the dev-facing governance tool,
+the voice/channel, and the local install. A vertical (legal, clinic, etc.) is a
+configuration + corpus of Sanction Local — not a separate brand.
 
 ---
 
@@ -135,7 +137,7 @@ Citing a hallucinated case study to a regulated buyer is the one mistake that de
 - Regulated-SMB local-first AI is the spine (not co-equal with generic "AI activation").
 - One product with skins (substrate confirmed), legal first.
 - AIIA air-gap is ~80% built; the missing piece (provable no-egress) is literally Sanction.
-- Sanction = governance gate + voice/vehicle; legal ships as Aplora.
+- Sanction = governance gate + voice/vehicle + the offering brand (**Sanction Local**). Aplora retired; one brand.
 
 **Open decisions:**
 1. **On-prem sequencing fork (the real money/liability call):** does install #1 ship Sanction *hosted* (you eat a BAA + the "data never leaves" contradiction), or do you build air-gapped mode *first* (slower to first dollar, the pitch is true, and you may dodge Business-Associate status entirely)? Recommendation: build air-gap mode first — being a solo HIPAA Business Associate is the heaviest liability in the plan, and the air-gap dodges it.
