@@ -82,6 +82,11 @@ export type TokenLog = Prisma.TokenLogModel
  */
 export type CredentialVault = Prisma.CredentialVaultModel
 /**
+ * Model WalletKey
+ * 
+ */
+export type WalletKey = Prisma.WalletKeyModel
+/**
  * Model AgentClearance
  * 
  */

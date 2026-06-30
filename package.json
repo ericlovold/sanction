@@ -13,6 +13,7 @@
     "test:db": "RUN_DB_TESTS=1 vitest run tests/concurrency.db.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1076.0",
     "@base-ui/react": "^1.5.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/adapter-pg": "^7.8.0",

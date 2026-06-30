@@ -392,6 +392,7 @@ export const ModelName = {
   Policy: 'Policy',
   TokenLog: 'TokenLog',
   CredentialVault: 'CredentialVault',
+  WalletKey: 'WalletKey',
   AgentClearance: 'AgentClearance',
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "rateLimit" | "wallet" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest" | "lead" | "idea" | "ideaVote"
+    modelProps: "rateLimit" | "wallet" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "walletKey" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest" | "lead" | "idea" | "ideaVote"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1007,6 +1008,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CredentialVaultCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CredentialVaultCountAggregateOutputType> | number
+        }
+      }
+    }
+    WalletKey: {
+      payload: Prisma.$WalletKeyPayload<ExtArgs>
+      fields: Prisma.WalletKeyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WalletKeyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WalletKeyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>
+        }
+        findFirst: {
+          args: Prisma.WalletKeyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WalletKeyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>
+        }
+        findMany: {
+          args: Prisma.WalletKeyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>[]
+        }
+        create: {
+          args: Prisma.WalletKeyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>
+        }
+        createMany: {
+          args: Prisma.WalletKeyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WalletKeyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>[]
+        }
+        delete: {
+          args: Prisma.WalletKeyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>
+        }
+        update: {
+          args: Prisma.WalletKeyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>
+        }
+        deleteMany: {
+          args: Prisma.WalletKeyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WalletKeyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WalletKeyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>[]
+        }
+        upsert: {
+          args: Prisma.WalletKeyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletKeyPayload>
+        }
+        aggregate: {
+          args: Prisma.WalletKeyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWalletKey>
+        }
+        groupBy: {
+          args: Prisma.WalletKeyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WalletKeyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WalletKeyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WalletKeyCountAggregateOutputType> | number
         }
       }
     }
@@ -1670,6 +1745,7 @@ export const CredentialVaultScalarFieldEnum = {
   label: 'label',
   type: 'type',
   encryptedValue: 'encryptedValue',
+  keyId: 'keyId',
   allowedAgentIds: 'allowedAgentIds',
   scopes: 'scopes',
   minClearance: 'minClearance',
@@ -1679,6 +1755,17 @@ export const CredentialVaultScalarFieldEnum = {
 } as const
 
 export type CredentialVaultScalarFieldEnum = (typeof CredentialVaultScalarFieldEnum)[keyof typeof CredentialVaultScalarFieldEnum]
+
+
+export const WalletKeyScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  wrappedDek: 'wrappedDek',
+  keyRef: 'keyRef',
+  createdAt: 'createdAt'
+} as const
+
+export type WalletKeyScalarFieldEnum = (typeof WalletKeyScalarFieldEnum)[keyof typeof WalletKeyScalarFieldEnum]
 
 
 export const AgentClearanceScalarFieldEnum = {
@@ -2017,6 +2104,7 @@ export type GlobalOmitConfig = {
   policy?: Prisma.PolicyOmit
   tokenLog?: Prisma.TokenLogOmit
   credentialVault?: Prisma.CredentialVaultOmit
+  walletKey?: Prisma.WalletKeyOmit
   agentClearance?: Prisma.AgentClearanceOmit
   executionToken?: Prisma.ExecutionTokenOmit
   credentialInjection?: Prisma.CredentialInjectionOmit

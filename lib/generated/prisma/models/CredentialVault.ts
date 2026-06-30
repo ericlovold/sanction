@@ -40,6 +40,7 @@ export type CredentialVaultMinAggregateOutputType = {
   label: string | null
   type: string | null
   encryptedValue: string | null
+  keyId: string | null
   minClearance: number | null
   expiresAt: Date | null
   createdAt: Date | null
@@ -52,6 +53,7 @@ export type CredentialVaultMaxAggregateOutputType = {
   label: string | null
   type: string | null
   encryptedValue: string | null
+  keyId: string | null
   minClearance: number | null
   expiresAt: Date | null
   createdAt: Date | null
@@ -64,6 +66,7 @@ export type CredentialVaultCountAggregateOutputType = {
   label: number
   type: number
   encryptedValue: number
+  keyId: number
   allowedAgentIds: number
   scopes: number
   minClearance: number
@@ -88,6 +91,7 @@ export type CredentialVaultMinAggregateInputType = {
   label?: true
   type?: true
   encryptedValue?: true
+  keyId?: true
   minClearance?: true
   expiresAt?: true
   createdAt?: true
@@ -100,6 +104,7 @@ export type CredentialVaultMaxAggregateInputType = {
   label?: true
   type?: true
   encryptedValue?: true
+  keyId?: true
   minClearance?: true
   expiresAt?: true
   createdAt?: true
@@ -112,6 +117,7 @@ export type CredentialVaultCountAggregateInputType = {
   label?: true
   type?: true
   encryptedValue?: true
+  keyId?: true
   allowedAgentIds?: true
   scopes?: true
   minClearance?: true
@@ -213,6 +219,7 @@ export type CredentialVaultGroupByOutputType = {
   label: string
   type: string
   encryptedValue: string
+  keyId: string | null
   allowedAgentIds: string[]
   scopes: string[]
   minClearance: number
@@ -250,6 +257,7 @@ export type CredentialVaultWhereInput = {
   label?: Prisma.StringFilter<"CredentialVault"> | string
   type?: Prisma.StringFilter<"CredentialVault"> | string
   encryptedValue?: Prisma.StringFilter<"CredentialVault"> | string
+  keyId?: Prisma.StringNullableFilter<"CredentialVault"> | string | null
   allowedAgentIds?: Prisma.StringNullableListFilter<"CredentialVault">
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntFilter<"CredentialVault"> | number
@@ -266,6 +274,7 @@ export type CredentialVaultOrderByWithRelationInput = {
   label?: Prisma.SortOrder
   type?: Prisma.SortOrder
   encryptedValue?: Prisma.SortOrder
+  keyId?: Prisma.SortOrderInput | Prisma.SortOrder
   allowedAgentIds?: Prisma.SortOrder
   scopes?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
@@ -285,6 +294,7 @@ export type CredentialVaultWhereUniqueInput = Prisma.AtLeast<{
   label?: Prisma.StringFilter<"CredentialVault"> | string
   type?: Prisma.StringFilter<"CredentialVault"> | string
   encryptedValue?: Prisma.StringFilter<"CredentialVault"> | string
+  keyId?: Prisma.StringNullableFilter<"CredentialVault"> | string | null
   allowedAgentIds?: Prisma.StringNullableListFilter<"CredentialVault">
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntFilter<"CredentialVault"> | number
@@ -301,6 +311,7 @@ export type CredentialVaultOrderByWithAggregationInput = {
   label?: Prisma.SortOrder
   type?: Prisma.SortOrder
   encryptedValue?: Prisma.SortOrder
+  keyId?: Prisma.SortOrderInput | Prisma.SortOrder
   allowedAgentIds?: Prisma.SortOrder
   scopes?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
@@ -323,6 +334,7 @@ export type CredentialVaultScalarWhereWithAggregatesInput = {
   label?: Prisma.StringWithAggregatesFilter<"CredentialVault"> | string
   type?: Prisma.StringWithAggregatesFilter<"CredentialVault"> | string
   encryptedValue?: Prisma.StringWithAggregatesFilter<"CredentialVault"> | string
+  keyId?: Prisma.StringNullableWithAggregatesFilter<"CredentialVault"> | string | null
   allowedAgentIds?: Prisma.StringNullableListFilter<"CredentialVault">
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntWithAggregatesFilter<"CredentialVault"> | number
@@ -336,6 +348,7 @@ export type CredentialVaultCreateInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -352,6 +365,7 @@ export type CredentialVaultUncheckedCreateInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -366,6 +380,7 @@ export type CredentialVaultUpdateInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -382,6 +397,7 @@ export type CredentialVaultUncheckedUpdateInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -397,6 +413,7 @@ export type CredentialVaultCreateManyInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -410,6 +427,7 @@ export type CredentialVaultUpdateManyMutationInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -424,6 +442,7 @@ export type CredentialVaultUncheckedUpdateManyInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -448,6 +467,7 @@ export type CredentialVaultCountOrderByAggregateInput = {
   label?: Prisma.SortOrder
   type?: Prisma.SortOrder
   encryptedValue?: Prisma.SortOrder
+  keyId?: Prisma.SortOrder
   allowedAgentIds?: Prisma.SortOrder
   scopes?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
@@ -466,6 +486,7 @@ export type CredentialVaultMaxOrderByAggregateInput = {
   label?: Prisma.SortOrder
   type?: Prisma.SortOrder
   encryptedValue?: Prisma.SortOrder
+  keyId?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -478,6 +499,7 @@ export type CredentialVaultMinOrderByAggregateInput = {
   label?: Prisma.SortOrder
   type?: Prisma.SortOrder
   encryptedValue?: Prisma.SortOrder
+  keyId?: Prisma.SortOrder
   minClearance?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -572,6 +594,7 @@ export type CredentialVaultCreateWithoutWalletInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -586,6 +609,7 @@ export type CredentialVaultUncheckedCreateWithoutWalletInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -630,6 +654,7 @@ export type CredentialVaultScalarWhereInput = {
   label?: Prisma.StringFilter<"CredentialVault"> | string
   type?: Prisma.StringFilter<"CredentialVault"> | string
   encryptedValue?: Prisma.StringFilter<"CredentialVault"> | string
+  keyId?: Prisma.StringNullableFilter<"CredentialVault"> | string | null
   allowedAgentIds?: Prisma.StringNullableListFilter<"CredentialVault">
   scopes?: Prisma.StringNullableListFilter<"CredentialVault">
   minClearance?: Prisma.IntFilter<"CredentialVault"> | number
@@ -643,6 +668,7 @@ export type CredentialVaultCreateWithoutInjectionsInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -658,6 +684,7 @@ export type CredentialVaultUncheckedCreateWithoutInjectionsInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -687,6 +714,7 @@ export type CredentialVaultUpdateWithoutInjectionsInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -702,6 +730,7 @@ export type CredentialVaultUncheckedUpdateWithoutInjectionsInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -715,6 +744,7 @@ export type CredentialVaultCreateManyWalletInput = {
   label: string
   type: string
   encryptedValue: string
+  keyId?: string | null
   allowedAgentIds?: Prisma.CredentialVaultCreateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultCreatescopesInput | string[]
   minClearance?: number
@@ -728,6 +758,7 @@ export type CredentialVaultUpdateWithoutWalletInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -742,6 +773,7 @@ export type CredentialVaultUncheckedUpdateWithoutWalletInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -756,6 +788,7 @@ export type CredentialVaultUncheckedUpdateManyWithoutWalletInput = {
   label?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   encryptedValue?: Prisma.StringFieldUpdateOperationsInput | string
+  keyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   allowedAgentIds?: Prisma.CredentialVaultUpdateallowedAgentIdsInput | string[]
   scopes?: Prisma.CredentialVaultUpdatescopesInput | string[]
   minClearance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -801,6 +834,7 @@ export type CredentialVaultSelect<ExtArgs extends runtime.Types.Extensions.Inter
   label?: boolean
   type?: boolean
   encryptedValue?: boolean
+  keyId?: boolean
   allowedAgentIds?: boolean
   scopes?: boolean
   minClearance?: boolean
@@ -818,6 +852,7 @@ export type CredentialVaultSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   label?: boolean
   type?: boolean
   encryptedValue?: boolean
+  keyId?: boolean
   allowedAgentIds?: boolean
   scopes?: boolean
   minClearance?: boolean
@@ -833,6 +868,7 @@ export type CredentialVaultSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   label?: boolean
   type?: boolean
   encryptedValue?: boolean
+  keyId?: boolean
   allowedAgentIds?: boolean
   scopes?: boolean
   minClearance?: boolean
@@ -848,6 +884,7 @@ export type CredentialVaultSelectScalar = {
   label?: boolean
   type?: boolean
   encryptedValue?: boolean
+  keyId?: boolean
   allowedAgentIds?: boolean
   scopes?: boolean
   minClearance?: boolean
@@ -856,7 +893,7 @@ export type CredentialVaultSelectScalar = {
   updatedAt?: boolean
 }
 
-export type CredentialVaultOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "label" | "type" | "encryptedValue" | "allowedAgentIds" | "scopes" | "minClearance" | "expiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["credentialVault"]>
+export type CredentialVaultOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "label" | "type" | "encryptedValue" | "keyId" | "allowedAgentIds" | "scopes" | "minClearance" | "expiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["credentialVault"]>
 export type CredentialVaultInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
   injections?: boolean | Prisma.CredentialVault$injectionsArgs<ExtArgs>
@@ -881,6 +918,7 @@ export type $CredentialVaultPayload<ExtArgs extends runtime.Types.Extensions.Int
     label: string
     type: string
     encryptedValue: string
+    keyId: string | null
     allowedAgentIds: string[]
     scopes: string[]
     minClearance: number
@@ -1317,6 +1355,7 @@ export interface CredentialVaultFieldRefs {
   readonly label: Prisma.FieldRef<"CredentialVault", 'String'>
   readonly type: Prisma.FieldRef<"CredentialVault", 'String'>
   readonly encryptedValue: Prisma.FieldRef<"CredentialVault", 'String'>
+  readonly keyId: Prisma.FieldRef<"CredentialVault", 'String'>
   readonly allowedAgentIds: Prisma.FieldRef<"CredentialVault", 'String[]'>
   readonly scopes: Prisma.FieldRef<"CredentialVault", 'String[]'>
   readonly minClearance: Prisma.FieldRef<"CredentialVault", 'Int'>
