@@ -414,10 +414,6 @@ export type WebhookUpdateeventsInput = {
   push?: string | string[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type WebhookCreateWithoutWalletInput = {
   id?: string
   url: string
