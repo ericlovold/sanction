@@ -141,6 +141,7 @@ export const AgentScalarFieldEnum = {
   apiKeyPrefix: 'apiKeyPrefix',
   isActive: 'isActive',
   createdAt: 'createdAt',
+  lastUsedAt: 'lastUsedAt',
   dailyTokenBudgetUsd: 'dailyTokenBudgetUsd',
   dailySpendBudgetUsd: 'dailySpendBudgetUsd',
   perTransactionMaxUsd: 'perTransactionMaxUsd',
@@ -193,6 +194,7 @@ export const CredentialVaultScalarFieldEnum = {
   scopes: 'scopes',
   minClearance: 'minClearance',
   expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

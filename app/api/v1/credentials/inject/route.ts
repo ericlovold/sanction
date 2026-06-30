@@ -62,6 +62,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 })
   }
 
+  // Reject retired credentials — a soft-deleted secret must not be injectable.
+  if (credential.revokedAt) {
+    return NextResponse.json({ error: "Credential has been retired" }, { status: 410 })
+  }
+
   // Reject expired credentials — a rotated/expired secret must not be injectable.
   if (credential.expiresAt && credential.expiresAt < new Date()) {
     return NextResponse.json({ error: "Credential has expired" }, { status: 410 })

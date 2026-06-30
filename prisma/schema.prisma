@@ -90,6 +90,9 @@ model Agent {
   apiKeyPrefix String
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
+  // Best-effort "last used" for the console; stamped (throttled) on each
+  // authenticated agent call. Null = never used since this column landed.
+  lastUsedAt   DateTime?
 
   // Per-agent budget overrides (cents). Null = inherit the wallet policy.
   dailyTokenBudgetUsd  Int?
@@ -165,6 +168,9 @@ model CredentialVault {
   scopes        String[]  @default([])  // what this credential grants
   minClearance  Int       @default(1)   // 1-5; agent clearance must be >= this to access
   expiresAt     DateTime?
+  // Soft-retire: a revoked credential can no longer be injected, but its
+  // injection audit history is preserved (we never hard-delete the trail).
+  revokedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
