@@ -8,6 +8,14 @@ import {
   type RotateState,
   type LimitsState,
 } from "@/app/dashboard/keys/actions"
+import { KeyConnect } from "@/components/key-connect"
+
+export type KeyActivity = {
+  totalCalls: number
+  topModel: string | null
+  lastTask: string | null
+  lastSeen: string | null
+}
 
 export type ConsoleAgent = {
   id: string
@@ -21,6 +29,7 @@ export type ConsoleAgent = {
   perTransactionMaxUsd: number | null
   escalateOverUsd: number | null
   clearance: number | null
+  activity: KeyActivity | null
 }
 
 function rel(iso: string | null): string {
@@ -59,7 +68,9 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
   const [rotate, rotateAction, rotating] = useActionState(rotateKeyAction, rotateInit)
   const [limits, limitsFormAction, savingLimits] = useActionState(updateLimitsAction, limitsInit)
   const [open, setOpen] = useState(false)
+  const [connectOpen, setConnectOpen] = useState(false)
   const justRotated = rotate.ok && rotate.agentId === agent.id && rotate.newKey
+  const act = agent.activity
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
@@ -77,8 +88,33 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
         </div>
       </div>
 
-      {editable && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      {act && act.totalCalls > 0 ? (
+        <p className="mt-2 text-[11px] text-zinc-500">
+          seen{" "}
+          {act.topModel && <span className="font-mono text-zinc-400">{act.topModel}</span>}
+          {act.topModel && " · "}
+          <span className="text-zinc-400">{act.totalCalls.toLocaleString()}</span> call{act.totalCalls === 1 ? "" : "s"}
+          {act.lastTask && (
+            <>
+              {" · "}task <span className="text-zinc-400">{act.lastTask}</span>
+            </>
+          )}
+          {act.lastSeen && <> · {rel(act.lastSeen)}</>}
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px] text-zinc-600">No calls yet — use Connect to wire this key into an agent.</p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setConnectOpen((o) => !o)}
+          className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100"
+        >
+          {connectOpen ? "Hide connect" : "Connect"}
+        </button>
+        {editable && (
+          <>
           <form action={rotateAction}>
             <input type="hidden" name="agent_id" value={agent.id} />
             <button type="submit" disabled={rotating} className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100 disabled:opacity-50">
@@ -95,8 +131,11 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
           <button type="button" onClick={() => setOpen((o) => !o)} className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
             {open ? "Hide limits" : "Edit limits"}
           </button>
-        </div>
-      )}
+          </>
+        )}
+      </div>
+
+      {connectOpen && <KeyConnect agentKey={justRotated ? rotate.newKey! : "pxy_YOUR_KEY"} hasRealKey={!!justRotated} />}
 
       {justRotated && (
         <div className="mt-3 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.05] p-3">
