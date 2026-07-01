@@ -14,7 +14,7 @@
 Three roles, one object:
 - **Sanction MCP = the vehicle / voice.** Free, open, 5-second add. How we get a channel and a flag in the agentic-governance conversation and reach the people near the compliance moment. Not the thing we monetize head-on.
 - **The air-gapped local install = the revenue.**
-- **The BAA = the gate between them.** A BAA requirement is not budgeted — it's *mandatory*. The moment a clinic wants agentic AI touching PHI, it legally cannot use the cloud tool. Compliance is the one line item nobody argues down.
+- **The BAA = the gate between them.** For PHI, a clinic can use a cloud AI tool only if the vendor signs a business-associate agreement, and the consumer tools won't. Local AI removes the question entirely: no vendor to vet, no BAA to negotiate, nothing leaving the building. Compliance is the one line item nobody argues down.
 
 ---
 
@@ -37,10 +37,11 @@ The buyer is the **owner**, not a procurement committee:
 - **Upper Midwest / Twin Cities metro**, in-person — meeting the owner crushes the procurement problem.
 - **Hard cap in the ICP.** The moment you drift up to a 200-person hospital system or an AmLaw firm, the handshake-close model dies. Put the size cap in writing and hold it.
 
-### The regulatory hard-walls (the mandatory triggers — these are real, cite them)
-- **ABA Model Rule 1.6** — client confidentiality; firm data legally can't go to OpenAI.
-- **New York State Bar** — explicit caution on cloud AI + attorney-client privilege.
-- **HIPAA** — parallel constraint for clinics.
+### The regulatory reality (accurate framing, do NOT overstate)
+Cloud AI is not *prohibited* for regulated practices; it's *burdened*. Sell the burden and the risk, never a ban. (The ban claim is false, and the first lawyer you pitch will correct it.)
+- **ABA Formal Opinion 512 (2024):** a lawyer using a public or self-learning GenAI tool owes duties of competence and confidentiality and usually needs *informed client consent* before inputting client info. Usable with diligence, not banned.
+- **HIPAA:** a clinic can use cloud AI on PHI only with a signed BAA from the vendor; consumer tools won't sign one.
+- **The local pitch:** on-prem removes the third party, so the confidentiality question is closed, not managed. No consent-and-diligence burden, no BAA to negotiate, no disclosure risk. Honest, defensible, and stronger than the false "you legally can't."
 
 ---
 
