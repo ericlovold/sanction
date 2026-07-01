@@ -68,6 +68,7 @@ export const ModelName = {
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
   AuthorizationRequest: 'AuthorizationRequest',
+  WalletBudgetCounter: 'WalletBudgetCounter',
   Lead: 'Lead',
   Idea: 'Idea',
   IdeaVote: 'IdeaVote'
@@ -219,6 +220,7 @@ export const PolicyScalarFieldEnum = {
   walletId: 'walletId',
   dailyTokenBudgetUsd: 'dailyTokenBudgetUsd',
   dailySpendBudgetUsd: 'dailySpendBudgetUsd',
+  subtreeDailyCapUsd: 'subtreeDailyCapUsd',
   perTransactionMaxUsd: 'perTransactionMaxUsd',
   autoApproveUnderUsd: 'autoApproveUnderUsd',
   escalateOverUsd: 'escalateOverUsd',
@@ -337,6 +339,18 @@ export const AuthorizationRequestScalarFieldEnum = {
 } as const
 
 export type AuthorizationRequestScalarFieldEnum = (typeof AuthorizationRequestScalarFieldEnum)[keyof typeof AuthorizationRequestScalarFieldEnum]
+
+
+export const WalletBudgetCounterScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  period: 'period',
+  periodStart: 'periodStart',
+  spentCents: 'spentCents',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WalletBudgetCounterScalarFieldEnum = (typeof WalletBudgetCounterScalarFieldEnum)[keyof typeof WalletBudgetCounterScalarFieldEnum]
 
 
 export const LeadScalarFieldEnum = {

@@ -7,13 +7,15 @@ export type WalletBudgetNode = {
   id: string
   parentId: string | null
   policy: {
-    dailySpendBudgetUsd: number
     perTransactionMaxUsd: number
+    subtreeDailyCapUsd: number | null
   } | null
 }
 
 const MAX_ANCESTOR_DEPTH = 16
+const MAX_SUBTREE_DEPTH = 32
 const PERIOD_DAILY = "daily"
+export const SUBTREE_CAP_EXCEEDED_NOTE = "Subtree daily spend cap exceeded"
 
 export class CascadeBudgetExceeded extends Error {
   walletId: string
@@ -21,7 +23,7 @@ export class CascadeBudgetExceeded extends Error {
   periodStart: Date
 
   constructor(walletId: string, capCents: number, periodStart: Date) {
-    super("Wallet daily spend budget exceeded")
+    super(SUBTREE_CAP_EXCEEDED_NOTE)
     this.name = "CascadeBudgetExceeded"
     this.walletId = walletId
     this.capCents = capCents
@@ -48,7 +50,7 @@ export async function walletAncestorChain(tx: CascadeTx, walletId: string): Prom
       select: {
         id: true,
         parentId: true,
-        policy: { select: { dailySpendBudgetUsd: true, perTransactionMaxUsd: true } },
+        policy: { select: { perTransactionMaxUsd: true, subtreeDailyCapUsd: true } },
       },
     })
     if (!wallet) break
@@ -80,18 +82,67 @@ export async function reserveCascadeDailySpend(
 ): Promise<void> {
   const nodes = chain ?? (await walletAncestorChain(tx, walletId))
   const periodStart = dayStart(now)
+  const capped = nodes.filter((node) => node.policy?.subtreeDailyCapUsd != null)
+  if (capped.length === 0) return
 
   // Update ancestors in a stable root→leaf order so sibling agents do not deadlock
   // when they share an ancestor. Any failed conditional update throws, causing the
   // surrounding transaction to roll back every earlier counter increment.
-  for (const node of [...nodes].reverse()) {
-    const capCents = node.policy?.dailySpendBudgetUsd
+  for (const node of [...capped].reverse()) {
+    const capCents = node.policy?.subtreeDailyCapUsd
     if (capCents == null) continue
 
     await tx.$executeRaw`
+      WITH RECURSIVE subtree(id, path) AS (
+        SELECT "id", ARRAY["id"]
+        FROM "Wallet"
+        WHERE "id" = ${node.id}
+        UNION ALL
+        SELECT child."id", subtree.path || child."id"
+        FROM "Wallet" child
+        JOIN subtree ON child."parentId" = subtree.id
+        WHERE NOT child."id" = ANY(subtree.path)
+          AND cardinality(subtree.path) < ${MAX_SUBTREE_DEPTH}
+      ), rolled AS (
+        SELECT COALESCE(SUM(ROUND(ar."amountUsd" * 100))::int, 0) AS "spentCents"
+        FROM subtree
+        JOIN "Agent" a ON a."walletId" = subtree.id
+        JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
+        WHERE ar."status" = 'approved'
+          AND ar."createdAt" >= ${periodStart}
+      )
       INSERT INTO "WalletBudgetCounter" ("id", "walletId", "period", "periodStart", "spentCents", "updatedAt")
-      VALUES (${nanoid()}, ${node.id}, ${PERIOD_DAILY}, ${periodStart}, 0, ${now})
+      SELECT ${nanoid()}, ${node.id}, ${PERIOD_DAILY}, ${periodStart}, rolled."spentCents", ${now}
+      FROM rolled
       ON CONFLICT ("walletId", "period", "periodStart") DO NOTHING
+    `
+
+    // Reconcile before incrementing so a cap enabled, disabled, then re-enabled
+    // later in the same day cannot undercount spend that happened while disabled.
+    await tx.$executeRaw`
+      WITH RECURSIVE subtree(id, path) AS (
+        SELECT "id", ARRAY["id"]
+        FROM "Wallet"
+        WHERE "id" = ${node.id}
+        UNION ALL
+        SELECT child."id", subtree.path || child."id"
+        FROM "Wallet" child
+        JOIN subtree ON child."parentId" = subtree.id
+        WHERE NOT child."id" = ANY(subtree.path)
+          AND cardinality(subtree.path) < ${MAX_SUBTREE_DEPTH}
+      ), rolled AS (
+        SELECT COALESCE(SUM(ROUND(ar."amountUsd" * 100))::int, 0) AS "spentCents"
+        FROM subtree
+        JOIN "Agent" a ON a."walletId" = subtree.id
+        JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
+        WHERE ar."status" = 'approved'
+          AND ar."createdAt" >= ${periodStart}
+      )
+      UPDATE "WalletBudgetCounter"
+      SET "spentCents" = GREATEST("spentCents", (SELECT "spentCents" FROM rolled)), "updatedAt" = ${now}
+      WHERE "walletId" = ${node.id}
+        AND "period" = ${PERIOD_DAILY}
+        AND "periodStart" = ${periodStart}
     `
 
     const changed = await tx.$executeRaw`
@@ -117,17 +168,38 @@ export async function cascadeDailyWouldExceed(
   const periodStart = dayStart(now)
 
   for (const node of nodes) {
-    const capCents = node.policy?.dailySpendBudgetUsd
+    const capCents = node.policy?.subtreeDailyCapUsd
     if (capCents == null) continue
     const rows = await tx.$queryRaw<Array<{ one: number }>>`
-      SELECT 1 AS one FROM "WalletBudgetCounter"
-      WHERE "walletId" = ${node.id}
-        AND "period" = ${PERIOD_DAILY}
-        AND "periodStart" = ${periodStart}
-        AND "spentCents" + ${amountCents} > ${capCents}
-      LIMIT 1
+      WITH RECURSIVE subtree(id, path) AS (
+        SELECT "id", ARRAY["id"]
+        FROM "Wallet"
+        WHERE "id" = ${node.id}
+        UNION ALL
+        SELECT child."id", subtree.path || child."id"
+        FROM "Wallet" child
+        JOIN subtree ON child."parentId" = subtree.id
+        WHERE NOT child."id" = ANY(subtree.path)
+          AND cardinality(subtree.path) < ${MAX_SUBTREE_DEPTH}
+      ), rolled AS (
+        SELECT COALESCE(SUM(ROUND(ar."amountUsd" * 100))::int, 0) AS "spentCents"
+        FROM subtree
+        JOIN "Agent" a ON a."walletId" = subtree.id
+        JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
+        WHERE ar."status" = 'approved'
+          AND ar."createdAt" >= ${periodStart}
+      ), existing AS (
+        SELECT "spentCents" FROM "WalletBudgetCounter"
+        WHERE "walletId" = ${node.id}
+          AND "period" = ${PERIOD_DAILY}
+          AND "periodStart" = ${periodStart}
+      )
+      SELECT CASE
+        WHEN GREATEST(COALESCE((SELECT "spentCents" FROM existing), 0), (SELECT "spentCents" FROM rolled)) + ${amountCents} > ${capCents}
+        THEN 1 ELSE 0
+      END AS one
     `
-    if (rows.length > 0) return true
+    if (Number(rows[0]?.one ?? 0) === 1) return true
   }
   return false
 }

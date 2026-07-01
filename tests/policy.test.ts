@@ -10,6 +10,7 @@ import { applyPolicyUpdate, policyToDollars } from "../lib/policy"
 const ROW = {
   dailyTokenBudgetUsd: 0,
   dailySpendBudgetUsd: 0,
+  subtreeDailyCapUsd: null,
   perTransactionMaxUsd: 0,
   autoApproveUnderUsd: 0,
   escalateOverUsd: 0,
@@ -43,11 +44,17 @@ describe("applyPolicyUpdate — validation + dollars→cents", () => {
   })
 
   it("converts dollars to cents on the way in", async () => {
-    await applyPolicyUpdate("w1", { daily_spend_budget_usd: 50, per_transaction_max_usd: 19.99 })
+    await applyPolicyUpdate("w1", { daily_spend_budget_usd: 50, subtree_daily_cap_usd: 500, per_transaction_max_usd: 19.99 })
     const arg = upsert.mock.calls[0][0]
     expect(arg.where).toEqual({ walletId: "w1" })
     expect(arg.update.dailySpendBudgetUsd).toBe(5000)
+    expect(arg.update.subtreeDailyCapUsd).toBe(50000)
     expect(arg.update.perTransactionMaxUsd).toBe(1999) // 19.99 → 1999, no float drift
+  })
+
+  it("clears the optional subtree cap with null", async () => {
+    await applyPolicyUpdate("w1", { subtree_daily_cap_usd: null })
+    expect(upsert.mock.calls[0][0].update.subtreeDailyCapUsd).toBeNull()
   })
 
   it("is partial — only sent fields are written", async () => {
@@ -75,6 +82,7 @@ describe("policyToDollars — cents→dollars round-trip", () => {
       ...ROW,
       dailyTokenBudgetUsd: 10000,
       dailySpendBudgetUsd: 5000,
+      subtreeDailyCapUsd: 25000,
       perTransactionMaxUsd: 1999,
       autoApproveUnderUsd: 500,
       escalateOverUsd: 2500,
@@ -85,6 +93,7 @@ describe("policyToDollars — cents→dollars round-trip", () => {
     })
     expect(d.daily_token_budget_usd).toBe(100)
     expect(d.daily_spend_budget_usd).toBe(50)
+    expect(d.subtree_daily_cap_usd).toBe(250)
     expect(d.per_transaction_max_usd).toBe(19.99)
     expect(d.auto_approve_under_usd).toBe(5)
     expect(d.escalate_over_usd).toBe(25)
