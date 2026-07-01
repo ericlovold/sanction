@@ -68,9 +68,9 @@ export default function LocalOffering() {
             Private AI that never leaves your building.
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-zinc-400">
-            Your practice can&apos;t send client files to OpenAI, and your team still needs AI. We install
-            governed AI that runs entirely on your own hardware, and prove it stays there with an
-            audit trail your assessor will accept.
+            Your team needs AI, but every public tool puts your client and patient data on someone
+            else&apos;s servers. We install AI that runs entirely on your own hardware, and prove it stays
+            there with an audit trail your assessor will accept.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href={CONTACT} className="rounded-md bg-emerald-500 px-5 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
@@ -92,13 +92,15 @@ export default function LocalOffering() {
           <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">When cloud AI isn&apos;t an option</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <p className="text-zinc-300">
-              Confidentiality isn&apos;t optional. <span className="text-zinc-500">ABA Model Rule 1.6</span>{" "}means a
-              law firm can&apos;t put client matters into a public chatbot. <span className="text-zinc-500">HIPAA</span>{" "}says
-              the same for a clinic. Yet your staff are already pasting sensitive work into ChatGPT because it helps,
-              and that&apos;s the exposure you&apos;ll have to explain.
+              Confidentiality has teeth. Under <span className="text-zinc-500">ABA Formal Opinion 512</span>, a
+              lawyer who puts client matters into a public AI tool takes on duties of competence and
+              confidentiality, and usually needs informed client consent first. A clinic would need a signed
+              <span className="text-zinc-500">{" "}business-associate agreement</span>{" "}with the vendor.
+              Most public tools won&apos;t meet that bar, so your staff use them anyway, and that&apos;s the
+              exposure you&apos;ll have to explain.
             </p>
             <p className="text-zinc-300">
-              The cloud AI vendors can&apos;t fix this for you. Sending your data to their servers is the whole problem.
+              The cloud AI vendors can&apos;t remove that risk for you. Sending your data to their servers is the whole problem.
               And the big consultancies won&apos;t take a practice your size. So the people with the clearest, most
               urgent need are the ones nobody is serving. That&apos;s who this is for.
             </p>
