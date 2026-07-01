@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { allocationMoves, grantAuthorityUsd, poolStatus, spendCapPressure, type PoolStatus } from "@/lib/budgetPools"
 import { AccountControl } from "@/components/account-control"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { PoolControls } from "@/components/pool-controls"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getViewWallet } from "@/lib/session"
@@ -47,7 +48,10 @@ type PoolBucket = {
 
 type PoolRow = WalletNode & PoolBucket & {
   depth: number
+  ownCapUsd: number | null
+  inheritedCapUsd: number | null
   capUsd: number | null
+  capSource: "custom" | "inherited" | "uncapped"
   childCount: number
   status: PoolStatus
 }
@@ -148,6 +152,20 @@ function depthOf(wallet: WalletNode, byId: Map<string, WalletNode>) {
     parentId = parent.parentId
   }
   return depth
+}
+
+function capChain(wallet: WalletNode, byId: Map<string, WalletNode>) {
+  const caps: Array<{ walletId: string; capUsd: number }> = []
+  let cur: WalletNode | undefined = wallet
+  const seen = new Set<string>()
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id)
+    if (cur.policy?.subtreeDailyCapUsd != null) {
+      caps.push({ walletId: cur.id, capUsd: cur.policy.subtreeDailyCapUsd / 100 })
+    }
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined
+  }
+  return caps
 }
 
 function subtreeIds(rootId: string, childrenOf: Map<string, string[]>, seen = new Set<string>()): string[] {
@@ -316,11 +334,19 @@ async function getPools(walletId: string) {
   const rows = wallets.map((wallet): PoolRow => {
     const ids = subtreeIds(wallet.id, childrenOf)
     const rollup = ids.reduce((sum, id) => addBucket(sum, ownBuckets.get(id) ?? emptyBucket()), emptyBucket())
-    const capUsd = wallet.policy?.subtreeDailyCapUsd == null ? null : wallet.policy.subtreeDailyCapUsd / 100
+    const ownCapUsd = wallet.policy?.subtreeDailyCapUsd == null ? null : wallet.policy.subtreeDailyCapUsd / 100
+    const chain = capChain(wallet, walletById)
+    const inheritedCaps = chain.filter((cap) => cap.walletId !== wallet.id)
+    const inheritedCapUsd = inheritedCaps.length ? Math.min(...inheritedCaps.map((cap) => cap.capUsd)) : null
+    const capUsd = chain.length ? Math.min(...chain.map((cap) => cap.capUsd)) : null
+    const capSource = ownCapUsd !== null ? "custom" : inheritedCapUsd !== null ? "inherited" : "uncapped"
     return {
       ...wallet,
       ...rollup,
+      ownCapUsd,
+      inheritedCapUsd,
       capUsd,
+      capSource,
       childCount: childrenOf.get(wallet.id)?.length ?? 0,
       depth: depthOf(wallet, walletById),
       status: poolStatus(rollup.spendTodayUsd, capUsd),
@@ -331,7 +357,7 @@ async function getPools(walletId: string) {
   const largestModel = modelCosts[0]
   const largestModelShare = modelTotal > 0 ? (largestModel?._sum.costUsd ?? 0) / modelTotal : 0
 
-  return { rows, truncated, modelCosts, modelTotal, largestModelShare }
+  return { rows, agents, truncated, modelCosts, modelTotal, largestModelShare }
 }
 
 function CapMeter({ pool }: { pool: PoolRow }) {
@@ -341,7 +367,7 @@ function CapMeter({ pool }: { pool: PoolRow }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-xs text-zinc-500">Spend cap</span>
+        <span className="text-xs text-zinc-500">Effective cap</span>
         <span className="font-mono text-xs text-zinc-500">
           <span className={meta.text}>{dollars(pool.spendTodayUsd)}</span>
           {pool.capUsd !== null ? ` / ${dollars(pool.capUsd)}` : " / uncapped"}
@@ -356,6 +382,11 @@ function CapMeter({ pool }: { pool: PoolRow }) {
 
 function PoolLedgerRow({ pool, rootId }: { pool: PoolRow; rootId: string }) {
   const meta = statusMeta[pool.status]
+  const capSourceText = pool.capSource === "custom"
+    ? `custom ${capLabel(pool.ownCapUsd)}`
+    : pool.capSource === "inherited"
+      ? `inherits ${capLabel(pool.inheritedCapUsd)}`
+      : "no hard cap"
   return (
     <div className="grid gap-3 border-t border-zinc-800 py-4 first:border-t-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,1fr)_minmax(220px,1fr)] lg:items-center">
       <div className="min-w-0" style={{ paddingLeft: `${Math.min(pool.depth, 4) * 16}px` }}>
@@ -369,6 +400,7 @@ function PoolLedgerRow({ pool, rootId }: { pool: PoolRow; rootId: string }) {
         <p className="mt-1 text-xs text-zinc-600">
           {pool.activeAgentCount}/{pool.agentCount} agents active
           {pool.childCount > 0 ? ` · ${pool.childCount} child pool${pool.childCount > 1 ? "s" : ""}` : ""}
+          {` · ${capSourceText}`}
         </p>
       </div>
 
@@ -502,6 +534,44 @@ export default async function PoolsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-zinc-800 bg-zinc-900">
+        <CardHeader className="px-5 pt-5 pb-2">
+          <CardTitle className="text-sm font-medium text-zinc-300">Authority controls</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          {view.isSession ? (
+            <PoolControls
+              pools={pools.rows.map((pool) => ({
+                id: pool.id,
+                name: pool.name,
+                parentId: pool.parentId,
+                ownCapUsd: pool.ownCapUsd,
+                effectiveCapUsd: pool.capUsd,
+                capSource: pool.capSource,
+              }))}
+              agents={pools.agents.map((agent) => ({
+                id: agent.id,
+                name: agent.name,
+                walletId: agent.walletId,
+                isActive: agent.isActive,
+              }))}
+            />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {["Create delegated pool", "Set pool cap", "Move agent"].map((label) => (
+                <div key={label} className="rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
+                  <p className="text-sm font-medium text-zinc-300">{label}</p>
+                  <p className="mt-1 text-xs text-zinc-600">Log in to edit authority.</p>
+                </div>
+              ))}
+              <Link href="/login" className="inline-flex w-fit rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 lg:col-span-3">
+                Log in
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
         <Card className="border-zinc-800 bg-zinc-900">
