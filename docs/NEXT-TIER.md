@@ -323,12 +323,11 @@ This is the layer that converts the CFO/CISO, and where neutrality pays off: one
 control plane governing + reporting across agents on Claude Code, Cursor, Bedrock,
 and custom runtimes — one number for the whole fleet.
 
-### 4.6 Cascade enforcement — implementation plan (next slice, this codebase)
+### 4.6 Cascade enforcement — implemented slice (this codebase)
 
-> Slice 1 (shipped on `feat/account-tree-slice`) is structure + reporting. This is
-> the enforcement slice — the riskiest in the product (concurrent budget control on
-> the live `/authorize` path). Build it on its own, verified by a cascade
-> concurrency test before it's relied on.
+> Slice 1 (shipped on `feat/account-tree-slice`) is structure + reporting. The
+> enforcement slice is now wired into `/authorize` with opt-in subtree caps and a
+> DB-backed concurrency test for the Neon branch verification pass.
 
 **The semantic decision to make first (it's a product call):** today budgets are
 **per-agent** — `policy.dailySpendBudgetUsd` is a per-agent default, and `/authorize`
@@ -344,17 +343,17 @@ subtree cap = today's behavior exactly. Settable via `PATCH /wallets/policy`.
    wallet) that have a `subtreeDailyCapUsd` set.
 2. **No capped ancestor → unchanged.** Lock on `agent.id`, run the existing checks.
    (This is why it's safe: enforcement only activates when someone opts in.)
-3. **A capped ancestor exists →** acquire the advisory lock on the **root wallet id**
-   (serializes the tree, the only correct lock when siblings share a cap), then for
-   each capped ancestor aggregate today's approved spend across its whole subtree
-   (`+ amount`) and deny `SUBTREE_CAP_EXCEEDED` if over.
+3. **A capped ancestor exists →** reserve the amount against each capped ancestor's
+   `WalletBudgetCounter` row in root→leaf order with conditional atomic updates.
+   Any counter that would exceed the cap returns `SUBTREE_CAP_EXCEEDED` and rolls
+   back the transaction.
 
-**Why root-lock, not counters (yet):** the per-node atomic counters in §4.3 are the
-*scale* optimization. The root-serialized lock + bounded subtree aggregation is the
-*correct first cut* for pilot scale — simpler, no rollover/reconcile machinery. Cost:
-spend within one tree serializes. Swap to counters when throughput demands it.
+**Counter behavior:** counters are seeded/reconciled from today's approved subtree
+spend before incrementing, so enabling or re-enabling a cap midday does not start
+from zero. The counter table is the hot-path structure; `/wallets/tree` remains the
+read-only reporting view.
 
-**Decision code:** add `SUBTREE_CAP_EXCEEDED` to `lib/decisions.ts` (+ remediation).
+**Decision code:** `SUBTREE_CAP_EXCEEDED` is returned with remediation text.
 
 **Verification (non-negotiable):** a `tests/concurrency.db.test.ts`-style test — a
 parent with `subtreeDailyCapUsd = $50`, several agents under it spending concurrently

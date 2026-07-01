@@ -18,14 +18,16 @@ export async function resolveApprovalAction(
   const wallet = await getSessionWallet()
   if (!wallet) return { ok: false, message: "Log in to manage approvals." }
 
-  const requestId = String(form.get("request_id") ?? "")
+  const approvalId = String(form.get("approval_id") ?? form.get("request_id") ?? "")
   const decision = String(form.get("decision") ?? "")
+  const note = String(form.get("note") ?? "").trim() || undefined
   if (decision !== "approve" && decision !== "reject") return { ok: false, message: "Invalid decision" }
 
-  const result = await resolveApproval(wallet.id, requestId, decision)
+  const result = await resolveApproval(wallet.id, approvalId, decision, note)
   if (!result.ok) return { ok: false, message: result.error }
 
   revalidatePath("/dashboard/approvals")
+  revalidatePath("/dashboard/grants")
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/spend")
   return { ok: true, message: decision === "approve" ? "Approved" : "Rejected" }
@@ -40,7 +42,12 @@ export async function addWebhookAction(_prev: WebhookActionState, form: FormData
 
   const secret = generateWebhookSecret()
   await db.webhook.create({
-    data: { walletId: wallet.id, url, secret, events: ["escalation.created", "escalation.resolved", "budget.exhausted"] },
+    data: {
+      walletId: wallet.id,
+      url,
+      secret,
+      events: ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.exhausted"],
+    },
   })
   after(() => deliverPing(url, secret))
 

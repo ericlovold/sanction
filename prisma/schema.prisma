@@ -25,7 +25,7 @@ model Wallet {
 
   // Account tree (additive): a wallet may nest under a parent wallet, forming an
   // org → tenant → sub-tenant hierarchy. Null = root (every existing wallet).
-  // Foundation for subtree spend rollup; cascade enforcement is a later slice.
+  // Subtree reporting rolls spend up; /authorize enforces opt-in subtree caps.
   parentId String?
   parent   Wallet?  @relation("WalletTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Wallet[] @relation("WalletTree")
@@ -51,6 +51,9 @@ model Wallet {
   executionTokens  ExecutionToken[]
   webhooks         Webhook[]
   magicLinks       MagicLink[]
+  budgetCounters   WalletBudgetCounter[]
+  pendingApprovals PendingApproval[]
+  grants           Grant[]
 
   @@index([parentId])
   @@index([userId])
@@ -150,7 +153,7 @@ model Webhook {
   walletId  String
   url       String
   secret    String
-  events    String[] @default(["escalation.created"])
+  events    String[] @default(["approval.created", "approval.resolved", "escalation.created", "escalation.resolved"])
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -182,6 +185,8 @@ model Agent {
   authRequests    AuthorizationRequest[]
   clearance       AgentClearance?
   executionTokens ExecutionToken[]
+  pendingApprovals PendingApproval[]
+  grants           Grant[]
 
   @@index([walletId])
 }
@@ -198,6 +203,7 @@ model Policy {
   // For escalation to be reachable, keep escalateOverUsd < perTransactionMaxUsd.
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
+  subtreeDailyCapUsd   Int?                // optional subtree cap; null = no tree-wide cap
   perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
   autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor
   escalateOverUsd      Int @default(2500)  // $25  — escalate above this (must be < perTransactionMaxUsd)
@@ -352,6 +358,87 @@ model AuthorizationRequest {
   @@unique([agentId, idempotencyKey])
   @@index([agentId, createdAt])
   @@index([status])
+}
+
+// Generic human approval request. Spend, tool, credential, and future governed
+// actions all land here when a decision escalates to a person.
+model PendingApproval {
+  id              String    @id @default(cuid())
+  walletId        String
+  agentId         String
+  actionType      String
+  status          String    @default("pending") // pending | approved | denied | expired
+  subjectJson     Json
+  resourceJson    Json
+  constraintsJson Json?
+  reason          String?
+  code            String?
+  sourceType      String?
+  sourceId        String?
+  expiresAt       DateTime?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNote  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  grants Grant[] @relation("GrantFromApproval")
+
+  @@unique([sourceType, sourceId])
+  @@index([walletId, status, createdAt])
+  @@index([agentId, createdAt])
+  @@index([actionType, status])
+}
+
+// Ephemeral authority issued from a human approval. A grant is the audit answer
+// to "who authorized this agent to do this, under what constraints?"
+model Grant {
+  id                   String    @id @default(cuid())
+  walletId             String
+  agentId              String
+  actionType           String
+  status               String    @default("active") // active | consumed | expired | revoked
+  subjectJson          Json
+  resourceJson         Json
+  constraintsJson      Json?
+  sourceType           String?
+  sourceId             String?
+  issuedBy             String?
+  issuedFromApprovalId String?
+  justification        String?
+  expiresAt            DateTime?
+  consumedAt           DateTime?
+  revokedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  wallet             Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agent              Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  issuedFromApproval PendingApproval? @relation("GrantFromApproval", fields: [issuedFromApprovalId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, status, createdAt])
+  @@index([agentId, createdAt])
+  @@index([actionType, status])
+  @@index([issuedFromApprovalId])
+  @@index([sourceType, sourceId])
+}
+
+// Running counters for opt-in subtree caps. /authorize updates these atomically
+// across capped ancestors so sibling agents cannot race past a parent cap.
+model WalletBudgetCounter {
+  id          String   @id @default(cuid())
+  walletId    String
+  period      String
+  periodStart DateTime
+  spentCents  Int      @default(0)
+  updatedAt   DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([walletId, period, periodStart])
+  @@index([period, periodStart])
 }
 
 // Awareness-stage marketing lead — captured before signup, owned in our DB so we

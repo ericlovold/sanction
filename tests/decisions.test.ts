@@ -16,6 +16,7 @@ describe("decisionCode (UX-1 typed DENY)", () => {
     expect(decisionCode("denied", "Category 'marketing' is not in the allow-list")).toBe("CATEGORY_NOT_ALLOWED")
     expect(decisionCode("denied", "Exceeds per-transaction limit of $50")).toBe("PER_TXN_LIMIT")
     expect(decisionCode("denied", "Daily spend budget exceeded")).toBe("DAILY_BUDGET_EXCEEDED")
+    expect(decisionCode("denied", "Subtree daily spend cap exceeded")).toBe("SUBTREE_CAP_EXCEEDED")
   })
 
   it("disambiguates blocked vs not-allowed categories (both start with 'Category')", () => {
@@ -36,6 +37,7 @@ describe("decisionCode (UX-1 typed DENY)", () => {
       decisionCode("denied", "Category 'x' is not in the allow-list"),
       decisionCode("denied", "Exceeds per-transaction limit of $50"),
       decisionCode("denied", "Daily spend budget exceeded"),
+      decisionCode("denied", "Subtree daily spend cap exceeded"),
       decisionCode("denied", null),
     ]
     for (const c of codes) {

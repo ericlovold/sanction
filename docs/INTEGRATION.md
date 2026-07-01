@@ -45,21 +45,24 @@ Returns once — store both as secrets:
 - `id` → your **`WALLET_ID`**
 - `management_key` (`sk_…`) → your **`SK`** (shown once; gates every management call)
 
-### 2. Set the wallet policy (the platform-wide ceiling)
+### 2. Set the wallet policy and optional platform cap
 
 ```bash
 curl -X PATCH https://getsanction.com/api/v1/wallets/policy \
   -H "x-mgmt-key: $SK" -H "content-type: application/json" \
   -d '{"wallet_id":"'$WALLET_ID'",
-       "daily_spend_budget_usd": 5000,
+       "daily_spend_budget_usd": 100,
+       "subtree_daily_cap_usd": 5000,
        "per_transaction_max_usd": 200,
        "auto_approve_under_usd": 20,
        "escalate_over_usd": 200,
        "blocked_categories": ["gambling","crypto"]}'
 ```
 
-This caps the **entire platform**. Per-tenant overrides (step 4) tighten it
-further but can never exceed it.
+`daily_spend_budget_usd` is the default per-agent daily budget. `subtree_daily_cap_usd`
+is the optional parent/tree cap for the whole wallet and every descendant. Per-tenant
+policies and agent overrides can tighten their own lanes, but no descendant can spend
+past a capped ancestor.
 
 ---
 
@@ -207,9 +210,8 @@ today, the month, and token cost — the one-number-for-the-fleet view.
 > Per-provider visibility (and caps) are a *dimension* on any of these, not a
 > separate structure — spend breaks down by provider at every node.
 
-> Today this is **structure + reporting**. Cascade *enforcement* — a parent cap
-> that hard-limits its whole subtree — is the next slice. Budgets are still set
-> and enforced per wallet/agent for now.
+> Parent cap enforcement is opt-in via `subtree_daily_cap_usd`. `/wallets/tree`
+> stays read-only reporting; `/authorize` is the enforcement path.
 
 ## Degradation (design your circuit breaker)
 

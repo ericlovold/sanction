@@ -156,6 +156,11 @@ workflows for autonomous systems* — a category move. Build order: (1) this add
 (3) generic `Grant`, (4–6) spend/tool/credential consume grants, (7) notification adapters (email/webhook/Slack).
 Spend's existing escalation behavior is preserved; tool and credential graduate from decision-only to a real loop.
 
+**Implementation note (2026-07-01):** Spend grants now have a consume path. After owner approval, polling
+`GET /authorize/{request_id}` returns a short-lived `grant_id`; the agent retries the exact same
+`POST /authorize` request with that grant, Sanction marks it `consumed`, rechecks parent subtree caps and
+execution-token budget, and records the spend. Tool and credential grant consumption remain next slices.
+
 ## ADR-0008 ACCEPTED — Escalation timeout: no agent deadlocks on an unresolved escalation
 **Date:** 2026-06-20 · **Status:** Accepted & implemented (branch `claude/sanction-ai-gtm-nhqfzx`)
 **Context:** ADR-0007 made `status:"escalated"` reachable. That exposed the #1 reliability risk

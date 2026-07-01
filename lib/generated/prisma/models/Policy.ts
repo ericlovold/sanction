@@ -29,6 +29,7 @@ export type AggregatePolicy = {
 export type PolicyAvgAggregateOutputType = {
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
+  subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
@@ -38,6 +39,7 @@ export type PolicyAvgAggregateOutputType = {
 export type PolicySumAggregateOutputType = {
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
+  subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
@@ -49,6 +51,7 @@ export type PolicyMinAggregateOutputType = {
   walletId: string | null
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
+  subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
@@ -62,6 +65,7 @@ export type PolicyMaxAggregateOutputType = {
   walletId: string | null
   dailyTokenBudgetUsd: number | null
   dailySpendBudgetUsd: number | null
+  subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number | null
   autoApproveUnderUsd: number | null
   escalateOverUsd: number | null
@@ -75,6 +79,7 @@ export type PolicyCountAggregateOutputType = {
   walletId: number
   dailyTokenBudgetUsd: number
   dailySpendBudgetUsd: number
+  subtreeDailyCapUsd: number
   perTransactionMaxUsd: number
   autoApproveUnderUsd: number
   escalateOverUsd: number
@@ -93,6 +98,7 @@ export type PolicyCountAggregateOutputType = {
 export type PolicyAvgAggregateInputType = {
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
+  subtreeDailyCapUsd?: true
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
@@ -102,6 +108,7 @@ export type PolicyAvgAggregateInputType = {
 export type PolicySumAggregateInputType = {
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
+  subtreeDailyCapUsd?: true
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
@@ -113,6 +120,7 @@ export type PolicyMinAggregateInputType = {
   walletId?: true
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
+  subtreeDailyCapUsd?: true
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
@@ -126,6 +134,7 @@ export type PolicyMaxAggregateInputType = {
   walletId?: true
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
+  subtreeDailyCapUsd?: true
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
@@ -139,6 +148,7 @@ export type PolicyCountAggregateInputType = {
   walletId?: true
   dailyTokenBudgetUsd?: true
   dailySpendBudgetUsd?: true
+  subtreeDailyCapUsd?: true
   perTransactionMaxUsd?: true
   autoApproveUnderUsd?: true
   escalateOverUsd?: true
@@ -244,6 +254,7 @@ export type PolicyGroupByOutputType = {
   walletId: string
   dailyTokenBudgetUsd: number
   dailySpendBudgetUsd: number
+  subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number
   autoApproveUnderUsd: number
   escalateOverUsd: number
@@ -285,6 +296,7 @@ export type PolicyWhereInput = {
   walletId?: Prisma.StringFilter<"Policy"> | string
   dailyTokenBudgetUsd?: Prisma.IntFilter<"Policy"> | number
   dailySpendBudgetUsd?: Prisma.IntFilter<"Policy"> | number
+  subtreeDailyCapUsd?: Prisma.IntNullableFilter<"Policy"> | number | null
   perTransactionMaxUsd?: Prisma.IntFilter<"Policy"> | number
   autoApproveUnderUsd?: Prisma.IntFilter<"Policy"> | number
   escalateOverUsd?: Prisma.IntFilter<"Policy"> | number
@@ -304,6 +316,7 @@ export type PolicyOrderByWithRelationInput = {
   walletId?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -326,6 +339,7 @@ export type PolicyWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.PolicyWhereInput | Prisma.PolicyWhereInput[]
   dailyTokenBudgetUsd?: Prisma.IntFilter<"Policy"> | number
   dailySpendBudgetUsd?: Prisma.IntFilter<"Policy"> | number
+  subtreeDailyCapUsd?: Prisma.IntNullableFilter<"Policy"> | number | null
   perTransactionMaxUsd?: Prisma.IntFilter<"Policy"> | number
   autoApproveUnderUsd?: Prisma.IntFilter<"Policy"> | number
   escalateOverUsd?: Prisma.IntFilter<"Policy"> | number
@@ -345,6 +359,7 @@ export type PolicyOrderByWithAggregationInput = {
   walletId?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -371,6 +386,7 @@ export type PolicyScalarWhereWithAggregatesInput = {
   walletId?: Prisma.StringWithAggregatesFilter<"Policy"> | string
   dailyTokenBudgetUsd?: Prisma.IntWithAggregatesFilter<"Policy"> | number
   dailySpendBudgetUsd?: Prisma.IntWithAggregatesFilter<"Policy"> | number
+  subtreeDailyCapUsd?: Prisma.IntNullableWithAggregatesFilter<"Policy"> | number | null
   perTransactionMaxUsd?: Prisma.IntWithAggregatesFilter<"Policy"> | number
   autoApproveUnderUsd?: Prisma.IntWithAggregatesFilter<"Policy"> | number
   escalateOverUsd?: Prisma.IntWithAggregatesFilter<"Policy"> | number
@@ -388,6 +404,7 @@ export type PolicyCreateInput = {
   id?: string
   dailyTokenBudgetUsd?: number
   dailySpendBudgetUsd?: number
+  subtreeDailyCapUsd?: number | null
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
   escalateOverUsd?: number
@@ -407,6 +424,7 @@ export type PolicyUncheckedCreateInput = {
   walletId: string
   dailyTokenBudgetUsd?: number
   dailySpendBudgetUsd?: number
+  subtreeDailyCapUsd?: number | null
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
   escalateOverUsd?: number
@@ -424,6 +442,7 @@ export type PolicyUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   dailyTokenBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
   dailySpendBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
+  subtreeDailyCapUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.IntFieldUpdateOperationsInput | number
   autoApproveUnderUsd?: Prisma.IntFieldUpdateOperationsInput | number
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
@@ -443,6 +462,7 @@ export type PolicyUncheckedUpdateInput = {
   walletId?: Prisma.StringFieldUpdateOperationsInput | string
   dailyTokenBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
   dailySpendBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
+  subtreeDailyCapUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.IntFieldUpdateOperationsInput | number
   autoApproveUnderUsd?: Prisma.IntFieldUpdateOperationsInput | number
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
@@ -461,6 +481,7 @@ export type PolicyCreateManyInput = {
   walletId: string
   dailyTokenBudgetUsd?: number
   dailySpendBudgetUsd?: number
+  subtreeDailyCapUsd?: number | null
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
   escalateOverUsd?: number
@@ -478,6 +499,7 @@ export type PolicyUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   dailyTokenBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
   dailySpendBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
+  subtreeDailyCapUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.IntFieldUpdateOperationsInput | number
   autoApproveUnderUsd?: Prisma.IntFieldUpdateOperationsInput | number
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
@@ -496,6 +518,7 @@ export type PolicyUncheckedUpdateManyInput = {
   walletId?: Prisma.StringFieldUpdateOperationsInput | string
   dailyTokenBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
   dailySpendBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
+  subtreeDailyCapUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.IntFieldUpdateOperationsInput | number
   autoApproveUnderUsd?: Prisma.IntFieldUpdateOperationsInput | number
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
@@ -519,6 +542,7 @@ export type PolicyCountOrderByAggregateInput = {
   walletId?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -535,6 +559,7 @@ export type PolicyCountOrderByAggregateInput = {
 export type PolicyAvgOrderByAggregateInput = {
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -546,6 +571,7 @@ export type PolicyMaxOrderByAggregateInput = {
   walletId?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -559,6 +585,7 @@ export type PolicyMinOrderByAggregateInput = {
   walletId?: Prisma.SortOrder
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -570,6 +597,7 @@ export type PolicyMinOrderByAggregateInput = {
 export type PolicySumOrderByAggregateInput = {
   dailyTokenBudgetUsd?: Prisma.SortOrder
   dailySpendBudgetUsd?: Prisma.SortOrder
+  subtreeDailyCapUsd?: Prisma.SortOrder
   perTransactionMaxUsd?: Prisma.SortOrder
   autoApproveUnderUsd?: Prisma.SortOrder
   escalateOverUsd?: Prisma.SortOrder
@@ -657,6 +685,7 @@ export type PolicyCreateWithoutWalletInput = {
   id?: string
   dailyTokenBudgetUsd?: number
   dailySpendBudgetUsd?: number
+  subtreeDailyCapUsd?: number | null
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
   escalateOverUsd?: number
@@ -674,6 +703,7 @@ export type PolicyUncheckedCreateWithoutWalletInput = {
   id?: string
   dailyTokenBudgetUsd?: number
   dailySpendBudgetUsd?: number
+  subtreeDailyCapUsd?: number | null
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
   escalateOverUsd?: number
@@ -707,6 +737,7 @@ export type PolicyUpdateWithoutWalletInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   dailyTokenBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
   dailySpendBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
+  subtreeDailyCapUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.IntFieldUpdateOperationsInput | number
   autoApproveUnderUsd?: Prisma.IntFieldUpdateOperationsInput | number
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
@@ -724,6 +755,7 @@ export type PolicyUncheckedUpdateWithoutWalletInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   dailyTokenBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
   dailySpendBudgetUsd?: Prisma.IntFieldUpdateOperationsInput | number
+  subtreeDailyCapUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   perTransactionMaxUsd?: Prisma.IntFieldUpdateOperationsInput | number
   autoApproveUnderUsd?: Prisma.IntFieldUpdateOperationsInput | number
   escalateOverUsd?: Prisma.IntFieldUpdateOperationsInput | number
@@ -744,6 +776,7 @@ export type PolicySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   walletId?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
+  subtreeDailyCapUsd?: boolean
   perTransactionMaxUsd?: boolean
   autoApproveUnderUsd?: boolean
   escalateOverUsd?: boolean
@@ -763,6 +796,7 @@ export type PolicySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   walletId?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
+  subtreeDailyCapUsd?: boolean
   perTransactionMaxUsd?: boolean
   autoApproveUnderUsd?: boolean
   escalateOverUsd?: boolean
@@ -782,6 +816,7 @@ export type PolicySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   walletId?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
+  subtreeDailyCapUsd?: boolean
   perTransactionMaxUsd?: boolean
   autoApproveUnderUsd?: boolean
   escalateOverUsd?: boolean
@@ -801,6 +836,7 @@ export type PolicySelectScalar = {
   walletId?: boolean
   dailyTokenBudgetUsd?: boolean
   dailySpendBudgetUsd?: boolean
+  subtreeDailyCapUsd?: boolean
   perTransactionMaxUsd?: boolean
   autoApproveUnderUsd?: boolean
   escalateOverUsd?: boolean
@@ -814,7 +850,7 @@ export type PolicySelectScalar = {
   updatedAt?: boolean
 }
 
-export type PolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "dailyTokenBudgetUsd" | "dailySpendBudgetUsd" | "perTransactionMaxUsd" | "autoApproveUnderUsd" | "escalateOverUsd" | "allowedCategories" | "blockedCategories" | "allowedTools" | "blockedTools" | "escalateTools" | "escalationTimeoutMins" | "escalationTimeoutAction" | "updatedAt", ExtArgs["result"]["policy"]>
+export type PolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "walletId" | "dailyTokenBudgetUsd" | "dailySpendBudgetUsd" | "subtreeDailyCapUsd" | "perTransactionMaxUsd" | "autoApproveUnderUsd" | "escalateOverUsd" | "allowedCategories" | "blockedCategories" | "allowedTools" | "blockedTools" | "escalateTools" | "escalationTimeoutMins" | "escalationTimeoutAction" | "updatedAt", ExtArgs["result"]["policy"]>
 export type PolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   wallet?: boolean | Prisma.WalletDefaultArgs<ExtArgs>
 }
@@ -835,6 +871,7 @@ export type $PolicyPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     walletId: string
     dailyTokenBudgetUsd: number
     dailySpendBudgetUsd: number
+    subtreeDailyCapUsd: number | null
     perTransactionMaxUsd: number
     autoApproveUnderUsd: number
     escalateOverUsd: number
@@ -1274,6 +1311,7 @@ export interface PolicyFieldRefs {
   readonly walletId: Prisma.FieldRef<"Policy", 'String'>
   readonly dailyTokenBudgetUsd: Prisma.FieldRef<"Policy", 'Int'>
   readonly dailySpendBudgetUsd: Prisma.FieldRef<"Policy", 'Int'>
+  readonly subtreeDailyCapUsd: Prisma.FieldRef<"Policy", 'Int'>
   readonly perTransactionMaxUsd: Prisma.FieldRef<"Policy", 'Int'>
   readonly autoApproveUnderUsd: Prisma.FieldRef<"Policy", 'Int'>
   readonly escalateOverUsd: Prisma.FieldRef<"Policy", 'Int'>

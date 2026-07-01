@@ -7,6 +7,7 @@ import { updatePolicyAction, type PolicyActionState } from "@/app/dashboard/spen
 type PolicyDollars = {
   daily_token_budget_usd: number
   daily_spend_budget_usd: number
+  subtree_daily_cap_usd: number | null
   per_transaction_max_usd: number
   auto_approve_under_usd: number
   escalate_over_usd: number
@@ -17,6 +18,7 @@ type PolicyDollars = {
 const fields = [
   { name: "daily_token_budget_usd", label: "Daily token budget" },
   { name: "daily_spend_budget_usd", label: "Daily spend budget" },
+  { name: "subtree_daily_cap_usd", label: "Subtree daily cap", optional: true },
   { name: "per_transaction_max_usd", label: "Per-transaction max" },
   { name: "auto_approve_under_usd", label: "Auto-approve under" },
   { name: "escalate_over_usd", label: "Escalate over" },
@@ -49,7 +51,8 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                     step="0.01"
                     min="0"
                     disabled={!editable}
-                    defaultValue={policy[f.name]}
+                    defaultValue={policy[f.name] ?? ""}
+                    placeholder={"optional" in f && f.optional ? "No cap" : undefined}
                     onChange={
                       f.name === "per_transaction_max_usd"
                         ? (e) => setPerTxn(Number(e.target.value))

@@ -17,7 +17,13 @@ export type DecisionCode =
   | "CATEGORY_NOT_ALLOWED"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
+  | "SUBTREE_CAP_EXCEEDED"
   | "EXEC_BUDGET_EXCEEDED"
+  | "GRANT_NOT_FOUND"
+  | "GRANT_ALREADY_USED"
+  | "GRANT_EXPIRED"
+  | "GRANT_MISMATCH"
+  | "GRANT_UNSUPPORTED"
   | "POLICY_DENIED"
 
 export const REMEDIATION: Record<DecisionCode, string> = {
@@ -35,8 +41,15 @@ export const REMEDIATION: Record<DecisionCode, string> = {
     "Amount exceeds the per-transaction limit. Split into smaller charges or ask the owner to raise the limit.",
   DAILY_BUDGET_EXCEEDED:
     "The wallet's daily spend budget is exhausted. Retry after the daily reset or ask the owner to raise the budget.",
+  SUBTREE_CAP_EXCEEDED:
+    "This wallet tree's daily spend cap is exhausted. Retry after the daily reset or ask the owner to raise the parent cap.",
   EXEC_BUDGET_EXCEEDED:
     "This execution's hard spend cap is reached. Request a new execution token with a higher budget, or finish within the cap.",
+  GRANT_NOT_FOUND: "Request a fresh approval. This grant does not exist for the current agent.",
+  GRANT_ALREADY_USED: "Request a fresh approval. This grant has already been consumed.",
+  GRANT_EXPIRED: "Request a fresh approval. This grant has expired.",
+  GRANT_MISMATCH: "Retry with the exact action, amount, merchant, and category that the owner approved.",
+  GRANT_UNSUPPORTED: "This grant type is not consumable by this endpoint.",
   POLICY_DENIED: "Denied by policy. Review the reason and adjust the request.",
 }
 
@@ -96,6 +109,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"
   if (note.startsWith("Exceeds per-transaction")) return "PER_TXN_LIMIT"
   if (note === "Daily spend budget exceeded") return "DAILY_BUDGET_EXCEEDED"
+  if (note === "Subtree daily spend cap exceeded") return "SUBTREE_CAP_EXCEEDED"
   if (note === "Execution budget exceeded") return "EXEC_BUDGET_EXCEEDED"
   return "POLICY_DENIED"
 }
