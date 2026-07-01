@@ -106,12 +106,39 @@ export default async function ApprovalsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">{view.name} · human authorization inbox</p>
+          <p className="text-sm text-zinc-500">{view.name} · authorization inbox</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <DashboardNav active="approvals" />
           <AccountControl view={view} />
         </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="px-4 pt-4 pb-1">
+            <CardTitle className="text-xs font-normal text-zinc-500">Pending</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <p className={`font-mono text-2xl font-semibold ${pending.length > 0 ? "text-amber-300" : ""}`}>{pending.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="px-4 pt-4 pb-1">
+            <CardTitle className="text-xs font-normal text-zinc-500">Recently resolved</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <p className="font-mono text-2xl font-semibold">{resolved.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="px-4 pt-4 pb-1">
+            <CardTitle className="text-xs font-normal text-zinc-500">Notification routes</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <p className="font-mono text-2xl font-semibold">{webhooks.length}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex items-center gap-2">
