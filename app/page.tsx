@@ -53,11 +53,11 @@ const tiers = [
     name: "Enterprise",
     price: "Talk to us",
     cadence: "",
-    blurb: "For teams and regulated deployments — when you're ready.",
+    blurb: "For teams and regulated deployments. Roadmap capabilities; talk to us about timing.",
     features: [
       "SSO & team roles",
       "Audit log export",
-      "On-prem / VPC deployment",
+      "On-prem / air-gapped install",
       "SLA & dedicated support",
     ],
     cta: "Contact us",
@@ -94,7 +94,7 @@ const steps = [
   {
     n: "3",
     title: "Authorize in real time",
-    desc: "Before the agent spends, it calls /authorize. Sanction returns approve, escalate, or deny in milliseconds — and logs every decision for audit.",
+    desc: "Before the agent spends, it calls /authorize. Sanction returns approve, escalate, or deny in real time, and logs every decision for audit.",
     meta: "POST /v1/authorize",
   },
 ]

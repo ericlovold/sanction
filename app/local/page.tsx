@@ -5,7 +5,7 @@ import { LeadCapture } from "@/components/lead-capture"
 export const metadata: Metadata = {
   title: "Sanction Local: Private AI that never leaves your building",
   description:
-    "Governed, on-premise AI for small regulated practices: law firms, clinics, accounting, manufacturing. Your data never leaves your hardware, and every action is logged for your assessor.",
+    "Governed, on-premise AI for small regulated practices: law firms, clinics, accounting, real estate, and manufacturing. Your data never leaves your hardware, and every action is logged for your assessor.",
 }
 
 const CONTACT = "mailto:eric@getsanction.com?subject=Sanction%20Local%20fit%20call"
@@ -81,7 +81,7 @@ export default function LocalOffering() {
             </a>
           </div>
           <p className="mt-6 text-sm text-zinc-600">
-            Built for small regulated practices: <span className="text-zinc-400">law firms · clinics · accounting · specialty manufacturing.</span>
+            Built for small regulated practices: <span className="text-zinc-400">law firms · clinics · accounting · real estate · specialty manufacturing.</span>
           </p>
         </div>
       </section>
@@ -100,7 +100,9 @@ export default function LocalOffering() {
               exposure you&apos;ll have to explain.
             </p>
             <p className="text-zinc-300">
-              The cloud AI vendors can&apos;t remove that risk for you. Sending your data to their servers is the whole problem.
+              It isn&apos;t only law and medicine. Any practice trusted with a client&apos;s financial or personal
+              records, from real estate to accounting to financial advisory, carries the same exposure. The cloud
+              AI vendors can&apos;t remove that risk for you. Sending your data to their servers is the whole problem.
               And the big consultancies won&apos;t take a practice your size. So the people with the clearest, most
               urgent need are the ones nobody is serving. That&apos;s who this is for.
             </p>

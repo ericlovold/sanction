@@ -33,7 +33,8 @@ Verified by reading `ericlovold/xcai-aiia` and `ericlovold/sanction`:
 ## 2. ICP — regulated SMB, with a hard size cap
 
 The buyer is the **owner**, not a procurement committee:
-- 3-physician clinic · 6–10 attorney firm · ~40-person specialty manufacturer · independent dental/optometry · small CPA firm.
+- 3-physician clinic · 6–10 attorney firm · small real-estate brokerage · ~40-person specialty manufacturer · independent dental/optometry · small CPA firm.
+- Real estate fits on the **data-sensitivity** axis (client financials, SSNs, loan docs, prime wire-fraud target), not an ABA/HIPAA-style rule — frame it that way, don't invent a statute.
 - **Upper Midwest / Twin Cities metro**, in-person — meeting the owner crushes the procurement problem.
 - **Hard cap in the ICP.** The moment you drift up to a 200-person hospital system or an AmLaw firm, the handshake-close model dies. Put the size cap in writing and hold it.
 
