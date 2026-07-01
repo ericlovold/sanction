@@ -39,6 +39,14 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
     const merchant = stringValue(resource.merchant) ?? "Unknown merchant"
     return amount === null ? merchant : `$${amount.toFixed(2)} ${merchant}`
   }
+  if (resource.kind === "provision") {
+    const quantity = numberValue(resource.quantity)
+    const lineItem = stringValue(resource.line_item) ?? "Unknown item"
+    const amount = numberValue(resource.amount_usd)
+    const res = stringValue(resource.resource)
+    const head = quantity === null ? lineItem : `${quantity} × ${lineItem}`
+    return `${head}${amount === null ? "" : ` — $${amount.toFixed(2)}`}${res ? ` (${res})` : ""}`
+  }
   return (
     stringValue(resource.label) ??
     stringValue(resource.tool_name) ??
