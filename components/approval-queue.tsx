@@ -45,6 +45,14 @@ function approvalTitle(a: PendingApproval) {
     const merchant = stringValue(a.resource.merchant) ?? "Unknown merchant"
     return amount ? `${amount} ${merchant}` : merchant
   }
+  if (a.resource.kind === "provision") {
+    const quantity = numberValue(a.resource.quantity)
+    const lineItem = stringValue(a.resource.line_item) ?? "Unknown item"
+    const amount = money(a.resource.amount_usd)
+    const resource = stringValue(a.resource.resource)
+    const head = quantity === null ? lineItem : `${quantity} × ${lineItem}`
+    return `${head}${amount ? ` — ${amount}` : ""}${resource ? ` (${resource})` : ""}`
+  }
   return (
     stringValue(a.resource.label) ??
     stringValue(a.resource.tool_name) ??
@@ -55,9 +63,11 @@ function approvalTitle(a: PendingApproval) {
 }
 
 function approvalDetails(a: PendingApproval) {
+  const unitPrice = a.resource.kind === "provision" ? money(a.resource.unit_price_usd) : null
   const details = [
     stringValue(a.resource.category),
     stringValue(a.resource.action),
+    unitPrice ? `${unitPrice}/unit` : null,
     stringValue(a.resource.description),
     a.expiresAt ? `expires ${new Date(a.expiresAt).toLocaleString()}` : null,
   ]
@@ -72,8 +82,8 @@ function grantSummary(a: PendingApproval) {
   if (ttl !== null) pieces.push(`${ttl}m grant`)
   const amount = money(a.resource.amount_usd)
   if (amount) pieces.push(amount)
-  const merchant = stringValue(a.resource.merchant)
-  if (merchant) pieces.push(merchant)
+  const target = stringValue(a.resource.merchant) ?? stringValue(a.resource.line_item)
+  if (target) pieces.push(target)
   return pieces.join(" · ")
 }
 
