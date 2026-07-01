@@ -101,6 +101,61 @@ years-stable core: incumbents (Cedar/OPA/OpenFGA) supply policy infrastructure b
 agents, budgets, human escalation, or governed execution — the differentiation is integrating authorization +
 execution + metering + audit around AI agents, not inventing a policy language.
 
+**Addendum (M4+) — the Authorization Boundary + human approval as an ephemeral Grant.** Every governed request
+passes through six ordered layers; each answers one question and only its own:
+
+```text
+Authentication   — who is this principal?          (API key / session)
+Capability       — is this a valid capability?      (JWT validity, audience, execution-token status, token scope)
+Authorization    — should this principal do this?   (the decision engine — evaluate(action, context))
+Obligations      — what must accompany a permit?    (audit_log, no_store, reserve_budget, human_approval…)
+Enforcement      — carry out the decision           (persist, lock, decrypt, debit — per PEP)
+Audit            — record what happened
+```
+
+**Invariant — the *Authorization Boundary* (named so future ADRs/PRs can reference it):**
+> The decision engine SHALL NOT authenticate principals or validate credentials. It evaluates authorization
+> ONLY for an already-authenticated principal acting on an already-validated capability.
+
+Corollary: JWT validity, audience, execution-token status, and token scope are **capability guards**, not rules —
+they run before the engine and never move into it (enforced today by a route test: an out-of-scope
+`/credentials/inject` returns 403 before the credential lookup or any engine call). Conflating "is this token
+valid" with "should this action be allowed" makes the security semantics impossible to reason about and lets
+error precedence drift.
+
+**Human approval resolves an `escalate` into an ephemeral Grant (Model A).** An `escalate` is not a held request —
+you cannot decrypt a secret and wait. It is *deny-now, pending owner approval, retry-after*:
+```text
+Decision → escalate → PendingApproval → owner approves → Grant → agent retries → Grant consumed
+```
+`Grant` is a **generic primitive**, not per-action — the same object gates an approved purchase, credential label,
+tool invocation, or a future deploy/email:
+```ts
+type Grant = {
+  id; actionType; subject; resource; constraints; expiresAt; consumedAt
+  // provenance — the auditor's answer to "why was this allowed?"
+  issuedBy; issuedFromApproval; justification
+}
+```
+Provenance is not optional: in a regulated review "a grant existed" is not an answer; "Jane Smith approved
+`apr_1234` at 14:37 UTC after reviewing the escalation" is. The generic shape also leaves room for later
+delegation/revocation without a schema change (not built now).
+
+**Rejected.** (B) *Policy mutation* — approving one action must never rewrite org policy; that turns every approval
+into configuration drift and conflates "let this agent read this secret" with "change our security posture."
+(C) *Persistent approved-request state* — works for spend only because the request *is* the object; it becomes an
+awkward special case the moment credential/tool/deploy approvals exist.
+
+**ActionType emerges here, not before.** The approval loop is the second consumer that forces a real answer to
+"what is an action?" — `PendingApproval` and `Grant` both need an `actionType` discriminator. The `ActionType`
+registry (required context, rules, default obligations, enforcement points) grows out of that lived need, not a
+speculative design from three young endpoints.
+
+**Consequences:** This crosses Sanction from *making authorization decisions* to *governing human authorization
+workflows for autonomous systems* — a category move. Build order: (1) this addendum, (2) generic `PendingApproval`,
+(3) generic `Grant`, (4–6) spend/tool/credential consume grants, (7) notification adapters (email/webhook/Slack).
+Spend's existing escalation behavior is preserved; tool and credential graduate from decision-only to a real loop.
+
 ## ADR-0008 ACCEPTED — Escalation timeout: no agent deadlocks on an unresolved escalation
 **Date:** 2026-06-20 · **Status:** Accepted & implemented (branch `claude/sanction-ai-gtm-nhqfzx`)
 **Context:** ADR-0007 made `status:"escalated"` reachable. That exposed the #1 reliability risk
