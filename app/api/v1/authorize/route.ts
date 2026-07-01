@@ -12,6 +12,7 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import {
   CascadeBudgetExceeded,
+  SUBTREE_CAP_EXCEEDED_NOTE,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
   reserveCascadeDailySpend,
@@ -69,8 +70,8 @@ export async function POST(req: NextRequest) {
   const ancestorChain = await walletAncestorChain(db, agent.walletId)
 
   // Effective limits: a per-agent override wins over the wallet policy, then every
-  // ancestor wallet can only tighten the ceiling. This is the first half of cascade
-  // enforcement: caps cascade down, spend rolls up.
+  // ancestor wallet can only tighten the per-transaction ceiling. Tree-wide daily
+  // caps are separate and opt-in via Policy.subtreeDailyCapUsd below.
   const perTxnMax = effectivePerTransactionMaxCents(agent.perTransactionMaxUsd, policy.perTransactionMaxUsd, ancestorChain)
   const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
   const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
@@ -117,9 +118,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Stateful gates: agent daily spend + ancestor wallet counters. The agent-local
-  // check preserves existing per-agent override behavior; the cascade counters are
-  // the enterprise hard stop for every parent wallet in the account tree.
+  // Stateful gates: agent daily spend + opt-in subtree counters. The agent-local
+  // check preserves existing per-agent budget behavior; subtree counters are the
+  // enterprise hard stop for parent wallets that set subtreeDailyCapUsd.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
       }),
       cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain),
     ])
-    if (cascadeExceeded) return simulateResponse("denied", "Wallet daily spend budget exceeded", agent.name, amount_usd, merchant)
+    if (cascadeExceeded) return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
     const { status, note } = decidePolicy({
       amountUsd: amount_usd,
       category,
@@ -180,8 +181,8 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 
-      // Approved by the engine. Reserve daily spend against every ancestor wallet
-      // (cascade) — walks root→leaf with conditional atomic writes; any parent cap
+      // Approved by the engine. Reserve daily spend against every capped ancestor
+      // wallet — walks root→leaf with conditional atomic writes; any parent cap
       // breach throws and rolls back the whole transaction. Then honor the
       // reserve_budget obligation (exec-token debit) when there's a token to enforce
       // against — debited on every approval, including sub-floor ones.
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
         await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
       } catch (e) {
         if (e instanceof CascadeBudgetExceeded) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Wallet daily spend budget exceeded" } })
+          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
         }
         throw e
       }
@@ -217,10 +218,10 @@ export async function POST(req: NextRequest) {
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
-    } else if (result.status === "denied" && (result.decisionNote === "Daily spend budget exceeded" || result.decisionNote === "Wallet daily spend budget exceeded")) {
+    } else if (result.status === "denied" && (result.decisionNote === "Daily spend budget exceeded" || result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE)) {
       after(() =>
         deliverEvent(agent.walletId, "budget.exhausted", {
-          agent: agent.name, scope: result.decisionNote === "Wallet daily spend budget exceeded" ? "wallet_tree_daily_spend" : "daily_spend", amount_usd, merchant, category,
+          agent: agent.name, scope: result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE ? "subtree_daily_spend" : "daily_spend", amount_usd, merchant, category,
         }),
       )
     }

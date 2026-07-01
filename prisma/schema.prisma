@@ -25,7 +25,7 @@ model Wallet {
 
   // Account tree (additive): a wallet may nest under a parent wallet, forming an
   // org → tenant → sub-tenant hierarchy. Null = root (every existing wallet).
-  // Foundation for subtree spend rollup; cascade enforcement is a later slice.
+  // Subtree reporting rolls spend up; /authorize enforces opt-in subtree caps.
   parentId String?
   parent   Wallet?  @relation("WalletTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Wallet[] @relation("WalletTree")
@@ -51,6 +51,7 @@ model Wallet {
   executionTokens  ExecutionToken[]
   webhooks         Webhook[]
   magicLinks       MagicLink[]
+  budgetCounters   WalletBudgetCounter[]
 
   @@index([parentId])
   @@index([userId])
@@ -198,6 +199,7 @@ model Policy {
   // For escalation to be reachable, keep escalateOverUsd < perTransactionMaxUsd.
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
+  subtreeDailyCapUsd   Int?                // optional subtree cap; null = no tree-wide cap
   perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
   autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor
   escalateOverUsd      Int @default(2500)  // $25  — escalate above this (must be < perTransactionMaxUsd)
@@ -352,6 +354,22 @@ model AuthorizationRequest {
   @@unique([agentId, idempotencyKey])
   @@index([agentId, createdAt])
   @@index([status])
+}
+
+// Running counters for opt-in subtree caps. /authorize updates these atomically
+// across capped ancestors so sibling agents cannot race past a parent cap.
+model WalletBudgetCounter {
+  id          String   @id @default(cuid())
+  walletId    String
+  period      String
+  periodStart DateTime
+  spentCents  Int      @default(0)
+  updatedAt   DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([walletId, period, periodStart])
+  @@index([period, periodStart])
 }
 
 // Awareness-stage marketing lead — captured before signup, owned in our DB so we

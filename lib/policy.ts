@@ -15,6 +15,7 @@ export const policyInputSchema = z
   .object({
     daily_token_budget_usd: dollars,
     daily_spend_budget_usd: dollars,
+    subtree_daily_cap_usd: dollars.nullable(),
     per_transaction_max_usd: dollars,
     auto_approve_under_usd: dollars,
     escalate_over_usd: dollars,
@@ -43,6 +44,9 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
   const data: Record<string, unknown> = {}
   if (d.daily_token_budget_usd !== undefined) data.dailyTokenBudgetUsd = toCents(d.daily_token_budget_usd)
   if (d.daily_spend_budget_usd !== undefined) data.dailySpendBudgetUsd = toCents(d.daily_spend_budget_usd)
+  if (d.subtree_daily_cap_usd !== undefined) {
+    data.subtreeDailyCapUsd = d.subtree_daily_cap_usd === null ? null : toCents(d.subtree_daily_cap_usd)
+  }
   if (d.per_transaction_max_usd !== undefined) data.perTransactionMaxUsd = toCents(d.per_transaction_max_usd)
   if (d.auto_approve_under_usd !== undefined) data.autoApproveUnderUsd = toCents(d.auto_approve_under_usd)
   if (d.escalate_over_usd !== undefined) data.escalateOverUsd = toCents(d.escalate_over_usd)
@@ -70,6 +74,7 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
 type PolicyRow = {
   dailyTokenBudgetUsd: number
   dailySpendBudgetUsd: number
+  subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number
   autoApproveUnderUsd: number
   escalateOverUsd: number
@@ -86,6 +91,7 @@ export function policyToDollars(p: PolicyRow) {
   return {
     daily_token_budget_usd: p.dailyTokenBudgetUsd / 100,
     daily_spend_budget_usd: p.dailySpendBudgetUsd / 100,
+    subtree_daily_cap_usd: p.subtreeDailyCapUsd === null ? null : p.subtreeDailyCapUsd / 100,
     per_transaction_max_usd: p.perTransactionMaxUsd / 100,
     auto_approve_under_usd: p.autoApproveUnderUsd / 100,
     escalate_over_usd: p.escalateOverUsd / 100,

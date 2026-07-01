@@ -401,6 +401,7 @@ export const ModelName = {
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
   AuthorizationRequest: 'AuthorizationRequest',
+  WalletBudgetCounter: 'WalletBudgetCounter',
   Lead: 'Lead',
   Idea: 'Idea',
   IdeaVote: 'IdeaVote'
@@ -419,7 +420,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "rateLimit" | "wallet" | "user" | "session" | "account" | "verification" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "walletKey" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest" | "lead" | "idea" | "ideaVote"
+    modelProps: "rateLimit" | "wallet" | "user" | "session" | "account" | "verification" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "walletKey" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest" | "walletBudgetCounter" | "lead" | "idea" | "ideaVote"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1681,6 +1682,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    WalletBudgetCounter: {
+      payload: Prisma.$WalletBudgetCounterPayload<ExtArgs>
+      fields: Prisma.WalletBudgetCounterFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WalletBudgetCounterFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WalletBudgetCounterFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>
+        }
+        findFirst: {
+          args: Prisma.WalletBudgetCounterFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WalletBudgetCounterFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>
+        }
+        findMany: {
+          args: Prisma.WalletBudgetCounterFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>[]
+        }
+        create: {
+          args: Prisma.WalletBudgetCounterCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>
+        }
+        createMany: {
+          args: Prisma.WalletBudgetCounterCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WalletBudgetCounterCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>[]
+        }
+        delete: {
+          args: Prisma.WalletBudgetCounterDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>
+        }
+        update: {
+          args: Prisma.WalletBudgetCounterUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>
+        }
+        deleteMany: {
+          args: Prisma.WalletBudgetCounterDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WalletBudgetCounterUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WalletBudgetCounterUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>[]
+        }
+        upsert: {
+          args: Prisma.WalletBudgetCounterUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WalletBudgetCounterPayload>
+        }
+        aggregate: {
+          args: Prisma.WalletBudgetCounterAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWalletBudgetCounter>
+        }
+        groupBy: {
+          args: Prisma.WalletBudgetCounterGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WalletBudgetCounterGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WalletBudgetCounterCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WalletBudgetCounterCountAggregateOutputType> | number
+        }
+      }
+    }
     Lead: {
       payload: Prisma.$LeadPayload<ExtArgs>
       fields: Prisma.LeadFieldRefs
@@ -2072,6 +2147,7 @@ export const PolicyScalarFieldEnum = {
   walletId: 'walletId',
   dailyTokenBudgetUsd: 'dailyTokenBudgetUsd',
   dailySpendBudgetUsd: 'dailySpendBudgetUsd',
+  subtreeDailyCapUsd: 'subtreeDailyCapUsd',
   perTransactionMaxUsd: 'perTransactionMaxUsd',
   autoApproveUnderUsd: 'autoApproveUnderUsd',
   escalateOverUsd: 'escalateOverUsd',
@@ -2190,6 +2266,18 @@ export const AuthorizationRequestScalarFieldEnum = {
 } as const
 
 export type AuthorizationRequestScalarFieldEnum = (typeof AuthorizationRequestScalarFieldEnum)[keyof typeof AuthorizationRequestScalarFieldEnum]
+
+
+export const WalletBudgetCounterScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  period: 'period',
+  periodStart: 'periodStart',
+  spentCents: 'spentCents',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WalletBudgetCounterScalarFieldEnum = (typeof WalletBudgetCounterScalarFieldEnum)[keyof typeof WalletBudgetCounterScalarFieldEnum]
 
 
 export const LeadScalarFieldEnum = {
@@ -2477,6 +2565,7 @@ export type GlobalOmitConfig = {
   executionToken?: Prisma.ExecutionTokenOmit
   credentialInjection?: Prisma.CredentialInjectionOmit
   authorizationRequest?: Prisma.AuthorizationRequestOmit
+  walletBudgetCounter?: Prisma.WalletBudgetCounterOmit
   lead?: Prisma.LeadOmit
   idea?: Prisma.IdeaOmit
   ideaVote?: Prisma.IdeaVoteOmit
