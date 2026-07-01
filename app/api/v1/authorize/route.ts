@@ -10,6 +10,13 @@ import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
+import {
+  CascadeBudgetExceeded,
+  cascadeDailyWouldExceed,
+  effectivePerTransactionMaxCents,
+  reserveCascadeDailySpend,
+  walletAncestorChain,
+} from "@/lib/cascadeBudget"
 
 const log = logger("v1/authorize")
 
@@ -59,9 +66,12 @@ export async function POST(req: NextRequest) {
   }
 
   const amountCents = Math.round(amount_usd * 100)
+  const ancestorChain = await walletAncestorChain(db, agent.walletId)
 
-  // Effective limits: a per-agent override wins over the wallet policy; null inherits.
-  const perTxnMax = agent.perTransactionMaxUsd ?? policy.perTransactionMaxUsd
+  // Effective limits: a per-agent override wins over the wallet policy, then every
+  // ancestor wallet can only tighten the ceiling. This is the first half of cascade
+  // enforcement: caps cascade down, spend rolls up.
+  const perTxnMax = effectivePerTransactionMaxCents(agent.perTransactionMaxUsd, policy.perTransactionMaxUsd, ancestorChain)
   const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
   const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
 
@@ -107,18 +117,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Stateful gate: daily-spend check + write must be atomic, otherwise two
-  // concurrent requests can both pass the check and blow the cap. Serialize per
-  // agent with a transaction-scoped advisory lock, then re-read inside the lock.
+  // Stateful gates: agent daily spend + ancestor wallet counters. The agent-local
+  // check preserves existing per-agent override behavior; the cascade counters are
+  // the enterprise hard stop for every parent wallet in the account tree.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
 
-  // Simulation: compute the decision via the shared ladder, no locking or writing.
+  // Simulation: compute the decision via the shared ladder and check existing
+  // ancestor counters without writing.
   if (simulate) {
-    const dailySpend = await db.authorizationRequest.aggregate({
-      where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-      _sum: { amountUsd: true },
-    })
+    const [dailySpend, cascadeExceeded] = await Promise.all([
+      db.authorizationRequest.aggregate({
+        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        _sum: { amountUsd: true },
+      }),
+      cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain),
+    ])
+    if (cascadeExceeded) return simulateResponse("denied", "Wallet daily spend budget exceeded", agent.name, amount_usd, merchant)
     const { status, note } = decidePolicy({
       amountUsd: amount_usd,
       category,
@@ -135,6 +150,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await db.$transaction(async (tx) => {
+      // Preserve the existing per-agent serialization for the agent-local daily
+      // budget and execution-token debit. Ancestor counters use conditional atomic
+      // writes, so sibling agents can still compete safely on shared parents.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
       // Read budget state under the lock, then decide via the engine. The daily
@@ -162,9 +180,20 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 
-      // Approved. Honor the reserve_budget obligation (the exec-token debit) when
-      // there's an execution token to enforce it against — debited on every
-      // approval, including sub-floor ones, so small charges still decrement it.
+      // Approved by the engine. Reserve daily spend against every ancestor wallet
+      // (cascade) — walks root→leaf with conditional atomic writes; any parent cap
+      // breach throws and rolls back the whole transaction. Then honor the
+      // reserve_budget obligation (exec-token debit) when there's a token to enforce
+      // against — debited on every approval, including sub-floor ones.
+      try {
+        await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
+      } catch (e) {
+        if (e instanceof CascadeBudgetExceeded) {
+          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Wallet daily spend budget exceeded" } })
+        }
+        throw e
+      }
+
       const approved = await tx.authorizationRequest.create({
         data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
       })
@@ -188,10 +217,10 @@ export async function POST(req: NextRequest) {
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
-    } else if (result.status === "denied" && result.decisionNote === "Daily spend budget exceeded") {
+    } else if (result.status === "denied" && (result.decisionNote === "Daily spend budget exceeded" || result.decisionNote === "Wallet daily spend budget exceeded")) {
       after(() =>
         deliverEvent(agent.walletId, "budget.exhausted", {
-          agent: agent.name, scope: "daily_spend", amount_usd, merchant, category,
+          agent: agent.name, scope: result.decisionNote === "Wallet daily spend budget exceeded" ? "wallet_tree_daily_spend" : "daily_spend", amount_usd, merchant, category,
         }),
       )
     }
