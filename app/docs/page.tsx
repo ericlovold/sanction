@@ -50,7 +50,7 @@ const steps = [
   {
     n: "3",
     title: "Authorize actions before money moves",
-    desc: "Before an agent spends, it asks. Sanction returns approve, escalate, or deny in milliseconds — small charges clear, risky ones escalate to a human, blocked ones never run — and logs every decision.",
+    desc: "Before an agent spends, it asks. Sanction returns approve, escalate, or deny in real time. Small charges clear, risky ones escalate to a human, blocked ones never run, and every decision is logged.",
     code: authorizeSnippet,
   },
 ]

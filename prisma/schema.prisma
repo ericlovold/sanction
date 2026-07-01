@@ -37,6 +37,13 @@ model Wallet {
   mgmtKeyHash   String? @unique
   mgmtKeyPrefix String?
 
+  // Human identity (Better Auth). A wallet gets owned by a User the first time
+  // that user signs in with Google/GitHub; null for legacy/magic-link wallets,
+  // which still authenticate via the management key. Additive — the session
+  // bridge (lib/session.ts) claims a wallet by email on first social login.
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   agents           Agent[]
   policy           Policy?
   credentials      CredentialVault[]
@@ -46,6 +53,76 @@ model Wallet {
   magicLinks       MagicLink[]
 
   @@index([parentId])
+  @@index([userId])
+}
+
+// ── Better Auth (human identity) ────────────────────────────────────────────
+// These four models are Better Auth's core schema (betterAuth() in lib/auth-config.ts).
+// Field names/types match its contract exactly — do not rename. Sign-in methods
+// (Google, GitHub) write here; a User then owns one or more Wallets above.
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  wallets  Wallet[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
 
 // One-time email sign-in / recovery token. The raw token is emailed; only its
@@ -127,6 +204,13 @@ model Policy {
 
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])
+
+  // Tool governance (ADR-0009 M3): authorize any MCP tool invocation the same way
+  // spend is authorized. Empty allowedTools = allow all (governance is opt-in for
+  // tools). A tool in escalateTools returns "escalated" (human approval).
+  allowedTools  String[] @default([])
+  blockedTools  String[] @default([])
+  escalateTools String[] @default([])
 
   // Escalation deadlock guard (UX-2): an escalated request that no human resolves
   // within escalationTimeoutMins is settled to the fallback terminal state on the
