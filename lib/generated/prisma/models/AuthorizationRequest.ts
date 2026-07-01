@@ -37,6 +37,7 @@ export type AuthorizationRequestSumAggregateOutputType = {
 export type AuthorizationRequestMinAggregateOutputType = {
   id: string | null
   agentId: string | null
+  kind: string | null
   action: string | null
   amountUsd: number | null
   merchant: string | null
@@ -52,6 +53,7 @@ export type AuthorizationRequestMinAggregateOutputType = {
 export type AuthorizationRequestMaxAggregateOutputType = {
   id: string | null
   agentId: string | null
+  kind: string | null
   action: string | null
   amountUsd: number | null
   merchant: string | null
@@ -67,10 +69,12 @@ export type AuthorizationRequestMaxAggregateOutputType = {
 export type AuthorizationRequestCountAggregateOutputType = {
   id: number
   agentId: number
+  kind: number
   action: number
   amountUsd: number
   merchant: number
   category: number
+  detailsJson: number
   description: number
   status: number
   decidedAt: number
@@ -92,6 +96,7 @@ export type AuthorizationRequestSumAggregateInputType = {
 export type AuthorizationRequestMinAggregateInputType = {
   id?: true
   agentId?: true
+  kind?: true
   action?: true
   amountUsd?: true
   merchant?: true
@@ -107,6 +112,7 @@ export type AuthorizationRequestMinAggregateInputType = {
 export type AuthorizationRequestMaxAggregateInputType = {
   id?: true
   agentId?: true
+  kind?: true
   action?: true
   amountUsd?: true
   merchant?: true
@@ -122,10 +128,12 @@ export type AuthorizationRequestMaxAggregateInputType = {
 export type AuthorizationRequestCountAggregateInputType = {
   id?: true
   agentId?: true
+  kind?: true
   action?: true
   amountUsd?: true
   merchant?: true
   category?: true
+  detailsJson?: true
   description?: true
   status?: true
   decidedAt?: true
@@ -224,10 +232,12 @@ export type AuthorizationRequestGroupByArgs<ExtArgs extends runtime.Types.Extens
 export type AuthorizationRequestGroupByOutputType = {
   id: string
   agentId: string
+  kind: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson: runtime.JsonValue | null
   description: string | null
   status: string
   decidedAt: Date | null
@@ -262,10 +272,12 @@ export type AuthorizationRequestWhereInput = {
   NOT?: Prisma.AuthorizationRequestWhereInput | Prisma.AuthorizationRequestWhereInput[]
   id?: Prisma.StringFilter<"AuthorizationRequest"> | string
   agentId?: Prisma.StringFilter<"AuthorizationRequest"> | string
+  kind?: Prisma.StringFilter<"AuthorizationRequest"> | string
   action?: Prisma.StringFilter<"AuthorizationRequest"> | string
   amountUsd?: Prisma.FloatFilter<"AuthorizationRequest"> | number
   merchant?: Prisma.StringFilter<"AuthorizationRequest"> | string
   category?: Prisma.StringFilter<"AuthorizationRequest"> | string
+  detailsJson?: Prisma.JsonNullableFilter<"AuthorizationRequest">
   description?: Prisma.StringNullableFilter<"AuthorizationRequest"> | string | null
   status?: Prisma.StringFilter<"AuthorizationRequest"> | string
   decidedAt?: Prisma.DateTimeNullableFilter<"AuthorizationRequest"> | Date | string | null
@@ -278,10 +290,12 @@ export type AuthorizationRequestWhereInput = {
 export type AuthorizationRequestOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  kind?: Prisma.SortOrder
   action?: Prisma.SortOrder
   amountUsd?: Prisma.SortOrder
   merchant?: Prisma.SortOrder
   category?: Prisma.SortOrder
+  detailsJson?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -298,10 +312,12 @@ export type AuthorizationRequestWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.AuthorizationRequestWhereInput[]
   NOT?: Prisma.AuthorizationRequestWhereInput | Prisma.AuthorizationRequestWhereInput[]
   agentId?: Prisma.StringFilter<"AuthorizationRequest"> | string
+  kind?: Prisma.StringFilter<"AuthorizationRequest"> | string
   action?: Prisma.StringFilter<"AuthorizationRequest"> | string
   amountUsd?: Prisma.FloatFilter<"AuthorizationRequest"> | number
   merchant?: Prisma.StringFilter<"AuthorizationRequest"> | string
   category?: Prisma.StringFilter<"AuthorizationRequest"> | string
+  detailsJson?: Prisma.JsonNullableFilter<"AuthorizationRequest">
   description?: Prisma.StringNullableFilter<"AuthorizationRequest"> | string | null
   status?: Prisma.StringFilter<"AuthorizationRequest"> | string
   decidedAt?: Prisma.DateTimeNullableFilter<"AuthorizationRequest"> | Date | string | null
@@ -314,10 +330,12 @@ export type AuthorizationRequestWhereUniqueInput = Prisma.AtLeast<{
 export type AuthorizationRequestOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  kind?: Prisma.SortOrder
   action?: Prisma.SortOrder
   amountUsd?: Prisma.SortOrder
   merchant?: Prisma.SortOrder
   category?: Prisma.SortOrder
+  detailsJson?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -337,10 +355,12 @@ export type AuthorizationRequestScalarWhereWithAggregatesInput = {
   NOT?: Prisma.AuthorizationRequestScalarWhereWithAggregatesInput | Prisma.AuthorizationRequestScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
   agentId?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
+  kind?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
   action?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
   amountUsd?: Prisma.FloatWithAggregatesFilter<"AuthorizationRequest"> | number
   merchant?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
   category?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
+  detailsJson?: Prisma.JsonNullableWithAggregatesFilter<"AuthorizationRequest">
   description?: Prisma.StringNullableWithAggregatesFilter<"AuthorizationRequest"> | string | null
   status?: Prisma.StringWithAggregatesFilter<"AuthorizationRequest"> | string
   decidedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthorizationRequest"> | Date | string | null
@@ -351,10 +371,12 @@ export type AuthorizationRequestScalarWhereWithAggregatesInput = {
 
 export type AuthorizationRequestCreateInput = {
   id?: string
+  kind?: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: string | null
   status?: string
   decidedAt?: Date | string | null
@@ -367,10 +389,12 @@ export type AuthorizationRequestCreateInput = {
 export type AuthorizationRequestUncheckedCreateInput = {
   id?: string
   agentId: string
+  kind?: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: string | null
   status?: string
   decidedAt?: Date | string | null
@@ -381,10 +405,12 @@ export type AuthorizationRequestUncheckedCreateInput = {
 
 export type AuthorizationRequestUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -397,10 +423,12 @@ export type AuthorizationRequestUpdateInput = {
 export type AuthorizationRequestUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   agentId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -412,10 +440,12 @@ export type AuthorizationRequestUncheckedUpdateInput = {
 export type AuthorizationRequestCreateManyInput = {
   id?: string
   agentId: string
+  kind?: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: string | null
   status?: string
   decidedAt?: Date | string | null
@@ -426,10 +456,12 @@ export type AuthorizationRequestCreateManyInput = {
 
 export type AuthorizationRequestUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -441,10 +473,12 @@ export type AuthorizationRequestUpdateManyMutationInput = {
 export type AuthorizationRequestUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   agentId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -471,10 +505,12 @@ export type AuthorizationRequestAgentIdIdempotencyKeyCompoundUniqueInput = {
 export type AuthorizationRequestCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  kind?: Prisma.SortOrder
   action?: Prisma.SortOrder
   amountUsd?: Prisma.SortOrder
   merchant?: Prisma.SortOrder
   category?: Prisma.SortOrder
+  detailsJson?: Prisma.SortOrder
   description?: Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrder
@@ -490,6 +526,7 @@ export type AuthorizationRequestAvgOrderByAggregateInput = {
 export type AuthorizationRequestMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  kind?: Prisma.SortOrder
   action?: Prisma.SortOrder
   amountUsd?: Prisma.SortOrder
   merchant?: Prisma.SortOrder
@@ -505,6 +542,7 @@ export type AuthorizationRequestMaxOrderByAggregateInput = {
 export type AuthorizationRequestMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  kind?: Prisma.SortOrder
   action?: Prisma.SortOrder
   amountUsd?: Prisma.SortOrder
   merchant?: Prisma.SortOrder
@@ -565,10 +603,12 @@ export type AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput = {
 
 export type AuthorizationRequestCreateWithoutAgentInput = {
   id?: string
+  kind?: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: string | null
   status?: string
   decidedAt?: Date | string | null
@@ -579,10 +619,12 @@ export type AuthorizationRequestCreateWithoutAgentInput = {
 
 export type AuthorizationRequestUncheckedCreateWithoutAgentInput = {
   id?: string
+  kind?: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: string | null
   status?: string
   decidedAt?: Date | string | null
@@ -623,10 +665,12 @@ export type AuthorizationRequestScalarWhereInput = {
   NOT?: Prisma.AuthorizationRequestScalarWhereInput | Prisma.AuthorizationRequestScalarWhereInput[]
   id?: Prisma.StringFilter<"AuthorizationRequest"> | string
   agentId?: Prisma.StringFilter<"AuthorizationRequest"> | string
+  kind?: Prisma.StringFilter<"AuthorizationRequest"> | string
   action?: Prisma.StringFilter<"AuthorizationRequest"> | string
   amountUsd?: Prisma.FloatFilter<"AuthorizationRequest"> | number
   merchant?: Prisma.StringFilter<"AuthorizationRequest"> | string
   category?: Prisma.StringFilter<"AuthorizationRequest"> | string
+  detailsJson?: Prisma.JsonNullableFilter<"AuthorizationRequest">
   description?: Prisma.StringNullableFilter<"AuthorizationRequest"> | string | null
   status?: Prisma.StringFilter<"AuthorizationRequest"> | string
   decidedAt?: Prisma.DateTimeNullableFilter<"AuthorizationRequest"> | Date | string | null
@@ -637,10 +681,12 @@ export type AuthorizationRequestScalarWhereInput = {
 
 export type AuthorizationRequestCreateManyAgentInput = {
   id?: string
+  kind?: string
   action: string
   amountUsd: number
   merchant: string
   category: string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: string | null
   status?: string
   decidedAt?: Date | string | null
@@ -651,10 +697,12 @@ export type AuthorizationRequestCreateManyAgentInput = {
 
 export type AuthorizationRequestUpdateWithoutAgentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -665,10 +713,12 @@ export type AuthorizationRequestUpdateWithoutAgentInput = {
 
 export type AuthorizationRequestUncheckedUpdateWithoutAgentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -679,10 +729,12 @@ export type AuthorizationRequestUncheckedUpdateWithoutAgentInput = {
 
 export type AuthorizationRequestUncheckedUpdateManyWithoutAgentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
   action?: Prisma.StringFieldUpdateOperationsInput | string
   amountUsd?: Prisma.FloatFieldUpdateOperationsInput | number
   merchant?: Prisma.StringFieldUpdateOperationsInput | string
   category?: Prisma.StringFieldUpdateOperationsInput | string
+  detailsJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -696,10 +748,12 @@ export type AuthorizationRequestUncheckedUpdateManyWithoutAgentInput = {
 export type AuthorizationRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   agentId?: boolean
+  kind?: boolean
   action?: boolean
   amountUsd?: boolean
   merchant?: boolean
   category?: boolean
+  detailsJson?: boolean
   description?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -712,10 +766,12 @@ export type AuthorizationRequestSelect<ExtArgs extends runtime.Types.Extensions.
 export type AuthorizationRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   agentId?: boolean
+  kind?: boolean
   action?: boolean
   amountUsd?: boolean
   merchant?: boolean
   category?: boolean
+  detailsJson?: boolean
   description?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -728,10 +784,12 @@ export type AuthorizationRequestSelectCreateManyAndReturn<ExtArgs extends runtim
 export type AuthorizationRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   agentId?: boolean
+  kind?: boolean
   action?: boolean
   amountUsd?: boolean
   merchant?: boolean
   category?: boolean
+  detailsJson?: boolean
   description?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -744,10 +802,12 @@ export type AuthorizationRequestSelectUpdateManyAndReturn<ExtArgs extends runtim
 export type AuthorizationRequestSelectScalar = {
   id?: boolean
   agentId?: boolean
+  kind?: boolean
   action?: boolean
   amountUsd?: boolean
   merchant?: boolean
   category?: boolean
+  detailsJson?: boolean
   description?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -756,7 +816,7 @@ export type AuthorizationRequestSelectScalar = {
   createdAt?: boolean
 }
 
-export type AuthorizationRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "agentId" | "action" | "amountUsd" | "merchant" | "category" | "description" | "status" | "decidedAt" | "decisionNote" | "idempotencyKey" | "createdAt", ExtArgs["result"]["authorizationRequest"]>
+export type AuthorizationRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "agentId" | "kind" | "action" | "amountUsd" | "merchant" | "category" | "detailsJson" | "description" | "status" | "decidedAt" | "decisionNote" | "idempotencyKey" | "createdAt", ExtArgs["result"]["authorizationRequest"]>
 export type AuthorizationRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   agent?: boolean | Prisma.AgentDefaultArgs<ExtArgs>
 }
@@ -775,10 +835,12 @@ export type $AuthorizationRequestPayload<ExtArgs extends runtime.Types.Extension
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     agentId: string
+    kind: string
     action: string
     amountUsd: number
     merchant: string
     category: string
+    detailsJson: runtime.JsonValue | null
     description: string | null
     status: string
     decidedAt: Date | null
@@ -1211,10 +1273,12 @@ export interface Prisma__AuthorizationRequestClient<T, Null = never, ExtArgs ext
 export interface AuthorizationRequestFieldRefs {
   readonly id: Prisma.FieldRef<"AuthorizationRequest", 'String'>
   readonly agentId: Prisma.FieldRef<"AuthorizationRequest", 'String'>
+  readonly kind: Prisma.FieldRef<"AuthorizationRequest", 'String'>
   readonly action: Prisma.FieldRef<"AuthorizationRequest", 'String'>
   readonly amountUsd: Prisma.FieldRef<"AuthorizationRequest", 'Float'>
   readonly merchant: Prisma.FieldRef<"AuthorizationRequest", 'String'>
   readonly category: Prisma.FieldRef<"AuthorizationRequest", 'String'>
+  readonly detailsJson: Prisma.FieldRef<"AuthorizationRequest", 'Json'>
   readonly description: Prisma.FieldRef<"AuthorizationRequest", 'String'>
   readonly status: Prisma.FieldRef<"AuthorizationRequest", 'String'>
   readonly decidedAt: Prisma.FieldRef<"AuthorizationRequest", 'DateTime'>
