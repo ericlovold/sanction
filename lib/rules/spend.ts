@@ -32,7 +32,7 @@ function reserveBudget(c: SpendContext): Obligation[] {
   return [{ type: "reserve_budget", enforcement: "required", scope: "agent", amountCents: c.amountCents }]
 }
 
-function humanApproval(c: SpendContext): Obligation[] {
+export function humanApproval(c: SpendContext): Obligation[] {
   return [
     {
       type: "human_approval",

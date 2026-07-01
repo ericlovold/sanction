@@ -1,5 +1,6 @@
 import { evaluate } from "@/lib/evaluation"
 import { SPEND_LADDER } from "@/lib/rules/spend"
+import { PROVISION_LADDER } from "@/lib/rules/provision"
 
 // Typed decision codes for /authorize responses (UX-1).
 //
@@ -15,6 +16,9 @@ export type DecisionCode =
   | "NO_POLICY"
   | "CATEGORY_BLOCKED"
   | "CATEGORY_NOT_ALLOWED"
+  | "RESOURCE_BLOCKED"
+  | "RESOURCE_NOT_ALLOWED"
+  | "AMOUNT_MISMATCH"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
   | "SUBTREE_CAP_EXCEEDED"
@@ -37,6 +41,12 @@ export const REMEDIATION: Record<DecisionCode, string> = {
     "This category is on the wallet's blocked list. Use an allowed category or ask the owner to unblock it.",
   CATEGORY_NOT_ALLOWED:
     "This category is not on the wallet's allow-list. Use an allowed category or ask the owner to add it.",
+  RESOURCE_BLOCKED:
+    "This resource is on the wallet's blocked list. Provision an allowed resource or ask the owner to unblock it.",
+  RESOURCE_NOT_ALLOWED:
+    "This resource is not on the wallet's resource allow-list. Provision an allowed resource or ask the owner to add it.",
+  AMOUNT_MISMATCH:
+    "quantity × unit_price_usd must equal amount_usd. Recompute the total and retry with consistent numbers.",
   PER_TXN_LIMIT:
     "Amount exceeds the per-transaction limit. Split into smaller charges or ask the owner to raise the limit.",
   DAILY_BUDGET_EXCEEDED:
@@ -97,6 +107,42 @@ export function decidePolicy(i: DecideInput): PolicyDecision {
   return { status, note: d.reason ?? "" }
 }
 
+export type ProvisionDecideInput = DecideInput & {
+  resource: string
+  blockedResources: string[]
+  allowedResources: string[]
+  escalateResources: string[]
+}
+
+/**
+ * The pure provision-decision ladder — resource gate first, then the spend
+ * dollar gates (a provision is spend). Same engine, same note/code contract:
+ * the simulate path and the live /authorize/provision route run these rules.
+ */
+export function decideProvisionPolicy(i: ProvisionDecideInput): PolicyDecision {
+  const d = evaluate(
+    {
+      amountUsd: i.amountUsd,
+      amountCents: Math.round(i.amountUsd * 100),
+      category: i.category,
+      blockedCategories: i.blockedCategories,
+      allowedCategories: i.allowedCategories,
+      perTxnMaxCents: i.perTxnMaxCents,
+      dailySpentUsd: i.dailySpentUsd,
+      dailyBudgetCents: i.dailyBudgetCents,
+      autoApproveUnderCents: i.autoApproveUnderCents,
+      escalateOverCents: i.escalateOverCents,
+      resource: i.resource,
+      blockedResources: i.blockedResources,
+      allowedResources: i.allowedResources,
+      escalateResources: i.escalateResources,
+    },
+    PROVISION_LADDER,
+  )
+  const status = d.effect === "allow" ? "approved" : d.effect === "escalate" ? "escalated" : "denied"
+  return { status, note: d.reason ?? "" }
+}
+
 /** Map a persisted decision to a stable code. `undefined` for an approval. */
 export function decisionCode(status: string, note: string | null): DecisionCode | undefined {
   if (status === "approved") return undefined
@@ -105,6 +151,8 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (!note) return "POLICY_DENIED"
   if (note.startsWith("Escalation timed out")) return "ESCALATION_TIMED_OUT"
   if (note === "No policy configured") return "NO_POLICY"
+  if (note.includes("not in the resource allow-list")) return "RESOURCE_NOT_ALLOWED"
+  if (note.startsWith("Resource")) return "RESOURCE_BLOCKED"
   if (note.includes("not in the allow-list")) return "CATEGORY_NOT_ALLOWED"
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"
   if (note.startsWith("Exceeds per-transaction")) return "PER_TXN_LIMIT"
