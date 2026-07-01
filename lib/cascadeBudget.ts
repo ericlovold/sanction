@@ -43,7 +43,7 @@ export async function walletAncestorChain(tx: CascadeTx, walletId: string): Prom
   for (let depth = 0; cur && depth < MAX_ANCESTOR_DEPTH; depth++) {
     if (seen.has(cur)) break
     seen.add(cur)
-    const wallet = await tx.wallet.findUnique({
+    const wallet: WalletBudgetNode | null = await tx.wallet.findUnique({
       where: { id: cur },
       select: {
         id: true,
