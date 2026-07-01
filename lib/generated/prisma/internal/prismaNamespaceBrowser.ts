@@ -224,6 +224,9 @@ export const PolicyScalarFieldEnum = {
   escalateOverUsd: 'escalateOverUsd',
   allowedCategories: 'allowedCategories',
   blockedCategories: 'blockedCategories',
+  allowedTools: 'allowedTools',
+  blockedTools: 'blockedTools',
+  escalateTools: 'escalateTools',
   escalationTimeoutMins: 'escalationTimeoutMins',
   escalationTimeoutAction: 'escalationTimeoutAction',
   updatedAt: 'updatedAt'

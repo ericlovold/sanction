@@ -205,6 +205,13 @@ model Policy {
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])
 
+  // Tool governance (ADR-0009 M3): authorize any MCP tool invocation the same way
+  // spend is authorized. Empty allowedTools = allow all (governance is opt-in for
+  // tools). A tool in escalateTools returns "escalated" (human approval).
+  allowedTools  String[] @default([])
+  blockedTools  String[] @default([])
+  escalateTools String[] @default([])
+
   // Escalation deadlock guard (UX-2): an escalated request that no human resolves
   // within escalationTimeoutMins is settled to the fallback terminal state on the
   // next read. 0 = wait indefinitely. Default action is fail-closed (deny).

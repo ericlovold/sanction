@@ -15,6 +15,9 @@ const ROW = {
   escalateOverUsd: 0,
   allowedCategories: [] as string[],
   blockedCategories: [] as string[],
+  allowedTools: [] as string[],
+  blockedTools: [] as string[],
+  escalateTools: [] as string[],
   escalationTimeoutMins: 0,
   escalationTimeoutAction: "deny",
 }
