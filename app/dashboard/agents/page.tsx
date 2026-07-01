@@ -39,7 +39,7 @@ async function getAgents(walletId: string) {
   })
   const agentIds = rows.map((a) => a.id)
   const now = new Date()
-  const [pending, activeGrants, decisions] = await Promise.all([
+  const [pending, activeGrants, decisions, modelCounts, lastLogs] = await Promise.all([
     db.pendingApproval.groupBy({
       by: ["agentId"],
       where: { walletId, agentId: { in: agentIds }, status: "pending" },
@@ -60,6 +60,17 @@ async function getAgents(walletId: string) {
       where: { agentId: { in: agentIds }, createdAt: { gte: monthStart } },
       _count: true,
     }),
+    db.tokenLog.groupBy({
+      by: ["agentId", "model"],
+      where: { agentId: { in: agentIds } },
+      _count: { _all: true },
+    }),
+    db.tokenLog.findMany({
+      where: { agentId: { in: agentIds } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["agentId"],
+      select: { agentId: true, taskLabel: true, createdAt: true },
+    }),
   ])
 
   const pendingByAgent = new Map(pending.map((r) => [r.agentId, r._count]))
@@ -73,8 +84,32 @@ async function getAgents(walletId: string) {
     decisionByAgent.set(r.agentId, row)
   }
 
+  // Per-key activity: what's actually using this key. Top model + total calls
+  // (from TokenLog, which the gateway writes per metered call) and the most
+  // recent task label, so the row shows "seen claude-… · N calls · task: …".
+  type Act = { totalCalls: number; topModel: string | null; topCalls: number; lastTask: string | null; lastSeen: string | null }
+  const activityByAgent = new Map<string, Act>()
+  const getAct = (id: string): Act =>
+    activityByAgent.get(id) ?? { totalCalls: 0, topModel: null, topCalls: 0, lastTask: null, lastSeen: null }
+  for (const r of modelCounts) {
+    const cur = getAct(r.agentId)
+    cur.totalCalls += r._count._all
+    if (r._count._all > cur.topCalls) {
+      cur.topModel = r.model
+      cur.topCalls = r._count._all
+    }
+    activityByAgent.set(r.agentId, cur)
+  }
+  for (const l of lastLogs) {
+    const cur = getAct(l.agentId)
+    cur.lastTask = l.taskLabel
+    cur.lastSeen = l.createdAt.toISOString()
+    activityByAgent.set(l.agentId, cur)
+  }
+
   return rows.map((a): ConsoleAgent => {
     const mix = decisionByAgent.get(a.id) ?? { approved: 0, denied: 0, escalated: 0 }
+    const act = activityByAgent.get(a.id)
     return {
       id: a.id,
       name: a.name,
@@ -92,6 +127,9 @@ async function getAgents(walletId: string) {
       approvedMonth: mix.approved,
       deniedMonth: mix.denied,
       escalatedMonth: mix.escalated,
+      activity: act
+        ? { totalCalls: act.totalCalls, topModel: act.topModel, lastTask: act.lastTask, lastSeen: act.lastSeen }
+        : null,
     }
   })
 }
