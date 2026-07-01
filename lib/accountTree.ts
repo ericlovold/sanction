@@ -1,7 +1,7 @@
 // Account-tree rollup — pure. Given a flat list of nodes (each with its OWN
 // spend) and a root id, build the nested subtree and roll spend UP: each node's
-// `rollup` = its own spend + every descendant's. Read-only reporting; no
-// enforcement here (cascade caps are a later slice). Cycle- and depth-safe.
+// `rollup` = its own spend + every descendant's. Read-only reporting;
+// /authorize enforces opt-in subtree caps. Cycle- and depth-safe.
 
 export type NodeSpend = { today_usd: number; month_usd: number; token_today_usd: number }
 export type FlatNode = { id: string; parentId: string | null; name: string; spend: NodeSpend }

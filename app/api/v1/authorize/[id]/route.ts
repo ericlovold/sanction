@@ -27,6 +27,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // Settle the escalation if it has outlived the policy timeout (UX-2), so a
   // polling agent gets a terminal decision instead of waiting forever.
   const d = await settleIfExpired(reqRow, reqRow.agent.wallet.policy)
+  const grant =
+    d.status === "approved"
+      ? await db.grant.findFirst({
+          where: { sourceType: "authorization_request", sourceId: reqRow.id },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, status: true, expiresAt: true, consumedAt: true },
+        })
+      : null
 
   const code = decisionCode(d.status, d.decisionNote)
   return NextResponse.json({
@@ -40,5 +48,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     amount_usd: reqRow.amountUsd,
     merchant: reqRow.merchant,
     decided_at: d.decidedAt,
+    grant_id: grant?.id,
+    grant_status: grant?.status,
+    grant_consumed_at: grant?.consumedAt,
+    grant_expires_at: grant?.expiresAt,
   })
 }

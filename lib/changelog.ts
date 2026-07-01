@@ -15,6 +15,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-01",
+    title: "Human approvals now issue grants",
+    tags: ["approvals", "wallets"],
+    body: `Sanction's approval loop now has a durable authorization record:
+
+- **Generic approvals** — spend escalations now land as \`PendingApproval\` rows that can also support tool and credential workflows.
+- **Grants ledger** — owner approval issues a short-lived \`Grant\` with provenance: who approved it, what agent received it, what resource it covers, and why.
+- **Opt-in subtree caps** — parent wallets can set \`subtree_daily_cap_usd\` to enforce a tree-wide daily spend cap across descendants. Leaving it null keeps subtree enforcement disabled while spend rollups remain visible.`,
+  },
+  {
     date: "2026-06-29",
     title: "v0.2.0 — framework guides, public roadmap, clearer positioning",
     version: "v0.2.0",

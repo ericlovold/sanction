@@ -289,6 +289,8 @@ export type AgentWhereInput = {
   authRequests?: Prisma.AuthorizationRequestListRelationFilter
   clearance?: Prisma.XOR<Prisma.AgentClearanceNullableScalarRelationFilter, Prisma.AgentClearanceWhereInput> | null
   executionTokens?: Prisma.ExecutionTokenListRelationFilter
+  pendingApprovals?: Prisma.PendingApprovalListRelationFilter
+  grants?: Prisma.GrantListRelationFilter
 }
 
 export type AgentOrderByWithRelationInput = {
@@ -309,6 +311,8 @@ export type AgentOrderByWithRelationInput = {
   authRequests?: Prisma.AuthorizationRequestOrderByRelationAggregateInput
   clearance?: Prisma.AgentClearanceOrderByWithRelationInput
   executionTokens?: Prisma.ExecutionTokenOrderByRelationAggregateInput
+  pendingApprovals?: Prisma.PendingApprovalOrderByRelationAggregateInput
+  grants?: Prisma.GrantOrderByRelationAggregateInput
 }
 
 export type AgentWhereUniqueInput = Prisma.AtLeast<{
@@ -332,6 +336,8 @@ export type AgentWhereUniqueInput = Prisma.AtLeast<{
   authRequests?: Prisma.AuthorizationRequestListRelationFilter
   clearance?: Prisma.XOR<Prisma.AgentClearanceNullableScalarRelationFilter, Prisma.AgentClearanceWhereInput> | null
   executionTokens?: Prisma.ExecutionTokenListRelationFilter
+  pendingApprovals?: Prisma.PendingApprovalListRelationFilter
+  grants?: Prisma.GrantListRelationFilter
 }, "id" | "apiKeyHash">
 
 export type AgentOrderByWithAggregationInput = {
@@ -389,6 +395,8 @@ export type AgentCreateInput = {
   authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUncheckedCreateInput = {
@@ -408,6 +416,8 @@ export type AgentUncheckedCreateInput = {
   authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUpdateInput = {
@@ -427,6 +437,8 @@ export type AgentUpdateInput = {
   authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateInput = {
@@ -446,6 +458,8 @@ export type AgentUncheckedUpdateInput = {
   authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentCreateManyInput = {
@@ -672,6 +686,34 @@ export type AgentUpdateOneRequiredWithoutAuthRequestsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.AgentUpdateToOneWithWhereWithoutAuthRequestsInput, Prisma.AgentUpdateWithoutAuthRequestsInput>, Prisma.AgentUncheckedUpdateWithoutAuthRequestsInput>
 }
 
+export type AgentCreateNestedOneWithoutPendingApprovalsInput = {
+  create?: Prisma.XOR<Prisma.AgentCreateWithoutPendingApprovalsInput, Prisma.AgentUncheckedCreateWithoutPendingApprovalsInput>
+  connectOrCreate?: Prisma.AgentCreateOrConnectWithoutPendingApprovalsInput
+  connect?: Prisma.AgentWhereUniqueInput
+}
+
+export type AgentUpdateOneRequiredWithoutPendingApprovalsNestedInput = {
+  create?: Prisma.XOR<Prisma.AgentCreateWithoutPendingApprovalsInput, Prisma.AgentUncheckedCreateWithoutPendingApprovalsInput>
+  connectOrCreate?: Prisma.AgentCreateOrConnectWithoutPendingApprovalsInput
+  upsert?: Prisma.AgentUpsertWithoutPendingApprovalsInput
+  connect?: Prisma.AgentWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AgentUpdateToOneWithWhereWithoutPendingApprovalsInput, Prisma.AgentUpdateWithoutPendingApprovalsInput>, Prisma.AgentUncheckedUpdateWithoutPendingApprovalsInput>
+}
+
+export type AgentCreateNestedOneWithoutGrantsInput = {
+  create?: Prisma.XOR<Prisma.AgentCreateWithoutGrantsInput, Prisma.AgentUncheckedCreateWithoutGrantsInput>
+  connectOrCreate?: Prisma.AgentCreateOrConnectWithoutGrantsInput
+  connect?: Prisma.AgentWhereUniqueInput
+}
+
+export type AgentUpdateOneRequiredWithoutGrantsNestedInput = {
+  create?: Prisma.XOR<Prisma.AgentCreateWithoutGrantsInput, Prisma.AgentUncheckedCreateWithoutGrantsInput>
+  connectOrCreate?: Prisma.AgentCreateOrConnectWithoutGrantsInput
+  upsert?: Prisma.AgentUpsertWithoutGrantsInput
+  connect?: Prisma.AgentWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AgentUpdateToOneWithWhereWithoutGrantsInput, Prisma.AgentUpdateWithoutGrantsInput>, Prisma.AgentUncheckedUpdateWithoutGrantsInput>
+}
+
 export type AgentCreateWithoutWalletInput = {
   id?: string
   name: string
@@ -688,6 +730,8 @@ export type AgentCreateWithoutWalletInput = {
   authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUncheckedCreateWithoutWalletInput = {
@@ -706,6 +750,8 @@ export type AgentUncheckedCreateWithoutWalletInput = {
   authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
 }
 
 export type AgentCreateOrConnectWithoutWalletInput = {
@@ -768,6 +814,8 @@ export type AgentCreateWithoutTokenLogsInput = {
   authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUncheckedCreateWithoutTokenLogsInput = {
@@ -786,6 +834,8 @@ export type AgentUncheckedCreateWithoutTokenLogsInput = {
   authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
 }
 
 export type AgentCreateOrConnectWithoutTokenLogsInput = {
@@ -820,6 +870,8 @@ export type AgentUpdateWithoutTokenLogsInput = {
   authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateWithoutTokenLogsInput = {
@@ -838,6 +890,8 @@ export type AgentUncheckedUpdateWithoutTokenLogsInput = {
   authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentCreateWithoutClearanceInput = {
@@ -856,6 +910,8 @@ export type AgentCreateWithoutClearanceInput = {
   tokenLogs?: Prisma.TokenLogCreateNestedManyWithoutAgentInput
   authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUncheckedCreateWithoutClearanceInput = {
@@ -874,6 +930,8 @@ export type AgentUncheckedCreateWithoutClearanceInput = {
   tokenLogs?: Prisma.TokenLogUncheckedCreateNestedManyWithoutAgentInput
   authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
 }
 
 export type AgentCreateOrConnectWithoutClearanceInput = {
@@ -908,6 +966,8 @@ export type AgentUpdateWithoutClearanceInput = {
   tokenLogs?: Prisma.TokenLogUpdateManyWithoutAgentNestedInput
   authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateWithoutClearanceInput = {
@@ -926,6 +986,8 @@ export type AgentUncheckedUpdateWithoutClearanceInput = {
   tokenLogs?: Prisma.TokenLogUncheckedUpdateManyWithoutAgentNestedInput
   authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentCreateWithoutExecutionTokensInput = {
@@ -944,6 +1006,8 @@ export type AgentCreateWithoutExecutionTokensInput = {
   tokenLogs?: Prisma.TokenLogCreateNestedManyWithoutAgentInput
   authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUncheckedCreateWithoutExecutionTokensInput = {
@@ -962,6 +1026,8 @@ export type AgentUncheckedCreateWithoutExecutionTokensInput = {
   tokenLogs?: Prisma.TokenLogUncheckedCreateNestedManyWithoutAgentInput
   authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
 }
 
 export type AgentCreateOrConnectWithoutExecutionTokensInput = {
@@ -996,6 +1062,8 @@ export type AgentUpdateWithoutExecutionTokensInput = {
   tokenLogs?: Prisma.TokenLogUpdateManyWithoutAgentNestedInput
   authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateWithoutExecutionTokensInput = {
@@ -1014,6 +1082,8 @@ export type AgentUncheckedUpdateWithoutExecutionTokensInput = {
   tokenLogs?: Prisma.TokenLogUncheckedUpdateManyWithoutAgentNestedInput
   authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentCreateWithoutAuthRequestsInput = {
@@ -1032,6 +1102,8 @@ export type AgentCreateWithoutAuthRequestsInput = {
   tokenLogs?: Prisma.TokenLogCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
 }
 
 export type AgentUncheckedCreateWithoutAuthRequestsInput = {
@@ -1050,6 +1122,8 @@ export type AgentUncheckedCreateWithoutAuthRequestsInput = {
   tokenLogs?: Prisma.TokenLogUncheckedCreateNestedManyWithoutAgentInput
   clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
   executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
 }
 
 export type AgentCreateOrConnectWithoutAuthRequestsInput = {
@@ -1084,6 +1158,8 @@ export type AgentUpdateWithoutAuthRequestsInput = {
   tokenLogs?: Prisma.TokenLogUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateWithoutAuthRequestsInput = {
@@ -1102,6 +1178,200 @@ export type AgentUncheckedUpdateWithoutAuthRequestsInput = {
   tokenLogs?: Prisma.TokenLogUncheckedUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
+}
+
+export type AgentCreateWithoutPendingApprovalsInput = {
+  id?: string
+  name: string
+  apiKeyHash: string
+  apiKeyPrefix: string
+  isActive?: boolean
+  createdAt?: Date | string
+  lastUsedAt?: Date | string | null
+  dailyTokenBudgetUsd?: number | null
+  dailySpendBudgetUsd?: number | null
+  perTransactionMaxUsd?: number | null
+  escalateOverUsd?: number | null
+  wallet: Prisma.WalletCreateNestedOneWithoutAgentsInput
+  tokenLogs?: Prisma.TokenLogCreateNestedManyWithoutAgentInput
+  authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
+  clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
+  executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantCreateNestedManyWithoutAgentInput
+}
+
+export type AgentUncheckedCreateWithoutPendingApprovalsInput = {
+  id?: string
+  walletId: string
+  name: string
+  apiKeyHash: string
+  apiKeyPrefix: string
+  isActive?: boolean
+  createdAt?: Date | string
+  lastUsedAt?: Date | string | null
+  dailyTokenBudgetUsd?: number | null
+  dailySpendBudgetUsd?: number | null
+  perTransactionMaxUsd?: number | null
+  escalateOverUsd?: number | null
+  tokenLogs?: Prisma.TokenLogUncheckedCreateNestedManyWithoutAgentInput
+  authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
+  clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  grants?: Prisma.GrantUncheckedCreateNestedManyWithoutAgentInput
+}
+
+export type AgentCreateOrConnectWithoutPendingApprovalsInput = {
+  where: Prisma.AgentWhereUniqueInput
+  create: Prisma.XOR<Prisma.AgentCreateWithoutPendingApprovalsInput, Prisma.AgentUncheckedCreateWithoutPendingApprovalsInput>
+}
+
+export type AgentUpsertWithoutPendingApprovalsInput = {
+  update: Prisma.XOR<Prisma.AgentUpdateWithoutPendingApprovalsInput, Prisma.AgentUncheckedUpdateWithoutPendingApprovalsInput>
+  create: Prisma.XOR<Prisma.AgentCreateWithoutPendingApprovalsInput, Prisma.AgentUncheckedCreateWithoutPendingApprovalsInput>
+  where?: Prisma.AgentWhereInput
+}
+
+export type AgentUpdateToOneWithWhereWithoutPendingApprovalsInput = {
+  where?: Prisma.AgentWhereInput
+  data: Prisma.XOR<Prisma.AgentUpdateWithoutPendingApprovalsInput, Prisma.AgentUncheckedUpdateWithoutPendingApprovalsInput>
+}
+
+export type AgentUpdateWithoutPendingApprovalsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyHash?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  escalateOverUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  wallet?: Prisma.WalletUpdateOneRequiredWithoutAgentsNestedInput
+  tokenLogs?: Prisma.TokenLogUpdateManyWithoutAgentNestedInput
+  authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
+  clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
+  executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
+}
+
+export type AgentUncheckedUpdateWithoutPendingApprovalsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  walletId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyHash?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  escalateOverUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tokenLogs?: Prisma.TokenLogUncheckedUpdateManyWithoutAgentNestedInput
+  authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
+  clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
+}
+
+export type AgentCreateWithoutGrantsInput = {
+  id?: string
+  name: string
+  apiKeyHash: string
+  apiKeyPrefix: string
+  isActive?: boolean
+  createdAt?: Date | string
+  lastUsedAt?: Date | string | null
+  dailyTokenBudgetUsd?: number | null
+  dailySpendBudgetUsd?: number | null
+  perTransactionMaxUsd?: number | null
+  escalateOverUsd?: number | null
+  wallet: Prisma.WalletCreateNestedOneWithoutAgentsInput
+  tokenLogs?: Prisma.TokenLogCreateNestedManyWithoutAgentInput
+  authRequests?: Prisma.AuthorizationRequestCreateNestedManyWithoutAgentInput
+  clearance?: Prisma.AgentClearanceCreateNestedOneWithoutAgentInput
+  executionTokens?: Prisma.ExecutionTokenCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalCreateNestedManyWithoutAgentInput
+}
+
+export type AgentUncheckedCreateWithoutGrantsInput = {
+  id?: string
+  walletId: string
+  name: string
+  apiKeyHash: string
+  apiKeyPrefix: string
+  isActive?: boolean
+  createdAt?: Date | string
+  lastUsedAt?: Date | string | null
+  dailyTokenBudgetUsd?: number | null
+  dailySpendBudgetUsd?: number | null
+  perTransactionMaxUsd?: number | null
+  escalateOverUsd?: number | null
+  tokenLogs?: Prisma.TokenLogUncheckedCreateNestedManyWithoutAgentInput
+  authRequests?: Prisma.AuthorizationRequestUncheckedCreateNestedManyWithoutAgentInput
+  clearance?: Prisma.AgentClearanceUncheckedCreateNestedOneWithoutAgentInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedCreateNestedManyWithoutAgentInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedCreateNestedManyWithoutAgentInput
+}
+
+export type AgentCreateOrConnectWithoutGrantsInput = {
+  where: Prisma.AgentWhereUniqueInput
+  create: Prisma.XOR<Prisma.AgentCreateWithoutGrantsInput, Prisma.AgentUncheckedCreateWithoutGrantsInput>
+}
+
+export type AgentUpsertWithoutGrantsInput = {
+  update: Prisma.XOR<Prisma.AgentUpdateWithoutGrantsInput, Prisma.AgentUncheckedUpdateWithoutGrantsInput>
+  create: Prisma.XOR<Prisma.AgentCreateWithoutGrantsInput, Prisma.AgentUncheckedCreateWithoutGrantsInput>
+  where?: Prisma.AgentWhereInput
+}
+
+export type AgentUpdateToOneWithWhereWithoutGrantsInput = {
+  where?: Prisma.AgentWhereInput
+  data: Prisma.XOR<Prisma.AgentUpdateWithoutGrantsInput, Prisma.AgentUncheckedUpdateWithoutGrantsInput>
+}
+
+export type AgentUpdateWithoutGrantsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyHash?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  escalateOverUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  wallet?: Prisma.WalletUpdateOneRequiredWithoutAgentsNestedInput
+  tokenLogs?: Prisma.TokenLogUpdateManyWithoutAgentNestedInput
+  authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
+  clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
+  executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+}
+
+export type AgentUncheckedUpdateWithoutGrantsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  walletId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyHash?: Prisma.StringFieldUpdateOperationsInput | string
+  apiKeyPrefix?: Prisma.StringFieldUpdateOperationsInput | string
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  dailyTokenBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dailySpendBudgetUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  perTransactionMaxUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  escalateOverUsd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tokenLogs?: Prisma.TokenLogUncheckedUpdateManyWithoutAgentNestedInput
+  authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
+  clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
+  executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentCreateManyWalletInput = {
@@ -1134,6 +1404,8 @@ export type AgentUpdateWithoutWalletInput = {
   authRequests?: Prisma.AuthorizationRequestUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateWithoutWalletInput = {
@@ -1152,6 +1424,8 @@ export type AgentUncheckedUpdateWithoutWalletInput = {
   authRequests?: Prisma.AuthorizationRequestUncheckedUpdateManyWithoutAgentNestedInput
   clearance?: Prisma.AgentClearanceUncheckedUpdateOneWithoutAgentNestedInput
   executionTokens?: Prisma.ExecutionTokenUncheckedUpdateManyWithoutAgentNestedInput
+  pendingApprovals?: Prisma.PendingApprovalUncheckedUpdateManyWithoutAgentNestedInput
+  grants?: Prisma.GrantUncheckedUpdateManyWithoutAgentNestedInput
 }
 
 export type AgentUncheckedUpdateManyWithoutWalletInput = {
@@ -1177,12 +1451,16 @@ export type AgentCountOutputType = {
   tokenLogs: number
   authRequests: number
   executionTokens: number
+  pendingApprovals: number
+  grants: number
 }
 
 export type AgentCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tokenLogs?: boolean | AgentCountOutputTypeCountTokenLogsArgs
   authRequests?: boolean | AgentCountOutputTypeCountAuthRequestsArgs
   executionTokens?: boolean | AgentCountOutputTypeCountExecutionTokensArgs
+  pendingApprovals?: boolean | AgentCountOutputTypeCountPendingApprovalsArgs
+  grants?: boolean | AgentCountOutputTypeCountGrantsArgs
 }
 
 /**
@@ -1216,6 +1494,20 @@ export type AgentCountOutputTypeCountExecutionTokensArgs<ExtArgs extends runtime
   where?: Prisma.ExecutionTokenWhereInput
 }
 
+/**
+ * AgentCountOutputType without action
+ */
+export type AgentCountOutputTypeCountPendingApprovalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PendingApprovalWhereInput
+}
+
+/**
+ * AgentCountOutputType without action
+ */
+export type AgentCountOutputTypeCountGrantsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GrantWhereInput
+}
+
 
 export type AgentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1235,6 +1527,8 @@ export type AgentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   authRequests?: boolean | Prisma.Agent$authRequestsArgs<ExtArgs>
   clearance?: boolean | Prisma.Agent$clearanceArgs<ExtArgs>
   executionTokens?: boolean | Prisma.Agent$executionTokensArgs<ExtArgs>
+  pendingApprovals?: boolean | Prisma.Agent$pendingApprovalsArgs<ExtArgs>
+  grants?: boolean | Prisma.Agent$grantsArgs<ExtArgs>
   _count?: boolean | Prisma.AgentCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["agent"]>
 
@@ -1292,6 +1586,8 @@ export type AgentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   authRequests?: boolean | Prisma.Agent$authRequestsArgs<ExtArgs>
   clearance?: boolean | Prisma.Agent$clearanceArgs<ExtArgs>
   executionTokens?: boolean | Prisma.Agent$executionTokensArgs<ExtArgs>
+  pendingApprovals?: boolean | Prisma.Agent$pendingApprovalsArgs<ExtArgs>
+  grants?: boolean | Prisma.Agent$grantsArgs<ExtArgs>
   _count?: boolean | Prisma.AgentCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AgentIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1309,6 +1605,8 @@ export type $AgentPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     authRequests: Prisma.$AuthorizationRequestPayload<ExtArgs>[]
     clearance: Prisma.$AgentClearancePayload<ExtArgs> | null
     executionTokens: Prisma.$ExecutionTokenPayload<ExtArgs>[]
+    pendingApprovals: Prisma.$PendingApprovalPayload<ExtArgs>[]
+    grants: Prisma.$GrantPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1722,6 +2020,8 @@ export interface Prisma__AgentClient<T, Null = never, ExtArgs extends runtime.Ty
   authRequests<T extends Prisma.Agent$authRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Agent$authRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuthorizationRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clearance<T extends Prisma.Agent$clearanceArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Agent$clearanceArgs<ExtArgs>>): Prisma.Prisma__AgentClearanceClient<runtime.Types.Result.GetResult<Prisma.$AgentClearancePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   executionTokens<T extends Prisma.Agent$executionTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Agent$executionTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExecutionTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pendingApprovals<T extends Prisma.Agent$pendingApprovalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Agent$pendingApprovalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PendingApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  grants<T extends Prisma.Agent$grantsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Agent$grantsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GrantPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2252,6 +2552,54 @@ export type Agent$executionTokensArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.ExecutionTokenScalarFieldEnum | Prisma.ExecutionTokenScalarFieldEnum[]
+}
+
+/**
+ * Agent.pendingApprovals
+ */
+export type Agent$pendingApprovalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PendingApproval
+   */
+  select?: Prisma.PendingApprovalSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PendingApproval
+   */
+  omit?: Prisma.PendingApprovalOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PendingApprovalInclude<ExtArgs> | null
+  where?: Prisma.PendingApprovalWhereInput
+  orderBy?: Prisma.PendingApprovalOrderByWithRelationInput | Prisma.PendingApprovalOrderByWithRelationInput[]
+  cursor?: Prisma.PendingApprovalWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PendingApprovalScalarFieldEnum | Prisma.PendingApprovalScalarFieldEnum[]
+}
+
+/**
+ * Agent.grants
+ */
+export type Agent$grantsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Grant
+   */
+  select?: Prisma.GrantSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Grant
+   */
+  omit?: Prisma.GrantOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GrantInclude<ExtArgs> | null
+  where?: Prisma.GrantWhereInput
+  orderBy?: Prisma.GrantOrderByWithRelationInput | Prisma.GrantOrderByWithRelationInput[]
+  cursor?: Prisma.GrantWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GrantScalarFieldEnum | Prisma.GrantScalarFieldEnum[]
 }
 
 /**

@@ -26,6 +26,7 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
 
   const key = generateApiKey()
   await db.agent.update({ where: { id: agentId }, data: { apiKeyHash: key.hash, apiKeyPrefix: key.prefix } })
+  revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/keys")
   return { ok: true, error: "", agentId, newKey: key.raw }
 }
@@ -38,6 +39,7 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   const owned = await ownedAgent(agentId)
   if (!owned) return
   await db.agent.update({ where: { id: agentId }, data: { isActive: active } })
+  revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/keys")
 }
 
@@ -77,6 +79,7 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
     })
   }
 
+  revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/keys")
   return { ok: true, error: "" }
 }
