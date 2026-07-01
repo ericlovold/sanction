@@ -46,6 +46,73 @@ export function spendActionType(action: string) {
   return `spend.${action}`
 }
 
+export const PROVISION_ACTION_TYPE = "provision.allocate"
+
+type ProvisionApprovalRequest = {
+  id: string
+  agentId: string
+  amountUsd: number
+  category: string
+  description: string | null
+  createdAt: Date
+  resource: string
+  lineItem: string
+  quantity: number
+  unitPriceUsd: number | null
+}
+
+// Provision escalation → the same PendingApproval/Grant workflow as spend.
+// resourceJson carries the full provision shape so the minted grant can be
+// matched exactly on retry (provisionGrantMatches) and rendered natively in
+// the approval inbox.
+export async function createProvisionPendingApproval(
+  client: ApprovalClient,
+  input: {
+    walletId: string
+    agentName: string
+    request: ProvisionApprovalRequest
+    policy: Exclude<EscalationPolicy, null>
+    reason: string
+  },
+) {
+  const { walletId, agentName, request, policy, reason } = input
+  const expiresAt =
+    policy.escalationTimeoutMins > 0
+      ? new Date(request.createdAt.getTime() + policy.escalationTimeoutMins * 60_000)
+      : null
+
+  return client.pendingApproval.create({
+    data: {
+      walletId,
+      agentId: request.agentId,
+      actionType: PROVISION_ACTION_TYPE,
+      subjectJson: { agent_id: request.agentId, agent_name: agentName },
+      resourceJson: {
+        kind: "provision",
+        resource: request.resource,
+        line_item: request.lineItem,
+        quantity: request.quantity,
+        unit_price_usd: request.unitPriceUsd,
+        amount_usd: request.amountUsd,
+        category: request.category,
+        description: request.description,
+      },
+      constraintsJson: {
+        one_use: true,
+        grant_ttl_mins: DEFAULT_SPEND_GRANT_TTL_MINS,
+        timeout_mins: policy.escalationTimeoutMins,
+        timeout_action: policy.escalationTimeoutAction,
+      },
+      reason,
+      code: "ESCALATION_REQUIRED",
+      sourceType: SOURCE_AUTHORIZATION_REQUEST,
+      sourceId: request.id,
+      expiresAt,
+      createdAt: request.createdAt,
+    } as never,
+  })
+}
+
 export async function createSpendPendingApproval(
   client: ApprovalClient,
   input: {

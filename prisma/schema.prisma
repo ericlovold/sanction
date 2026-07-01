@@ -218,6 +218,14 @@ model Policy {
   blockedTools  String[] @default([])
   escalateTools String[] @default([])
 
+  // Provision governance: authorize resource allocation (seats, licenses,
+  // infrastructure) the same way. Empty allowedResources = allow all (opt-in,
+  // like tools). A resource in escalateResources always requires human approval,
+  // regardless of amount.
+  allowedResources  String[] @default([])
+  blockedResources  String[] @default([])
+  escalateResources String[] @default([])
+
   // Escalation deadlock guard (UX-2): an escalated request that no human resolves
   // within escalationTimeoutMins is settled to the fallback terminal state on the
   // next read. 0 = wait indefinitely. Default action is fail-closed (deny).
@@ -342,10 +350,12 @@ model CredentialInjection {
 model AuthorizationRequest {
   id             String    @id @default(cuid())
   agentId        String
-  action         String    // purchase | subscribe | transfer
+  kind           String    @default("spend") // spend | provision
+  action         String    // spend: purchase | subscribe | transfer · provision: allocate
   amountUsd      Float
-  merchant       String
+  merchant       String    // provision rows store the resource here (shared display/audit column)
   category       String
+  detailsJson    Json?     // provision: { resource, line_item, quantity, unit_price_usd }
   description    String?
   status         String    @default("pending") // pending | approved | denied | escalated
   decidedAt      DateTime?
