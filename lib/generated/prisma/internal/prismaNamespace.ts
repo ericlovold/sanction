@@ -2306,6 +2306,9 @@ export const PolicyScalarFieldEnum = {
   allowedTools: 'allowedTools',
   blockedTools: 'blockedTools',
   escalateTools: 'escalateTools',
+  allowedResources: 'allowedResources',
+  blockedResources: 'blockedResources',
+  escalateResources: 'escalateResources',
   escalationTimeoutMins: 'escalationTimeoutMins',
   escalationTimeoutAction: 'escalationTimeoutAction',
   updatedAt: 'updatedAt'
@@ -2403,10 +2406,12 @@ export type CredentialInjectionScalarFieldEnum = (typeof CredentialInjectionScal
 export const AuthorizationRequestScalarFieldEnum = {
   id: 'id',
   agentId: 'agentId',
+  kind: 'kind',
   action: 'action',
   amountUsd: 'amountUsd',
   merchant: 'merchant',
   category: 'category',
+  detailsJson: 'detailsJson',
   description: 'description',
   status: 'status',
   decidedAt: 'decidedAt',
