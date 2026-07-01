@@ -31,13 +31,29 @@ jobs:
         continue-on-error: true
 
   db-tests:
-    # DB-backed budget-leak concurrency test against a disposable Neon test branch.
-    # Push-only (secrets aren't exposed to fork PRs). The test step skips until the
-    # TEST_DATABASE_URL secret is set, so it never blocks before you configure it.
+    # DB-backed regression net (budget-leak concurrency + end-to-end data-plane
+    # flow, and RLS isolation when that lands). Runs against an ephemeral Postgres
+    # service on EVERY push/PR — no external secret required, so these guarantees
+    # always gate.
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sanction
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanction"
+      # Deterministic non-production secrets; the DB tests need these to encrypt
+      # seed credentials and sign execution JWTs.
+      SANCTION_CREDENTIAL_ENCRYPTION_KEY: "Y2ktdGVzdC1lbmNyeXB0aW9uLWtleS1ub3QtcHJvZA=="
+      SANCTION_SIGNING_SECRET: "Y2ktdGVzdC1zaWduaW5nLXNlY3JldC1ub3QtcHJvZA=="
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,6 +63,7 @@ jobs:
       - run: npm ci
       - name: Prisma generate
         run: npx prisma generate
-      - name: Budget-leak concurrency test
-        if: ${{ env.TEST_DATABASE_URL != '' }}
-        run: DATABASE_URL="$TEST_DATABASE_URL" npm run test:db
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: DB tests (concurrency + e2e data plane)
+        run: npm run test:db

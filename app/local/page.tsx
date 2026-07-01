@@ -39,7 +39,7 @@ const steps = [
   {
     n: "03",
     title: "Managed compliance",
-    body: "We keep the stack current and compliant as models and rules change, and your assessor-ready audit report stays live, handed to you every quarter, before anyone asks.",
+    body: "We keep the stack current and compliant as models and rules change, and your assessor-ready audit report stays live, handed to you every quarter. For practices under HIPAA, we sign a business-associate agreement, so the paperwork your regulator expects is in place.",
   },
 ]
 

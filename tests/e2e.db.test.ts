@@ -1,0 +1,133 @@
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest"
+import { NextRequest } from "next/server"
+import { db } from "../lib/db"
+
+// next/server after() defers work past the response and only runs in a real
+// request scope; stub it to a no-op so escalation webhook/email side-effects
+// don't run in-test. NextRequest/NextResponse are preserved.
+vi.mock("next/server", async (orig) => {
+  const mod = await orig<typeof import("next/server")>()
+  return { ...mod, after: () => {} }
+})
+
+import { POST as createWallet } from "../app/api/v1/wallets/route"
+import { POST as createAgent } from "../app/api/v1/agents/route"
+import { POST as authorize } from "../app/api/v1/authorize/route"
+import { POST as storeCredential } from "../app/api/v1/credentials/vault/route"
+import { POST as issueExec } from "../app/api/v1/exec/route"
+import { POST as inject } from "../app/api/v1/credentials/inject/route"
+import { POST as revokeExec } from "../app/api/v1/exec/revoke/route"
+import { POST as resolveApproval } from "../app/api/v1/approvals/route"
+
+// End-to-end data-plane smoke against a REAL Postgres. Drives the actual route
+// handlers through the full lifecycle a customer hits — the cross-module
+// regression net that mocked unit tests can't provide (it would have caught the
+// exec/inject jti-mismatch P0). Gated; needs DATABASE_URL + the crypto/signing
+// env vars (CI provides both).
+const run = process.env.RUN_DB_TESTS === "1"
+
+function req(method: string, path: string, opts: { headers?: Record<string, string>; body?: unknown } = {}) {
+  return new NextRequest("https://test.local" + path, {
+    method,
+    headers: { "content-type": "application/json", ...(opts.headers ?? {}) },
+    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+  })
+}
+
+describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
+  let walletId = ""
+  let mgmtKey = ""
+  let apiKey = ""
+
+  beforeAll(async () => {
+    const ts = Date.now()
+    const w = await (await createWallet(req("POST", "/api/v1/wallets", { body: { name: "E2E", owner_email: `e2e-${ts}@example.com` } }))).json()
+    walletId = w.id
+    mgmtKey = w.management_key
+
+    // Deterministic policy so the auto-approve / escalate / deny bands are known.
+    await db.policy.update({
+      where: { walletId },
+      data: {
+        autoApproveUnderUsd: 1000, // $10
+        escalateOverUsd: 5000, // $50
+        perTransactionMaxUsd: 10000, // $100
+        dailySpendBudgetUsd: 1_000_000,
+        allowedCategories: [],
+        blockedCategories: ["gambling"],
+      },
+    })
+
+    const a = await (await createAgent(req("POST", "/api/v1/agents", { headers: { "x-mgmt-key": mgmtKey }, body: { wallet_id: walletId, name: "agent" } }))).json()
+    apiKey = a.api_key
+  })
+
+  afterAll(async () => {
+    if (walletId) {
+      await db.credentialInjection.deleteMany({ where: { executionToken: { walletId } } })
+      await db.executionToken.deleteMany({ where: { walletId } })
+      await db.credentialVault.deleteMany({ where: { walletId } })
+      await db.authorizationRequest.deleteMany({ where: { agent: { walletId } } })
+      await db.agentClearance.deleteMany({ where: { walletId } })
+      await db.agent.deleteMany({ where: { walletId } })
+      await db.policy.deleteMany({ where: { walletId } })
+      await db.wallet.deleteMany({ where: { id: walletId } })
+    }
+  })
+
+  const agentH = () => ({ "x-api-key": apiKey })
+  const mgmtH = () => ({ "x-mgmt-key": mgmtKey })
+
+  it("seeded a wallet + agent with usable keys", () => {
+    expect(walletId).toBeTruthy()
+    expect(mgmtKey).toMatch(/^sk_/)
+    expect(apiKey).toMatch(/^pxy_/)
+  })
+
+  it("authorizes a sub-floor spend (approved)", async () => {
+    const res = await authorize(req("POST", "/api/v1/authorize", { headers: agentH(), body: { action: "purchase", amount_usd: 5, merchant: "Anthropic", category: "software" } }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).authorized).toBe(true)
+  })
+
+  it("denies a blocked category", async () => {
+    const res = await authorize(req("POST", "/api/v1/authorize", { headers: agentH(), body: { action: "purchase", amount_usd: 5, merchant: "X", category: "gambling" } }))
+    expect(res.status).toBe(403)
+    expect((await res.json()).status).toBe("denied")
+  })
+
+  it("credential lifecycle: store → exec → inject (jti round-trip) → revoke → inject fails", async () => {
+    const store = await storeCredential(req("POST", "/api/v1/credentials/vault", { headers: mgmtH(), body: { wallet_id: walletId, label: "openai", type: "api_key", value: "sk-secret-xyz" } }))
+    expect(store.status).toBe(201)
+
+    const ex = await (await issueExec(req("POST", "/api/v1/exec", { headers: agentH(), body: { scope: ["openai"], budget_usd: 5 } }))).json()
+    expect(ex.jwt).toBeTruthy()
+    expect(ex.jti).toBeTruthy()
+
+    // The round-trip that would have caught the exec/inject jti-mismatch P0:
+    const inj = await inject(req("POST", "/api/v1/credentials/inject", { headers: { authorization: `Bearer ${ex.jwt}` }, body: { credential_label: "openai" } }))
+    expect(inj.status).toBe(200)
+    expect((await inj.json()).value).toBe("sk-secret-xyz")
+
+    const rev = await revokeExec(req("POST", "/api/v1/exec/revoke", { headers: mgmtH(), body: { wallet_id: walletId, jti: ex.jti } }))
+    expect(rev.status).toBe(200)
+
+    const inj2 = await inject(req("POST", "/api/v1/credentials/inject", { headers: { authorization: `Bearer ${ex.jwt}` }, body: { credential_label: "openai" } }))
+    expect(inj2.status).toBe(401)
+  })
+
+  it("human-in-the-loop: escalation → owner approval", async () => {
+    const esc = await authorize(req("POST", "/api/v1/authorize", { headers: agentH(), body: { action: "purchase", amount_usd: 60, merchant: "Vendor", category: "software" } }))
+    const ebody = await esc.json()
+    expect(ebody.status).toBe("escalated")
+
+    const resolved = await resolveApproval(req("POST", "/api/v1/approvals", { headers: mgmtH(), body: { wallet_id: walletId, request_id: ebody.request_id, decision: "approve" } }))
+    expect(resolved.status).toBe(200)
+    expect((await resolved.json()).status).toBe("approved")
+  })
+
+  it("rejects an unauthenticated data-plane call", async () => {
+    const res = await authorize(req("POST", "/api/v1/authorize", { body: { action: "purchase", amount_usd: 5, merchant: "X", category: "software" } }))
+    expect(res.status).toBe(401)
+  })
+})
