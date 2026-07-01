@@ -4,6 +4,8 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decidePolicy, decisionCode, REMEDIATION } from "@/lib/decisions"
+import { evaluate } from "@/lib/evaluation"
+import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
@@ -80,22 +82,29 @@ export async function POST(req: NextRequest) {
     execTokenId = claims.jti
   }
 
-  // Stateless gates (no budget state involved)
-  if (policy.blockedCategories.includes(category)) {
-    const note = `Category '${category}' is blocked`
-    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
+  // Shared spend context for the decision engine (ADR-0009). Budget-state fields
+  // (dailySpentUsd, exec) are filled per phase; everything else is stable here.
+  const ctxBase: Omit<SpendContext, "dailySpentUsd" | "exec"> = {
+    amountUsd: amount_usd,
+    amountCents,
+    category,
+    blockedCategories: policy.blockedCategories,
+    allowedCategories: policy.allowedCategories,
+    perTxnMaxCents: perTxnMax,
+    dailyBudgetCents: dailySpendBudget,
+    autoApproveUnderCents: policy.autoApproveUnderUsd,
+    escalateOverCents: escalateOver,
+    escalationTimeoutMins: policy.escalationTimeoutMins,
+    escalationTimeoutAction: policy.escalationTimeoutAction as "approve" | "deny",
   }
-  // Allow-list: when set (non-empty), only listed categories may spend. Empty = allow all.
-  if (policy.allowedCategories.length > 0 && !policy.allowedCategories.includes(category)) {
-    const note = `Category '${category}' is not in the allow-list`
-    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
-  }
-  if (amountCents > perTxnMax) {
-    const note = `Exceeds per-transaction limit of $${perTxnMax / 100}`
-    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
+
+  // Stateless gates (no budget state) run before the advisory lock. The simulate
+  // path uses the shared ladder (decidePolicy) below, so it need not repeat them.
+  if (!simulate) {
+    const gate = evaluate({ ...ctxBase, dailySpentUsd: 0 }, SPEND_STATELESS)
+    if (gate.effect === "deny") {
+      return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: gate.reason }, agent.name)
+    }
   }
 
   // Stateful gate: daily-spend check + write must be atomic, otherwise two
@@ -128,42 +137,38 @@ export async function POST(req: NextRequest) {
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
+      // Read budget state under the lock, then decide via the engine. The daily
+      // and execution-budget gates are stateful, so they run here (not in the
+      // stateless pre-check) — and before the ladder, so a sub-floor charge can
+      // never bypass a hard budget.
       const dailySpend = await tx.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
         _sum: { amountUsd: true },
       })
-      const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
-      if (dailyTotalCents > dailySpendBudget) {
-        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
-      }
-
-      // Execution-scoped hard cap (re-read under the lock for atomicity). This is a
-      // deny gate and must run before the auto-approve floor below, so a sub-floor
-      // charge can never bypass the execution's hard budget.
+      let exec: SpendContext["exec"]
       if (execTokenId) {
         const et = await tx.executionToken.findUnique({ where: { id: execTokenId } })
-        if (!et || et.status !== "active" || et.expiresAt < new Date()) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Execution token expired or revoked" } })
-        }
-        if (Math.round((et.spentUsd + amount_usd) * 100) > Math.round(et.budgetUsd * 100)) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Execution budget exceeded" } })
-        }
+        const valid = !!et && et.status === "active" && et.expiresAt >= new Date()
+        exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      // Mirrors decidePolicy() in lib/decisions.ts (the simulate path + tests use it
-      // directly); keep the two in sync. Silent auto-approve floor: at or under this,
-      // never escalate (policy-level, not per-agent). The floor wins over escalation.
-      const underFloor = amountCents <= policy.autoApproveUnderUsd
-      if (!underFloor && amountCents > escalateOver) {
+      const decision = evaluate({ ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, exec }, SPEND_STATEFUL)
+
+      if (decision.effect === "deny") {
+        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
+      }
+      if (decision.effect === "escalate") {
+        // No decisionNote — the response derives ESCALATION_REQUIRED from status.
         return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
       }
 
-      // Single approval path so the execution budget is debited on every approval,
-      // including sub-floor ones — otherwise repeated small charges never decrement it.
+      // Approved. Honor the reserve_budget obligation (the exec-token debit) when
+      // there's an execution token to enforce it against — debited on every
+      // approval, including sub-floor ones, so small charges still decrement it.
       const approved = await tx.authorizationRequest.create({
-        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: underFloor ? "Auto-approved (under auto-approve floor)" : "Auto-approved by policy" },
+        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
       })
-      if (execTokenId) {
+      if (execTokenId && decision.obligations.some((o) => o.type === "reserve_budget")) {
         await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })
       }
       return approved

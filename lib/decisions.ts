@@ -1,3 +1,6 @@
+import { evaluate } from "@/lib/evaluation"
+import { SPEND_LADDER } from "@/lib/rules/spend"
+
 // Typed decision codes for /authorize responses (UX-1).
 //
 // Agents replan reliably on a stable machine-readable `code` + `remediation`
@@ -52,28 +55,33 @@ export type DecideInput = {
 }
 
 /**
- * The pure spend-decision ladder — no exec-token, no IO. This is the canonical
- * logic the simulate path runs directly; the live locked transaction in
- * app/api/v1/authorize/route.ts mirrors it (and adds the exec-budget gate).
- * Keep the two in sync. Notes here must match the strings `decisionCode` maps.
+ * The pure spend-decision ladder — no exec-token, no IO. Now a thin adapter over
+ * the policy decision engine (ADR-0009): it runs the SPEND_LADDER rules and maps
+ * the Decision back to this legacy shape. The live /authorize route runs the same
+ * rules (plus the exec-budget gate) inside its advisory lock, so the two can no
+ * longer drift. Notes here must match the strings `decisionCode` maps.
  *
  * Precedence: blocked → allow-list → per-txn → daily budget → floor-over-escalation
  * (at/under the auto-approve floor we never escalate).
  */
 export function decidePolicy(i: DecideInput): PolicyDecision {
-  if (i.blockedCategories.includes(i.category)) return { status: "denied", note: `Category '${i.category}' is blocked` }
-  if (i.allowedCategories.length > 0 && !i.allowedCategories.includes(i.category)) {
-    return { status: "denied", note: `Category '${i.category}' is not in the allow-list` }
-  }
-  const amountCents = Math.round(i.amountUsd * 100)
-  if (amountCents > i.perTxnMaxCents) return { status: "denied", note: `Exceeds per-transaction limit of $${i.perTxnMaxCents / 100}` }
-  // Sum dollars then round, matching the live daily-budget comparison exactly.
-  if (Math.round((i.dailySpentUsd + i.amountUsd) * 100) > i.dailyBudgetCents) {
-    return { status: "denied", note: "Daily spend budget exceeded" }
-  }
-  if (amountCents <= i.autoApproveUnderCents) return { status: "approved", note: "Auto-approved (under auto-approve floor)" }
-  if (amountCents > i.escalateOverCents) return { status: "escalated", note: "Exceeds escalation threshold" }
-  return { status: "approved", note: "Auto-approved by policy" }
+  const d = evaluate(
+    {
+      amountUsd: i.amountUsd,
+      amountCents: Math.round(i.amountUsd * 100),
+      category: i.category,
+      blockedCategories: i.blockedCategories,
+      allowedCategories: i.allowedCategories,
+      perTxnMaxCents: i.perTxnMaxCents,
+      dailySpentUsd: i.dailySpentUsd,
+      dailyBudgetCents: i.dailyBudgetCents,
+      autoApproveUnderCents: i.autoApproveUnderCents,
+      escalateOverCents: i.escalateOverCents,
+    },
+    SPEND_LADDER,
+  )
+  const status = d.effect === "allow" ? "approved" : d.effect === "escalate" ? "escalated" : "denied"
+  return { status, note: d.reason ?? "" }
 }
 
 /** Map a persisted decision to a stable code. `undefined` for an approval. */
