@@ -92,8 +92,8 @@ export default function LocalOffering() {
           <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">When cloud AI isn&apos;t an option</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <p className="text-zinc-300">
-              Confidentiality isn&apos;t optional. <span className="text-zinc-500">ABA Model Rule 1.6</span> means a
-              law firm can&apos;t put client matters into a public chatbot. <span className="text-zinc-500">HIPAA</span> says
+              Confidentiality isn&apos;t optional. <span className="text-zinc-500">ABA Model Rule 1.6</span>{" "}means a
+              law firm can&apos;t put client matters into a public chatbot. <span className="text-zinc-500">HIPAA</span>{" "}says
               the same for a clinic. Yet your staff are already pasting sensitive work into ChatGPT because it helps,
               and that&apos;s the exposure you&apos;ll have to explain.
             </p>
@@ -146,9 +146,9 @@ export default function LocalOffering() {
         <div className="mx-auto max-w-5xl px-6 py-16">
           <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">Why this works when others can&apos;t</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-3 text-sm text-zinc-400">
-            <p><span className="text-zinc-200">Cloud AI vendors can&apos;t.</span> &quot;Your data never leaves&quot; is architecturally impossible when the model lives on their servers.</p>
-            <p><span className="text-zinc-200">Big consultancies won&apos;t.</span> A 6-attorney firm or a 3-physician clinic is below their floor. You&apos;re the customer they skip.</p>
-            <p><span className="text-zinc-200">We do both.</span> The whole stack runs on your hardware, and Sanction proves nothing left. The audit trail is the deliverable, not an afterthought.</p>
+            <p><span className="text-zinc-200">Cloud AI vendors can&apos;t.</span>{" "}&quot;Your data never leaves&quot; is architecturally impossible when the model lives on their servers.</p>
+            <p><span className="text-zinc-200">Big consultancies won&apos;t.</span>{" "}A 6-attorney firm or a 3-physician clinic is below their floor. You&apos;re the customer they skip.</p>
+            <p><span className="text-zinc-200">We do both.</span>{" "}The whole stack runs on your hardware, and Sanction proves nothing left. The audit trail is the deliverable, not an afterthought.</p>
           </div>
         </div>
       </section>
