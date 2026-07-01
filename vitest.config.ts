@@ -11,6 +11,14 @@ export default defineConfig({
       // Generated client + static data/infra carry no logic worth covering.
       exclude: ["lib/generated/**", "lib/openapi.ts", "lib/db.ts", "lib/log.ts", "**/*.d.ts"],
       reporter: ["text-summary"],
+      // Ratchet floor — set just below current so coverage can't silently
+      // regress. Raise as coverage grows; never lower.
+      thresholds: {
+        statements: 30,
+        lines: 30,
+        functions: 45,
+        branches: 65,
+      },
     },
   },
 })
