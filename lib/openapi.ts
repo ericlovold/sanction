@@ -40,6 +40,10 @@ export const spec = {
           merchant: { type: "string", description: "Vendor or service name" },
           category: { type: "string", description: "Spend category (e.g. software, services, research, infrastructure)" },
           description: { type: "string", description: "Optional description of what this spend is for" },
+          grant_id: {
+            type: "string",
+            description: "Short-lived approval grant returned from GET /authorize/{request_id}. Retry the exact approved request with this field to consume the grant.",
+          },
         },
       },
       AuthorizeResponse: {
@@ -50,7 +54,23 @@ export const spec = {
           reason: { type: "string", description: "Human-readable explanation of the decision" },
           code: {
             type: "string",
-            enum: ["ESCALATION_REQUIRED", "ESCALATION_TIMED_OUT", "NO_POLICY", "CATEGORY_BLOCKED", "CATEGORY_NOT_ALLOWED", "PER_TXN_LIMIT", "DAILY_BUDGET_EXCEEDED", "SUBTREE_CAP_EXCEEDED", "EXEC_BUDGET_EXCEEDED", "POLICY_DENIED"],
+            enum: [
+              "ESCALATION_REQUIRED",
+              "ESCALATION_TIMED_OUT",
+              "NO_POLICY",
+              "CATEGORY_BLOCKED",
+              "CATEGORY_NOT_ALLOWED",
+              "PER_TXN_LIMIT",
+              "DAILY_BUDGET_EXCEEDED",
+              "SUBTREE_CAP_EXCEEDED",
+              "EXEC_BUDGET_EXCEEDED",
+              "GRANT_NOT_FOUND",
+              "GRANT_ALREADY_USED",
+              "GRANT_EXPIRED",
+              "GRANT_MISMATCH",
+              "GRANT_UNSUPPORTED",
+              "POLICY_DENIED",
+            ],
             description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
           },
           remediation: { type: "string", description: "Suggested next step for the agent when not approved" },
@@ -58,6 +78,10 @@ export const spec = {
           agent: { type: "string" },
           amount_usd: { type: "number" },
           merchant: { type: "string" },
+          grant_id: { type: "string", description: "Grant issued by a human approval for this request" },
+          grant_status: { type: "string", enum: ["active", "consumed", "expired", "revoked"] },
+          grant_consumed_at: { type: "string", format: "date-time" },
+          grant_expires_at: { type: "string", format: "date-time" },
         },
       },
       ExecRevokeRequest: {
@@ -336,7 +360,7 @@ export const spec = {
         operationId: "authorizeSpend",
         summary: "Authorize a spend action",
         description:
-          "Check whether an agent is permitted to make a purchase, subscription, or transfer. Always call this before any financial transaction. Returns immediately with approved, denied, or escalated status. Escalated means a human must approve before proceeding.",
+          "Check whether an agent is permitted to make a purchase, subscription, or transfer. Always call this before any financial transaction. Returns immediately with approved, denied, or escalated status. Escalated means a human must approve before proceeding; after approval, retry the exact request with grant_id to consume the one-use grant.",
         security: [{ AgentApiKey: [] }],
         requestBody: {
           required: true,
