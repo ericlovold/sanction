@@ -110,6 +110,30 @@ server.tool(
   }
 )
 
+// Tool: Authorize an MCP tool invocation
+server.tool(
+  "sanction_authorize_tool",
+  "Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
+  {
+    tool: z.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
+    server: z.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' — advisory context for the owner"),
+    arguments: z.record(z.string(), z.unknown()).optional().describe("The arguments the tool would be called with — surfaced to the owner on escalation"),
+  },
+  async ({ tool, server: srv, arguments: args }) => {
+    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args })
+    const authorized = result.authorized === true
+    return {
+      content: [{
+        type: "text" as const,
+        text: authorized
+          ? `✓ Authorized — ${tool}`
+          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval." : "Do not invoke."}`,
+      }],
+      isError: !authorized,
+    }
+  }
+)
+
 // Tool: Log LLM token usage
 server.tool(
   "sanction_log_tokens",
