@@ -35,13 +35,13 @@ const pillars = [
 
 const tiers = [
   {
-    name: "Free",
-    price: "$0",
+    name: "Individual",
+    price: "Free",
     cadence: "no card",
-    blurb: "The whole platform. Govern as many agents as you want.",
+    blurb: "For solo builders shipping real agents across personal, production, and client projects.",
     features: [
-      "Unlimited agents & wallets",
-      "Unlimited authorizations",
+      "Agent wallets for any project",
+      "Spend and action authorizations",
       "Token budgets + the LLM gateway",
       "Approvals, credential vault & audit log",
     ],
@@ -51,14 +51,14 @@ const tiers = [
   },
   {
     name: "Enterprise",
-    price: "Talk to us",
-    cadence: "",
-    blurb: "For teams and regulated deployments. Roadmap capabilities; talk to us about timing.",
+    price: "Paid license",
+    cadence: "pricing on request",
+    blurb: "For teams, regulated deployments, and governed autonomous systems.",
     features: [
-      "SSO & team roles",
-      "Audit log export",
-      "On-prem / air-gapped install",
-      "SLA & dedicated support",
+      "Enterprise license terms",
+      "SSO, team roles & policy administration",
+      "Audit export, retention & compliance support",
+      "Dedicated support, SLA & deployment options",
     ],
     cta: "Contact us",
     href: "mailto:eric@getsanction.com?subject=Sanction%20Enterprise",
@@ -500,8 +500,8 @@ export default function Landing() {
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-zinc-900">
         <div className="text-center">
           <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Pricing</h2>
-          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Free while we grow.</h3>
-          <p className="mt-3 text-zinc-400">Unlimited agents, no card. The whole platform is free today — paid plans for teams and enterprises come later.</p>
+          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Free for individuals. Paid licenses for enterprises.</h3>
+          <p className="mt-3 text-zinc-400">Solo builders can use Sanction free across personal work, production apps, and client projects. Enterprise licenses are available for teams that need contracts, support, compliance posture, and deployment control.</p>
         </div>
         <div className="mt-10 grid sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
           {tiers.map((t) => (
