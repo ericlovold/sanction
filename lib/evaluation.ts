@@ -19,6 +19,7 @@ export type Obligation = { enforcement: "required" | "advisory" } & (
   | { type: "audit_log"; event: string }
   | { type: "human_approval"; approvers?: string[]; count?: number; timeoutMins?: number; onTimeout?: "allow" | "deny" }
   | { type: "no_egress"; destinations?: string[] }
+  | { type: "no_store" } // never cache the result (e.g. a decrypted secret)
   | { type: "require_reviewers"; count: number }
 )
 
