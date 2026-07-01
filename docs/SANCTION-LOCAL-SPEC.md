@@ -61,15 +61,27 @@ Local Loop, so validate against current model cards before they go in the sheet.
 
 ## Fork manifest (grounded in the xcai-aiia tree; validate file-by-file on extraction)
 
-### KEEP → the Sanction Local core
-- `local_brain/eq_brain/` — brain, `knowledge_store` (Chroma), `ollama_client`, `memory_sync`,
-  `session_indexer`: the local RAG + memory runtime.
-- `local_brain/` core: `ollama_client`, `inference_router`, `local_api`, `config`, `vault_paths`.
-- `xcai_intelligence/frontend/` — the AIIA interface (memory viz, dev mode).
-- `services/llm_service.py` — **reduced to LOCAL / Ollama only** (cloud providers stripped).
-- `xcai_intelligence/core/` — shared engine (trim to what the core imports).
-- The ingest → chunk → embed → store pipeline + local embeddings.
-- A **minimal** `api/` — query, ingest/upload, memory — trimmed from the 18 routes.
+> **Scoping finding (verified by import trace):** the KEEP core is *entangled*. The
+> `eq_brain` orchestration (`brain.py`, `__init__.py`, `memory_sync`, `session_indexer`)
+> imports `supermemory_bridge`, `a2a`, `google_tts`, `voice_handler`, `slack_client` —
+> so a wholesale copy drags the cloud seams back in. The extraction is therefore
+> **harvest the clean primitives + re-implement a minimal orchestrator**, not a copy.
+> Good news: the load-bearing IP (local RAG + local inference) is already cloud-free.
+
+**KEEP → harvest the clean primitives (verified cloud-free, copy near-as-is)**
+- `local_brain/eq_brain/knowledge_store.py` — ChromaDB + local MiniLM embeddings; docstring
+  "all data stays local." The RAG core.
+- `local_brain/ollama_client.py` — local inference + embeddings.
+- `local_brain/inference_router.py` — local routing.
+- `xcai_intelligence/frontend/` — the AIIA interface (verify its build stack on extraction).
+
+**RE-IMPLEMENT minimally (do NOT copy — carries cloud/multi-tenant coupling)**
+- The `eq_brain` orchestration → a small v1 orchestrator that wires `knowledge_store` +
+  `ollama_client` into **ingest → retrieve → draft**. Small, because v1 doesn't do agentic
+  loops (Line 3 / HITL-is-later).
+- `services/llm_service.py` → strip to **LOCAL / Ollama only**; delete the Anthropic/Google
+  provider paths; default fail-closed.
+- A **minimal** local `api/` (query, ingest/upload, memory) — a handful of routes, not the 18.
 
 ### STRIP forever → abandon (don't maintain)
 - **All 19 `products/`** (cathcap, aplora-*, codeword, family-law, dreamscapes, …) and their frontends.
