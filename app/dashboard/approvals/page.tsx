@@ -12,10 +12,50 @@ import { getViewWallet } from "@/lib/session"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
-  description: "Approve or reject agent charges that escalated for human review.",
+  description: "Approve or reject governed agent actions that need human review.",
 }
 
 export const dynamic = "force-dynamic"
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function actionLabel(actionType: string) {
+  return actionType
+    .split(".")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function resourceTitle(resource: Record<string, unknown>, actionType: string) {
+  if (resource.kind === "spend") {
+    const amount = numberValue(resource.amount_usd)
+    const merchant = stringValue(resource.merchant) ?? "Unknown merchant"
+    return amount === null ? merchant : `$${amount.toFixed(2)} ${merchant}`
+  }
+  return (
+    stringValue(resource.label) ??
+    stringValue(resource.tool_name) ??
+    stringValue(resource.credential_label) ??
+    stringValue(resource.name) ??
+    actionLabel(actionType)
+  )
+}
+
+const statusClasses: Record<string, string> = {
+  approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+  denied: "bg-red-500/15 text-red-400 border-red-500/20",
+  expired: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
+}
 
 export default async function ApprovalsPage() {
   const view = await getViewWallet()
@@ -37,20 +77,20 @@ export default async function ApprovalsPage() {
   const pendingRows = await listPendingApprovals(walletId)
   const pending: PendingApproval[] = pendingRows.map((r) => ({
     id: r.id,
-    merchant: r.merchant,
-    amountUsd: r.amountUsd,
-    category: r.category,
-    action: r.action,
-    description: r.description,
+    actionType: r.actionType,
+    reason: r.reason,
+    code: r.code,
+    subject: asRecord(r.subjectJson),
+    resource: asRecord(r.resourceJson),
+    constraints: r.constraintsJson ? asRecord(r.constraintsJson) : null,
     agentName: r.agent.name,
     createdAt: r.createdAt.toISOString(),
+    expiresAt: r.expiresAt?.toISOString() ?? null,
   }))
 
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true } })
-  const agentIds = agents.map((a) => a.id)
-  const resolved = await db.authorizationRequest.findMany({
-    where: { agentId: { in: agentIds }, decisionNote: { in: ["Approved by owner", "Rejected by owner"] } },
-    orderBy: { decidedAt: "desc" },
+  const resolved = await db.pendingApproval.findMany({
+    where: { walletId, status: { in: ["approved", "denied", "expired"] } },
+    orderBy: { updatedAt: "desc" },
     take: 8,
     include: { agent: { select: { name: true } } },
   })
@@ -66,7 +106,7 @@ export default async function ApprovalsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">{view.name} · escalated charges awaiting a decision</p>
+          <p className="text-sm text-zinc-500">{view.name} · human authorization inbox</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <DashboardNav active="approvals" />
@@ -90,12 +130,15 @@ export default async function ApprovalsPage() {
             {resolved.map((r) => (
               <div key={r.id} className="flex items-center justify-between text-sm">
                 <div className="min-w-0">
-                  <p className="truncate text-zinc-300">{r.merchant} <span className="text-zinc-600">· {r.agent.name}</span></p>
-                  <p className="text-[11px] text-zinc-600">{r.decidedAt ? new Date(r.decidedAt).toLocaleString() : ""}</p>
+                  <p className="truncate text-zinc-300">
+                    {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-zinc-600">· {r.agent.name}</span>
+                  </p>
+                  <p className="text-[11px] text-zinc-600">
+                    {actionLabel(r.actionType)} · {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : ""}
+                  </p>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-2">
-                  <span className="font-mono text-xs text-zinc-400">${r.amountUsd.toFixed(2)}</span>
-                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${r.status === "approved" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-red-500/15 text-red-400 border-red-500/20"}`}>{r.status}</span>
+                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>
                 </div>
               </div>
             ))}

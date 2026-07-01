@@ -10,6 +10,7 @@ import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
+import { createSpendPendingApproval } from "@/lib/approvals"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
@@ -177,8 +178,10 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
       }
       if (decision.effect === "escalate") {
-        // No decisionNote — the response derives ESCALATION_REQUIRED from status.
-        return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+        // No decisionNote - the response derives ESCALATION_REQUIRED from status.
+        const escalated = await tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+        await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
+        return escalated
       }
 
       // Approved by the engine. Reserve daily spend against every capped ancestor
@@ -207,10 +210,23 @@ export async function POST(req: NextRequest) {
     // Notify the owner (best-effort, after the response) when a human is needed
     // or a budget tripped — the make-or-break human-in-the-loop moment.
     if (result.status === "escalated") {
+      const approval = await db.pendingApproval.findFirst({
+        where: { sourceType: "authorization_request", sourceId: result.id },
+        select: { id: true, actionType: true, resourceJson: true, reason: true },
+      })
       after(() =>
         Promise.all([
+          deliverEvent(agent.walletId, "approval.created", {
+            approval_id: approval?.id,
+            request_id: result.id,
+            action_type: approval?.actionType ?? `spend.${action}`,
+            agent: agent.name,
+            resource: approval?.resourceJson ?? { kind: "spend", action, amount_usd, merchant, category, description },
+            reason: approval?.reason ?? "Exceeds escalation threshold",
+            approve_url: APPROVE_URL,
+          }),
           deliverEvent(agent.walletId, "escalation.created", {
-            request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
+            approval_id: approval?.id, request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
           }),
           // Email the owner directly, so escalations reach them even with no webhook registered.
           sendEscalationEmail(agent.wallet.ownerEmail, {
