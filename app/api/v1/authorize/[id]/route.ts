@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ? await db.grant.findFirst({
           where: { sourceType: "authorization_request", sourceId: reqRow.id },
           orderBy: { createdAt: "desc" },
-          select: { id: true, expiresAt: true },
+          select: { id: true, status: true, expiresAt: true, consumedAt: true },
         })
       : null
 
@@ -49,6 +49,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     merchant: reqRow.merchant,
     decided_at: d.decidedAt,
     grant_id: grant?.id,
+    grant_status: grant?.status,
+    grant_consumed_at: grant?.consumedAt,
     grant_expires_at: grant?.expiresAt,
   })
 }

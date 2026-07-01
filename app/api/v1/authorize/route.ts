@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decidePolicy, decisionCode, REMEDIATION } from "@/lib/decisions"
+import { decidePolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { evaluate } from "@/lib/evaluation"
 import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
@@ -11,6 +11,7 @@ import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import { createSpendPendingApproval } from "@/lib/approvals"
+import { consumeSpendGrant } from "@/lib/grants"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
@@ -28,6 +29,7 @@ const schema = z.object({
   merchant: z.string(),
   category: z.string(),
   description: z.string().optional(),
+  grant_id: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -48,12 +50,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { action, amount_usd, merchant, category, description } = parsed.data
+  const { action, amount_usd, merchant, category, description, grant_id } = parsed.data
+  if (simulate && grant_id) {
+    return NextResponse.json({ error: "grant_id cannot be used with simulate=true" }, { status: 400 })
+  }
+
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
 
   // Idempotent replay: a retry with the same key returns the original decision.
-  if (idempotencyKey) {
+  if (idempotencyKey && !grant_id) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
@@ -61,21 +67,8 @@ export async function POST(req: NextRequest) {
   }
 
   const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
-
-  // No policy = deny by default
-  if (!policy) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
-  }
-
   const amountCents = Math.round(amount_usd * 100)
   const ancestorChain = await walletAncestorChain(db, agent.walletId)
-
-  // Effective limits: a per-agent override wins over the wallet policy, then every
-  // ancestor wallet can only tighten the per-transaction ceiling. Tree-wide daily
-  // caps are separate and opt-in via Policy.subtreeDailyCapUsd below.
-  const perTxnMax = effectivePerTransactionMaxCents(agent.perTransactionMaxUsd, policy.perTransactionMaxUsd, ancestorChain)
-  const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
-  const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
 
   // Optional execution context: if the agent presents its exec JWT, this call is
   // additionally capped by that execution's hard budget (enforced in the lock).
@@ -93,6 +86,62 @@ export async function POST(req: NextRequest) {
     }
     execTokenId = claims.jti
   }
+
+  if (grant_id) {
+    const now = new Date()
+    try {
+      const grantResult = await db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
+        return consumeSpendGrant(tx, {
+          grantId: grant_id,
+          walletId: agent.walletId,
+          agentId: agent.id,
+          request: { action, amountUsd: amount_usd, amountCents, merchant, category, description },
+          ancestorChain,
+          execTokenId,
+          now,
+        })
+      })
+
+      if (grantResult.ok) {
+        return NextResponse.json(
+          {
+            ...decisionResponse(grantResult.request, agent.name),
+            grant_id: grantResult.grantId,
+            grant_status: "consumed",
+            grant_consumed_at: grantResult.consumedAt,
+            grant_expires_at: grantResult.grantExpiresAt,
+          },
+          { status: 200 },
+        )
+      }
+
+      return NextResponse.json(
+        deniedResponse(grantResult.code, grantResult.reason, agent.name, amount_usd, merchant),
+        { status: grantResult.status },
+      )
+    } catch (e) {
+      if (e instanceof CascadeBudgetExceeded) {
+        return NextResponse.json(
+          deniedResponse("SUBTREE_CAP_EXCEEDED", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant),
+          { status: 403 },
+        )
+      }
+      throw e
+    }
+  }
+
+  // No policy = deny by default
+  if (!policy) {
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
+  }
+
+  // Effective limits: a per-agent override wins over the wallet policy, then every
+  // ancestor wallet can only tighten the per-transaction ceiling. Tree-wide daily
+  // caps are separate and opt-in via Policy.subtreeDailyCapUsd below.
+  const perTxnMax = effectivePerTransactionMaxCents(agent.perTransactionMaxUsd, policy.perTransactionMaxUsd, ancestorChain)
+  const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
+  const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
 
   // Shared spend context for the decision engine (ADR-0009). Budget-state fields
   // (dailySpentUsd, exec) are filled per phase; everything else is stable here.
@@ -276,6 +325,20 @@ function decisionResponse(r: Decision, agentName: string) {
     agent: agentName,
     amount_usd: r.amountUsd,
     merchant: r.merchant,
+  }
+}
+
+function deniedResponse(code: DecisionCode, reason: string, agentName: string, amount_usd: number, merchant: string) {
+  return {
+    authorized: false,
+    status: "denied",
+    request_id: null,
+    reason,
+    code,
+    remediation: REMEDIATION[code],
+    agent: agentName,
+    amount_usd,
+    merchant,
   }
 }
 

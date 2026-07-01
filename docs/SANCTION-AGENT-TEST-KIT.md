@@ -179,10 +179,13 @@ Once a charge is `escalated` (see B5 / set `escalate_over_usd` below `per_transa
 1. **Agent waits:** poll `GET /authorize/<request_id>` (x-api-key) — status stays `escalated`.
 2. **Owner sees it:** `GET /approvals?wallet_id=$WALLET_ID` (x-mgmt-key), or the dashboard **Approvals** tab.
 3. **Owner decides:** `POST /approvals {wallet_id, request_id, decision:"approve"|"reject", note}` — or click Approve/Reject.
-4. **Agent learns the outcome:** re-poll `GET /authorize/<request_id>` → now `approved` / `denied` with the note.
+4. **Agent learns the outcome:** re-poll `GET /authorize/<request_id>` → now `approved` / `denied` with the note. An approval includes `grant_id`, `grant_status:"active"`, and `grant_expires_at`.
+5. **Agent consumes the grant:** retry the exact same `POST /authorize` payload with `"grant_id":"<grant_id>"` before the grant expires.
+6. **Agent verifies single-use:** retrying again with the same grant returns `409`, `code:"GRANT_ALREADY_USED"`.
 
 **Expected:** the agent can poll a stable result; the owner sees the queue; resolving flips the
-status once (a second resolve returns `409`).
+status once (a second resolve returns `409`). A consumed approval grant returns
+`grant_status:"consumed"` and records the spend against subtree caps and any execution-token budget.
 
 ### B8b. Escalation timeout — the agent never deadlocks
 An escalation that no human resolves within `escalationTimeoutMins` settles to the fallback
