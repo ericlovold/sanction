@@ -103,8 +103,7 @@ export default function LocalOffering() {
               It isn&apos;t only law and medicine. Any practice trusted with a client&apos;s financial or personal
               records, from real estate to accounting to financial advisory, carries the same exposure. The cloud
               AI vendors can&apos;t remove that risk for you. Sending your data to their servers is the whole problem.
-              And the big consultancies won&apos;t take a practice your size. So the people with the clearest, most
-              urgent need are the ones nobody is serving. That&apos;s who this is for.
+              And the big consultancies won&apos;t take a practice your size.
             </p>
           </div>
         </div>
