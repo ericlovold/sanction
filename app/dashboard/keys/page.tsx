@@ -42,19 +42,65 @@ export default async function KeysPage() {
       clearance: { select: { level: true } },
     },
   })
-  const agents: ConsoleAgent[] = rows.map((a) => ({
-    id: a.id,
-    name: a.name,
-    apiKeyPrefix: a.apiKeyPrefix,
-    isActive: a.isActive,
-    createdAt: a.createdAt.toISOString(),
-    lastUsedAt: a.lastUsedAt ? a.lastUsedAt.toISOString() : null,
-    dailyTokenBudgetUsd: a.dailyTokenBudgetUsd,
-    dailySpendBudgetUsd: a.dailySpendBudgetUsd,
-    perTransactionMaxUsd: a.perTransactionMaxUsd,
-    escalateOverUsd: a.escalateOverUsd,
-    clearance: a.clearance?.level ?? null,
-  }))
+  // Per-key activity: what's actually using this key. Top model + total calls
+  // (from TokenLog, which the gateway writes per metered call) and the most
+  // recent task label, so the row shows "seen claude-… · N calls · task: …".
+  const ids = rows.map((a) => a.id)
+  const [modelCounts, lastLogs] = ids.length
+    ? await Promise.all([
+        db.tokenLog.groupBy({
+          by: ["agentId", "model"],
+          where: { agentId: { in: ids } },
+          _count: { _all: true },
+        }),
+        db.tokenLog.findMany({
+          where: { agentId: { in: ids } },
+          orderBy: { createdAt: "desc" },
+          distinct: ["agentId"],
+          select: { agentId: true, taskLabel: true, createdAt: true },
+        }),
+      ])
+    : [[], []]
+
+  type Act = { totalCalls: number; topModel: string | null; topCalls: number; lastTask: string | null; lastSeen: string | null }
+  const activity = new Map<string, Act>()
+  const get = (id: string): Act =>
+    activity.get(id) ?? { totalCalls: 0, topModel: null, topCalls: 0, lastTask: null, lastSeen: null }
+  for (const r of modelCounts) {
+    const cur = get(r.agentId)
+    cur.totalCalls += r._count._all
+    if (r._count._all > cur.topCalls) {
+      cur.topModel = r.model
+      cur.topCalls = r._count._all
+    }
+    activity.set(r.agentId, cur)
+  }
+  for (const l of lastLogs) {
+    const cur = get(l.agentId)
+    cur.lastTask = l.taskLabel
+    cur.lastSeen = l.createdAt.toISOString()
+    activity.set(l.agentId, cur)
+  }
+
+  const agents: ConsoleAgent[] = rows.map((a) => {
+    const act = activity.get(a.id)
+    return {
+      id: a.id,
+      name: a.name,
+      apiKeyPrefix: a.apiKeyPrefix,
+      isActive: a.isActive,
+      createdAt: a.createdAt.toISOString(),
+      lastUsedAt: a.lastUsedAt ? a.lastUsedAt.toISOString() : null,
+      dailyTokenBudgetUsd: a.dailyTokenBudgetUsd,
+      dailySpendBudgetUsd: a.dailySpendBudgetUsd,
+      perTransactionMaxUsd: a.perTransactionMaxUsd,
+      escalateOverUsd: a.escalateOverUsd,
+      clearance: a.clearance?.level ?? null,
+      activity: act
+        ? { totalCalls: act.totalCalls, topModel: act.topModel, lastTask: act.lastTask, lastSeen: act.lastSeen }
+        : null,
+    }
+  })
 
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
