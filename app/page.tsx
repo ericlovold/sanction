@@ -6,7 +6,7 @@ import { LeadCapture } from "@/components/lead-capture"
 export const metadata: Metadata = {
   title: "Sanction — The authorization layer for AI agents",
   description:
-    "Sanction is the authorization and credential layer for autonomous AI agents: set spend limits, approve or deny each action before it runs, and inject short-lived scoped secrets — across MCP, REST, and AWS Bedrock.",
+    "Sanction governs human authorization workflows for autonomous systems: spend, tool calls, provisioning, and credentials are approved, escalated to a human, or denied before the action runs — with every decision logged. Across MCP, REST, and AWS Bedrock.",
 }
 
 const pillars = [
@@ -14,8 +14,8 @@ const pillars = [
     name: "Agent Wallet",
     tag: "Authorize",
     desc:
-      "Spend authorization with policy enforcement. Auto-approve under threshold, escalate over it, deny what's blocked. Daily and monthly budgets per agent.",
-    points: ["Per-transaction & daily limits", "Auto-approve / escalate / deny", "Category allow & block lists"],
+      "Spend and provisioning authorization with policy enforcement. Auto-approve under threshold, escalate over it, deny what's blocked. Daily and monthly budgets per agent.",
+    points: ["Per-transaction & daily limits", "Auto-approve / escalate / deny", "Category & resource allow / block lists"],
   },
   {
     name: "Credential Vault",
@@ -35,13 +35,13 @@ const pillars = [
 
 const tiers = [
   {
-    name: "Free",
-    price: "$0",
+    name: "Individual",
+    price: "Free",
     cadence: "no card",
-    blurb: "The whole platform. Govern as many agents as you want.",
+    blurb: "For solo builders shipping real agents across personal, production, and client projects.",
     features: [
-      "Unlimited agents & wallets",
-      "Unlimited authorizations",
+      "Agent wallets for any project",
+      "Spend and action authorizations",
       "Token budgets + the LLM gateway",
       "Approvals, credential vault & audit log",
     ],
@@ -51,14 +51,14 @@ const tiers = [
   },
   {
     name: "Enterprise",
-    price: "Talk to us",
-    cadence: "",
-    blurb: "For teams and regulated deployments. Roadmap capabilities; talk to us about timing.",
+    price: "Paid license",
+    cadence: "pricing on request",
+    blurb: "For teams, regulated deployments, and governed autonomous systems.",
     features: [
-      "SSO & team roles",
-      "Audit log export",
-      "On-prem / air-gapped install",
-      "SLA & dedicated support",
+      "Enterprise license terms",
+      "SSO, team roles & policy administration",
+      "Audit export, retention & compliance support",
+      "Dedicated support, SLA & deployment options",
     ],
     cta: "Contact us",
     href: "mailto:eric@getsanction.com?subject=Sanction%20Enterprise",
@@ -148,7 +148,7 @@ const structuredData = [
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Web, API",
     description:
-      "Sanction is the authorization and credential layer for autonomous AI agents — spend authorization, scoped credential injection, and an audit trail. It is not a sanctions-screening, watchlist, or AML compliance tool.",
+      "Sanction governs human authorization workflows for autonomous systems — spend and provisioning authorization, tool governance, scoped credential injection, and an audit trail. It is not a sanctions-screening, watchlist, or AML compliance tool.",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   },
   {
@@ -160,7 +160,7 @@ const structuredData = [
         name: "Is Sanction a sanctions-screening or AML compliance tool?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "No. Despite the name, Sanction is not a sanctions, watchlist, or AML screening product. Sanction is the authorization and credential layer for autonomous AI agents — it decides whether an AI agent may spend money or use a secret before it acts, and logs every decision.",
+          text: "No. Despite the name, Sanction is not a sanctions, watchlist, or AML screening product. Sanction governs human authorization workflows for autonomous systems — it decides whether an AI agent may spend money, invoke a tool, provision a resource, or use a secret before it acts, and logs every decision.",
         },
       },
       {
@@ -168,7 +168,7 @@ const structuredData = [
         name: "What does Sanction do?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Sanction gives AI agents a wallet with spend limits, a vault for scoped short-lived credentials, and an audit log. Before an agent spends money or uses a secret, it asks Sanction, which approves, escalates to a human, or denies — across MCP, REST, and AWS Bedrock.",
+          text: "Sanction gives AI agents a wallet with spend limits, provisioning governance, a vault for scoped short-lived credentials, and an audit log. Before an agent spends money, provisions a resource, or uses a secret, it asks Sanction, which approves, escalates to a human, or denies — across MCP, REST, and AWS Bedrock.",
         },
       },
     ],
@@ -316,8 +316,8 @@ export default function Landing() {
             Don&apos;t give your agent your credit card. Give it a Sanction key.
           </p>
           <p className="mt-3 max-w-2xl text-lg text-zinc-400 text-pretty">
-            Track and cap what every agent spends, and approve, gate, or deny each action before the
-            money moves or a secret is used. One key governs spend and access.
+            One key governs what your agent may spend, invoke, and provision. Over the line, a human
+            decides — approvals reach your inbox, grants are one-use, and every decision is on the record.
           </p>
           <div className="mt-9 flex items-center justify-center gap-3">
             <a
@@ -500,8 +500,8 @@ export default function Landing() {
       <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 border-t border-zinc-900">
         <div className="text-center">
           <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Pricing</h2>
-          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Free while we grow.</h3>
-          <p className="mt-3 text-zinc-400">Unlimited agents, no card. The whole platform is free today — paid plans for teams and enterprises come later.</p>
+          <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Free for individuals. Paid licenses for enterprises.</h3>
+          <p className="mt-3 text-zinc-400">Solo builders can use Sanction free across personal work, production apps, and client projects. Enterprise licenses are available for teams that need contracts, support, compliance posture, and deployment control.</p>
         </div>
         <div className="mt-10 grid sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
           {tiers.map((t) => (
