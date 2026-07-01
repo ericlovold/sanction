@@ -401,6 +401,8 @@ export const ModelName = {
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
   AuthorizationRequest: 'AuthorizationRequest',
+  PendingApproval: 'PendingApproval',
+  Grant: 'Grant',
   WalletBudgetCounter: 'WalletBudgetCounter',
   Lead: 'Lead',
   Idea: 'Idea',
@@ -420,7 +422,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "rateLimit" | "wallet" | "user" | "session" | "account" | "verification" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "walletKey" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest" | "walletBudgetCounter" | "lead" | "idea" | "ideaVote"
+    modelProps: "rateLimit" | "wallet" | "user" | "session" | "account" | "verification" | "magicLink" | "webhook" | "agent" | "policy" | "tokenLog" | "credentialVault" | "walletKey" | "agentClearance" | "executionToken" | "credentialInjection" | "authorizationRequest" | "pendingApproval" | "grant" | "walletBudgetCounter" | "lead" | "idea" | "ideaVote"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1682,6 +1684,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PendingApproval: {
+      payload: Prisma.$PendingApprovalPayload<ExtArgs>
+      fields: Prisma.PendingApprovalFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PendingApprovalFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PendingApprovalFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>
+        }
+        findFirst: {
+          args: Prisma.PendingApprovalFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PendingApprovalFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>
+        }
+        findMany: {
+          args: Prisma.PendingApprovalFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>[]
+        }
+        create: {
+          args: Prisma.PendingApprovalCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>
+        }
+        createMany: {
+          args: Prisma.PendingApprovalCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PendingApprovalCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>[]
+        }
+        delete: {
+          args: Prisma.PendingApprovalDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>
+        }
+        update: {
+          args: Prisma.PendingApprovalUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>
+        }
+        deleteMany: {
+          args: Prisma.PendingApprovalDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PendingApprovalUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PendingApprovalUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>[]
+        }
+        upsert: {
+          args: Prisma.PendingApprovalUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingApprovalPayload>
+        }
+        aggregate: {
+          args: Prisma.PendingApprovalAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePendingApproval>
+        }
+        groupBy: {
+          args: Prisma.PendingApprovalGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PendingApprovalGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PendingApprovalCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PendingApprovalCountAggregateOutputType> | number
+        }
+      }
+    }
+    Grant: {
+      payload: Prisma.$GrantPayload<ExtArgs>
+      fields: Prisma.GrantFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GrantFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GrantFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>
+        }
+        findFirst: {
+          args: Prisma.GrantFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GrantFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>
+        }
+        findMany: {
+          args: Prisma.GrantFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>[]
+        }
+        create: {
+          args: Prisma.GrantCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>
+        }
+        createMany: {
+          args: Prisma.GrantCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GrantCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>[]
+        }
+        delete: {
+          args: Prisma.GrantDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>
+        }
+        update: {
+          args: Prisma.GrantUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>
+        }
+        deleteMany: {
+          args: Prisma.GrantDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GrantUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GrantUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>[]
+        }
+        upsert: {
+          args: Prisma.GrantUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GrantPayload>
+        }
+        aggregate: {
+          args: Prisma.GrantAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGrant>
+        }
+        groupBy: {
+          args: Prisma.GrantGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GrantGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GrantCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GrantCountAggregateOutputType> | number
+        }
+      }
+    }
     WalletBudgetCounter: {
       payload: Prisma.$WalletBudgetCounterPayload<ExtArgs>
       fields: Prisma.WalletBudgetCounterFieldRefs
@@ -2268,6 +2418,54 @@ export const AuthorizationRequestScalarFieldEnum = {
 export type AuthorizationRequestScalarFieldEnum = (typeof AuthorizationRequestScalarFieldEnum)[keyof typeof AuthorizationRequestScalarFieldEnum]
 
 
+export const PendingApprovalScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  agentId: 'agentId',
+  actionType: 'actionType',
+  status: 'status',
+  subjectJson: 'subjectJson',
+  resourceJson: 'resourceJson',
+  constraintsJson: 'constraintsJson',
+  reason: 'reason',
+  code: 'code',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  expiresAt: 'expiresAt',
+  resolvedAt: 'resolvedAt',
+  resolvedBy: 'resolvedBy',
+  resolutionNote: 'resolutionNote',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PendingApprovalScalarFieldEnum = (typeof PendingApprovalScalarFieldEnum)[keyof typeof PendingApprovalScalarFieldEnum]
+
+
+export const GrantScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  agentId: 'agentId',
+  actionType: 'actionType',
+  status: 'status',
+  subjectJson: 'subjectJson',
+  resourceJson: 'resourceJson',
+  constraintsJson: 'constraintsJson',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  issuedBy: 'issuedBy',
+  issuedFromApprovalId: 'issuedFromApprovalId',
+  justification: 'justification',
+  expiresAt: 'expiresAt',
+  consumedAt: 'consumedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GrantScalarFieldEnum = (typeof GrantScalarFieldEnum)[keyof typeof GrantScalarFieldEnum]
+
+
 export const WalletBudgetCounterScalarFieldEnum = {
   id: 'id',
   walletId: 'walletId',
@@ -2329,6 +2527,13 @@ export const NullableJsonNullValueInput = {
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -2565,6 +2770,8 @@ export type GlobalOmitConfig = {
   executionToken?: Prisma.ExecutionTokenOmit
   credentialInjection?: Prisma.CredentialInjectionOmit
   authorizationRequest?: Prisma.AuthorizationRequestOmit
+  pendingApproval?: Prisma.PendingApprovalOmit
+  grant?: Prisma.GrantOmit
   walletBudgetCounter?: Prisma.WalletBudgetCounterOmit
   lead?: Prisma.LeadOmit
   idea?: Prisma.IdeaOmit

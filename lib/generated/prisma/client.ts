@@ -127,6 +127,16 @@ export type CredentialInjection = Prisma.CredentialInjectionModel
  */
 export type AuthorizationRequest = Prisma.AuthorizationRequestModel
 /**
+ * Model PendingApproval
+ *
+ */
+export type PendingApproval = Prisma.PendingApprovalModel
+/**
+ * Model Grant
+ *
+ */
+export type Grant = Prisma.GrantModel
+/**
  * Model WalletBudgetCounter
  *
  */

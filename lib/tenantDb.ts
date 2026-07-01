@@ -2,7 +2,7 @@
  * SEC-3: Tenant-scoped DB helper.
  *
  * Every query against tenant-owned tables (CredentialVault, Agent,
- * ExecutionToken, TokenLog, AuthorizationRequest, AgentClearance,
+ * ExecutionToken, TokenLog, AuthorizationRequest, PendingApproval, Grant, AgentClearance,
  * CredentialInjection) MUST go through this module, not raw `db`.
  *
  * Each method enforces the walletId at the query layer, so a bug in a route
@@ -93,20 +93,19 @@ export async function walletStats(walletId: string) {
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
 
-  const [dailySpend, pendingEscalations, agents] = await Promise.all([
+  const [dailySpend, pendingApprovals, agents] = await Promise.all([
     db.authorizationRequest.aggregate({
       where: { agent: { walletId }, status: "approved", createdAt: { gte: dayStart } },
       _sum: { amountUsd: true },
     }),
-    db.authorizationRequest.count({
-      where: { agent: { walletId }, status: "escalated" },
-    }),
+    db.pendingApproval.count({ where: { walletId, status: "pending" } }),
     db.agent.count({ where: { walletId } }),
   ])
 
   return {
     daily_spend_usd: dailySpend._sum.amountUsd ?? 0,
-    pending_escalations: pendingEscalations,
+    pending_escalations: pendingApprovals,
+    pending_approvals: pendingApprovals,
     agent_count: agents,
   }
 }

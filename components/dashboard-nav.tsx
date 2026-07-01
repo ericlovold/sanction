@@ -5,9 +5,10 @@ const tabs = [
   { href: "/dashboard/keys", label: "Keys", key: "keys" },
   { href: "/dashboard/spend", label: "Spend", key: "spend" },
   { href: "/dashboard/approvals", label: "Approvals", key: "approvals" },
+  { href: "/dashboard/grants", label: "Grants", key: "grants" },
 ] as const
 
-export function DashboardNav({ active }: { active: "overview" | "keys" | "spend" | "approvals" }) {
+export function DashboardNav({ active }: { active: "overview" | "keys" | "spend" | "approvals" | "grants" }) {
   return (
     <nav className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
       {tabs.map((t) => (
