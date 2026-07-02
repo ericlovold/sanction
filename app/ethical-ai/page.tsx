@@ -40,9 +40,9 @@ const offers = [
 const bridge = [
   {
     tag: "Upstream — the analysis",
-    title: "MIA identifies the risk",
+    title: "Moral Intention Analyst identifies the risk",
     desc:
-      "The ethics layer, led by Dr. Ping (AC Ping) and grounded in the MIA constitution: what should the policy be, which risks are being rationalized, what red flags exist, and which decisions must never be made without a human.",
+      "The ethics layer, led by Dr. Ping (AC Ping) and grounded in the Moral Intention Analyst constitution: what should the policy be, which risks are being rationalized, what red flags exist, and which decisions must never be made without a human.",
     points: ["Moral-risk map & stakeholder analysis", "Red-flag and rationalization assessment", "The human approval boundaries your system needs"],
   },
   {
@@ -65,7 +65,7 @@ export default function EthicalAI() {
           </Link>
           <div className="flex items-center gap-6 text-sm text-zinc-400">
             <Link href="/" className="hover:text-zinc-100 transition-colors">Platform</Link>
-            <Link href={MIA_URL} className="hover:text-zinc-100 transition-colors">MIA Local</Link>
+            <Link href={MIA_URL} className="hover:text-zinc-100 transition-colors">Moral Intention Analyst</Link>
             <Link href="/docs" className="hover:text-zinc-100 transition-colors">Docs</Link>
             <Link href="/login" className="hover:text-zinc-100 transition-colors">Sign in</Link>
           </div>
@@ -128,11 +128,11 @@ export default function EthicalAI() {
         </p>
       </section>
 
-      {/* MIA Local */}
+      {/* Moral Intention Analyst Local */}
       <section className="border-t border-zinc-900">
         <div className="max-w-6xl mx-auto px-6 py-16 grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
           <div>
-            <p className="text-sm font-mono uppercase tracking-widest text-zinc-500">MIA Local</p>
+            <p className="text-sm font-mono uppercase tracking-widest text-zinc-500">Moral Intention Analyst Local</p>
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-zinc-100">
               A free, airgapped ethics agent for local moral reflection.
             </h2>
@@ -145,7 +145,7 @@ export default function EthicalAI() {
               href={MIA_URL}
               className="mt-6 inline-flex rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-900"
             >
-              View MIA Local
+              View Moral Intention Analyst
             </Link>
           </div>
           <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-5">
@@ -160,7 +160,7 @@ export default function EthicalAI() {
               ))}
             </div>
             <p className="mt-5 text-sm text-zinc-500">
-              MIA helps define the boundary. Sanction enforces it.
+              Moral Intention Analyst helps define the boundary. Sanction enforces it.
             </p>
           </div>
         </div>
@@ -190,7 +190,7 @@ export default function EthicalAI() {
           <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Who leads it</h2>
           <p className="mt-5 text-lg text-zinc-300 text-pretty">
             The ethics work is led by <span className="text-zinc-100 font-medium">Dr. Ping</span> (AC Ping),
-            whose MIA framework grounds the analysis, together with{" "}
+            whose Moral Intention Analyst framework grounds the analysis, together with{" "}
             <span className="text-zinc-100 font-medium">Eric Lovold</span>, who builds the enforcement
             layer. One session, both halves: the philosophical authority and the operational system.
           </p>
@@ -212,7 +212,7 @@ export default function EthicalAI() {
           </div>
           <div className="flex items-center gap-6">
             <Link href="/" className="hover:text-zinc-200 transition-colors">Platform</Link>
-            <Link href={MIA_URL} className="hover:text-zinc-200 transition-colors">MIA Local</Link>
+            <Link href={MIA_URL} className="hover:text-zinc-200 transition-colors">Moral Intention Analyst</Link>
             <Link href="/docs" className="hover:text-zinc-200 transition-colors">Docs</Link>
             <a href="/api/openapi.json" className="hover:text-zinc-200 transition-colors">API</a>
           </div>
