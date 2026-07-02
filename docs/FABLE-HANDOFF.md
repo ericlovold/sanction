@@ -13,9 +13,9 @@ Agent platforms create action. Sanction authorizes action. The product should st
 | Area | State |
 |---|---|
 | Production base | `main` at `58f7cdb` after PRs #37-#40. |
-| Current branch | `feat/mia-local`. Contains the MIA public-hold commit `59145bb` plus this handoff/roadmap update. |
-| Public MIA status | Not published. `/mia-local` was removed and public app files contain no Moral Intention Analyst links/copy. |
-| Dev server | Local preview was restarted on `http://localhost:3000`; `/ethical-ai` works, `/mia-local` 404s. |
+| Current branch | `feat/mia-local`. Contains the MIA public-hold commit `59145bb`, the Fable handoff commit `dca2c23`, and the public Ethical AI hold. |
+| Public ethics/MIA status | Not published. `/ethical-ai` and `/mia-local` are removed; public app files contain no Ethical AI or Moral Intention Analyst links/copy. |
+| Dev server | Local preview was restarted on `http://localhost:3000`; `/ethical-ai` and `/mia-local` should both 404. |
 | Side branch to inspect | `feat/pool-allocation-controls` contains actionable pool allocation controls and tests. It is not merged into this branch. |
 
 ## What is live conceptually
@@ -27,7 +27,7 @@ Agent platforms create action. Sanction authorizes action. The product should st
 - Spend grant consumption after human approval.
 - Provision authorization API and UI rendering in Approvals/Grants.
 - Public docs for Quickstart, Vercel AI SDK, LangChain, CrewAI, multi-tenant.
-- Public Ethical AI services page, without Moral Intention Analyst product launch.
+- Ethical AI and Moral Intention Analyst are internal planning only; neither is public.
 
 ## Product boundary decisions
 
@@ -35,7 +35,7 @@ Agent platforms create action. Sanction authorizes action. The product should st
 |---|---|
 | Sanction stays control-plane first, not fund custody. | Lower regulatory surface; current code authorizes/logs spend but does not move money. Revisit only for a paid design partner. |
 | Approvals produce ephemeral Grants. | Human approval should not mutate policy. A grant is the audit-grade, one-use authorization artifact. |
-| Moral Intention Analyst is held. | It is paid/licensed, not free, and should not be public until AC Ping attribution, packaging, hardware, and licensing are ready. |
+| Ethical AI and Moral Intention Analyst are held. | The channel may become valuable, but it should not be public until AC Ping attribution, packaging, hardware, services, and licensing are ready. |
 | Agent platforms are distribution, not competition. | Omnigent-style builders increase the need for an external authorization boundary. |
 
 ## Near roadmap
@@ -55,18 +55,18 @@ Agent platforms create action. Sanction authorizes action. The product should st
 
 ## Branch instructions
 
-1. Start from the current branch if the goal is to preserve the MIA hold and roadmap updates.
-2. If pulling pool allocation work, cherry-pick code/test files from `feat/pool-allocation-controls`; do not blindly take its `docs/ROADMAP.md` because this branch now contains the newer MIA hold section.
+1. Start from the current branch if the goal is to preserve the Ethical AI/MIA hold and roadmap updates.
+2. If pulling pool allocation work, cherry-pick code/test files from `feat/pool-allocation-controls`; do not blindly take its `docs/ROADMAP.md` because this branch now contains the newer ethics/MIA hold section.
 3. Keep `docs/MIA-LOCAL.md` internal. It is not registered in `lib/docs.ts`.
-4. Before publishing anything public about Moral Intention Analyst, get explicit founder approval on pricing/licensing and Dr. Ping positioning.
+4. Before publishing anything public about Ethical AI or Moral Intention Analyst, get explicit founder approval on pricing/licensing and Dr. Ping positioning.
 
 ## Verification already run on the MIA hold
 
 - `npm run lint`
 - `npx tsc --noEmit --pretty false --incremental false`
 - `npm run build`
-- Browser check: `/ethical-ai` has no Moral Intention Analyst references.
-- Browser check: `/mia-local` returns the 404 page.
+- Route check: `/ethical-ai` returns the 404 page.
+- Route check: `/mia-local` returns the 404 page.
 
 ## Watch-outs
 

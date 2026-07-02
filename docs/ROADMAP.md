@@ -77,9 +77,9 @@ Agent-builder platforms are becoming the new distribution surface: OpenAI Agent 
 
 ## Ethical AI / Moral Intention Analyst boundary (2026-07-01)
 
-Sanction Ethical AI can stay public as a services channel: philosopher-led review, moral-risk analysis, and governance package design that becomes Sanction policy, approvals, grants, and audit. **Moral Intention Analyst is not public yet.** It is a paid/licensed local product concept with Dr. Ping positioning, persistent local memory, and hardware/services packaging still unresolved.
+Sanction Ethical AI and Moral Intention Analyst are both held from public launch. The direction is still strategically useful: philosopher-led review, moral-risk analysis, and governance package design that can become Sanction policy, approvals, grants, and audit. But the offer, attribution, pricing, licensing, and Dr. Ping positioning are not ready enough to publish.
 
-**Roadmap rule:** do not publish `/mia-local`, do not link Moral Intention Analyst from public navigation, and do not sell it as free. Keep the internal plan in `docs/MIA-LOCAL.md` until licensing, attribution, and packaging are ready.
+**Roadmap rule:** do not publish `/ethical-ai` or `/mia-local`, do not link Ethical AI or Moral Intention Analyst from public navigation, and do not sell Moral Intention Analyst as free. Keep the internal plan in `docs/MIA-LOCAL.md` until the commercial story is ready.
 
 ## The gate before everything
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:

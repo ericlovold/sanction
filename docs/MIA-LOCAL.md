@@ -1,7 +1,7 @@
 # Moral Intention Analyst Local - Launch Spec
 
-> Moral Intention Analyst as a licensed, local, airgapped ethics agent under the Sanction Ethical AI channel.
-> Internal planning only. Do not publish a public product page or site links until the offer, licensing, and Dr. Ping positioning are ready.
+> Moral Intention Analyst as a licensed, local, airgapped ethics agent.
+> Internal planning only. Do not publish the Sanction Ethical AI channel, a public product page, or site links until the offer, licensing, and Dr. Ping positioning are ready.
 
 ## Product promise
 
