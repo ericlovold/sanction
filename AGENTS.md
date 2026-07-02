@@ -24,6 +24,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | **Credential Vault** | AES-256-GCM encrypted credentials. Scoped execution JWTs (15min TTL) gate every injection. Every access is audit-logged. |
 | **Clearance Levels** | 1-5 clearance system. Industry-specific domain authorization. Agents only access what they're cleared for. |
 
+**Domain vocabulary:** `docs/DOMAIN.md` is the canonical ubiquitous-language glossary — every concept (Wallet, Agent, Policy, Grant, Clearance…) mapped to its Prisma model and code path, plus the authorization lifecycle. Read it before naming things.
+
 ## Stack
 
 - **Framework:** Next.js 16 (App Router, Turbopack) + TypeScript
