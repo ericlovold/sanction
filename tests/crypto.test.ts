@@ -53,6 +53,7 @@ describe("credential encryption (AES-256-GCM)", () => {
 
   it("decrypts a legacy (V0, no-AAD) blob via fallback path", () => {
     const iv = randomBytes(12)
+    iv[0] = 0x02 // worst case: legacy IV colliding with the V2 version marker
     const cipher = createCipheriv("aes-256-gcm", legacyKey(), iv)
     const enc = Buffer.concat([cipher.update("legacy-secret", "utf8"), cipher.final()])
     const tag = cipher.getAuthTag()

@@ -285,11 +285,15 @@ model CredentialVault {
 // keyRef = "local". One key per wallet in Phase 1 (walletId unique); rotation in
 // Phase 2 relaxes this and adds versioning.
 model WalletKey {
-  id         String   @id @default(cuid())
-  walletId   String   @unique
-  wrappedDek String   // base64 of the KMS-wrapped (or env-master-wrapped) DEK
-  keyRef     String   // KMS key ARN, or "local" for the env-master fallback
-  createdAt  DateTime @default(now())
+  id         String    @id @default(cuid())
+  walletId   String
+  wrappedDek String    // base64 of the KMS-wrapped (or env-master-wrapped) DEK
+  keyRef     String    // KMS key ARN, or "local" for the env-master fallback
+  isActive   Boolean   @default(true) // exactly one active per wallet (partial unique index in SQL)
+  retiredAt  DateTime? // set when rotated out; row kept so old blobs stay decryptable
+  createdAt  DateTime  @default(now())
+
+  @@index([walletId])
 }
 
 // Clearance level assigned to a specific agent
