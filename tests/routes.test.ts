@@ -15,6 +15,9 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+// Unit tests exercise route logic; real RLS isolation is proven by tests/rls.db.test.ts
+// against actual Postgres. Here withTenant just hands the handler the mocked client.
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 vi.mock("@/lib/rateLimit", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/rateLimit")>()
   return { ...mod, rateLimit: vi.fn(async () => ({ ok: true, limit: 15 })) }
