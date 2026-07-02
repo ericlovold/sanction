@@ -2,12 +2,12 @@ import type { Metadata } from "next"
 import Link from "next/link"
 
 export const metadata: Metadata = {
-  title: "MIA Local - free, airgapped ethical AI agent",
+  title: "Moral Intention Analyst Local - free, airgapped ethical AI agent",
   description:
     "Moral Intention Analyst Local is a planned free, airgapped ethics agent guided by Dr. A.C. Ping's moral intention frameworks and designed for private, persistent local memory.",
 }
 
-const BOOK_URL = "mailto:eric@getsanction.com?subject=MIA%20Local"
+const BOOK_URL = "mailto:eric@getsanction.com?subject=Moral%20Intention%20Analyst%20Local"
 
 const principles = [
   {
@@ -29,7 +29,7 @@ const principles = [
 ]
 
 const memoryLayers = [
-  ["Frameworks", "MIA Constitution, Moral Intention Theory, Causal Factor Model, and Red Flag Taxonomy."],
+  ["Frameworks", "Moral Intention Analyst Constitution, Moral Intention Theory, Causal Factor Model, and Red Flag Taxonomy."],
   ["Session memory", "Local case notes, recurring concerns, stakeholder maps, and user-specific context."],
   ["Reflections", "Generated observations, neutralization patterns, and unresolved moral tensions."],
   ["Controls", "Export, delete, reset, and future signed update bundles for reviewed knowledge."],
@@ -39,7 +39,7 @@ const launchSteps = [
   "Local CLI or desktop web UI on the Mini",
   "Local model through Ollama or llama.cpp",
   "SQLite memory store plus local retrieval index",
-  "MIA framework pack loaded as reviewed reference material",
+  "Moral Intention Analyst framework pack loaded as reviewed reference material",
   "Manual update bundles before any networked sync",
 ]
 
@@ -67,7 +67,7 @@ export default function MIALocalPage() {
               A local ethics agent for private moral reasoning.
             </h1>
             <p className="mt-6 max-w-2xl text-xl font-medium text-zinc-200">
-              MIA Local is being prepared as a free, airgapped agent guided by Dr. A.C. Ping&apos;s moral intention work.
+              Moral Intention Analyst Local is being prepared as a free, airgapped agent guided by Dr. A.C. Ping&apos;s moral intention work.
             </p>
             <p className="mt-4 max-w-2xl text-zinc-400">
               It is for sensitive ethical reflection: autonomous-system risk, institutional incentives,
@@ -78,7 +78,7 @@ export default function MIALocalPage() {
                 href={BOOK_URL}
                 className="rounded-md bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
               >
-                Talk about MIA Local
+                Talk about Moral Intention Analyst
               </a>
               <Link
                 href="/ethical-ai"
@@ -128,16 +128,16 @@ export default function MIALocalPage() {
             <div>
               <p className="font-mono text-sm uppercase tracking-widest text-zinc-500">Product boundary</p>
               <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-zinc-100">
-                MIA defines the boundary. Sanction enforces it.
+                Moral Intention Analyst defines the boundary. Sanction enforces it.
               </h2>
               <p className="mt-4 text-zinc-400">
-                MIA Local is not a replacement for judgment, legal review, or governance controls.
+                Moral Intention Analyst Local is not a replacement for judgment, legal review, or governance controls.
                 It helps teams name moral risk and convert that work into boundaries Sanction can run.
               </p>
             </div>
             <div className="grid gap-3">
               {[
-                ["MIA Local", "Moral intention analysis, neutralization detection, stakeholder reflection, case memory."],
+                ["Moral Intention Analyst Local", "Moral intention analysis, neutralization detection, stakeholder reflection, case memory."],
                 ["Sanction", "Authorization policies, approvals, grants, spend caps, credential controls, audit trail."],
                 ["Ethical AI services", "Work sessions, articles, ethics packages, and implementation with Dr. Ping and Eric."],
               ].map(([name, text]) => (
