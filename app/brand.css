@@ -251,6 +251,32 @@
   width: 100%;
   max-width: 400px;
   justify-self: center;
+  perspective: 1600px;
+}
+/* The access-key card sits at a slight angle with a directional shadow, so it
+   reads as a physical object with depth. Straightens on hover — pick it up. */
+.sn-keycard {
+  transform: rotateY(-17deg) rotateX(6deg);
+  transform-origin: center;
+  box-shadow: -28px 34px 60px rgba(12, 51, 42, 0.34), 0 2px 10px rgba(12, 51, 42, 0.22);
+  transition: transform 420ms var(--ease-out), box-shadow 420ms var(--ease-out);
+  will-change: transform;
+}
+.sn-key:hover .sn-keycard {
+  transform: rotateY(0deg) rotateX(0deg);
+  box-shadow: -6px 26px 54px rgba(12, 51, 42, 0.28), 0 2px 10px rgba(12, 51, 42, 0.2);
+}
+@media (max-width: 640px) {
+  /* Flatter tilt on phones so the rotated card never clips the viewport edge. */
+  .sn-keycard {
+    transform: rotateY(-9deg) rotateX(4deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-keycard,
+  .sn-key:hover .sn-keycard {
+    transition: none;
+  }
 }
 /* Let grid cells shrink below the content's intrinsic width so a fixed-size
    child (the key card) can't force the whole row wider than the viewport. */

@@ -3,10 +3,9 @@ import Link from "next/link"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 import "./brand.css"
 
-// "Talk to us" → book a call. Set NEXT_PUBLIC_CALENDLY_URL to Eric's real
-// scheduling link; until it's set, the CTA scrolls to the signup section so it
-// never dead-ends (the old mailto silently failed for webmail users).
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "#stay-in-the-loop"
+// "Talk to us" → book a call. NEXT_PUBLIC_CALENDLY_URL overrides at build time;
+// defaults to Eric's scheduling link so the CTA always books (no dead-end).
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
 
 export const metadata: Metadata = {
   title: "Sanction — Authorization for autonomous AI agents",
@@ -58,6 +57,7 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
   const faint = "rgba(237,233,220,.6)"
   return (
     <div
+      className="sn-keycard"
       style={{
         containerType: "inline-size",
         width: "100%",
@@ -71,25 +71,48 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
         justifyContent: "space-between",
         color: "#EDE9DC",
         background: "linear-gradient(135deg,#124A3A 0%,#0C332A 55%,#0A2B23 100%)",
-        boxShadow: "var(--shadow-key)",
         position: "relative",
         overflow: "hidden",
         fontFamily: "var(--font-sans)",
       }}
     >
+      {/* diagonal security hatching */}
       <div
         aria-hidden
         style={{
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
-          background: "linear-gradient(115deg,transparent 30%,rgba(251,250,246,.07) 45%,transparent 60%)",
+          background: "repeating-linear-gradient(115deg, rgba(237,233,220,0.05) 0 1px, transparent 1px 7px)",
         }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontWeight: 600, letterSpacing: "-0.01em", fontSize: cq(16) }}>Sanction</span>
-        <img src="/brand/sanction-mark.svg" alt="" style={{ width: cq(24), height: cq(24) }} />
+      {/* diagonal shine sweep */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background: "linear-gradient(115deg,transparent 30%,rgba(251,250,246,.08) 45%,transparent 60%)",
+        }}
+      />
+
+      {/* top: wordmark + contactless */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: cq(17), letterSpacing: cq(2.4) }}>SANCTION</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(9.5), letterSpacing: ".14em", textTransform: "uppercase", color: "rgba(120,224,178,.85)", marginTop: cq(4) }}>
+            Agent Access Key
+          </div>
+        </div>
+        <svg aria-hidden viewBox="0 0 24 24" style={{ width: cq(22), height: cq(22), color: "rgba(120,224,178,.9)", flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M8.5 7.5a7 7 0 0 1 0 9" />
+          <path d="M12 5a11 11 0 0 1 0 14" />
+          <path d="M15.5 2.5a15 15 0 0 1 0 19" />
+        </svg>
       </div>
+
+      {/* chip */}
       <div
         aria-hidden
         style={{
@@ -100,15 +123,33 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,.28), inset 0 -6px 10px rgba(90,60,10,.25)",
         }}
       />
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(17), letterSpacing: ".06em", whiteSpace: "nowrap" }}>PXY · •••• · •••• · AGNT</div>
+
+      {/* key number + clearance */}
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(17), letterSpacing: ".06em", whiteSpace: "nowrap" }}>PXY · •••• · •••• · AGNT</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(10), letterSpacing: ".08em", textTransform: "uppercase", color: faint, marginTop: cq(8) }}>
+          Clearance ◆ 5 · Valid thru ∞
+        </div>
+      </div>
+
+      {/* bottom: cardholder + hologram */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: cq(12) }}>
         <div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(10), letterSpacing: ".08em", textTransform: "uppercase", color: faint }}>Cardholder</div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(12.5), letterSpacing: ".05em", marginTop: cq(3), whiteSpace: "nowrap" }}>AUTONOMOUS AGENT</div>
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(10), letterSpacing: ".08em", textTransform: "uppercase", color: faint, whiteSpace: "nowrap", textAlign: "right" }}>
-          Clearance ◆ 5 · Valid thru ∞
-        </div>
+        <div
+          aria-hidden
+          style={{
+            width: cq(38),
+            height: cq(38),
+            borderRadius: "50%",
+            flexShrink: 0,
+            background: "conic-gradient(from 210deg, #7ff0d0, #86b7ff, #d59bff, #ffd48a, #8fffd0, #7ff0d0)",
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35), inset 0 2px 6px rgba(255,255,255,.5)",
+            opacity: 0.92,
+          }}
+        />
       </div>
     </div>
   )
