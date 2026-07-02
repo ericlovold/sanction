@@ -50,28 +50,38 @@ export default function About() {
       </nav>
 
       {/* Hero */}
-      <header style={{ ...wrap, padding: "96px 32px 72px", maxWidth: 820 }}>
-        <div className="sn-mono" style={{ marginBottom: 20 }}>Work with Eric</div>
-        <h1 style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
-          Putting AI to work for executives and regulated teams.
-        </h1>
-        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "28px 0 0", maxWidth: "60ch" }}>
-          I work 1:1 with executives implementing productive AI workflows, tools, and best practices. I&apos;ve spent the
-          last decade driving outcomes in healthcare and technology — and I&apos;m entirely focused on what artificial
-          intelligence means for the future of humanity.
-        </p>
-        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px 0 36px", maxWidth: "60ch" }}>
-          I build AI systems for small and midsize businesses in regulated industries — where confidentiality, audit, and
-          trust are non-negotiable.
-        </p>
-        <a
-          className="sn-btn sn-btn-primary sn-btn-l"
-          href={CALENDLY_URL}
-          target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined}
-          rel="noopener"
-        >
-          Book a working session →
-        </a>
+      <header className="sn-about-hero" style={{ ...wrap, padding: "88px 32px 72px" }}>
+        <div>
+          <div className="sn-mono" style={{ marginBottom: 20 }}>Work with Eric</div>
+          <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+            Putting AI to work for executives and regulated teams.
+          </h1>
+          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px 0 0" }}>
+            I work 1:1 with executives implementing productive AI workflows, tools, and best practices. I&apos;ve spent the
+            last decade driving outcomes in healthcare and technology — and I&apos;m entirely focused on what artificial
+            intelligence means for the future of humanity.
+          </p>
+          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px 0 32px" }}>
+            I build AI systems for small and midsize businesses in regulated industries — where confidentiality, audit, and
+            trust are non-negotiable.
+          </p>
+          <a
+            className="sn-btn sn-btn-primary sn-btn-l"
+            href={CALENDLY_URL}
+            target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined}
+            rel="noopener"
+          >
+            Book a working session →
+          </a>
+        </div>
+        <div className="sn-about-photo">
+          <img
+            src="/brand/eric-lovold.jpg"
+            alt="Eric Lovold"
+            style={{ width: "100%", height: "auto", display: "block", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
+          />
+          <div className="sn-mono" style={{ marginTop: 14, letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction</div>
+        </div>
       </header>
 
       {/* Industries */}
