@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { withTenant } from "@/lib/rls"
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -115,21 +116,24 @@ export async function PATCH(req: NextRequest) {
         : overrides.clearance_expires_at === null
           ? null
           : new Date(overrides.clearance_expires_at)
-    const c = await db.agentClearance.upsert({
-      where: { agentId: agent_id },
-      update: {
-        ...(overrides.clearance !== undefined ? { level: overrides.clearance } : {}),
-        ...(overrides.industry !== undefined ? { industry: overrides.industry } : {}),
-        ...(expiresAt !== undefined ? { expiresAt } : {}),
-      },
-      create: {
-        walletId: wallet_id,
-        agentId: agent_id,
-        level: overrides.clearance ?? 1,
-        ...(overrides.industry !== undefined ? { industry: overrides.industry } : {}),
-        ...(expiresAt !== undefined && expiresAt !== null ? { expiresAt } : {}),
-      },
-    })
+    // RLS-scoped (SEC-3): AgentClearance writes are pinned to the caller's wallet.
+    const c = await withTenant(wallet_id, (tx) =>
+      tx.agentClearance.upsert({
+        where: { agentId: agent_id },
+        update: {
+          ...(overrides.clearance !== undefined ? { level: overrides.clearance } : {}),
+          ...(overrides.industry !== undefined ? { industry: overrides.industry } : {}),
+          ...(expiresAt !== undefined ? { expiresAt } : {}),
+        },
+        create: {
+          walletId: wallet_id,
+          agentId: agent_id,
+          level: overrides.clearance ?? 1,
+          ...(overrides.industry !== undefined ? { industry: overrides.industry } : {}),
+          ...(expiresAt !== undefined && expiresAt !== null ? { expiresAt } : {}),
+        },
+      }),
+    )
     clearance = c.level
   }
 
