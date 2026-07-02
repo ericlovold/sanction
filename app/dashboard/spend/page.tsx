@@ -7,6 +7,7 @@ import { AccountControl } from "@/components/account-control"
 import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
+import { dailyPace } from "@/lib/burn"
 
 export const dynamic = "force-dynamic"
 
@@ -34,6 +35,9 @@ function barTone(p: number) {
 function BudgetBar({ label, actual, budget, format }: { label: string; actual: number; budget: number; format: (n: number) => string }) {
   const p = pct(actual, budget)
   const tone = barTone(p)
+  // No surprises: linear end-of-day projection so the CFO sees where today is
+  // heading, not just where it stands.
+  const pace = dailyPace(actual, budget > 0 ? budget : null, new Date())
   return (
     <div>
       <div className="flex items-baseline justify-between">
@@ -45,7 +49,14 @@ function BudgetBar({ label, actual, budget, format }: { label: string; actual: n
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
         <div className={`h-full rounded-full ${tone.bar} transition-all`} style={{ width: `${Math.min(100, p)}%` }} />
       </div>
-      {p >= 100 && <p className="mt-1 text-[11px] text-red-400">Budget exhausted — new requests are being denied.</p>}
+      {p >= 100 ? (
+        <p className="mt-1 text-[11px] text-red-400">Budget exhausted — new requests are being denied.</p>
+      ) : pace.onPace !== null ? (
+        <p className={`mt-1 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-zinc-600"}`}>
+          on pace for {format(pace.onPace)} today
+          {pace.exhaustAt && ` · budget hit ~${pace.exhaustAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+        </p>
+      ) : null}
     </div>
   )
 }

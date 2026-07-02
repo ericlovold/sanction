@@ -11,9 +11,10 @@ const KNOWN_EVENTS = [
   "escalation.created",
   "escalation.resolved",
   "budget.exhausted",
+  "budget.threshold",
   "*",
 ] as const
-const DEFAULT_EVENTS = ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved"]
+const DEFAULT_EVENTS = ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.threshold"]
 
 const schema = z.object({
   wallet_id: z.string(),

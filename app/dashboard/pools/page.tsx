@@ -9,6 +9,7 @@ import { PoolControls } from "@/components/pool-controls"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getViewWallet } from "@/lib/session"
+import { dailyPace } from "@/lib/burn"
 
 export const dynamic = "force-dynamic"
 
@@ -364,6 +365,9 @@ function CapMeter({ pool }: { pool: PoolRow }) {
   const meta = statusMeta[pool.status]
   const pressure = spendCapPressure(pool.spendTodayUsd, pool.capUsd)
   const width = pressure === null ? 0 : Math.min(100, Math.round(pressure * 100))
+  // No surprises: linear end-of-day projection per pool — where the burn is
+  // heading, and when the cap gets hit if the pace holds.
+  const pace = dailyPace(pool.spendTodayUsd, pool.capUsd, new Date())
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
@@ -376,6 +380,12 @@ function CapMeter({ pool }: { pool: PoolRow }) {
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
         <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${width}%` }} />
       </div>
+      {pace.onPace !== null && pool.status !== "over_cap" && (
+        <p className={`mt-1.5 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-zinc-600"}`}>
+          on pace for {dollars(pace.onPace)} today
+          {pace.exhaustAt && ` · cap hit ~${pace.exhaustAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+        </p>
+      )}
     </div>
   )
 }
