@@ -69,41 +69,104 @@ async function callSanction(path: string, method: "GET" | "POST", body?: unknown
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`
   }
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  return res.json()
+  // Transport failures must degrade to a clear deny, not an opaque JS error:
+  // this tool fronts real money decisions, and an ambiguous failure invites
+  // agents to retry-loop or (worse) proceed. Normalize network errors,
+  // timeouts, and non-JSON bodies (gateway 502 pages) into the same
+  // { authorized:false, code, reason } contract every tool description promises.
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15_000),
+    })
+    try {
+      return await res.json()
+    } catch {
+      return {
+        authorized: false,
+        status: "unreachable",
+        code: "SANCTION_UNREACHABLE",
+        error: `Sanction returned a non-JSON response (HTTP ${res.status})`,
+        reason: `Sanction returned a non-JSON response (HTTP ${res.status}). Treat as denied; retry once, then stop and notify the owner.`,
+      }
+    }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return {
+      authorized: false,
+      status: "unreachable",
+      code: "SANCTION_UNREACHABLE",
+      error: `Sanction unreachable: ${detail}`,
+      reason: `Sanction is unreachable (${detail}). Treat as denied; retry once, then stop and notify the owner.`,
+    }
+  }
 }
 
 const server = new McpServer({
   name: "sanction",
-  version: "0.2.1",
+  version: "0.3.0",
   description: "Sanction — pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)",
 })
 
 // Tool: Check spend authorization
 server.tool(
   "sanction_authorize",
-  "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. Never proceed with a transaction if this returns false.",
+  "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval — it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
   {
     action: z.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
     amount_usd: z.number().positive().describe("Exact amount in US dollars"),
     merchant: z.string().describe("Vendor or service name, e.g. 'Anthropic', 'AWS', 'Stripe'"),
     category: z.string().describe("Spend category — one of: software, services, research, infrastructure, marketing, legal, other"),
     description: z.string().optional().describe("Brief human-readable description of what this spend is for — helps the wallet owner understand escalations"),
+    grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact request. Retry with the identical action/amount/merchant/category/description plus this grant_id to consume it. Any field mismatch is denied GRANT_MISMATCH."),
     execution_jwt: z.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap."),
   },
-  async ({ action, amount_usd, merchant, category, description, execution_jwt }) => {
-    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description }, execution_jwt)
+  async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }) => {
+    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt)
     const authorized = result.authorized === true
     return {
       content: [{
         type: "text" as const,
         text: authorized
-          ? `✓ Authorized — ${merchant} $${amount_usd} (${result.request_id})`
-          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval." : "Do not proceed."}`,
+          ? `✓ Authorized — ${merchant} $${amount_usd} (${result.request_id})${result.grant_status === "consumed" ? " · grant consumed" : ""}`
+          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval — once approved, retry this exact request with the grant_id." : "Do not proceed."}`,
+      }],
+      isError: !authorized,
+    }
+  }
+)
+
+// Tool: Authorize a provisioning action (seats, licenses, infrastructure)
+server.tool(
+  "sanction_authorize_provision",
+  "ALWAYS call this before provisioning any resource — user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant — retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
+  {
+    resource: z.string().describe("What is being provisioned, e.g. 'azure.seat', 'm365.license', 'aws.instance'"),
+    line_item: z.string().describe("The concrete SKU or plan, e.g. 'Microsoft 365 E3'"),
+    quantity: z.number().int().positive().describe("Number of units to provision"),
+    unit_price_usd: z.number().positive().optional().describe("Per-unit price in USD. When supplied, quantity × unit_price_usd must equal amount_usd exactly or the request is rejected AMOUNT_MISMATCH."),
+    amount_usd: z.number().positive().describe("Total amount in US dollars"),
+    category: z.string().describe("Spend category — shares the wallet's category governance and daily budget, e.g. 'licenses', 'infrastructure'"),
+    description: z.string().optional().describe("Brief description of what this provision is for — helps the wallet owner understand escalations"),
+    grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact provision. Retry with identical fields plus this grant_id to consume it."),
+    execution_jwt: z.string().optional().describe("If part of an execution, pass the JWT to additionally enforce that execution's hard spend cap."),
+  },
+  async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }) => {
+    const result = await callSanction(
+      "/authorize/provision",
+      "POST",
+      { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
+      execution_jwt,
+    )
+    const authorized = result.authorized === true
+    return {
+      content: [{
+        type: "text" as const,
+        text: authorized
+          ? `✓ Authorized — ${quantity} × ${line_item} (${resource}) $${amount_usd} (${result.request_id})${result.grant_status === "consumed" ? " · grant consumed" : ""}`
+          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval — once approved, retry this exact request with the grant_id." : "Do not provision."}`,
       }],
       isError: !authorized,
     }

@@ -13,17 +13,18 @@ export type RoadmapItem = { title: string; note: string }
 
 export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapItem[] } = {
   now: [
-    { title: "Policy simulation", note: "Validate your policy end-to-end before any real money or action flows." },
     { title: "Policy decision engine", note: "One engine evaluates every request — structured allow / deny / escalate with a machine-readable code and fix hint." },
+    { title: "Human approval → one-use grants", note: "Escalations land in your approval inbox; approving mints a one-use grant the agent retries with. Policy timeouts guarantee a terminal outcome — no deadlocks." },
+    { title: "Provision authorization", note: "Govern resource provisioning — seats, licenses, infrastructure — quantity, line item, and dollars in one authorized call." },
+    { title: "Budget pools & allocation", note: "Delegated pools across your account tree — caps cascade down, spend rolls up, and allocation strategies rebalance from the dashboard." },
+    { title: "No-surprises budget alerts", note: "Early warning at 80% of any daily budget or pool cap — webhook + email before anything is denied, with burn-rate projections on every meter." },
     { title: "Govern any MCP tool", note: "Approve, deny, or escalate any tool invocation — not just spending. Authorization for agent actions, not just money." },
-    { title: "Org-wide spend budgets", note: "Budgets enforced across your whole account tree — caps cascade down, spend rolls up." },
-    { title: "MCP registry listing", note: "First-class discovery so any MCP host can add Sanction in one step." },
   ],
   next: [
-    { title: "Human approval workflows", note: "Owner-in-the-loop approval for escalated spend and tool actions, with a guaranteed terminal outcome — no deadlocks." },
+    { title: "Sanction Local", note: "Private AI on hardware you own — local models, zero egress by design, and a signed audit trail your assessor can read. Regulated practices first." },
+    { title: "Agent-platform starter kit", note: "One recipe for any agent builder: before spend, tools, credentials, or provisioning, call Sanction — escalations wait for a human grant." },
+    { title: "Approvals that find you", note: "Escalations routed to the right human wherever they work — email today, Slack and webhooks next." },
     { title: "Policy templates & plain-English governance", note: "Start from sensible presets; read and write your guardrails in words, not cents." },
-    { title: "Activity & decisions dashboard", note: "Spend, credentials, LLM usage, tools, and approvals — every decision in a single view." },
-    { title: "Sanction Local", note: "Run governed AI entirely on your own infrastructure — the same policy engine and audit trail, on-prem." },
   ],
   later: [
     { title: "Tamper-evident audit exports", note: "Hash-chained, exportable decision history — governance as cryptographic evidence." },
