@@ -147,13 +147,13 @@
   height: 40px;
 }
 .sn-btn-l {
-  padding: 12px 24px;
-  font-size: 16px;
-  height: 48px;
+  padding: 14px 30px;
+  font-size: 16.5px;
+  height: 54px;
 }
 .sn-btn-primary {
   background: var(--action-primary);
-  color: var(--text-on-action);
+  color: #ffffff;
 }
 .sn-btn-primary:hover {
   background: var(--action-primary-hover);
@@ -180,6 +180,22 @@
 }
 .sn-btn-onDark:hover {
   background: rgba(242, 241, 234, 0.08);
+}
+
+/* The button variants are <a> tags, so `.sanction a { color: inherit }` would
+   win on specificity. Re-assert the on-fill text colors with `.sanction` prefix
+   so the pine primary reads white, not ink. */
+.sanction .sn-btn-primary {
+  color: #ffffff;
+}
+.sanction .sn-btn-secondary {
+  color: var(--text-body);
+}
+.sanction .sn-btn-ghost {
+  color: var(--text-secondary);
+}
+.sanction .sn-btn-onDark {
+  color: #f2f1ea;
 }
 
 .sn-card {
