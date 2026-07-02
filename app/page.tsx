@@ -58,6 +58,7 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
   const faint = "rgba(237,233,220,.6)"
   return (
     <div
+      className="sn-keycard"
       style={{
         containerType: "inline-size",
         width: "100%",
@@ -71,7 +72,6 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
         justifyContent: "space-between",
         color: "#EDE9DC",
         background: "linear-gradient(135deg,#124A3A 0%,#0C332A 55%,#0A2B23 100%)",
-        boxShadow: "var(--shadow-key)",
         position: "relative",
         overflow: "hidden",
         fontFamily: "var(--font-sans)",
@@ -90,16 +90,24 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
         <span style={{ fontWeight: 600, letterSpacing: "-0.01em", fontSize: cq(16) }}>Sanction</span>
         <img src="/brand/sanction-mark.svg" alt="" style={{ width: cq(24), height: cq(24) }} />
       </div>
-      <div
-        aria-hidden
-        style={{
-          width: cq(46),
-          height: cq(34),
-          borderRadius: cq(7),
-          background: "linear-gradient(135deg,#EED9A0 0%,#D4AF5E 45%,#B58328 100%)",
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,.28), inset 0 -6px 10px rgba(90,60,10,.25)",
-        }}
-      />
+      <div style={{ display: "flex", alignItems: "center", gap: cq(14) }}>
+        <div
+          aria-hidden
+          style={{
+            width: cq(46),
+            height: cq(34),
+            borderRadius: cq(7),
+            background: "linear-gradient(135deg,#EED9A0 0%,#D4AF5E 45%,#B58328 100%)",
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,.28), inset 0 -6px 10px rgba(90,60,10,.25)",
+          }}
+        />
+        {/* tap-to-pay (contactless) */}
+        <svg aria-hidden viewBox="0 0 24 24" style={{ width: cq(22), height: cq(22), color: "rgba(237,233,220,.75)" }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M8.5 7.5a7 7 0 0 1 0 9" />
+          <path d="M12 5a11 11 0 0 1 0 14" />
+          <path d="M15.5 2.5a15 15 0 0 1 0 19" />
+        </svg>
+      </div>
       <div style={{ fontFamily: "var(--font-mono)", fontSize: cq(17), letterSpacing: ".06em", whiteSpace: "nowrap" }}>PXY · •••• · •••• · AGNT</div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: cq(12) }}>
         <div>
