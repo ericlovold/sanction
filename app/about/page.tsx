@@ -8,8 +8,8 @@ export const metadata: Metadata = {
     "Eric Lovold works 1:1 with executives implementing productive AI workflows, tools, and best practices — and builds AI systems for SMBs in regulated industries: healthcare, legal, and real estate.",
 }
 
-// "Talk to us" / "Book" → Eric's Calendly when set; scrolls to the CTA otherwise.
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "#book"
+// "Book" → Eric's Calendly. NEXT_PUBLIC_CALENDLY_URL overrides at build time.
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
 
