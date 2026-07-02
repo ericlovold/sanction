@@ -45,6 +45,41 @@ export async function sendMagicLinkEmail(to: string, link: string): Promise<void
   await send({ to, subject, html, text })
 }
 
+type BudgetThreshold = {
+  label: string
+  pctUsed: number
+  spentUsd: number
+  capUsd: number
+}
+
+const SPEND_URL = "https://getsanction.com/dashboard/spend"
+
+// Early warning at the threshold line (default 80%) — the "no surprises"
+// email. Fires once per scope per day, before anything is denied. Best-effort;
+// callers fire from after().
+export async function sendBudgetThresholdEmail(to: string, b: BudgetThreshold): Promise<void> {
+  const spent = `$${b.spentUsd.toFixed(2)}`
+  const cap = `$${b.capUsd.toFixed(2)}`
+  const subject = `Heads up: ${b.pctUsed}% of today's budget — ${b.label}`
+  const text = [
+    `${b.label} is at ${b.pctUsed}% of today's budget: ${spent} of ${cap}.`,
+    "",
+    "Nothing is blocked yet — this is the early warning so nothing surprises you.",
+    "If the pace holds, requests over the limit will be denied until the daily reset.",
+    "",
+    `Review the burn: ${SPEND_URL}`,
+  ].join("\n")
+  const html = `<!doctype html><html><body style="margin:0;background:#09090b;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e4e4e7">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:18px;font-weight:600;letter-spacing:-0.01em;margin:0 0 24px">Sanction</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 8px"><strong>${b.label}</strong> is at <strong>${b.pctUsed}%</strong> of today's budget: <strong>${spent}</strong> of <strong>${cap}</strong>.</p>
+    <p style="font-size:14px;line-height:1.6;color:#a1a1aa;margin:8px 0 24px">Nothing is blocked yet — this is the early warning. If the pace holds, requests over the limit will be denied until the daily reset.</p>
+    <a href="${SPEND_URL}" style="display:inline-block;background:#10b981;color:#09090b;font-weight:600;font-size:14px;text-decoration:none;padding:12px 20px;border-radius:8px">Review the burn</a>
+    <p style="font-size:12px;color:#52525b;margin:24px 0 0;word-break:break-all">${SPEND_URL}</p>
+  </div></body></html>`
+  await send({ to, subject, html, text })
+}
+
 type Escalation = {
   agentName: string
   amountUsd: number

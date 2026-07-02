@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid"
 import { db } from "./db"
+import { crossedThreshold } from "./burn"
 
 export type CascadeTx = Pick<typeof db, "wallet" | "$executeRaw" | "$queryRaw">
 
@@ -73,17 +74,21 @@ export function effectivePerTransactionMaxCents(
   return Math.min(...caps)
 }
 
+/** A capped ancestor pushed across the alert threshold by this reservation. */
+export type CascadeCrossing = { walletId: string; capCents: number; spentCents: number }
+
 export async function reserveCascadeDailySpend(
   tx: CascadeTx,
   walletId: string,
   amountCents: number,
   now = new Date(),
   chain?: WalletBudgetNode[],
-): Promise<void> {
+): Promise<CascadeCrossing[]> {
   const nodes = chain ?? (await walletAncestorChain(tx, walletId))
   const periodStart = dayStart(now)
   const capped = nodes.filter((node) => node.policy?.subtreeDailyCapUsd != null)
-  if (capped.length === 0) return
+  const crossings: CascadeCrossing[] = []
+  if (capped.length === 0) return crossings
 
   // Update ancestors in a stable root→leaf order so sibling agents do not deadlock
   // when they share an ancestor. Any failed conditional update throws, causing the
@@ -154,7 +159,21 @@ export async function reserveCascadeDailySpend(
         AND "spentCents" + ${amountCents} <= ${capCents}
     `
     if (changed !== 1) throw new CascadeBudgetExceeded(node.id, capCents, periodStart)
+
+    // Threshold-crossing detection for the "no surprises" alert: read the
+    // counter this reservation just incremented; if the charge moved it from
+    // below the alert line to at-or-above, report it so the caller can notify
+    // (after the response, never in-path).
+    const counters = await tx.$queryRaw<Array<{ spentCents: number }>>`
+      SELECT "spentCents" FROM "WalletBudgetCounter"
+      WHERE "walletId" = ${node.id} AND "period" = ${PERIOD_DAILY} AND "periodStart" = ${periodStart}
+    `
+    const spentAfter = counters[0]?.spentCents
+    if (spentAfter != null && crossedThreshold(spentAfter - amountCents, spentAfter, capCents)) {
+      crossings.push({ walletId: node.id, capCents, spentCents: spentAfter })
+    }
   }
+  return crossings
 }
 
 export async function cascadeDailyWouldExceed(

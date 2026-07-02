@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { hashApiKey } from "@/lib/apiKey"
 import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter } from "@/lib/gateway"
+import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -101,7 +102,18 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
         const u = meter.result()
         if (u.tokensIn || u.tokensOut) {
           try {
-            await meterUsage(agent.id, provider, u)
+            const cost = await meterUsage(agent.id, provider, u)
+            // Early warning (no surprises): this call crossed the threshold
+            // line of the daily token budget. Pre-call `spent` is close enough
+            // for a best-effort alert.
+            await notifyTokenBudgetThreshold({
+              walletId: agent.walletId,
+              ownerEmail: agent.wallet.ownerEmail,
+              agentName: agent.name,
+              prevUsd: spent,
+              nextUsd: spent + cost,
+              budgetUsd: budget,
+            })
           } catch {
             // metering failure must not break the client's stream
           }
@@ -117,7 +129,17 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
     try {
       const json = JSON.parse(new TextDecoder().decode(buf))
       const usage = cfg.extract(json, path.join("/"))
-      if (usage && (usage.tokensIn || usage.tokensOut)) await meterUsage(agent.id, provider, usage)
+      if (usage && (usage.tokensIn || usage.tokensOut)) {
+        const cost = await meterUsage(agent.id, provider, usage)
+        await notifyTokenBudgetThreshold({
+          walletId: agent.walletId,
+          ownerEmail: agent.wallet.ownerEmail,
+          agentName: agent.name,
+          prevUsd: spent,
+          nextUsd: spent + cost,
+          budgetUsd: budget,
+        })
+      }
     } catch {
       // not parseable / no usage — pass the body through untouched
     }
