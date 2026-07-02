@@ -28,6 +28,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Route CrewAI agents through the Sanction gateway and give the crew an authorize tool it must clear before any spend.",
   },
+  "starter-kit": {
+    file: "STARTER-KIT.md",
+    title: "Agent-platform starter kit",
+    description:
+      "One recipe for any agent builder: before spend, tools, credentials, or provisioning, ask Sanction — act on approved, wait for the grant on escalated, stop clean on denied. REST, MCP, and webhooks.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",
