@@ -559,6 +559,7 @@ export default async function PoolsPage() {
                 ownCapUsd: pool.ownCapUsd,
                 effectiveCapUsd: pool.capUsd,
                 capSource: pool.capSource,
+                childCount: pool.childCount,
               }))}
               agents={pools.agents.map((agent) => ({
                 id: agent.id,
@@ -568,14 +569,14 @@ export default async function PoolsPage() {
               }))}
             />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-3">
-              {["Create delegated pool", "Set pool cap", "Move agent"].map((label) => (
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+              {["Create delegated pool", "Apply allocation", "Set pool cap", "Move agent"].map((label) => (
                 <div key={label} className="rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
                   <p className="text-sm font-medium text-zinc-300">{label}</p>
                   <p className="mt-1 text-xs text-zinc-600">Log in to edit authority.</p>
                 </div>
               ))}
-              <Link href="/login" className="inline-flex w-fit rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 lg:col-span-3">
+              <Link href="/login" className="inline-flex w-fit rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 lg:col-span-2 xl:col-span-4">
                 Log in
               </Link>
             </div>

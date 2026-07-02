@@ -361,6 +361,15 @@ parent with `subtreeDailyCapUsd = $50`, several agents under it spending concurr
 proved the per-agent lock) **before** trusting it. It's fully additive, so until a
 cap is set nothing changes; ship it behind that green test.
 
+**Allocation controls (implemented slice):** `/dashboard/pools` can now apply a
+parent pool's enforced `subtreeDailyCapUsd` across its direct child pools. The
+allocation is accounting-only: it rewrites child `Policy.subtreeDailyCapUsd`
+values, so the existing cascade enforcement remains the source of truth. Initial
+strategies are equal split, current spend, delegated agent authority, and
+remaining delegated headroom. This is the first usable version of "one number at
+the top, strategy down the tree" without introducing custody or pretending funds
+move inside Sanction.
+
 ### 4.7 Provider as a dimension — per-provider visibility + caps
 
 The CFO view that's becoming a roadmap driver: see and govern spend **per provider**
