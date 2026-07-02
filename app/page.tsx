@@ -59,11 +59,10 @@ function AccessKeyCard({ width = 400 }: { width?: number }) {
     <div
       className="sn-keycard"
       style={{
-        containerType: "inline-size",
         width: "100%",
         maxWidth: width,
         aspectRatio: "1.586 / 1",
-        borderRadius: cq(20),
+        borderRadius: cq(13),
         padding: `${cq(20)} ${cq(26)}`,
         boxSizing: "border-box",
         display: "flex",
