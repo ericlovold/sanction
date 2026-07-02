@@ -5,7 +5,7 @@
 > **Discovery answered the draft's open questions:** `/authorize` **did** race (fixed, SEC-4); the master key is a **single env var** (SEC-1 open); there is **no funding integration** today — `stripe` is unused and budgets are accounting caps over the dev's own rails (FUND-1 current-state resolved).
 
 ## The thesis this roadmap serves
-Sanction's defensible product is **the cross-platform governance + human-escalation plane on top of AP2/MCP that no single platform owns**, made trustworthy by provable security and sold **clearance-first**. The vault is table stakes; the *policy + escalation + proof* is the product. Three independent discovery lenses (security, UX, distribution) converged here — that's where conviction is highest. Code discovery adds a fourth confirmation: the *injection core is well-built*, so the defensible work is enforcement, isolation, and escalation — not rebuilding the primitive.
+Sanction's defensible product is **the cross-platform governance + human-escalation plane on top of agent builders, AP2, and MCP that no single platform owns**, made trustworthy by provable security and sold **clearance-first**. The vault is table stakes; the *policy + escalation + proof* is the product. Three independent discovery lenses (security, UX, distribution) converged here — that's where conviction is highest. Code discovery adds a fourth confirmation: the *injection core is well-built*, so the defensible work is enforcement, isolation, and escalation — not rebuilding the primitive.
 
 ## Execution gating: pull before paywall (added 2026-06-23)
 
@@ -56,6 +56,31 @@ His 6 questions → roadmap:
 
 **Parked idea (don't lose):** *multiple gateway nodes per provider* — redundant gateway endpoints (per provider / per region) for HA + failover, feeding the SLA story in #2. Distinct from the account-tree "nodes" (those are budget/org nodes). Revisit with the reliability/SLA work.
 
+## Agent-platform wave — Omnigent-style launches (2026-07-01)
+
+Agent-builder platforms are becoming the new distribution surface: OpenAI Agent Kit, GitHub Agent HQ, OutSystems Agent Workbench, Pega Agentic Process Fabric, cloud runtimes, and Omnigent-style launches all make it easier for teams to create more agents faster. This is **validation**, not the fight. Sanction should not become an agent builder. The winning posture is:
+
+> Launch agents anywhere. Govern them in Sanction.
+
+**Strategic read:** agent platforms create action; Sanction authorizes action. Native platform governance will commoditize generic "approval dashboards," so Sanction must own what a single builder cannot credibly own: cross-platform spend caps, credential vaulting, one-use grants, cascade pools, audit evidence, ethical review packages, and an external authorization boundary that works across runtimes.
+
+**Roadmap response:**
+
+| Item | Build | Why |
+|---|---|---|
+| `DIST-7` | **Agent-platform starter kit** — one recipe every builder can copy: before spend/tool/credential/provision, call Sanction; if escalated, wait for grant; if denied, stop. Ship as REST + MCP + webhook examples. | Turns every new agent platform into a distribution channel instead of a competitor. |
+| `DIST-8` | **Runtime integration pages** — "Sanction for Omnigent-style platforms," plus named pages/guides for OpenAI Agent Kit, GitHub Agent HQ, Bedrock AgentCore, OutSystems, Pega, and custom runtimes. | SEO + sales clarity: Sanction is the independent control plane beside whatever builder the buyer chose. |
+| `DX-2` | **Source/runtime attribution** — tag agents and authorization requests by runtime/source (`cursor`, `claude-code`, `codex`, `omnigent`, `bedrock`, `custom`) for dashboards, audit export, and activation analytics. | Makes cross-platform governance visible and proves neutrality in the product. |
+| `POS-2` | **Independent authorization boundary copy** — codify the line: "Agent platforms create action. Sanction authorizes action." | Keeps the category crisp as builders add native governance. |
+
+**Do not overbuild here:** no workflow builder, no competing orchestration layer, no proprietary agent spec. Integrate with builders through REST, MCP, webhooks, and gateway middleware. The moat is the external, rail-neutral decision point.
+
+## Ethical AI / Moral Intention Analyst boundary (2026-07-01)
+
+Sanction Ethical AI can stay public as a services channel: philosopher-led review, moral-risk analysis, and governance package design that becomes Sanction policy, approvals, grants, and audit. **Moral Intention Analyst is not public yet.** It is a paid/licensed local product concept with Dr. Ping positioning, persistent local memory, and hardware/services packaging still unresolved.
+
+**Roadmap rule:** do not publish `/mia-local`, do not link Moral Intention Analyst from public navigation, and do not sell it as free. Keep the internal plan in `docs/MIA-LOCAL.md` until licensing, attribution, and packaging are ready.
+
 ## The gate before everything
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:
 - ✅ **`SEC-15` authenticated management plane** — *shipped PR #1* (closed a live unauth credential-disclosure P0).
@@ -74,6 +99,7 @@ A credential vault that can leak every tenant's secrets is uninvestable. These *
 - **`SEC-16` hygiene follow-up** — rotate the AIIA agent key (prefix was committed; PR #1 scrubbed the doc) + add the unit-test suite.
 - **`FUND-1`** — ratify custody model (recommend: control-plane, no custody) + ship **simulation mode** so devs activate without funding.
 - **`DIST-1`** — MCP Registry `server.json` with best-in-class tool descriptions ("call BEFORE any spend/credential action; bypassing fails"). Highest effort:leverage play in the plan.
+- **`DIST-7`** — agent-platform starter kit: universal pre-action authorization recipe for Omnigent-style builders, OpenAI Agent Kit, GitHub Agent HQ, AgentCore, and custom runtimes.
 - **`UX-1`** — typed, remediable DENY responses (`BUDGET_EXCEEDED` + remediation hint). PR #1 already returns a `reason`; formalize the code set.
 
 ## NEXT — GA → ~3 months: become the thing agents *choose* and devs trust
@@ -84,6 +110,7 @@ A credential vault that can leak every tenant's secrets is uninvestable. These *
 - **`SEC-8`** — purpose/egress-bound credential injection + anomaly detection. Defends the category-defining threat (a prompt-injected agent exfiltrating a secret) — moat *and* sellable.
 - **Clearance enforcement (per founder decision: "wire it, then lead with it")** — make clearance actually gate scopes/categories + add an assignment endpoint, so the brand wedge is real, not modeled-only.
 - **`DIST-3`** — AIIA dogfood → reference architecture + OSS quickstart. AIIA's AUTO/SUPERVISED/GATED execution maps ~1:1 onto clearance levels.
+- **`DIST-8` / `POS-2`** — named agent-platform integration pages + independent authorization boundary positioning.
 - **`DIST-2` / `DIST-4`** — A2A AgentCard; submit to the Anthropic Connectors Directory.
 
 ## LATER — 3–9 months: enterprise trust + ecosystem moat
