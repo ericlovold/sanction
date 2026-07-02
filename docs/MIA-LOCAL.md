@@ -1,7 +1,8 @@
-# Moral Intention Analyst Local - Launch Spec
+# Moral Intention Analyst Local - Internal Spec
 
 > Moral Intention Analyst as a licensed, local, airgapped ethics agent.
 > Internal planning only. Do not publish the Sanction Ethical AI channel, a public product page, or site links until the offer, licensing, and Dr. Ping positioning are ready.
+> Current Fable/founder decision: no explicit MIA or Ethical AI product surface. Keep this as internal raw material; if revived, fold it into Sanction Local or private service packaging after explicit approval.
 
 ## Product promise
 
@@ -13,7 +14,7 @@ The product line is simple:
 |---|---|
 | Moral Intention Analyst Local | Defines the ethical boundary through local moral reasoning and persistent memory. |
 | Sanction | Enforces the boundary through policies, approvals, grants, spend caps, credential controls, and audit. |
-| Sanction Ethical AI | Delivers human-led ethics work sessions, governance packages, articles, and implementation. |
+| Private ethics packages | Deliver human-led work sessions, governance packages, articles, and Sanction Local implementation without creating another public product surface. |
 
 Core line: **Moral Intention Analyst helps define the boundary. Sanction enforces it.**
 
@@ -91,13 +92,14 @@ Publishing stance:
 ## Launch sequence
 
 1. Keep the public `/mia-local` surface unpublished.
-2. Keep Moral Intention Analyst out of public Sanction navigation until packaging is clear.
+2. Keep Moral Intention Analyst and Ethical AI out of public Sanction navigation.
 3. Build the Mac Mini prototype with local model + persistent memory.
 4. Define the paid license, hardware, and services packaging.
 5. Load reviewed Moral Intention Analyst framework material.
 6. Run work sessions with Dr. Ping and capture improvements.
-7. Publish articles only when the commercial story and attribution are ready.
-8. Package first hardware profile after the local prototype proves useful.
+7. Publish articles only as thought leadership, not as a separate product surface.
+8. Fold any commercial packaging into Sanction Local or private services unless Eric explicitly reopens the surface decision.
+9. Package first hardware profile after the local prototype proves useful.
 
 ## Open questions
 

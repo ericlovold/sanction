@@ -69,7 +69,7 @@ Agent-builder platforms are becoming the new distribution surface: OpenAI Agent 
 | Item | Build | Why |
 |---|---|---|
 | `DIST-7` | **Agent-platform starter kit** — one recipe every builder can copy: before spend/tool/credential/provision, call Sanction; if escalated, wait for grant; if denied, stop. Ship as REST + MCP + webhook examples. | Turns every new agent platform into a distribution channel instead of a competitor. |
-| `DIST-8` | **Runtime integration pages** — "Sanction for Omnigent-style platforms," plus named pages/guides for OpenAI Agent Kit, GitHub Agent HQ, Bedrock AgentCore, OutSystems, Pega, and custom runtimes. | SEO + sales clarity: Sanction is the independent control plane beside whatever builder the buyer chose. |
+| `DIST-8` | **Runtime integration guides** — docs and MCP examples for Omnigent-style platforms, OpenAI Agent Kit, GitHub Agent HQ, Bedrock AgentCore, OutSystems, Pega, and custom runtimes. Do not turn these into new product surfaces. | Sales clarity without brand sprawl: Sanction is the independent control plane beside whatever builder the buyer chose. |
 | `DX-2` | **Source/runtime attribution** — tag agents and authorization requests by runtime/source (`cursor`, `claude-code`, `codex`, `omnigent`, `bedrock`, `custom`) for dashboards, audit export, and activation analytics. | Makes cross-platform governance visible and proves neutrality in the product. |
 | `POS-2` | **Independent authorization boundary copy** — codify the line: "Agent platforms create action. Sanction authorizes action." | Keeps the category crisp as builders add native governance. |
 
@@ -77,9 +77,11 @@ Agent-builder platforms are becoming the new distribution surface: OpenAI Agent 
 
 ## Ethical AI / Moral Intention Analyst boundary (2026-07-01)
 
-Sanction Ethical AI and Moral Intention Analyst are both held from public launch. The direction is still strategically useful: philosopher-led review, moral-risk analysis, and governance package design that can become Sanction policy, approvals, grants, and audit. But the offer, attribution, pricing, licensing, and Dr. Ping positioning are not ready enough to publish.
+Fable recommendation accepted: for now, the public surface area is **Sanction Local** and **Sanction MCP**. No more explicit product surfaces.
 
-**Roadmap rule:** do not publish `/ethical-ai` or `/mia-local`, do not link Ethical AI or Moral Intention Analyst from public navigation, and do not sell Moral Intention Analyst as free. Keep the internal plan in `docs/MIA-LOCAL.md` until the commercial story is ready.
+Sanction Local is the paid, airgapped/private product packaging. Sanction MCP is the open distribution vehicle and agent-runtime integration surface. Ethics/MIA work remains useful as strategy, private service packaging, and future Local modules, but not as public pages.
+
+**Roadmap rule:** do not publish `/ethical-ai` or `/mia-local`, do not link Ethical AI or Moral Intention Analyst from public navigation, and do not create another named product page without explicit founder approval. Keep the internal plan in `docs/MIA-LOCAL.md` until the commercial story is ready, and fold any revived packaging into Sanction Local or private services by default.
 
 ## The gate before everything
 A credential vault that can leak every tenant's secrets is uninvestable. These **ship before GA regardless of RICE**:
@@ -110,7 +112,7 @@ A credential vault that can leak every tenant's secrets is uninvestable. These *
 - **`SEC-8`** — purpose/egress-bound credential injection + anomaly detection. Defends the category-defining threat (a prompt-injected agent exfiltrating a secret) — moat *and* sellable.
 - **Clearance enforcement (per founder decision: "wire it, then lead with it")** — make clearance actually gate scopes/categories + add an assignment endpoint, so the brand wedge is real, not modeled-only.
 - **`DIST-3`** — AIIA dogfood → reference architecture + OSS quickstart. AIIA's AUTO/SUPERVISED/GATED execution maps ~1:1 onto clearance levels.
-- **`DIST-8` / `POS-2`** — named agent-platform integration pages + independent authorization boundary positioning.
+- **`DIST-8` / `POS-2`** — runtime integration guides + independent authorization boundary positioning. Keep this inside docs/MCP distribution, not new product surfaces.
 - **`DIST-2` / `DIST-4`** — A2A AgentCard; submit to the Anthropic Connectors Directory.
 
 ## LATER — 3–9 months: enterprise trust + ecosystem moat
