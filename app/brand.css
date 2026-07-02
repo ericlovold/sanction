@@ -59,6 +59,9 @@
   /* fonts (scoped: dashboard keeps Geist) */
   --font-sans: var(--font-instrument), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  /* Eyebrow labels: real Futura/Avenir where installed (Mac), Jost web fallback
+     everywhere else. Geometric, not mono — replaces the default Plex-Mono look. */
+  --font-label: "Futura", "Avenir Next", "Avenir", var(--font-jost), "Century Gothic", sans-serif;
 
   /* type scale */
   --text-display: 600 clamp(44px, 5vw, 64px) / 1.04 var(--font-sans);
@@ -207,10 +210,10 @@
 }
 
 .sn-mono {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-label);
+  font-size: 12.5px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
