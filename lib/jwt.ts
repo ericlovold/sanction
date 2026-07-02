@@ -101,7 +101,14 @@ export function decryptCredential(ciphertext: string, walletId: string, label: s
   const aad = `${walletId}:${label}`
 
   if (buf[0] === CIPHERTEXT_V2) {
-    return decryptV2(buf, walletId, aad)
+    try {
+      return decryptV2(buf, walletId, aad)
+    } catch {
+      // Could be a legacy blob whose first byte happens to be 0x02 (~1 in 128
+      // of V0 blobs start with a random IV byte that collides with a version
+      // marker). GCM auth makes the wrong path fail loudly, so falling through
+      // to the legacy attempt is safe — a tampered V2 blob fails both.
+    }
   }
   if (buf[0] === CIPHERTEXT_V1) {
     try {

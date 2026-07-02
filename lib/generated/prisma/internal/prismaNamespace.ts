@@ -2355,6 +2355,8 @@ export const WalletKeyScalarFieldEnum = {
   walletId: 'walletId',
   wrappedDek: 'wrappedDek',
   keyRef: 'keyRef',
+  isActive: 'isActive',
+  retiredAt: 'retiredAt',
   createdAt: 'createdAt'
 } as const
 
