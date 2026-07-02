@@ -61,14 +61,12 @@ export default function About() {
         <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
           Putting AI to work for executives and regulated teams.
         </h1>
-        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "58ch" }}>
-          I work 1:1 with executives implementing productive AI workflows, tools, and best practices. I&apos;ve spent the
-          last decade driving outcomes in healthcare and technology — and I&apos;m entirely focused on what artificial
-          intelligence means for the future of humanity.
+        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "56ch" }}>
+          I work with executives and SMBs implementing productive AI workflows, tools, and best practices — a decade
+          driving outcomes in healthcare and technology, now focused on what AI means for the future of humanity.
         </p>
-        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px auto 32px", maxWidth: "58ch" }}>
-          I build AI systems for small and midsize businesses in regulated industries — where confidentiality, audit, and
-          trust are non-negotiable.
+        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px auto 32px", maxWidth: "56ch" }}>
+          I build AI systems for regulated industries, where confidentiality, audit, and trust are non-negotiable.
         </p>
         <a
           className="sn-btn sn-btn-primary sn-btn-l"
