@@ -3,10 +3,9 @@ import Link from "next/link"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 import "./brand.css"
 
-// "Talk to us" → book a call. Set NEXT_PUBLIC_CALENDLY_URL to Eric's real
-// scheduling link; until it's set, the CTA scrolls to the signup section so it
-// never dead-ends (the old mailto silently failed for webmail users).
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "#stay-in-the-loop"
+// "Talk to us" → book a call. NEXT_PUBLIC_CALENDLY_URL overrides at build time;
+// defaults to Eric's scheduling link so the CTA always books (no dead-end).
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
 
 export const metadata: Metadata = {
   title: "Sanction — Authorization for autonomous AI agents",
