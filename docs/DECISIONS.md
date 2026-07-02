@@ -213,11 +213,11 @@ allow-list, *if set*, now actually denies unlisted categories (previously a sile
 **Finding→new-ID map (for traceability):** THREAT/FINDINGS `F1/F2/F3` (unauth mgmt plane) → **SEC-15** (shipped); `V2a` double-spend → **SEC-4** (shipped); `F5` cred-expiry → shipped (folded into SEC-5/SEC-8 area); `V1` key custody → **SEC-1/SEC-2**; `V2b` isolation → **SEC-3**; `F6` revocation / `F7` asymmetric → **SEC-5/SEC-10**; `F9` committed ids / key rotation → **SEC-6/SEC-16**; audit → **SEC-7**.
 **Consequences:** Older docs (`SECURITY-FINDINGS.md`, `SECURITY-THREAT-MODEL.md`, `PRODUCT-OWNERSHIP.md`) still reference `F#/S#` ids; this map keeps them traceable. Future work references the `SEC-/UX-/DIST-` scheme.
 
-## ADR-0005 ⚑ PROPOSED — Wallet rails: control plane vs. fund custody
-**Date:** 2026-06-15 · **Status:** Proposed (needs founder decision)
+## ADR-0005 ACCEPTED — Wallet rails: control plane, no custody
+**Date:** 2026-06-15 · **Ratified:** 2026-07-01 by founder · **Status:** Accepted — option (A)
 **Context:** Sanction is marketed as an "agent wallet" but today only *authorizes* and *logs* spend; it never moves money (the `stripe` dependency is unused). Two divergent futures: (A) stay an **authorization + audit control plane** that rides existing rails (cards, agent-payment protocols), keeping Sanction out of money-transmission/PCI scope; (B) add **real spend rails** (virtual-card issuing or an agent-payment protocol) and custody/route funds, becoming a true wallet — far larger TAM but heavy compliance (MTL/KYC/PCI).
-**Decision:** Deferred to founder. Recommendation: **(A) for now** — it is where the current code already is, keeps regulatory surface minimal, and the differentiated value (scoped credential injection + policy) doesn't require custody. Re-open if a design partner needs custody.
-**Consequences:** Narrative shifts from "wallet that holds funds" to "the spend *authorization* and credential layer" until/unless (B) is chosen.
+**Decision:** **(A) — control plane, no custody.** Sanction is the independent authorization boundary for autonomous systems: agent platforms create action, Sanction authorizes it. Stay cross-runtime, rail-neutral, and human-approval native. Do not build payment rails, custody, an agent builder, or workflow orchestration ahead of demand — **re-open only when a *paying* design partner concretely requires custody/rails**, not on TAM arguments.
+**Consequences:** FUND-1 is closed (current state = decision). The narrative stays "the authorization layer" — never "wallet that holds funds." Simulation mode (`simulate=true`) remains the no-funding activation path. Follow-ups: drop the unused `stripe` dependency; agent-payment protocols (AP2/x402, POS-1) integrate as *rails Sanction governs*, not rails Sanction operates.
 
 ## ADR-0004 ACCEPTED — Authentication model for the management plane
 **Date:** 2026-06-15 · **Status:** Accepted & implemented (branch `claude/modest-albattani-620j27`)
