@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
+import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
 
 const schema = z.object({
   model: z.string(),
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
       return { exceeded: true as const, spent }
     }
     const log = await tx.tokenLog.create({ data: logData })
-    return { exceeded: false as const, logId: log.id }
+    return { exceeded: false as const, logId: log.id, spent }
   })
 
   if (outcome.exceeded) {
@@ -61,6 +63,19 @@ export async function POST(req: NextRequest) {
       daily_spent_usd: outcome.spent,
     }, { status: 402 })
   }
+
+  // Early warning (no surprises): this call crossed the threshold line of the
+  // daily token budget — notify the owner before the 402 wall is hit.
+  after(() =>
+    notifyTokenBudgetThreshold({
+      walletId: agent.walletId,
+      ownerEmail: agent.wallet.ownerEmail,
+      agentName: agent.name,
+      prevUsd: outcome.spent,
+      nextUsd: outcome.spent + cost_usd,
+      budgetUsd: budgetDollars,
+    }),
+  )
 
   return NextResponse.json({ id: outcome.logId, recorded: true, cost_usd, agent: agent.name })
 }

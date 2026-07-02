@@ -13,6 +13,8 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import { createProvisionPendingApproval } from "@/lib/approvals"
 import { consumeProvisionGrant } from "@/lib/grants"
+import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thresholds"
+import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
@@ -222,6 +224,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Threshold-crossing state, captured inside the transaction and notified
+    // after the response (no surprises).
+    let spendCrossing: { prevCents: number; nextCents: number } | null = null
+    let poolCrossings: CascadeCrossing[] = []
+
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
@@ -275,13 +282,16 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
+        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
       } catch (e) {
         if (e instanceof CascadeBudgetExceeded) {
           return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
         }
         throw e
       }
+
+      const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
+      spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
 
       const approved = await tx.authorizationRequest.create({
         data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
@@ -322,6 +332,29 @@ export async function POST(req: NextRequest) {
         deliverEvent(agent.walletId, "budget.exhausted", {
           agent: agent.name, scope: result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE ? "subtree_daily_spend" : "daily_spend", amount_usd, resource, category,
         }),
+      )
+    }
+
+    // Early warning at the threshold line (no surprises) — see /authorize.
+    if (result.status === "approved" && (spendCrossing || poolCrossings.length > 0)) {
+      // TS cannot see the assignment inside the transaction callback — widen back.
+      const crossing = spendCrossing as { prevCents: number; nextCents: number } | null
+      after(() =>
+        Promise.all([
+          crossing
+            ? notifySpendBudgetThreshold({
+                walletId: agent.walletId,
+                ownerEmail: agent.wallet.ownerEmail,
+                agentName: agent.name,
+                prevCents: crossing.prevCents,
+                nextCents: crossing.nextCents,
+                capCents: dailySpendBudget,
+              })
+            : Promise.resolve(),
+          poolCrossings.length > 0
+            ? notifyPoolCapThresholds(agent.walletId, agent.wallet.ownerEmail, poolCrossings)
+            : Promise.resolve(),
+        ]),
       )
     }
 
