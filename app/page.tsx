@@ -325,7 +325,8 @@ export default function Landing() {
             Sanction
           </span>
           <span>Authorize · Protect · Govern</span>
-          <span style={{ marginLeft: "auto", display: "flex", gap: 20 }}>
+          <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <Link className="sanction-link" href="/about">Consulting</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>
             <Link className="sanction-link" href="/changelog">Changelog</Link>
             <a className="sanction-link" href="/api/openapi.json">API</a>
