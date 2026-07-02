@@ -4,13 +4,12 @@ import Link from "next/link"
 export const metadata: Metadata = {
   title: "Sanction Ethical AI — ethics review and governance design for autonomous systems",
   description:
-    "Ethics review, moral-risk analysis, and governance package design for teams deploying autonomous systems. Human-led work sessions that end as enforceable Sanction policies, approval workflows, grants, and audit artifacts.",
+    "Ethics review, moral-risk analysis, and governance package design for teams deploying autonomous systems, with a local Moral Intention Analyst agent guided by Dr. A.C. Ping.",
 }
 
 const BOOK_URL = "mailto:eric@getsanction.com?subject=Ethics%20work%20session"
+const MIA_URL = "/mia-local"
 
-// The commercial channel is human-led consulting — MIA is the analytical
-// method behind it, not a chatbot we sell. Keep the offers deliverable-first.
 const offers = [
   {
     name: "Ethical AI Risk Review",
@@ -22,7 +21,7 @@ const offers = [
     name: "Moral Intention Workshop",
     buyer: "Leadership and teams",
     deliverable:
-      "A facilitated work session with Dr. Ping and Eric. Surface what your system is actually optimizing for, where intention and incentive diverge, and what you owe the people in the loop.",
+      "A facilitated work session with Dr. Ping and Eric. Surface what your system optimizes for, where intention and incentive diverge, and what obligations remain with the people affected by it.",
   },
   {
     name: "Governance Design Package",
@@ -66,6 +65,7 @@ export default function EthicalAI() {
           </Link>
           <div className="flex items-center gap-6 text-sm text-zinc-400">
             <Link href="/" className="hover:text-zinc-100 transition-colors">Platform</Link>
+            <Link href={MIA_URL} className="hover:text-zinc-100 transition-colors">MIA Local</Link>
             <Link href="/docs" className="hover:text-zinc-100 transition-colors">Docs</Link>
             <Link href="/login" className="hover:text-zinc-100 transition-colors">Sign in</Link>
           </div>
@@ -82,8 +82,8 @@ export default function EthicalAI() {
           Ethics review, moral-risk analysis, and governance package design for teams deploying autonomous systems.
         </p>
         <p className="mt-3 max-w-2xl mx-auto text-lg text-zinc-400 text-pretty">
-          Human-led, not a chatbot. A work session identifies the moral and organizational risk;
-          Sanction turns it into policy, approvals, grants, logs, and operational controls.
+          Philosopher-led work sessions identify the moral and organizational risk.
+          Sanction turns that analysis into policy, approvals, grants, logs, and operational controls.
         </p>
         <div className="mt-9 flex items-center justify-center gap-3">
           <a
@@ -96,7 +96,7 @@ export default function EthicalAI() {
             href="/"
             className="rounded-md border border-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
           >
-            See the platform →
+            See the platform
           </Link>
         </div>
       </section>
@@ -122,10 +122,48 @@ export default function EthicalAI() {
           ))}
         </div>
         <p className="mt-8 text-center text-sm text-zinc-500 max-w-2xl mx-auto">
-          Most ethics reviews end as a PDF. This one ends as running policy — approval thresholds a
-          human actually holds, grants that expire, and an audit trail that shows the review is being
+          Most ethics reviews end as a PDF. This one ends as running policy: approval thresholds a
+          human owns, grants that expire, and an audit trail that shows the review is being
           followed, not filed.
         </p>
+      </section>
+
+      {/* MIA Local */}
+      <section className="border-t border-zinc-900">
+        <div className="max-w-6xl mx-auto px-6 py-16 grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
+          <div>
+            <p className="text-sm font-mono uppercase tracking-widest text-zinc-500">MIA Local</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-zinc-100">
+              A free, airgapped ethics agent for local moral reflection.
+            </h2>
+            <p className="mt-4 text-zinc-400 text-pretty">
+              The Moral Intention Analyst is being prepared as a standalone local agent guided by
+              Dr. A.C. Ping&apos;s frameworks. It is designed for private ethics work, persistent
+              memory, and human-reviewed growth without sending sensitive dilemmas to the cloud.
+            </p>
+            <Link
+              href={MIA_URL}
+              className="mt-6 inline-flex rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-900"
+            >
+              View MIA Local
+            </Link>
+          </div>
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/50 p-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {["Local model", "Private memory", "Reviewed doctrine", "Sanction policies"].map((label) => (
+                <div key={label} className="rounded-md border border-zinc-800 bg-zinc-900/45 p-4">
+                  <p className="font-mono text-xs uppercase tracking-widest text-emerald-400">{label}</p>
+                  <div className="mt-4 h-1.5 rounded-full bg-zinc-800">
+                    <div className="h-full w-2/3 rounded-full bg-emerald-500" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 text-sm text-zinc-500">
+              MIA helps define the boundary. Sanction enforces it.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* Offers */}
@@ -133,7 +171,7 @@ export default function EthicalAI() {
         <div className="text-center">
           <h2 className="text-sm font-mono uppercase tracking-widest text-zinc-500">Engagements</h2>
           <h3 className="mt-3 font-display text-2xl font-semibold tracking-tight">Four ways in.</h3>
-          <p className="mt-3 text-zinc-400">Start with a review or a work session. Leave with governance your agents actually run under.</p>
+          <p className="mt-3 text-zinc-400">Start with a review or a work session. Leave with governance your agents can run under.</p>
         </div>
         <div className="mt-10 grid gap-5 sm:grid-cols-2">
           {offers.map((o) => (
@@ -174,6 +212,7 @@ export default function EthicalAI() {
           </div>
           <div className="flex items-center gap-6">
             <Link href="/" className="hover:text-zinc-200 transition-colors">Platform</Link>
+            <Link href={MIA_URL} className="hover:text-zinc-200 transition-colors">MIA Local</Link>
             <Link href="/docs" className="hover:text-zinc-200 transition-colors">Docs</Link>
             <a href="/api/openapi.json" className="hover:text-zinc-200 transition-colors">API</a>
           </div>
