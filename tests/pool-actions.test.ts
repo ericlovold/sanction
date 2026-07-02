@@ -8,7 +8,7 @@ type DbArgs = {
     agentId?: string
     id?: StringFilter
     parentId?: NullableStringFilter
-    walletId?: string
+    walletId?: StringFilter
   }
   create?: Record<string, unknown>
   data?: Record<string, unknown>
@@ -16,8 +16,9 @@ type DbArgs = {
 }
 type DbMock = {
   $transaction: MockFn
-  agent: Record<"findFirst" | "findUnique" | "update", MockFn>
+  agent: Record<"findFirst" | "findMany" | "findUnique" | "update", MockFn>
   agentClearance: Record<"findFirst" | "findUnique" | "update" | "updateMany", MockFn>
+  authorizationRequest: Record<"groupBy", MockFn>
   policy: Record<"upsert", MockFn>
   wallet: Record<"count" | "create" | "findFirst" | "findMany" | "findUnique", MockFn>
 }
@@ -45,6 +46,7 @@ const { apiKeyMock, dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() =>
     },
     agent: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
     },
@@ -53,6 +55,9 @@ const { apiKeyMock, dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() =>
       findUnique: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+    },
+    authorizationRequest: {
+      groupBy: vi.fn(),
     },
   }
   db.$transaction.mockImplementation((arg: TransactionArg) =>
@@ -80,24 +85,27 @@ vi.mock("../lib/session", () => sessionMock)
 vi.mock("@/lib/session", () => sessionMock)
 
 import {
+  applyPoolAllocationAction,
   createDelegatedPoolAction,
   moveAgentToPoolAction,
   updatePoolCapAction,
 } from "../app/dashboard/pools/actions"
 
-const rootWallet = { id: "wallet_root", name: "Acme", parentId: null }
+const rootWallet = { id: "wallet_root", name: "Acme", parentId: null, policy: { subtreeDailyCapUsd: 10_000, dailySpendBudgetUsd: 10_000 } }
 
 const wallets = [
   rootWallet,
-  { id: "pool_child", name: "Research", parentId: "wallet_root" },
-  { id: "pool_grandchild", name: "Red Team", parentId: "pool_child" },
+  { id: "pool_child", name: "Research", parentId: "wallet_root", policy: { subtreeDailyCapUsd: null, dailySpendBudgetUsd: 10_000 } },
+  { id: "pool_support", name: "Support", parentId: "wallet_root", policy: { subtreeDailyCapUsd: null, dailySpendBudgetUsd: 10_000 } },
+  { id: "pool_grandchild", name: "Red Team", parentId: "pool_child", policy: { subtreeDailyCapUsd: null, dailySpendBudgetUsd: 10_000 } },
   { id: "wallet_foreign", name: "Other Co", parentId: null },
   { id: "pool_foreign", name: "Other Pool", parentId: "wallet_foreign" },
 ]
 
 const agents = [
-  { id: "agent_child", name: "Analyst", walletId: "pool_child", clearance: { id: "clearance_1", walletId: "pool_child" } },
-  { id: "agent_foreign", name: "Intruder", walletId: "pool_foreign", clearance: null },
+  { id: "agent_child", name: "Analyst", walletId: "pool_child", isActive: true, dailySpendBudgetUsd: 8_000, clearance: { id: "clearance_1", walletId: "pool_child" } },
+  { id: "agent_support", name: "Helper", walletId: "pool_support", isActive: true, dailySpendBudgetUsd: 2_000, clearance: { id: "clearance_2", walletId: "pool_support" } },
+  { id: "agent_foreign", name: "Intruder", walletId: "pool_foreign", isActive: true, dailySpendBudgetUsd: 50_000, clearance: null },
 ]
 
 function form(entries: Record<string, string>) {
@@ -156,6 +164,11 @@ function setupAgentLookups() {
 
   dbMock.agent.findUnique.mockImplementation(async (args: unknown) => findAgent(stringValue(dbArgs(args).where?.id)))
   dbMock.agent.findFirst.mockImplementation(async (args: unknown) => findAgent(stringValue(dbArgs(args).where?.id)))
+  dbMock.agent.findMany.mockImplementation(async (args: unknown) => {
+    const walletIds = inValues(dbArgs(args).where?.walletId)
+    if (Array.isArray(walletIds)) return agents.filter((agent) => walletIds.includes(agent.walletId))
+    return agents
+  })
   dbMock.agent.update.mockImplementation(async (args: unknown) => ({
     ...findAgent(stringValue(dbArgs(args).where?.id)),
     ...dbArgs(args).data,
@@ -211,6 +224,10 @@ beforeEach(() => {
     const parsed = dbArgs(args)
     return { walletId: parsed.where?.walletId, ...parsed.create, ...parsed.update }
   })
+  dbMock.authorizationRequest.groupBy.mockResolvedValue([
+    { agentId: "agent_child", _sum: { amountUsd: 20 } },
+    { agentId: "agent_support", _sum: { amountUsd: 5 } },
+  ])
 })
 
 describe("createDelegatedPoolAction", () => {
@@ -319,6 +336,64 @@ describe("updatePoolCapAction", () => {
     expect(stateMessage(result)).toMatch(/authorized|not found|subtree/i)
     expect(dbMock.policy.upsert).not.toHaveBeenCalled()
     expect(revalidatePathMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("applyPoolAllocationAction", () => {
+  it("splits a capped parent across direct child pools and writes child caps in one transaction", async () => {
+    const result = await applyPoolAllocationAction(
+      { ok: false, message: "" },
+      form({
+        parent_wallet_id: "wallet_root",
+        strategy: "delegated",
+      }),
+    )
+
+    expect(result).toEqual(expect.objectContaining({ ok: true, message: "Allocation applied to 2 child pools." }))
+    expect(dbMock.$transaction).toHaveBeenCalledOnce()
+    expect(dbMock.policy.upsert).toHaveBeenCalledWith({
+      where: { walletId: "pool_child" },
+      update: { subtreeDailyCapUsd: 8000 },
+      create: { walletId: "pool_child", subtreeDailyCapUsd: 8000 },
+    })
+    expect(dbMock.policy.upsert).toHaveBeenCalledWith({
+      where: { walletId: "pool_support" },
+      update: { subtreeDailyCapUsd: 2000 },
+      create: { walletId: "pool_support", subtreeDailyCapUsd: 2000 },
+    })
+    expect(dbMock.policy.upsert).not.toHaveBeenCalledWith(expect.objectContaining({ where: { walletId: "pool_grandchild" } }))
+    expect(revalidatedPaths()).toEqual(expect.arrayContaining(["/dashboard", "/dashboard/pools"]))
+  })
+
+  it("refuses allocation outside the logged-in wallet subtree", async () => {
+    const result = await applyPoolAllocationAction(
+      { ok: false, message: "" },
+      form({
+        parent_wallet_id: "wallet_foreign",
+        strategy: "equal",
+      }),
+    )
+
+    expect(result.ok).toBe(false)
+    expect(stateMessage(result)).toMatch(/authorized/i)
+    expect(dbMock.policy.upsert).not.toHaveBeenCalled()
+    expect(dbMock.$transaction).not.toHaveBeenCalled()
+    expect(revalidatePathMock).not.toHaveBeenCalled()
+  })
+
+  it("requires the selected parent pool to have its own cap", async () => {
+    const result = await applyPoolAllocationAction(
+      { ok: false, message: "" },
+      form({
+        parent_wallet_id: "pool_child",
+        strategy: "equal",
+      }),
+    )
+
+    expect(result.ok).toBe(false)
+    expect(stateMessage(result)).toMatch(/parent cap/i)
+    expect(dbMock.policy.upsert).not.toHaveBeenCalled()
+    expect(dbMock.$transaction).not.toHaveBeenCalled()
   })
 })
 

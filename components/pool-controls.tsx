@@ -1,8 +1,9 @@
 "use client"
 
 import { useActionState, useMemo, useState } from "react"
-import { ArrowRightLeft, Clipboard, Plus, Save } from "lucide-react"
+import { ArrowRightLeft, Clipboard, Plus, Save, SlidersHorizontal } from "lucide-react"
 import {
+  applyPoolAllocationAction,
   createDelegatedPoolAction,
   moveAgentToPoolAction,
   updatePoolCapAction,
@@ -17,6 +18,7 @@ export type PoolControlPool = {
   ownCapUsd: number | null
   effectiveCapUsd: number | null
   capSource: "custom" | "inherited" | "uncapped"
+  childCount: number
 }
 
 export type PoolControlAgent = {
@@ -29,6 +31,7 @@ export type PoolControlAgent = {
 const createInitial: CreatePoolState = { ok: false, message: "" }
 const updateInitial: PoolActionState = { ok: false, message: "" }
 const moveInitial: PoolActionState = { ok: false, message: "" }
+const allocationInitial: PoolActionState = { ok: false, message: "" }
 
 function capText(pool: PoolControlPool | undefined) {
   if (!pool) return ""
@@ -79,11 +82,13 @@ export function PoolControls({
   const [createState, createAction, creating] = useActionState(createDelegatedPoolAction, createInitial)
   const [updateState, updateAction, updating] = useActionState(updatePoolCapAction, updateInitial)
   const [moveState, moveAction, moving] = useActionState(moveAgentToPoolAction, moveInitial)
+  const [allocationState, allocationAction, allocating] = useActionState(applyPoolAllocationAction, allocationInitial)
   const [capWalletId, setCapWalletId] = useState(pools[0]?.id ?? "")
   const selectedCapPool = useMemo(() => pools.find((pool) => pool.id === capWalletId), [capWalletId, pools])
+  const allocatablePools = useMemo(() => pools.filter((pool) => pool.childCount > 0), [pools])
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
       <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
         <div>
           <h2 className="text-sm font-medium text-zinc-200">Create delegated pool</h2>
@@ -128,6 +133,46 @@ export function PoolControls({
             {creating ? "Creating..." : "Create pool"}
           </button>
           <Status state={createState} />
+        </form>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
+        <div>
+          <h2 className="text-sm font-medium text-zinc-200">Apply allocation</h2>
+          <p className="mt-1 text-xs text-zinc-600">Splits a parent cap across direct child pools.</p>
+        </div>
+        <form action={allocationAction} className="space-y-2">
+          <select
+            name="parent_wallet_id"
+            required
+            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+          >
+            <option value="">Choose parent pool</option>
+            {allocatablePools.map((pool) => (
+              <option key={pool.id} value={pool.id}>
+                {pool.name} - {pool.childCount} child pool{pool.childCount === 1 ? "" : "s"}
+              </option>
+            ))}
+          </select>
+          <select
+            name="strategy"
+            defaultValue="headroom"
+            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+          >
+            <option value="headroom">Headroom weighted</option>
+            <option value="delegated">Delegated authority</option>
+            <option value="spend">Current spend</option>
+            <option value="equal">Equal split</option>
+          </select>
+          <button
+            type="submit"
+            disabled={allocating || allocatablePools.length === 0}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 disabled:opacity-50"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            {allocating ? "Allocating..." : "Apply caps"}
+          </button>
+          <Status state={allocationState} />
         </form>
       </div>
 

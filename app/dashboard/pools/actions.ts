@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { generateManagementKey } from "@/lib/apiKey"
+import { allocatePoolCaps, parseAllocationStrategy, type AllocationChildInput } from "@/lib/budgetAllocation"
 import { parseOwnerEmail, parsePoolCapDollars, parsePoolName } from "@/lib/poolForms"
 import { agentIsInWalletSet, walletSubtreeIds } from "@/lib/poolAccess"
 import { getSessionWallet } from "@/lib/session"
@@ -96,6 +97,105 @@ export async function updatePoolCapAction(
 
   revalidatePools()
   return { ok: true, message: cap.cents === null ? "Pool cap cleared" : "Pool cap saved" }
+}
+
+async function childAllocationInputs(parentWalletId: string): Promise<{ parentCapCents: number | null; children: AllocationChildInput[] }> {
+  const parent = await db.wallet.findUnique({
+    where: { id: parentWalletId },
+    select: { policy: { select: { subtreeDailyCapUsd: true } } },
+  })
+  const directChildren = await db.wallet.findMany({
+    where: { parentId: { in: [parentWalletId] } },
+    select: { id: true, name: true },
+  })
+  if (directChildren.length === 0) return { parentCapCents: parent?.policy?.subtreeDailyCapUsd ?? null, children: [] }
+
+  const walletToChild = new Map<string, string>()
+  const descendantIds = new Set<string>()
+  for (const child of directChildren) {
+    const ids = await walletSubtreeIds(db, child.id)
+    for (const id of ids) {
+      descendantIds.add(id)
+      walletToChild.set(id, child.id)
+    }
+  }
+
+  const wallets = await db.wallet.findMany({
+    where: { id: { in: Array.from(descendantIds) } },
+    select: { id: true, policy: { select: { dailySpendBudgetUsd: true } } },
+  })
+  const walletPolicy = new Map(wallets.map((wallet) => [wallet.id, wallet.policy?.dailySpendBudgetUsd ?? 0]))
+  const agents = await db.agent.findMany({
+    where: { walletId: { in: Array.from(descendantIds) } },
+    select: { id: true, walletId: true, isActive: true, dailySpendBudgetUsd: true },
+  })
+  const agentToChild = new Map<string, string>()
+  const delegatedByChild = new Map(directChildren.map((child) => [child.id, 0]))
+  for (const agent of agents) {
+    const childId = walletToChild.get(agent.walletId)
+    if (!childId) continue
+    agentToChild.set(agent.id, childId)
+    if (!agent.isActive) continue
+    delegatedByChild.set(
+      childId,
+      (delegatedByChild.get(childId) ?? 0) + (agent.dailySpendBudgetUsd ?? walletPolicy.get(agent.walletId) ?? 0),
+    )
+  }
+
+  const dayStart = new Date()
+  dayStart.setHours(0, 0, 0, 0)
+  const spendToday = await db.authorizationRequest.groupBy({
+    by: ["agentId"],
+    where: { agentId: { in: agents.map((agent) => agent.id) }, status: "approved", createdAt: { gte: dayStart } },
+    _sum: { amountUsd: true },
+  })
+  const spendByChild = new Map(directChildren.map((child) => [child.id, 0]))
+  for (const row of spendToday) {
+    const childId = agentToChild.get(row.agentId)
+    if (!childId) continue
+    spendByChild.set(childId, (spendByChild.get(childId) ?? 0) + Math.round((row._sum.amountUsd ?? 0) * 100))
+  }
+
+  return {
+    parentCapCents: parent?.policy?.subtreeDailyCapUsd ?? null,
+    children: directChildren.map((child) => ({
+      id: child.id,
+      name: child.name,
+      delegatedDailyCents: delegatedByChild.get(child.id) ?? 0,
+      spendTodayCents: spendByChild.get(child.id) ?? 0,
+    })),
+  }
+}
+
+export async function applyPoolAllocationAction(
+  _prev: PoolActionState,
+  form: FormData,
+): Promise<PoolActionState> {
+  const wallet = await getSessionWallet()
+  if (!wallet) return { ok: false, message: "Log in to allocate pools." }
+
+  const parentWalletId = String(form.get("parent_wallet_id") ?? "")
+  if (!parentWalletId) return { ok: false, message: "Choose a parent pool." }
+  const strategy = parseAllocationStrategy(form.get("strategy"))
+
+  const allowedWalletIds = await walletSubtreeIds(db, wallet.id)
+  if (!allowedWalletIds.includes(parentWalletId)) return { ok: false, message: "Not authorized for that pool." }
+
+  const { parentCapCents, children } = await childAllocationInputs(parentWalletId)
+  if (parentCapCents === null) return { ok: false, message: "Set a parent cap before allocating child pools." }
+  if (children.length === 0) return { ok: false, message: "That pool has no child pools to allocate." }
+
+  const allocation = allocatePoolCaps(parentCapCents, children, strategy)
+  await db.$transaction(allocation.map((row) => (
+    db.policy.upsert({
+      where: { walletId: row.id },
+      update: { subtreeDailyCapUsd: row.capCents },
+      create: { walletId: row.id, subtreeDailyCapUsd: row.capCents },
+    })
+  )))
+
+  revalidatePools()
+  return { ok: true, message: `Allocation applied to ${allocation.length} child pools.` }
 }
 
 export async function moveAgentToPoolAction(
