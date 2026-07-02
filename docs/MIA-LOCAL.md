@@ -1,6 +1,7 @@
 # Moral Intention Analyst Local - Launch Spec
 
-> Moral Intention Analyst as a free, local, airgapped ethics agent under the Sanction Ethical AI channel.
+> Moral Intention Analyst as a licensed, local, airgapped ethics agent under the Sanction Ethical AI channel.
+> Internal planning only. Do not publish a public product page or site links until the offer, licensing, and Dr. Ping positioning are ready.
 
 ## Product promise
 
@@ -18,7 +19,7 @@ Core line: **Moral Intention Analyst helps define the boundary. Sanction enforce
 
 ## Stance
 
-- **Free local release.** The agent itself should be free for local use.
+- **Licensed local release.** The agent itself is a paid product for local use.
 - **Airgapped by default.** No cloud dependency for private ethical reflection.
 - **Persistent memory.** It should remember prior work locally and improve continuity across sessions.
 - **No silent doctrine drift.** Persistent memory is not the same thing as self-modifying moral authority.
@@ -58,7 +59,7 @@ Later:
 
 ## Commercial model
 
-Moral Intention Analyst Local stays free. Revenue comes from the market work around it:
+Moral Intention Analyst Local is paid. Revenue comes from software licensing and the market work around it:
 
 | Offer | Buyer | Deliverable |
 |---|---|---|
@@ -89,18 +90,19 @@ Publishing stance:
 
 ## Launch sequence
 
-1. Publish `/mia-local` as the product surface.
-2. Add a Moral Intention Analyst Local section to `/ethical-ai`.
+1. Keep the public `/mia-local` surface unpublished.
+2. Keep Moral Intention Analyst out of public Sanction navigation until packaging is clear.
 3. Build the Mac Mini prototype with local model + persistent memory.
-4. Load reviewed Moral Intention Analyst framework material.
-5. Run work sessions with Dr. Ping and capture improvements.
-6. Publish first article and invite local testers.
-7. Package first hardware profile after the local prototype proves useful.
+4. Define the paid license, hardware, and services packaging.
+5. Load reviewed Moral Intention Analyst framework material.
+6. Run work sessions with Dr. Ping and capture improvements.
+7. Publish articles only when the commercial story and attribution are ready.
+8. Package first hardware profile after the local prototype proves useful.
 
 ## Open questions
 
 - Which local model is best for moral reasoning on the Mini under memory pressure?
 - Should client/case memories be separate workspaces from day one?
 - What is the minimum cryptographic update format for reviewed framework bundles?
-- How much of Moral Intention Analyst Local should be open source versus free binary?
+- How much of Moral Intention Analyst Local should be open source versus licensed binary?
 - Where does Moral Intention Analyst Local hand off to Sanction policy generation without over-automating ethics?
