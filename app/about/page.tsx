@@ -49,45 +49,41 @@ export default function About() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <header className="sn-about-hero" style={{ ...wrap, padding: "88px 32px 72px" }}>
-        <div>
-          <div className="sn-mono" style={{ marginBottom: 20 }}>Work with Eric</div>
-          <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Putting AI to work for executives and regulated teams.
-          </h1>
-          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px 0 0" }}>
-            I work 1:1 with executives implementing productive AI workflows, tools, and best practices. I&apos;ve spent the
-            last decade driving outcomes in healthcare and technology — and I&apos;m entirely focused on what artificial
-            intelligence means for the future of humanity.
-          </p>
-          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px 0 32px" }}>
-            I build AI systems for small and midsize businesses in regulated industries — where confidentiality, audit, and
-            trust are non-negotiable.
-          </p>
-          <a
-            className="sn-btn sn-btn-primary sn-btn-l"
-            href={CALENDLY_URL}
-            target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined}
-            rel="noopener"
-          >
-            Book a working session →
-          </a>
-        </div>
-        <div className="sn-about-photo">
-          <img
-            src="/brand/eric-lovold.jpg"
-            alt="Eric Lovold"
-            style={{ width: "100%", height: "auto", display: "block", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
-          />
-          <div className="sn-mono" style={{ marginTop: 14, letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction</div>
-        </div>
+      {/* Hero — centered, photo on top */}
+      <header style={{ ...wrap, padding: "80px 32px 56px", maxWidth: 720, textAlign: "center" }}>
+        <img
+          src="/brand/eric-lovold.jpg"
+          alt="Eric Lovold"
+          style={{ width: 240, maxWidth: "70%", height: "auto", display: "block", margin: "0 auto", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
+        />
+        <div className="sn-mono" style={{ marginTop: 16, letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction</div>
+        <div className="sn-mono" style={{ marginTop: 32, marginBottom: 18 }}>Work with Eric</div>
+        <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+          Putting AI to work for executives and regulated teams.
+        </h1>
+        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "58ch" }}>
+          I work 1:1 with executives implementing productive AI workflows, tools, and best practices. I&apos;ve spent the
+          last decade driving outcomes in healthcare and technology — and I&apos;m entirely focused on what artificial
+          intelligence means for the future of humanity.
+        </p>
+        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px auto 32px", maxWidth: "58ch" }}>
+          I build AI systems for small and midsize businesses in regulated industries — where confidentiality, audit, and
+          trust are non-negotiable.
+        </p>
+        <a
+          className="sn-btn sn-btn-primary sn-btn-l"
+          href={CALENDLY_URL}
+          target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined}
+          rel="noopener"
+        >
+          Book a working session →
+        </a>
       </header>
 
       {/* Industries */}
-      <section style={{ ...wrap, padding: "0 32px 96px", maxWidth: 820 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {["Healthcare", "Legal", "Real Estate"].map((i) => (
+      <section style={{ ...wrap, padding: "0 32px 96px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {["Financial Services", "Healthcare", "Legal", "Real Estate"].map((i) => (
             <span
               key={i}
               className="sn-mono"
@@ -107,7 +103,7 @@ export default function About() {
 
       {/* Services */}
       <section id="services" style={{ ...wrap, padding: "0 32px 112px" }}>
-        <div style={{ maxWidth: 560, marginBottom: 48 }}>
+        <div style={{ maxWidth: 560, margin: "0 auto 48px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>What I do</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Five ways to work together.</h2>
         </div>
