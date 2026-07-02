@@ -252,6 +252,9 @@
   max-width: 400px;
   justify-self: center;
   perspective: 1600px;
+  /* The card's cqw units resolve against THIS wrapper (≈ card width), so the
+     card's own radius/padding scale with the card — not the viewport. */
+  container-type: inline-size;
 }
 /* The access-key card sits at a slight angle with a directional shadow, so it
    reads as a physical object with depth. Straightens on hover — pick it up. */
