@@ -1,6 +1,12 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 import "./brand.css"
+
+// "Talk to us" → book a call. Set NEXT_PUBLIC_CALENDLY_URL to Eric's real
+// scheduling link; until it's set, the CTA scrolls to the signup section so it
+// never dead-ends (the old mailto silently failed for webmail users).
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "#stay-in-the-loop"
 
 export const metadata: Metadata = {
   title: "Sanction — Authorization for autonomous AI agents",
@@ -175,7 +181,7 @@ export default function Landing() {
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Start free</Link>
-            <a className="sn-btn sn-btn-secondary sn-btn-l" href="mailto:eric@getsanction.com?subject=Sanction">Talk to us →</a>
+            <a className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener">Talk to us →</a>
           </div>
           <MonoLabel mt={28} color="var(--text-faint)">MCP · AWS Bedrock · REST</MonoLabel>
         </div>
@@ -292,7 +298,21 @@ export default function Landing() {
             <MonoLabel color="var(--pine-7)">Enterprise</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Paid license</div>
             <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>SSO, policy administration, audit export, SLA, deployment control.</div>
-            <a className="sn-btn sn-btn-primary sn-btn-m" href="mailto:eric@getsanction.com?subject=Sanction%20Enterprise" style={{ width: "100%" }}>Talk to us</a>
+            <a className="sn-btn sn-btn-primary sn-btn-m" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener" style={{ width: "100%" }}>Talk to us</a>
+          </div>
+        </div>
+      </section>
+
+      {/* Stay in the loop */}
+      <section id="stay-in-the-loop" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "88px 32px", textAlign: "center" }}>
+          <MonoLabel mb={16}>Stay in the loop</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Not ready to wire up an agent?</h2>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
+            Get launch updates and early access as we ship. One email when it matters — no spam.
+          </p>
+          <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
+            <MarketingLeadCapture source="landing" />
           </div>
         </div>
       </section>

@@ -24,6 +24,22 @@ async function send({ to, subject, html, text }: SendArgs): Promise<void> {
   }
 }
 
+// Notify the founder when someone joins the list — direct visibility on every
+// new lead. Best-effort; fired from after() so it never blocks the signup.
+const LEADS_NOTIFY_TO = process.env.LEADS_NOTIFY_TO ?? "eric@getsanction.com"
+
+export async function sendNewLeadEmail(lead: { email: string; source: string }): Promise<void> {
+  const subject = `New Sanction signup: ${lead.email}`
+  const text = [`${lead.email} just joined the Sanction list.`, "", `Source: ${lead.source}`, `When: ${new Date().toISOString()}`].join("\n")
+  const html = `<!doctype html><html><body style="margin:0;background:#09090b;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e4e4e7">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:18px;font-weight:600;letter-spacing:-0.01em;margin:0 0 24px">Sanction</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 8px"><strong>${lead.email}</strong> just joined the list.</p>
+    <p style="font-size:13.5px;line-height:1.6;color:#a1a1aa;margin:0">Source: ${lead.source}</p>
+  </div></body></html>`
+  await send({ to: LEADS_NOTIFY_TO, subject, html, text })
+}
+
 export async function sendMagicLinkEmail(to: string, link: string): Promise<void> {
   const subject = "Your Sanction sign-in link"
   const text = [
