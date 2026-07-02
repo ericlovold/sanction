@@ -2,6 +2,7 @@ import { randomBytes, createCipheriv, createDecipheriv } from "crypto"
 import { db } from "@/lib/db"
 import { decryptCredential } from "@/lib/jwt"
 import { generateDataKey, unwrapDataKey } from "@/lib/kms"
+import { withTenant } from "@/lib/rls"
 
 // SEC-1 envelope encryption (ciphertext V3).
 //
@@ -57,9 +58,11 @@ export function decryptV3(blob: string, dek: Buffer, walletId: string, label: st
   return d.update(enc) + d.final("utf8")
 }
 
-// Get (or lazily mint) the wallet's plaintext DEK + the keyId to stamp on writes.
+// Get (or lazily mint) the wallet's ACTIVE plaintext DEK + the keyId to stamp on
+// writes. Rotation retires keys but never deletes them, so this always resolves
+// the newest; retired keys are only ever reached by keyId on decrypt.
 async function getWalletDek(walletId: string): Promise<{ dek: Buffer; keyId: string }> {
-  let wk = await db.walletKey.findUnique({ where: { walletId } })
+  let wk = await db.walletKey.findFirst({ where: { walletId, isActive: true } })
   if (!wk) {
     const gen = await generateDataKey()
     try {
@@ -67,10 +70,10 @@ async function getWalletDek(walletId: string): Promise<{ dek: Buffer; keyId: str
       cacheSet(wk.id, gen.plaintextDek)
       return { dek: gen.plaintextDek, keyId: wk.id }
     } catch (e: unknown) {
-      // Concurrent create lost the unique(walletId) race — fall through to re-read.
+      // Concurrent create lost the one-active-per-wallet race — re-read the winner.
       const code = typeof e === "object" && e && "code" in e ? (e as { code?: string }).code : undefined
       if (code !== "P2002") throw e
-      wk = await db.walletKey.findUnique({ where: { walletId } })
+      wk = await db.walletKey.findFirst({ where: { walletId, isActive: true } })
     }
   }
   if (!wk) throw new Error("WalletKey unavailable")
@@ -79,6 +82,39 @@ async function getWalletDek(walletId: string): Promise<{ dek: Buffer; keyId: str
   const dek = await unwrapDataKey(wk.wrappedDek, wk.keyRef)
   cacheSet(wk.id, dek)
   return { dek, keyId: wk.id }
+}
+
+/**
+ * Rotate the wallet's DEK (SEC-1 Phase 2): retire the active key and mint a new
+ * one atomically. Old keys stay as rows so existing blobs keep decrypting; each
+ * blob is lazily re-wrapped to the new key on its next read, so rotation
+ * converges without a bulk job. Concurrent rotations are safe — the partial
+ * unique index (one active per wallet) makes the loser adopt the winner's key.
+ */
+export async function rotateWalletKey(
+  walletId: string,
+): Promise<{ keyId: string; keyRef: string; retiredPrevious: number }> {
+  const gen = await generateDataKey()
+  try {
+    return await db.$transaction(async (tx) => {
+      const retired = await tx.walletKey.updateMany({
+        where: { walletId, isActive: true },
+        data: { isActive: false, retiredAt: new Date() },
+      })
+      const wk = await tx.walletKey.create({
+        data: { walletId, wrappedDek: gen.wrappedDek, keyRef: gen.keyRef },
+      })
+      cacheSet(wk.id, gen.plaintextDek)
+      return { keyId: wk.id, keyRef: wk.keyRef, retiredPrevious: retired.count }
+    })
+  } catch (e: unknown) {
+    const code = typeof e === "object" && e && "code" in e ? (e as { code?: string }).code : undefined
+    if (code === "P2002") {
+      const wk = await db.walletKey.findFirst({ where: { walletId, isActive: true } })
+      if (wk) return { keyId: wk.id, keyRef: wk.keyRef, retiredPrevious: 0 }
+    }
+    throw e
+  }
 }
 
 // Encrypt a credential under the wallet's KMS-wrapped DEK (writes V3).
@@ -91,7 +127,7 @@ export async function encryptCredentialEnvelope(
   return { blob: encryptV3(plaintext, dek, walletId, label), keyId }
 }
 
-type StoredCredential = { encryptedValue: string; walletId: string; label: string; keyId: string | null }
+type StoredCredential = { id?: string; encryptedValue: string; walletId: string; label: string; keyId: string | null }
 
 // Decrypt a stored credential. V3 (keyId set) unwraps the wallet DEK via KMS;
 // pre-V3 blobs (keyId null) use the existing synchronous V2/V1/V0 fallthrough.
@@ -105,5 +141,24 @@ export async function decryptCredentialEnvelope(cred: StoredCredential): Promise
   const cached = cacheGet(wk.id)
   const dek = cached ?? (await unwrapDataKey(wk.wrappedDek, wk.keyRef))
   if (!cached) cacheSet(wk.id, dek)
-  return decryptV3(cred.encryptedValue, dek, cred.walletId, cred.label)
+  const plaintext = decryptV3(cred.encryptedValue, dek, cred.walletId, cred.label)
+
+  // Lazy re-wrap (SEC-1 Phase 2): this blob is under a retired key — re-encrypt
+  // under the active key so rotation converges read-by-read. Best-effort: a
+  // failure here never blocks the inject. The keyId guard makes concurrent
+  // re-wraps idempotent (only the first writer's update matches).
+  if (cred.id && wk.isActive === false) {
+    try {
+      const rewrapped = await encryptCredentialEnvelope(plaintext, cred.walletId, cred.label)
+      await withTenant(cred.walletId, (tx) =>
+        tx.credentialVault.updateMany({
+          where: { id: cred.id, keyId: cred.keyId },
+          data: { encryptedValue: rewrapped.blob, keyId: rewrapped.keyId },
+        }),
+      )
+    } catch {
+      // best-effort — the retired key still decrypts until the next read
+    }
+  }
+  return plaintext
 }
