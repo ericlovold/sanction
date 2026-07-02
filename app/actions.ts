@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { rateLimit, ipFromHeaders } from "@/lib/rateLimit"
-import { sendNewLeadEmail } from "@/lib/email"
+import { sendNewLeadEmail, sendLeadWelcomeEmail } from "@/lib/email"
 
 export type LeadState = { ok: boolean; error: string }
 
@@ -24,9 +24,14 @@ export async function captureLeadAction(_prev: LeadState, form: FormData): Promi
 
   try {
     await db.lead.create({ data: { email, source } })
-    // Genuinely new lead — notify the founder for visibility (best-effort,
-    // after the response, never blocks the signup or reveals a send failure).
-    after(() => sendNewLeadEmail({ email, source }).catch(() => {}))
+    // Genuinely new lead — welcome the subscriber AND notify the founder.
+    // Both best-effort, after the response, never blocking the signup.
+    after(() =>
+      Promise.all([
+        sendLeadWelcomeEmail(email).catch(() => {}),
+        sendNewLeadEmail({ email, source }).catch(() => {}),
+      ]),
+    )
   } catch (e: unknown) {
     // Unique violation = already on the list. Treat as success, no re-notify.
     const code = typeof e === "object" && e !== null && "code" in e ? (e as { code?: string }).code : undefined
