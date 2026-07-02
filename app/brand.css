@@ -278,6 +278,28 @@
     transition: none;
   }
 }
+/* About-page hero: copy left, photo right; stacks on small screens. */
+.sn-about-hero {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 56px;
+  align-items: center;
+}
+.sn-about-photo {
+  max-width: 340px;
+  justify-self: center;
+}
+@media (max-width: 820px) {
+  .sn-about-hero {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .sn-about-photo {
+    order: -1;
+    max-width: 260px;
+    justify-self: start;
+  }
+}
 /* Let grid cells shrink below the content's intrinsic width so a fixed-size
    child (the key card) can't force the whole row wider than the viewport. */
 .sn-hero > *,
