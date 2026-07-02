@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
+import { decideCredential } from "@/lib/credentialDecisions"
 
 const schema = z.object({
   credential_label: z.string(),
@@ -62,26 +63,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 })
   }
 
-  // Reject retired credentials — a soft-deleted secret must not be injectable.
-  if (credential.revokedAt) {
-    return NextResponse.json({ error: "Credential has been retired" }, { status: 410 })
+  // The credential's own access policy (revoked / expired / clearance) is decided
+  // by the shared engine (ADR-0009 M4 — credential.use). Token-layer auth above
+  // (JWT, audience, execution-token status, scope) stays at the token boundary.
+  const decision = decideCredential({
+    clearance: claims.clearance ?? 1,
+    minClearance: credential.minClearance,
+    revoked: !!credential.revokedAt,
+    expired: !!(credential.expiresAt && credential.expiresAt < new Date()),
+  })
+  if (decision.effect === "deny") {
+    return NextResponse.json({ error: decision.reason }, { status: decision.status })
   }
 
-  // Reject expired credentials — a rotated/expired secret must not be injectable.
-  if (credential.expiresAt && credential.expiresAt < new Date()) {
-    return NextResponse.json({ error: "Credential has expired" }, { status: 410 })
-  }
-
-  // Enforce clearance: the execution token's clearance must meet the credential's
-  // minimum. Fail closed — a lower-cleared agent never sees the secret.
-  if ((claims.clearance ?? 1) < credential.minClearance) {
-    return NextResponse.json(
-      { error: `Insufficient clearance: credential requires level ${credential.minClearance}` },
-      { status: 403 },
-    )
-  }
-
-  // Audit the injection
+  // Permitted — honor the obligations: audit_log (record the access; raw value
+  // never logged) and no_store (set on the response below).
   await db.credentialInjection.create({
     data: { executionTokenId: execToken.id, credentialId: credential.id },
   })

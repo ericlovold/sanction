@@ -48,6 +48,7 @@ describe.skipIf(!run)("daily budget holds under concurrency (no leak)", () => {
     if (!walletId) return
     const agents = await db.agent.findMany({ where: { walletId }, select: { id: true } })
     await db.authorizationRequest.deleteMany({ where: { agentId: { in: agents.map((a) => a.id) } } })
+    await db.walletBudgetCounter.deleteMany({ where: { walletId } })
     await db.agent.deleteMany({ where: { walletId } })
     await db.policy.deleteMany({ where: { walletId } })
     await db.wallet.delete({ where: { id: walletId } })
@@ -68,5 +69,80 @@ describe.skipIf(!run)("daily budget holds under concurrency (no leak)", () => {
     const approvedUsd = decisions.filter((d) => d.status === "approved").length * 10
     // The advisory lock must serialize the daily-budget check — never over $50.
     expect(approvedUsd).toBeLessThanOrEqual(50)
+  })
+})
+
+describe.skipIf(!run)("subtree daily cap holds under concurrency (no sibling leak)", () => {
+  let rootId: string
+  let walletIds: string[] = []
+  const agentKeys: string[] = []
+
+  beforeAll(async () => {
+    const stamp = Date.now()
+    const root = await db.wallet.create({
+      data: {
+        name: "subtree-root",
+        ownerEmail: `subtree-root+${stamp}@example.com`,
+        mgmtKeyHash: `subtree_root_${stamp}`,
+        mgmtKeyPrefix: "sk_subtree",
+        policy: {
+          create: {
+            dailySpendBudgetUsd: 1_000_000,
+            subtreeDailyCapUsd: 5000,
+            perTransactionMaxUsd: 1_000_000,
+            autoApproveUnderUsd: 1_000_000,
+            escalateOverUsd: 1_000_000,
+          },
+        },
+      },
+    })
+    rootId = root.id
+
+    for (let i = 0; i < 2; i++) {
+      const key = generateApiKey()
+      const child = await db.wallet.create({
+        data: {
+          name: `subtree-child-${i}`,
+          ownerEmail: `subtree-child-${i}+${stamp}@example.com`,
+          parentId: root.id,
+          mgmtKeyHash: `subtree_child_${i}_${stamp}`,
+          mgmtKeyPrefix: "sk_subtree",
+          policy: { create: { dailySpendBudgetUsd: 1_000_000, perTransactionMaxUsd: 1_000_000, autoApproveUnderUsd: 1_000_000, escalateOverUsd: 1_000_000 } },
+          agents: { create: { name: `a-${i}`, apiKeyHash: key.hash, apiKeyPrefix: key.prefix } },
+        },
+      })
+      walletIds.push(child.id)
+      agentKeys.push(key.raw)
+    }
+    walletIds = [root.id, ...walletIds]
+  })
+
+  afterAll(async () => {
+    if (!rootId) return
+    const agents = await db.agent.findMany({ where: { walletId: { in: walletIds } }, select: { id: true } })
+    await db.authorizationRequest.deleteMany({ where: { agentId: { in: agents.map((a) => a.id) } } })
+    await db.walletBudgetCounter.deleteMany({ where: { walletId: { in: walletIds } } })
+    await db.agent.deleteMany({ where: { walletId: { in: walletIds } } })
+    await db.policy.deleteMany({ where: { walletId: { in: walletIds } } })
+    await db.wallet.deleteMany({ where: { id: { in: walletIds.filter((id) => id !== rootId) } } })
+    await db.wallet.delete({ where: { id: rootId } })
+  })
+
+  it("sibling agents under one capped parent approve at most the parent cap", async () => {
+    const { POST } = await import("@/app/api/v1/authorize/route")
+    const call = (_: unknown, i: number) =>
+      POST(
+        new NextRequest("https://test.local/api/v1/authorize", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": agentKeys[i % agentKeys.length] },
+          body: JSON.stringify({ action: "purchase", amount_usd: 10, merchant: "x", category: "software" }),
+        }),
+      )
+    const results = await Promise.all(Array.from({ length: 10 }, call))
+    const decisions = await Promise.all(results.map((r) => r.json()))
+    const approvedUsd = decisions.filter((d) => d.status === "approved").length * 10
+
+    expect(approvedUsd).toBeLessThanOrEqual(50)
+    expect(decisions.some((d) => d.code === "SUBTREE_CAP_EXCEEDED")).toBe(true)
   })
 })

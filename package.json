@@ -8,9 +8,10 @@
     "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=packages/sanction-mcp/mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
     "start": "next start",
     "lint": "eslint",
+    "check": "tsc --noEmit && eslint && vitest run",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:db": "RUN_DB_TESTS=1 vitest run tests/concurrency.db.test.ts"
+    "test:db": "RUN_DB_TESTS=1 vitest run tests/*.db.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1076.0",
@@ -19,6 +20,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@vercel/analytics": "^2.0.1",
+    "better-auth": "^1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jose": "^6.2.3",

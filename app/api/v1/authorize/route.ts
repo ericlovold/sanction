@@ -3,11 +3,25 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decidePolicy, decisionCode, REMEDIATION } from "@/lib/decisions"
+import { decidePolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { evaluate } from "@/lib/evaluation"
+import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
+import { createSpendPendingApproval } from "@/lib/approvals"
+import { consumeSpendGrant } from "@/lib/grants"
+import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thresholds"
+import type { CascadeCrossing } from "@/lib/cascadeBudget"
+import {
+  CascadeBudgetExceeded,
+  SUBTREE_CAP_EXCEEDED_NOTE,
+  cascadeDailyWouldExceed,
+  effectivePerTransactionMaxCents,
+  reserveCascadeDailySpend,
+  walletAncestorChain,
+} from "@/lib/cascadeBudget"
 
 const log = logger("v1/authorize")
 
@@ -17,6 +31,7 @@ const schema = z.object({
   merchant: z.string(),
   category: z.string(),
   description: z.string().optional(),
+  grant_id: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -37,12 +52,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { action, amount_usd, merchant, category, description } = parsed.data
+  const { action, amount_usd, merchant, category, description, grant_id } = parsed.data
+  if (simulate && grant_id) {
+    return NextResponse.json({ error: "grant_id cannot be used with simulate=true" }, { status: 400 })
+  }
+
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
 
   // Idempotent replay: a retry with the same key returns the original decision.
-  if (idempotencyKey) {
+  if (idempotencyKey && !grant_id) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
@@ -50,18 +69,8 @@ export async function POST(req: NextRequest) {
   }
 
   const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
-
-  // No policy = deny by default
-  if (!policy) {
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
-  }
-
   const amountCents = Math.round(amount_usd * 100)
-
-  // Effective limits: a per-agent override wins over the wallet policy; null inherits.
-  const perTxnMax = agent.perTransactionMaxUsd ?? policy.perTransactionMaxUsd
-  const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
-  const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
+  const ancestorChain = await walletAncestorChain(db, agent.walletId)
 
   // Optional execution context: if the agent presents its exec JWT, this call is
   // additionally capped by that execution's hard budget (enforced in the lock).
@@ -80,36 +89,104 @@ export async function POST(req: NextRequest) {
     execTokenId = claims.jti
   }
 
-  // Stateless gates (no budget state involved)
-  if (policy.blockedCategories.includes(category)) {
-    const note = `Category '${category}' is blocked`
-    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
-  }
-  // Allow-list: when set (non-empty), only listed categories may spend. Empty = allow all.
-  if (policy.allowedCategories.length > 0 && !policy.allowedCategories.includes(category)) {
-    const note = `Category '${category}' is not in the allow-list`
-    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
-  }
-  if (amountCents > perTxnMax) {
-    const note = `Exceeds per-transaction limit of $${perTxnMax / 100}`
-    if (simulate) return simulateResponse("denied", note, agent.name, amount_usd, merchant)
-    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: note }, agent.name)
+  if (grant_id) {
+    const now = new Date()
+    try {
+      const grantResult = await db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
+        return consumeSpendGrant(tx, {
+          grantId: grant_id,
+          walletId: agent.walletId,
+          agentId: agent.id,
+          request: { action, amountUsd: amount_usd, amountCents, merchant, category, description },
+          ancestorChain,
+          execTokenId,
+          now,
+        })
+      })
+
+      if (grantResult.ok) {
+        return NextResponse.json(
+          {
+            ...decisionResponse(grantResult.request, agent.name),
+            grant_id: grantResult.grantId,
+            grant_status: "consumed",
+            grant_consumed_at: grantResult.consumedAt,
+            grant_expires_at: grantResult.grantExpiresAt,
+          },
+          { status: 200 },
+        )
+      }
+
+      return NextResponse.json(
+        deniedResponse(grantResult.code, grantResult.reason, agent.name, amount_usd, merchant),
+        { status: grantResult.status },
+      )
+    } catch (e) {
+      if (e instanceof CascadeBudgetExceeded) {
+        return NextResponse.json(
+          deniedResponse("SUBTREE_CAP_EXCEEDED", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant),
+          { status: 403 },
+        )
+      }
+      throw e
+    }
   }
 
-  // Stateful gate: daily-spend check + write must be atomic, otherwise two
-  // concurrent requests can both pass the check and blow the cap. Serialize per
-  // agent with a transaction-scoped advisory lock, then re-read inside the lock.
+  // No policy = deny by default
+  if (!policy) {
+    return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
+  }
+
+  // Effective limits: a per-agent override wins over the wallet policy, then every
+  // ancestor wallet can only tighten the per-transaction ceiling. Tree-wide daily
+  // caps are separate and opt-in via Policy.subtreeDailyCapUsd below.
+  const perTxnMax = effectivePerTransactionMaxCents(agent.perTransactionMaxUsd, policy.perTransactionMaxUsd, ancestorChain)
+  const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
+  const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
+
+  // Shared spend context for the decision engine (ADR-0009). Budget-state fields
+  // (dailySpentUsd, exec) are filled per phase; everything else is stable here.
+  const ctxBase: Omit<SpendContext, "dailySpentUsd" | "exec"> = {
+    amountUsd: amount_usd,
+    amountCents,
+    category,
+    blockedCategories: policy.blockedCategories,
+    allowedCategories: policy.allowedCategories,
+    perTxnMaxCents: perTxnMax,
+    dailyBudgetCents: dailySpendBudget,
+    autoApproveUnderCents: policy.autoApproveUnderUsd,
+    escalateOverCents: escalateOver,
+    escalationTimeoutMins: policy.escalationTimeoutMins,
+    escalationTimeoutAction: policy.escalationTimeoutAction as "approve" | "deny",
+  }
+
+  // Stateless gates (no budget state) run before the advisory lock. The simulate
+  // path uses the shared ladder (decidePolicy) below, so it need not repeat them.
+  if (!simulate) {
+    const gate = evaluate({ ...ctxBase, dailySpentUsd: 0 }, SPEND_STATELESS)
+    if (gate.effect === "deny") {
+      return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: gate.reason }, agent.name)
+    }
+  }
+
+  // Stateful gates: agent daily spend + opt-in subtree counters. The agent-local
+  // check preserves existing per-agent budget behavior; subtree counters are the
+  // enterprise hard stop for parent wallets that set subtreeDailyCapUsd.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
 
-  // Simulation: compute the decision via the shared ladder, no locking or writing.
+  // Simulation: compute the decision via the shared ladder and check existing
+  // ancestor counters without writing.
   if (simulate) {
-    const dailySpend = await db.authorizationRequest.aggregate({
-      where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-      _sum: { amountUsd: true },
-    })
+    const [dailySpend, cascadeExceeded] = await Promise.all([
+      db.authorizationRequest.aggregate({
+        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        _sum: { amountUsd: true },
+      }),
+      cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain),
+    ])
+    if (cascadeExceeded) return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
     const { status, note } = decidePolicy({
       amountUsd: amount_usd,
       category,
@@ -125,45 +202,65 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Threshold-crossing state, captured inside the transaction (where the
+    // budget reads are consistent) and notified after the response.
+    let spendCrossing: { prevCents: number; nextCents: number } | null = null
+    let poolCrossings: CascadeCrossing[] = []
+
     const result = await db.$transaction(async (tx) => {
+      // Preserve the existing per-agent serialization for the agent-local daily
+      // budget and execution-token debit. Ancestor counters use conditional atomic
+      // writes, so sibling agents can still compete safely on shared parents.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
+      // Read budget state under the lock, then decide via the engine. The daily
+      // and execution-budget gates are stateful, so they run here (not in the
+      // stateless pre-check) — and before the ladder, so a sub-floor charge can
+      // never bypass a hard budget.
       const dailySpend = await tx.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
         _sum: { amountUsd: true },
       })
-      const dailyTotalCents = Math.round(((dailySpend._sum.amountUsd ?? 0) + amount_usd) * 100)
-      if (dailyTotalCents > dailySpendBudget) {
-        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Daily spend budget exceeded" } })
-      }
-
-      // Execution-scoped hard cap (re-read under the lock for atomicity). This is a
-      // deny gate and must run before the auto-approve floor below, so a sub-floor
-      // charge can never bypass the execution's hard budget.
+      let exec: SpendContext["exec"]
       if (execTokenId) {
         const et = await tx.executionToken.findUnique({ where: { id: execTokenId } })
-        if (!et || et.status !== "active" || et.expiresAt < new Date()) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Execution token expired or revoked" } })
-        }
-        if (Math.round((et.spentUsd + amount_usd) * 100) > Math.round(et.budgetUsd * 100)) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: "Execution budget exceeded" } })
-        }
+        const valid = !!et && et.status === "active" && et.expiresAt >= new Date()
+        exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      // Mirrors decidePolicy() in lib/decisions.ts (the simulate path + tests use it
-      // directly); keep the two in sync. Silent auto-approve floor: at or under this,
-      // never escalate (policy-level, not per-agent). The floor wins over escalation.
-      const underFloor = amountCents <= policy.autoApproveUnderUsd
-      if (!underFloor && amountCents > escalateOver) {
-        return tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+      const decision = evaluate({ ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, exec }, SPEND_STATEFUL)
+
+      if (decision.effect === "deny") {
+        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
+      }
+      if (decision.effect === "escalate") {
+        // No decisionNote - the response derives ESCALATION_REQUIRED from status.
+        const escalated = await tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+        await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
+        return escalated
       }
 
-      // Single approval path so the execution budget is debited on every approval,
-      // including sub-floor ones — otherwise repeated small charges never decrement it.
+      // Approved by the engine. Reserve daily spend against every capped ancestor
+      // wallet — walks root→leaf with conditional atomic writes; any parent cap
+      // breach throws and rolls back the whole transaction. Then honor the
+      // reserve_budget obligation (exec-token debit) when there's a token to enforce
+      // against — debited on every approval, including sub-floor ones.
+      try {
+        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
+      } catch (e) {
+        if (e instanceof CascadeBudgetExceeded) {
+          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
+        }
+        throw e
+      }
+
+      const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
+      spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
+
       const approved = await tx.authorizationRequest.create({
-        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: underFloor ? "Auto-approved (under auto-approve floor)" : "Auto-approved by policy" },
+        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
       })
-      if (execTokenId) {
+      if (execTokenId && decision.obligations.some((o) => o.type === "reserve_budget")) {
         await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })
       }
       return approved
@@ -172,10 +269,23 @@ export async function POST(req: NextRequest) {
     // Notify the owner (best-effort, after the response) when a human is needed
     // or a budget tripped — the make-or-break human-in-the-loop moment.
     if (result.status === "escalated") {
+      const approval = await db.pendingApproval.findFirst({
+        where: { sourceType: "authorization_request", sourceId: result.id },
+        select: { id: true, actionType: true, resourceJson: true, reason: true },
+      })
       after(() =>
         Promise.all([
+          deliverEvent(agent.walletId, "approval.created", {
+            approval_id: approval?.id,
+            request_id: result.id,
+            action_type: approval?.actionType ?? `spend.${action}`,
+            agent: agent.name,
+            resource: approval?.resourceJson ?? { kind: "spend", action, amount_usd, merchant, category, description },
+            reason: approval?.reason ?? "Exceeds escalation threshold",
+            approve_url: APPROVE_URL,
+          }),
           deliverEvent(agent.walletId, "escalation.created", {
-            request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
+            approval_id: approval?.id, request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
           }),
           // Email the owner directly, so escalations reach them even with no webhook registered.
           sendEscalationEmail(agent.wallet.ownerEmail, {
@@ -183,11 +293,36 @@ export async function POST(req: NextRequest) {
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
-    } else if (result.status === "denied" && result.decisionNote === "Daily spend budget exceeded") {
+    } else if (result.status === "denied" && (result.decisionNote === "Daily spend budget exceeded" || result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE)) {
       after(() =>
         deliverEvent(agent.walletId, "budget.exhausted", {
-          agent: agent.name, scope: "daily_spend", amount_usd, merchant, category,
+          agent: agent.name, scope: result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE ? "subtree_daily_spend" : "daily_spend", amount_usd, merchant, category,
         }),
+      )
+    }
+
+    // Early warning at the threshold line (no surprises): this approval crossed
+    // 80% of the agent's daily budget and/or a pool cap — tell the owner now,
+    // before anything is denied.
+    if (result.status === "approved" && (spendCrossing || poolCrossings.length > 0)) {
+      // TS cannot see the assignment inside the transaction callback — widen back.
+      const crossing = spendCrossing as { prevCents: number; nextCents: number } | null
+      after(() =>
+        Promise.all([
+          crossing
+            ? notifySpendBudgetThreshold({
+                walletId: agent.walletId,
+                ownerEmail: agent.wallet.ownerEmail,
+                agentName: agent.name,
+                prevCents: crossing.prevCents,
+                nextCents: crossing.nextCents,
+                capCents: dailySpendBudget,
+              })
+            : Promise.resolve(),
+          poolCrossings.length > 0
+            ? notifyPoolCapThresholds(agent.walletId, agent.wallet.ownerEmail, poolCrossings)
+            : Promise.resolve(),
+        ]),
       )
     }
 
@@ -225,6 +360,20 @@ function decisionResponse(r: Decision, agentName: string) {
     agent: agentName,
     amount_usd: r.amountUsd,
     merchant: r.merchant,
+  }
+}
+
+function deniedResponse(code: DecisionCode, reason: string, agentName: string, amount_usd: number, merchant: string) {
+  return {
+    authorized: false,
+    status: "denied",
+    request_id: null,
+    reason,
+    code,
+    remediation: REMEDIATION[code],
+    agent: agentName,
+    amount_usd,
+    merchant,
   }
 }
 

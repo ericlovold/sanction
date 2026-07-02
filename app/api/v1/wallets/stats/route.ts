@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
     db.authorizationRequest.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 10, include: { agent: { select: { name: true } } } }),
     db.tokenLog.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 10, include: { agent: { select: { name: true } } } }),
-    db.authorizationRequest.count({ where: { agentId: { in: agentIds }, status: "escalated" } }),
+    db.pendingApproval.count({ where: { walletId, status: "pending" } }),
   ])
 
   return NextResponse.json({

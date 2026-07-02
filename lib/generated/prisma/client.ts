@@ -52,6 +52,26 @@ export type RateLimit = Prisma.RateLimitModel
  */
 export type Wallet = Prisma.WalletModel
 /**
+ * Model User
+ * 
+ */
+export type User = Prisma.UserModel
+/**
+ * Model Session
+ * 
+ */
+export type Session = Prisma.SessionModel
+/**
+ * Model Account
+ * 
+ */
+export type Account = Prisma.AccountModel
+/**
+ * Model Verification
+ * 
+ */
+export type Verification = Prisma.VerificationModel
+/**
  * Model MagicLink
  * 
  */
@@ -106,6 +126,21 @@ export type CredentialInjection = Prisma.CredentialInjectionModel
  * 
  */
 export type AuthorizationRequest = Prisma.AuthorizationRequestModel
+/**
+ * Model PendingApproval
+ * 
+ */
+export type PendingApproval = Prisma.PendingApprovalModel
+/**
+ * Model Grant
+ * 
+ */
+export type Grant = Prisma.GrantModel
+/**
+ * Model WalletBudgetCounter
+ * 
+ */
+export type WalletBudgetCounter = Prisma.WalletBudgetCounterModel
 /**
  * Model Lead
  * 

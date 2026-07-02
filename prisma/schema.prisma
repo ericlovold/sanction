@@ -25,7 +25,7 @@ model Wallet {
 
   // Account tree (additive): a wallet may nest under a parent wallet, forming an
   // org → tenant → sub-tenant hierarchy. Null = root (every existing wallet).
-  // Foundation for subtree spend rollup; cascade enforcement is a later slice.
+  // Subtree reporting rolls spend up; /authorize enforces opt-in subtree caps.
   parentId String?
   parent   Wallet?  @relation("WalletTree", fields: [parentId], references: [id], onDelete: SetNull)
   children Wallet[] @relation("WalletTree")
@@ -37,6 +37,13 @@ model Wallet {
   mgmtKeyHash   String? @unique
   mgmtKeyPrefix String?
 
+  // Human identity (Better Auth). A wallet gets owned by a User the first time
+  // that user signs in with Google/GitHub; null for legacy/magic-link wallets,
+  // which still authenticate via the management key. Additive — the session
+  // bridge (lib/session.ts) claims a wallet by email on first social login.
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   agents           Agent[]
   policy           Policy?
   credentials      CredentialVault[]
@@ -44,8 +51,81 @@ model Wallet {
   executionTokens  ExecutionToken[]
   webhooks         Webhook[]
   magicLinks       MagicLink[]
+  budgetCounters   WalletBudgetCounter[]
+  pendingApprovals PendingApproval[]
+  grants           Grant[]
 
   @@index([parentId])
+  @@index([userId])
+}
+
+// ── Better Auth (human identity) ────────────────────────────────────────────
+// These four models are Better Auth's core schema (betterAuth() in lib/auth-config.ts).
+// Field names/types match its contract exactly — do not rename. Sign-in methods
+// (Google, GitHub) write here; a User then owns one or more Wallets above.
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  wallets  Wallet[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
 
 // One-time email sign-in / recovery token. The raw token is emailed; only its
@@ -73,7 +153,7 @@ model Webhook {
   walletId  String
   url       String
   secret    String
-  events    String[] @default(["escalation.created"])
+  events    String[] @default(["approval.created", "approval.resolved", "escalation.created", "escalation.resolved"])
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -105,6 +185,8 @@ model Agent {
   authRequests    AuthorizationRequest[]
   clearance       AgentClearance?
   executionTokens ExecutionToken[]
+  pendingApprovals PendingApproval[]
+  grants           Grant[]
 
   @@index([walletId])
 }
@@ -121,12 +203,28 @@ model Policy {
   // For escalation to be reachable, keep escalateOverUsd < perTransactionMaxUsd.
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
+  subtreeDailyCapUsd   Int?                // optional subtree cap; null = no tree-wide cap
   perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
   autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor
   escalateOverUsd      Int @default(2500)  // $25  — escalate above this (must be < perTransactionMaxUsd)
 
   allowedCategories String[] @default(["software", "services", "research", "infrastructure"])
   blockedCategories String[] @default(["gambling", "adult", "crypto"])
+
+  // Tool governance (ADR-0009 M3): authorize any MCP tool invocation the same way
+  // spend is authorized. Empty allowedTools = allow all (governance is opt-in for
+  // tools). A tool in escalateTools returns "escalated" (human approval).
+  allowedTools  String[] @default([])
+  blockedTools  String[] @default([])
+  escalateTools String[] @default([])
+
+  // Provision governance: authorize resource allocation (seats, licenses,
+  // infrastructure) the same way. Empty allowedResources = allow all (opt-in,
+  // like tools). A resource in escalateResources always requires human approval,
+  // regardless of amount.
+  allowedResources  String[] @default([])
+  blockedResources  String[] @default([])
+  escalateResources String[] @default([])
 
   // Escalation deadlock guard (UX-2): an escalated request that no human resolves
   // within escalationTimeoutMins is settled to the fallback terminal state on the
@@ -252,10 +350,12 @@ model CredentialInjection {
 model AuthorizationRequest {
   id             String    @id @default(cuid())
   agentId        String
-  action         String    // purchase | subscribe | transfer
+  kind           String    @default("spend") // spend | provision
+  action         String    // spend: purchase | subscribe | transfer · provision: allocate
   amountUsd      Float
-  merchant       String
+  merchant       String    // provision rows store the resource here (shared display/audit column)
   category       String
+  detailsJson    Json?     // provision: { resource, line_item, quantity, unit_price_usd }
   description    String?
   status         String    @default("pending") // pending | approved | denied | escalated
   decidedAt      DateTime?
@@ -268,6 +368,87 @@ model AuthorizationRequest {
   @@unique([agentId, idempotencyKey])
   @@index([agentId, createdAt])
   @@index([status])
+}
+
+// Generic human approval request. Spend, tool, credential, and future governed
+// actions all land here when a decision escalates to a person.
+model PendingApproval {
+  id              String    @id @default(cuid())
+  walletId        String
+  agentId         String
+  actionType      String
+  status          String    @default("pending") // pending | approved | denied | expired
+  subjectJson     Json
+  resourceJson    Json
+  constraintsJson Json?
+  reason          String?
+  code            String?
+  sourceType      String?
+  sourceId        String?
+  expiresAt       DateTime?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNote  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  grants Grant[] @relation("GrantFromApproval")
+
+  @@unique([sourceType, sourceId])
+  @@index([walletId, status, createdAt])
+  @@index([agentId, createdAt])
+  @@index([actionType, status])
+}
+
+// Ephemeral authority issued from a human approval. A grant is the audit answer
+// to "who authorized this agent to do this, under what constraints?"
+model Grant {
+  id                   String    @id @default(cuid())
+  walletId             String
+  agentId              String
+  actionType           String
+  status               String    @default("active") // active | consumed | expired | revoked
+  subjectJson          Json
+  resourceJson         Json
+  constraintsJson      Json?
+  sourceType           String?
+  sourceId             String?
+  issuedBy             String?
+  issuedFromApprovalId String?
+  justification        String?
+  expiresAt            DateTime?
+  consumedAt           DateTime?
+  revokedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  wallet             Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agent              Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  issuedFromApproval PendingApproval? @relation("GrantFromApproval", fields: [issuedFromApprovalId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, status, createdAt])
+  @@index([agentId, createdAt])
+  @@index([actionType, status])
+  @@index([issuedFromApprovalId])
+  @@index([sourceType, sourceId])
+}
+
+// Running counters for opt-in subtree caps. /authorize updates these atomically
+// across capped ancestors so sibling agents cannot race past a parent cap.
+model WalletBudgetCounter {
+  id          String   @id @default(cuid())
+  walletId    String
+  period      String
+  periodStart DateTime
+  spentCents  Int      @default(0)
+  updatedAt   DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([walletId, period, periodStart])
+  @@index([period, periodStart])
 }
 
 // Awareness-stage marketing lead — captured before signup, owned in our DB so we

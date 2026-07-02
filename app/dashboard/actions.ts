@@ -23,6 +23,7 @@ export async function createAgentAction(_prev: CreateAgentState, form: FormData)
   })
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/keys")
   return { ok: true, error: "", agentKey: key.raw, agentName: parsed.data }
 }

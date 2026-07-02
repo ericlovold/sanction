@@ -53,6 +53,10 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   RateLimit: 'RateLimit',
   Wallet: 'Wallet',
+  User: 'User',
+  Session: 'Session',
+  Account: 'Account',
+  Verification: 'Verification',
   MagicLink: 'MagicLink',
   Webhook: 'Webhook',
   Agent: 'Agent',
@@ -64,6 +68,9 @@ export const ModelName = {
   ExecutionToken: 'ExecutionToken',
   CredentialInjection: 'CredentialInjection',
   AuthorizationRequest: 'AuthorizationRequest',
+  PendingApproval: 'PendingApproval',
+  Grant: 'Grant',
+  WalletBudgetCounter: 'WalletBudgetCounter',
   Lead: 'Lead',
   Idea: 'Idea',
   IdeaVote: 'IdeaVote'
@@ -101,10 +108,69 @@ export const WalletScalarFieldEnum = {
   createdAt: 'createdAt',
   parentId: 'parentId',
   mgmtKeyHash: 'mgmtKeyHash',
-  mgmtKeyPrefix: 'mgmtKeyPrefix'
+  mgmtKeyPrefix: 'mgmtKeyPrefix',
+  userId: 'userId'
 } as const
 
 export type WalletScalarFieldEnum = (typeof WalletScalarFieldEnum)[keyof typeof WalletScalarFieldEnum]
+
+
+export const UserScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  email: 'email',
+  emailVerified: 'emailVerified',
+  image: 'image',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  token: 'token',
+  expiresAt: 'expiresAt',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const AccountScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  accountId: 'accountId',
+  providerId: 'providerId',
+  accessToken: 'accessToken',
+  refreshToken: 'refreshToken',
+  accessTokenExpiresAt: 'accessTokenExpiresAt',
+  refreshTokenExpiresAt: 'refreshTokenExpiresAt',
+  scope: 'scope',
+  idToken: 'idToken',
+  password: 'password',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AccountScalarFieldEnum = (typeof AccountScalarFieldEnum)[keyof typeof AccountScalarFieldEnum]
+
+
+export const VerificationScalarFieldEnum = {
+  id: 'id',
+  identifier: 'identifier',
+  value: 'value',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VerificationScalarFieldEnum = (typeof VerificationScalarFieldEnum)[keyof typeof VerificationScalarFieldEnum]
 
 
 export const MagicLinkScalarFieldEnum = {
@@ -156,11 +222,18 @@ export const PolicyScalarFieldEnum = {
   walletId: 'walletId',
   dailyTokenBudgetUsd: 'dailyTokenBudgetUsd',
   dailySpendBudgetUsd: 'dailySpendBudgetUsd',
+  subtreeDailyCapUsd: 'subtreeDailyCapUsd',
   perTransactionMaxUsd: 'perTransactionMaxUsd',
   autoApproveUnderUsd: 'autoApproveUnderUsd',
   escalateOverUsd: 'escalateOverUsd',
   allowedCategories: 'allowedCategories',
   blockedCategories: 'blockedCategories',
+  allowedTools: 'allowedTools',
+  blockedTools: 'blockedTools',
+  escalateTools: 'escalateTools',
+  allowedResources: 'allowedResources',
+  blockedResources: 'blockedResources',
+  escalateResources: 'escalateResources',
   escalationTimeoutMins: 'escalationTimeoutMins',
   escalationTimeoutAction: 'escalationTimeoutAction',
   updatedAt: 'updatedAt'
@@ -258,10 +331,12 @@ export type CredentialInjectionScalarFieldEnum = (typeof CredentialInjectionScal
 export const AuthorizationRequestScalarFieldEnum = {
   id: 'id',
   agentId: 'agentId',
+  kind: 'kind',
   action: 'action',
   amountUsd: 'amountUsd',
   merchant: 'merchant',
   category: 'category',
+  detailsJson: 'detailsJson',
   description: 'description',
   status: 'status',
   decidedAt: 'decidedAt',
@@ -271,6 +346,66 @@ export const AuthorizationRequestScalarFieldEnum = {
 } as const
 
 export type AuthorizationRequestScalarFieldEnum = (typeof AuthorizationRequestScalarFieldEnum)[keyof typeof AuthorizationRequestScalarFieldEnum]
+
+
+export const PendingApprovalScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  agentId: 'agentId',
+  actionType: 'actionType',
+  status: 'status',
+  subjectJson: 'subjectJson',
+  resourceJson: 'resourceJson',
+  constraintsJson: 'constraintsJson',
+  reason: 'reason',
+  code: 'code',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  expiresAt: 'expiresAt',
+  resolvedAt: 'resolvedAt',
+  resolvedBy: 'resolvedBy',
+  resolutionNote: 'resolutionNote',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PendingApprovalScalarFieldEnum = (typeof PendingApprovalScalarFieldEnum)[keyof typeof PendingApprovalScalarFieldEnum]
+
+
+export const GrantScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  agentId: 'agentId',
+  actionType: 'actionType',
+  status: 'status',
+  subjectJson: 'subjectJson',
+  resourceJson: 'resourceJson',
+  constraintsJson: 'constraintsJson',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  issuedBy: 'issuedBy',
+  issuedFromApprovalId: 'issuedFromApprovalId',
+  justification: 'justification',
+  expiresAt: 'expiresAt',
+  consumedAt: 'consumedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GrantScalarFieldEnum = (typeof GrantScalarFieldEnum)[keyof typeof GrantScalarFieldEnum]
+
+
+export const WalletBudgetCounterScalarFieldEnum = {
+  id: 'id',
+  walletId: 'walletId',
+  period: 'period',
+  periodStart: 'periodStart',
+  spentCents: 'spentCents',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WalletBudgetCounterScalarFieldEnum = (typeof WalletBudgetCounterScalarFieldEnum)[keyof typeof WalletBudgetCounterScalarFieldEnum]
 
 
 export const LeadScalarFieldEnum = {
@@ -322,6 +457,13 @@ export const NullableJsonNullValueInput = {
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {

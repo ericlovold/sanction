@@ -1,6 +1,7 @@
 "use client"
 
 import { useActionState, useState } from "react"
+import { Activity, CheckCircle2, Clipboard, Clock3, KeyRound, Power, RotateCw, Shield, SlidersHorizontal } from "lucide-react"
 import {
   rotateKeyAction,
   setAgentActiveAction,
@@ -8,6 +9,14 @@ import {
   type RotateState,
   type LimitsState,
 } from "@/app/dashboard/keys/actions"
+import { KeyConnect } from "@/components/key-connect"
+
+export type KeyActivity = {
+  totalCalls: number
+  topModel: string | null
+  lastTask: string | null
+  lastSeen: string | null
+}
 
 export type ConsoleAgent = {
   id: string
@@ -21,6 +30,12 @@ export type ConsoleAgent = {
   perTransactionMaxUsd: number | null
   escalateOverUsd: number | null
   clearance: number | null
+  pendingApprovals: number
+  activeGrants: number
+  approvedMonth: number
+  deniedMonth: number
+  escalatedMonth: number
+  activity: KeyActivity | null
 }
 
 function rel(iso: string | null): string {
@@ -45,8 +60,9 @@ function Copy({ value }: { value: string }) {
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
-      className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+      className="inline-flex shrink-0 items-center gap-1 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
     >
+      <Clipboard className="size-3" />
       {done ? "copied" : "copy"}
     </button>
   )
@@ -55,48 +71,136 @@ function Copy({ value }: { value: string }) {
 const rotateInit: RotateState = { ok: false, error: "" }
 const limitsInit: LimitsState = { ok: false, error: "" }
 
+function hasOverrides(agent: ConsoleAgent) {
+  return (
+    agent.dailyTokenBudgetUsd !== null ||
+    agent.dailySpendBudgetUsd !== null ||
+    agent.perTransactionMaxUsd !== null ||
+    agent.escalateOverUsd !== null
+  )
+}
+
+function statusClass(value: number, tone: "amber" | "emerald" | "red" | "zinc") {
+  if (tone === "amber" && value > 0) return "border-amber-500/25 bg-amber-500/10 text-amber-300"
+  if (tone === "emerald" && value > 0) return "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+  if (tone === "red" && value > 0) return "border-red-500/25 bg-red-500/10 text-red-300"
+  return "border-zinc-800 bg-zinc-950/60 text-zinc-500"
+}
+
 function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean }) {
   const [rotate, rotateAction, rotating] = useActionState(rotateKeyAction, rotateInit)
   const [limits, limitsFormAction, savingLimits] = useActionState(updateLimitsAction, limitsInit)
   const [open, setOpen] = useState(false)
+  const [connectOpen, setConnectOpen] = useState(false)
   const justRotated = rotate.ok && rotate.agentId === agent.id && rotate.newKey
+  const overrides = hasOverrides(agent)
+  const act = agent.activity
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="font-medium text-zinc-100">{agent.name}</p>
-          <p className="font-mono text-xs text-zinc-500">{agent.apiKeyPrefix}••••••••</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-zinc-100">{agent.name}</p>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] ${agent.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+              {agent.isActive ? "active" : "revoked"}
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            <span className="inline-flex items-center gap-1 font-mono">
+              <KeyRound className="size-3" />
+              {agent.apiKeyPrefix}••••••••
+            </span>
+            <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
+            <span>last used {rel(agent.lastUsedAt)}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-xs text-zinc-500">
-          <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
-          <span>last used {rel(agent.lastUsedAt)}</span>
-          <span className={`rounded-full px-2 py-0.5 ${agent.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-            {agent.isActive ? "active" : "revoked"}
-          </span>
+        <div className="grid min-w-[260px] grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-lg">
+          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.pendingApprovals, "amber")}`}>
+            <p className="text-[10px] uppercase tracking-wide opacity-70">Pending</p>
+            <p className="mt-0.5 font-mono text-sm">{agent.pendingApprovals}</p>
+          </div>
+          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.activeGrants, "emerald")}`}>
+            <p className="text-[10px] uppercase tracking-wide opacity-70">Grants</p>
+            <p className="mt-0.5 font-mono text-sm">{agent.activeGrants}</p>
+          </div>
+          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.deniedMonth, "red")}`}>
+            <p className="text-[10px] uppercase tracking-wide opacity-70">Denied</p>
+            <p className="mt-0.5 font-mono text-sm">{agent.deniedMonth}</p>
+          </div>
+          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.escalatedMonth, "amber")}`}>
+            <p className="text-[10px] uppercase tracking-wide opacity-70">Escalated</p>
+            <p className="mt-0.5 font-mono text-sm">{agent.escalatedMonth}</p>
+          </div>
         </div>
       </div>
 
-      {editable && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-zinc-500">
+          <Shield className="size-3" />
+          clearance {agent.clearance ?? 1}
+        </span>
+        <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 ${overrides ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" : "border-zinc-800 bg-zinc-950/60 text-zinc-500"}`}>
+          <SlidersHorizontal className="size-3" />
+          {overrides ? "custom limits" : "inherits wallet policy"}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-zinc-500">
+          <Activity className="size-3" />
+          {agent.approvedMonth} approved this month
+        </span>
+      </div>
+
+      {act && act.totalCalls > 0 ? (
+        <p className="mt-2 text-[11px] text-zinc-500">
+          seen{" "}
+          {act.topModel && <span className="font-mono text-zinc-400">{act.topModel}</span>}
+          {act.topModel && " · "}
+          <span className="text-zinc-400">{act.totalCalls.toLocaleString()}</span> call{act.totalCalls === 1 ? "" : "s"}
+          {act.lastTask && (
+            <>
+              {" · "}task <span className="text-zinc-400">{act.lastTask}</span>
+            </>
+          )}
+          {act.lastSeen && <> · {rel(act.lastSeen)}</>}
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px] text-zinc-600">No calls yet — use Connect to wire this key into an agent.</p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setConnectOpen((o) => !o)}
+          className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100"
+        >
+          {connectOpen ? "Hide connect" : "Connect"}
+        </button>
+        {editable && (
+          <>
           <form action={rotateAction}>
             <input type="hidden" name="agent_id" value={agent.id} />
-            <button type="submit" disabled={rotating} className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100 disabled:opacity-50">
+            <button type="submit" disabled={rotating} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100 disabled:opacity-50">
+              <RotateCw className="size-3" />
               {rotating ? "Rotating…" : "Rotate key"}
             </button>
           </form>
           <form action={setAgentActiveAction}>
             <input type="hidden" name="agent_id" value={agent.id} />
             <input type="hidden" name="active" value={agent.isActive ? "false" : "true"} />
-            <button type="submit" className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
+            <button type="submit" className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
+              <Power className="size-3" />
               {agent.isActive ? "Revoke" : "Reactivate"}
             </button>
           </form>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
+          <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
+            <SlidersHorizontal className="size-3" />
             {open ? "Hide limits" : "Edit limits"}
           </button>
-        </div>
-      )}
+          </>
+        )}
+      </div>
+
+      {connectOpen && <KeyConnect agentKey={justRotated ? rotate.newKey! : "pxy_YOUR_KEY"} hasRealKey={!!justRotated} />}
 
       {justRotated && (
         <div className="mt-3 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.05] p-3">
@@ -141,8 +245,14 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
               </select>
             </label>
             <div className="flex items-center gap-2">
-              {limits.ok && <span className="text-[11px] text-emerald-400">saved</span>}
-              <button type="submit" disabled={savingLimits} className="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50">
+              {limits.ok && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
+                  <CheckCircle2 className="size-3" />
+                  saved
+                </span>
+              )}
+              <button type="submit" disabled={savingLimits} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50">
+                <Clock3 className="size-3" />
                 {savingLimits ? "Saving…" : "Save limits"}
               </button>
             </div>
@@ -155,7 +265,7 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
 
 export function ApiKeysTable({ agents, editable }: { agents: ConsoleAgent[]; editable: boolean }) {
   if (agents.length === 0) {
-    return <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center text-sm text-zinc-500">No agents yet — create one above to get a key.</p>
+    return <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center text-sm text-zinc-500">No agents registered yet.</p>
   }
   return (
     <div className="space-y-3">

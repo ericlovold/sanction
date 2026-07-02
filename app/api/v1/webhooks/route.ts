@@ -5,7 +5,16 @@ import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { generateWebhookSecret, deliverPing, isPublicHttpsUrl } from "@/lib/webhooks"
 
-const KNOWN_EVENTS = ["escalation.created", "escalation.resolved", "budget.exhausted", "*"] as const
+const KNOWN_EVENTS = [
+  "approval.created",
+  "approval.resolved",
+  "escalation.created",
+  "escalation.resolved",
+  "budget.exhausted",
+  "budget.threshold",
+  "*",
+] as const
+const DEFAULT_EVENTS = ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.threshold"]
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -28,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const secret = generateWebhookSecret()
   const hook = await db.webhook.create({
-    data: { walletId: wallet_id, url, secret, events: events ?? ["escalation.created"] },
+    data: { walletId: wallet_id, url, secret, events: events ?? DEFAULT_EVENTS },
   })
 
   // Confirm the endpoint works without blocking the response.

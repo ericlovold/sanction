@@ -45,10 +45,10 @@ export default async function Roadmap() {
 
       <main className="max-w-4xl mx-auto px-6 py-14">
         <p className="text-sm font-medium text-emerald-400">Roadmap</p>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">What we&apos;re building</h1>
+        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Building the authorization layer for AI agents</h1>
         <p className="mt-3 max-w-2xl text-lg text-zinc-400">
-          Sanction is built in the open. Here&apos;s where we&apos;re headed — and a board where you decide what comes
-          next. Shipped work shows up in the{" "}
+          Sanction is built in the open. Every item moves toward one goal: making autonomous agents governable,
+          auditable, and safe to trust. You decide what comes next on the board below — shipped work shows up in the{" "}
           <Link href="/changelog" className="text-emerald-400 hover:text-emerald-300">
             changelog
           </Link>
