@@ -56,8 +56,7 @@ export default function About() {
           alt="Eric Lovold"
           style={{ width: 240, maxWidth: "70%", height: "auto", display: "block", margin: "0 auto", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
         />
-        <div className="sn-mono" style={{ marginTop: 16, letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction</div>
-        <div className="sn-mono" style={{ marginTop: 32, marginBottom: 18 }}>Work with Eric</div>
+        <div className="sn-mono" style={{ marginTop: 16, marginBottom: 32, letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction AI</div>
         <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
           Putting AI to work for executives and regulated teams.
         </h1>
