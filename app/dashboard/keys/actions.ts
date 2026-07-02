@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { generateApiKey } from "@/lib/apiKey"
 import { getSessionWallet } from "@/lib/session"
 
@@ -72,11 +73,15 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
 
   const clearance = Number(form.get("clearance") ?? "")
   if (Number.isInteger(clearance) && clearance >= 1 && clearance <= 5) {
-    await db.agentClearance.upsert({
-      where: { agentId },
-      update: { level: clearance },
-      create: { walletId: owned.wallet.id, agentId, level: clearance },
-    })
+    // RLS-scoped (SEC-3): AgentClearance is FORCE RLS — an unwrapped upsert
+    // would be rejected by the policy now that the table fails closed.
+    await withTenant(owned.wallet.id, (tx) =>
+      tx.agentClearance.upsert({
+        where: { agentId },
+        update: { level: clearance },
+        create: { walletId: owned.wallet.id, agentId, level: clearance },
+      }),
+    )
   }
 
   revalidatePath("/dashboard/agents")
