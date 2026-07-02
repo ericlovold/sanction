@@ -1,0 +1,297 @@
+/* Sanction marketing brand system ("gallery light").
+   Ported from the Claude Design "Sanction AI Design System" project.
+   Everything is scoped under .sanction so the light palette + brand fonts
+   never leak into the dark dashboard/docs shells (separate kits).
+   Emerald (--signal) is the SIGNAL color — mark, approvals, live states only.
+   It is never a button fill; pine (--action-primary) is the action color. */
+
+.sanction {
+  /* paper (warm whites) */
+  --paper-0: #fbfaf6;
+  --paper-1: #f4f2eb;
+  --paper-2: #ece9e0;
+  --paper-3: #e2ded3;
+  /* ink (warm near-blacks) */
+  --ink-1: #16180f;
+  --ink-2: #43473b;
+  --ink-3: #757a6c;
+  --ink-4: #a6aa9c;
+  /* pine (primary) */
+  --pine-9: #0c332a;
+  --pine-8: #124a3a;
+  --pine-7: #17614b;
+  --pine-6: #23795f;
+  --pine-tint: #e4efe8;
+  /* signal (the logo emerald) */
+  --signal: #10b981;
+  --signal-deep: #0b8a61;
+  --signal-tint: #dff3e9;
+  /* ochre (escalated) */
+  --ochre-7: #a87a1e;
+  --ochre-6: #c1922f;
+  --ochre-tint: #f6ecd6;
+  /* brick (denied) */
+  --brick-7: #a2402c;
+  --brick-tint: #f5e3dd;
+  /* lines */
+  --line-1: rgba(22, 24, 15, 0.16);
+  --line-2: rgba(22, 24, 15, 0.09);
+  /* semantic */
+  --surface-page: var(--paper-0);
+  --surface-card: #ffffff;
+  --surface-sunken: var(--paper-1);
+  --surface-inverse: #101210;
+  --text-body: var(--ink-1);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --text-faint: var(--ink-4);
+  --text-on-action: #f7f6f0;
+  --action-primary: var(--pine-8);
+  --action-primary-hover: var(--pine-9);
+  --status-approved: var(--signal-deep);
+  --status-approved-bg: var(--signal-tint);
+  --status-escalated: var(--ochre-7);
+  --status-escalated-bg: var(--ochre-tint);
+  --status-denied: var(--brick-7);
+  --status-denied-bg: var(--brick-tint);
+  --focus-ring: 0 0 0 3px rgba(16, 185, 129, 0.3);
+
+  /* fonts (scoped: dashboard keeps Geist) */
+  --font-sans: var(--font-instrument), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  /* Eyebrow labels: real Futura/Avenir where installed (Mac), Jost web fallback
+     everywhere else. Geometric, not mono — replaces the default Plex-Mono look. */
+  --font-label: "Futura", "Avenir Next", "Avenir", var(--font-jost), "Century Gothic", sans-serif;
+
+  /* type scale */
+  --text-display: 600 clamp(44px, 5vw, 64px) / 1.04 var(--font-sans);
+  --text-h1: 600 40px/1.1 var(--font-sans);
+  --text-h2: 600 28px/1.2 var(--font-sans);
+  --text-h3: 600 20px/1.3 var(--font-sans);
+  --text-body-l: 400 18px/1.55 var(--font-sans);
+  --tracking-display: -0.02em;
+  --tracking-heading: -0.01em;
+
+  /* radii + spacing */
+  --radius-m: 10px;
+  --radius-card: 14px;
+  --radius-key: 20px;
+  --radius-pill: 999px;
+
+  /* elevation + motion */
+  --shadow-hairline: 0 1px 2px rgba(22, 24, 15, 0.05);
+  --shadow-card: 0 1px 2px rgba(22, 24, 15, 0.05), 0 8px 28px rgba(22, 24, 15, 0.07);
+  --shadow-raised: 0 2px 6px rgba(22, 24, 15, 0.08), 0 20px 48px rgba(22, 24, 15, 0.14);
+  --shadow-key: 0 24px 60px rgba(12, 51, 42, 0.28), 0 2px 8px rgba(12, 51, 42, 0.18);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 140ms;
+
+  background: var(--surface-page);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dark "dev mode" section, scoped inside the marketing shell. */
+.sanction [data-theme="dark"] {
+  --surface-card: #141513;
+  --text-body: #f2f1ea;
+  --text-secondary: #c4c7bb;
+  --text-muted: #8b8f81;
+  --text-faint: #5c6055;
+  --line-1: rgba(242, 241, 234, 0.16);
+  --line-2: rgba(242, 241, 234, 0.08);
+  --signal: #2cc08d;
+}
+
+.sanction a {
+  color: inherit;
+  text-decoration: none;
+}
+.sanction-link {
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.sanction-link:hover {
+  color: var(--text-body);
+}
+
+/* Buttons — pine primary, paper secondary, ghost. Hover via CSS so the page
+   can stay a server component. */
+.sn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-m);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.sn-btn:active {
+  transform: scale(0.98);
+}
+.sn-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.sn-btn-s {
+  padding: 6px 14px;
+  font-size: 13px;
+  height: 32px;
+}
+.sn-btn-m {
+  padding: 9px 18px;
+  font-size: 14px;
+  height: 40px;
+}
+.sn-btn-l {
+  padding: 14px 30px;
+  font-size: 16.5px;
+  height: 54px;
+}
+.sn-btn-primary {
+  background: var(--action-primary);
+  color: #ffffff;
+}
+.sn-btn-primary:hover {
+  background: var(--action-primary-hover);
+}
+.sn-btn-secondary {
+  background: var(--surface-card);
+  color: var(--text-body);
+  border-color: var(--line-1);
+}
+.sn-btn-secondary:hover {
+  background: var(--surface-sunken);
+}
+.sn-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.sn-btn-ghost:hover {
+  background: var(--surface-sunken);
+}
+.sn-btn-onDark {
+  background: transparent;
+  color: #f2f1ea;
+  border-color: rgba(242, 241, 234, 0.25);
+}
+.sn-btn-onDark:hover {
+  background: rgba(242, 241, 234, 0.08);
+}
+
+/* The button variants are <a> tags, so `.sanction a { color: inherit }` would
+   win on specificity. Re-assert the on-fill text colors with `.sanction` prefix
+   so the pine primary reads white, not ink. */
+.sanction .sn-btn-primary {
+  color: #ffffff;
+}
+.sanction .sn-btn-secondary {
+  color: var(--text-body);
+}
+.sanction .sn-btn-ghost {
+  color: var(--text-secondary);
+}
+.sanction .sn-btn-onDark {
+  color: #f2f1ea;
+}
+
+.sn-card {
+  background: var(--surface-card);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  box-sizing: border-box;
+}
+
+.sn-mono {
+  font-family: var(--font-label);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Grids — desktop composition set inline; these collapse them on smaller
+   viewports so the fixed-1280 design holds up on tablet and phone. */
+.sn-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 64px;
+  align-items: center;
+}
+.sn-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.sn-security {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 64px;
+}
+.sn-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.sn-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.sn-key {
+  width: 100%;
+  max-width: 400px;
+  justify-self: center;
+}
+/* Let grid cells shrink below the content's intrinsic width so a fixed-size
+   child (the key card) can't force the whole row wider than the viewport. */
+.sn-hero > *,
+.sn-two > *,
+.sn-security > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .sn-hero,
+  .sn-two,
+  .sn-security {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .sn-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sn-pad {
+    padding-top: 64px !important;
+    padding-bottom: 72px !important;
+  }
+}
+@media (max-width: 640px) {
+  .sn-cards,
+  .sn-pair,
+  .sn-security-items {
+    grid-template-columns: 1fr !important;
+  }
+  .sn-nav-links {
+    display: none !important;
+  }
+  /* The display clamp floors at 44px, which overflows a phone. Re-set the whole
+     font shorthand so the size actually shrinks, and let long words wrap. */
+  .sn-hero-h1 {
+    font: 600 clamp(30px, 8vw, 40px) / 1.08 var(--font-sans) !important;
+    overflow-wrap: break-word;
+  }
+  .sn-pad {
+    padding-top: 56px !important;
+    padding-bottom: 64px !important;
+  }
+}
