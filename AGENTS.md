@@ -10,102 +10,107 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## What This Is
 
-**Sanction** is the trust and governance layer for autonomous AI agents. Think of it as the agent's financial identity — a wallet, credential vault, and clearance system that travels with the agent wherever it operates.
-
-**Core concept:** Before an agent spends money, accesses credentials, or operates in a sensitive domain — it asks Sanction. Sanction decides, logs, and audits everything.
+**Sanction** is the trust and governance layer for autonomous AI agents — a wallet, credential vault, and clearance system that travels with the agent. Before an agent spends money, invokes a tool, or accesses credentials, it asks Sanction; Sanction decides (approve / escalate / deny), logs, and audits everything.
 
 **Tagline:** *Authorize. Protect. Govern.*
 
-## The Three Pillars
+## Commands
 
-| Pillar | What it does |
-|--------|-------------|
-| **Agent Wallet** | Spend authorization with policy enforcement. Auto-approve under threshold, escalate over it, deny what's blocked. Daily/monthly budgets. |
-| **Credential Vault** | AES-256-GCM encrypted credentials. Scoped execution JWTs (15min TTL) gate every injection. Every access is audit-logged. |
-| **Clearance Levels** | 1-5 clearance system. Industry-specific domain authorization. Agents only access what they're cleared for. |
-
-**Domain vocabulary:** `docs/DOMAIN.md` is the canonical ubiquitous-language glossary — every concept (Wallet, Agent, Policy, Grant, Clearance…) mapped to its Prisma model and code path, plus the authorization lifecycle. Read it before naming things.
-
-## Stack
-
-- **Framework:** Next.js 16 (App Router, Turbopack) + TypeScript
-- **Database:** Neon (Postgres via Prisma 7 with `@prisma/adapter-pg`)
-- **Hosting:** Vercel (`lovold` account, project `proxy-ai`)
-- **Auth:** SHA-256 hashed API keys (`pxy_` prefix), JWT execution tokens (jose, HS256)
-- **Encryption:** AES-256-GCM for credentials at rest
-- **MCP:** Bundled stdio server (`mcp-server.js`) — 5 tools for agent hosts
-
-## Key Files
-
-```
-app/
-  page.tsx                    — Dashboard (server component, reads live DB)
-  api/v1/
-    wallets/route.ts          — POST create wallet + policy
-    wallets/stats/route.ts    — GET dashboard stats
-    agents/route.ts           — POST register agent, GET list
-    authorize/route.ts        — POST spend authorization (core policy engine)
-    tokens/route.ts           — POST log LLM token usage
-    exec/route.ts             — POST issue scoped execution JWT
-    credentials/vault/route.ts — POST store encrypted credential
-    credentials/inject/route.ts — POST inject credential (requires Bearer JWT)
-  api/openapi.json/route.ts   — GET OpenAPI spec (Bedrock compatible)
-lib/
-  db.ts                       — Prisma client singleton
-  jwt.ts                      — issueExecutionJWT / verifyExecutionJWT / AES encryption
-  auth.ts                     — authenticateAgent() via x-api-key header
-  apiKey.ts                   — generateApiKey() → pxy_ prefix
-  openapi.ts                  — Full OpenAPI 3.0 spec object
-prisma/
-  schema.prisma               — Data model
-  config.ts                   — Prisma 7 adapter config
-mcp-server.ts                 — MCP stdio server source
-mcp-server.js                 — Bundled MCP server (run this)
+```bash
+npx prisma generate        # REQUIRED after clone or schema change — client is
+                           # generated into lib/generated/prisma (gitignored)
+npm run dev                # Next.js dev server (Turbopack)
+npm run check              # Full gate: tsc --noEmit && eslint && vitest run
+npm run lint               # ESLint only
+npm test                   # Unit tests (vitest run)
+npx vitest run tests/policy.test.ts   # Single test file
+npx vitest run -t "name"              # Single test by name
+npm run test:coverage      # Coverage with ratchet thresholds (see below)
+npm run test:db            # DB-backed tests (tests/*.db.test.ts) — needs a real
+                           # Postgres in DATABASE_URL + RUN_DB_TESTS=1, plus
+                           # SANCTION_SIGNING_SECRET / SANCTION_CREDENTIAL_ENCRYPTION_KEY
+npm run build              # prisma generate + guarded migrate + next build
+npm run build:mcp          # esbuild-bundle mcp-server.ts → packages/sanction-mcp/mcp-server.js
+npx prisma migrate dev     # Create a migration after editing prisma/schema.prisma
+bash scripts/smoke.sh      # End-to-end smoke test against a live deployment
 ```
 
-## API Auth
+CI (`.github/workflows/ci.yml`) runs typecheck, lint, `test:coverage`, and the DB tests against an ephemeral Postgres 16 service on every push/PR. `publish-mcp.yml` is a manual workflow that publishes `packages/sanction-mcp` to npm.
 
-- **Agent API calls:** `x-api-key: pxy_...` header
-- **Credential injection:** `Authorization: Bearer <execution-jwt>` (issued by POST /exec)
-- **Dashboard:** reads `SANCTION_WALLET_ID` env var server-side
+**Migration safety:** `npm run build` calls `scripts/migrate-deploy.mjs`, which only runs `prisma migrate deploy` on Vercel *production* builds or with explicit `RUN_MIGRATE_DEPLOY=1` opt-in — preview builds inherit the prod `DATABASE_URL` and must never migrate it. `prisma.config.ts` gives the Prisma CLI a *direct unpooled* connection (Neon's PgBouncer can strand the migration advisory lock); the data plane keeps the pooled URL via `@prisma/adapter-pg` in `lib/db.ts`.
+
+## Architecture
+
+### Authentication planes (all fail closed)
+
+1. **Agent data plane** — `x-api-key: pxy_...` header, SHA-256-hashed lookup (`lib/auth.ts` → `authenticateAgent`). Used by `/authorize`, `/tokens`, `/exec`, credential injection.
+2. **Management plane** — wallet owner's `sk_` management key via `x-mgmt-key` header or Bearer (`lib/ownerAuth.ts` → `authenticateOwner`). Gates agent creation, policy, vault, stats. Shown once at wallet creation; legacy wallets bootstrap via `POST /wallets/bootstrap-key`.
+3. **Execution JWTs** — short-lived (15 min) scoped tokens issued by `POST /exec` (jose, HS256; `lib/jwt.ts`), required as Bearer for `POST /credentials/inject`.
+4. **Human dashboard** — Better Auth (Google/GitHub, `lib/auth-config.ts`) *or* a legacy httpOnly cookie holding the `sk_` key; both are bridged to the same Wallet in `lib/session.ts` so the rest of the app never cares which.
+
+### Policy decision engine (ADR-0009)
+
+- `lib/evaluation.ts` — pure rules engine: a rule returns a `RuleResult`; the engine folds an ordered list into one `Decision` (deny-overrides → escalate → allow). Rules are **pure over their context — no IO**. State reads, persistence, and obligation execution live in the enforcement shell (the route handlers), which pre-fetch budget state into the context and run the rules inside a Postgres advisory lock.
+- `lib/rules/` — rule ladders per action type: `spend.ts` (the reference implementation), `tool.ts` (MCP tool governance), `credential.ts`, `provision.ts`.
+- `lib/decisions.ts` — typed `DecisionCode`s (`PER_TXN_LIMIT`, `GRANT_EXPIRED`, …) derived from persisted `(status, decisionNote)` so idempotent replays return the same code. **Keep these in sync with the `decisionNote` strings written in `app/api/v1/authorize/route.ts`** — agents replan on stable machine codes.
+- Escalations create a `PendingApproval` (`lib/approvals.ts`); approval mints a single-use, TTL'd `Grant` the agent redeems on retry (`lib/grants.ts`). Policy controls timeout behavior (`escalation_timeout_action`: approve/deny).
+- Budgets cascade through the wallet tree (`lib/cascadeBudget.ts`, `lib/accountTree.ts`): wallets nest parent→child, subtree daily caps are enforced at `/authorize`, counters live in `WalletBudgetCounter`.
+
+### LLM Gateway
+
+`app/api/gateway/[provider]/[...path]/route.ts` + `lib/gateway.ts` — agents point their model SDK's base URL at `/api/gateway/<provider>` with an `x-sanction-key` header. Sanction forwards to the real provider (anthropic/openai/…), reads token usage off the response, and meters it against the agent's budget — zero per-call instrumentation. Over-budget returns 402.
+
+### Credential vault security
+
+- **SEC-1 envelope encryption** (`lib/kms.ts`, `lib/credentialCrypto.ts`): per-wallet DEKs wrapped by AWS KMS in production (`SANCTION_KMS_KEY_ARN`); when unset (local/CI/preview), DEKs wrap with the env master key so the envelope path works without AWS.
+- **SEC-3 Row-Level Security** (`lib/rls.ts`): `withTenant(walletId, fn)` sets a transaction-local GUC that Postgres RLS policies key on — vault queries can only see that tenant's rows even if a `where` clause is forgotten. The app's DB role must be non-superuser or RLS is bypassed.
+
+### Data model & persistence
+
+Prisma 7 with `@prisma/adapter-pg` driver adapter; schema in `prisma/schema.prisma`, client generated into `lib/generated/prisma` (gitignored — never hand-edit, regenerate). Money convention: **policy is stored in cents; the API and UI speak dollars** — `lib/policy.ts` is the single validation/conversion point shared by the REST endpoint and dashboard server actions. The Better Auth models (`User`, `Session`, `Account`, `Verification`) match that library's contract exactly — do not rename fields.
+
+### Surfaces
+
+- `app/api/v1/*` — REST API (see README for the endpoint table; `lib/openapi.ts` holds the full OpenAPI 3.0 spec served at `/api/openapi.json`, Bedrock-compatible).
+- `app/dashboard/*` — operator console: server components reading the DB directly, with mutations in per-page `actions.ts` server actions.
+- `mcp-server.ts` — MCP stdio server source, bundled via `npm run build:mcp` into `packages/sanction-mcp/` (published to npm as `sanction-mcp`, MIT-licensed; the rest of the repo is FSL-1.1-MIT).
+- `docs/` — user-facing integration guides (Quickstart, Gateway, LangChain, CrewAI, Vercel AI SDK, multi-tenant runbook, SECURITY.md for the threat model), plus `docs/DOMAIN.md` — the canonical ubiquitous-language glossary mapping every concept (Wallet, Agent, Policy, Grant, Clearance…) to its Prisma model and code path, with the authorization lifecycle. Read it before naming things.
+- `examples/` — client examples; `examples/eve-testers` is its own package, excluded from the root tsconfig.
+
+### Testing conventions
+
+- Unit tests mock Prisma (`vi.mock("@/lib/db")`) and `withTenant`; route handlers are imported and invoked directly with `NextRequest`. Rules are pure precisely so they unit-test without a DB.
+- `tests/*.db.test.ts` run against real Postgres (gated by `RUN_DB_TESTS=1`) and prove what mocks can't: concurrency/budget-leak atomicity, RLS isolation, the end-to-end data plane.
+- Coverage thresholds in `vitest.config.ts` are a **ratchet** — set just below current coverage; raise as coverage grows, never lower.
+
+## Conventions & Gotchas
+
+- Path alias `@/*` maps to the repo root (both tsconfig and vitest).
+- `_`-prefixed variables/args are intentionally unused (ESLint is configured for this).
+- `.npmrc` sets `legacy-peer-deps=true` — expected, don't "fix" it.
+- Never commit production wallet ids or API keys. Live identifiers live in Vercel env vars and the secrets store.
+- `walletId` is treated as non-secret; authorization rests entirely on keys, never on knowledge of ids.
 
 ## Environment Variables
 
-```
-DATABASE_URL                      — Neon connection string (from Vercel integration)
-SANCTION_SIGNING_SECRET           — JWT signing key (base64)
-SANCTION_CREDENTIAL_ENCRYPTION_KEY — AES-256 encryption key (base64)
-SANCTION_WALLET_ID                — Primary wallet ID (for dashboard)
-```
+See `.env.example` for the authoritative list (copy to `.env.local` for dev). Core: `DATABASE_URL` (Neon), `SANCTION_SIGNING_SECRET`, `SANCTION_CREDENTIAL_ENCRYPTION_KEY`, `SANCTION_WALLET_ID` (demo wallet for the public dashboard). Optional: `SANCTION_KMS_KEY_ARN` + AWS creds (SEC-1 prod root of trust), `BETTER_AUTH_*` + Google/GitHub OAuth (human sign-in).
 
 ## Live Production
 
-- **API:** `https://getsanction.com/api/v1`
-- **Dashboard:** `https://getsanction.com`
-- **OpenAPI spec:** `https://getsanction.com/api/openapi.json`
+- **API:** `https://getsanction.com/api/v1` — canonical domain `getsanction.com`
+- **Dashboard:** `https://getsanction.com` · **OpenAPI:** `https://getsanction.com/api/openapi.json`
+- **Hosting:** Vercel (`lovold` account, project `proxy-ai`); DB is Neon via Vercel integration
 - **Bedrock Agent:** `JXRNIJRMCX` (us-east-1), Action Group `sanction-api`
-- **GitHub:** `github.com/ericlovold/sanction`
 - **npm:** `sanction-mcp` (published; `npx sanction-mcp`)
-- **Canonical domain:** `getsanction.com` (`sanction.ai` not pursued — cost)
-
-## AIIA Integration
-
-AIIA (the Mac Mini AI agent) is the first Sanction client. Integration lives in:
-- `~/aiia-brain/AIIA-public/local_brain/sanction.py` — fire-and-forget token logging client
-- `~/aiia-brain/AIIA-public/.env` — `SANCTION_API_URL`, `SANCTION_API_KEY`, `SANCTION_WALLET_ID`
 
 ## Business Context
 
-- Owner: Eric Lovold (solo founder), Vercel account `lovold`
-- Primary agent: AIIA Brain. Live wallet/agent identifiers are NOT committed — see
-  Vercel env vars (`SANCTION_WALLET_ID`) and the secrets store. Never commit
-  production wallet ids or API keys to the repo.
-- Distribution: MCP (npm), AWS Bedrock Action Groups, direct REST API
-- Model: Freemium SaaS — Free / $19 Pro / $49 Team / Enterprise
+- Owner: Eric Lovold (solo founder). Primary agent client: AIIA Brain (Mac Mini agent; its integration lives outside this repo in `~/aiia-brain`).
+- Distribution: MCP (npm), AWS Bedrock Action Groups, direct REST API, LLM gateway.
+- Model: Freemium SaaS — Free / $19 Pro / $49 Team / Enterprise.
 
 ## Design Direction
 
-- Dark theme, zinc/slate palette
-- Minimal, serious, enterprise-appropriate — not playful
-- Data-dense dashboard — operators want numbers, not marketing copy
+- Dark theme, zinc/slate palette. Minimal, serious, enterprise-appropriate — not playful.
+- Data-dense dashboard — operators want numbers, not marketing copy.
 - Brand: Sanction = authorized + constrained. Trust through limits.
