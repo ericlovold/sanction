@@ -28,6 +28,33 @@ async function send({ to, subject, html, text }: SendArgs): Promise<void> {
 // new lead. Best-effort; fired from after() so it never blocks the signup.
 const LEADS_NOTIFY_TO = process.env.LEADS_NOTIFY_TO ?? "eric@getsanction.com"
 
+// Welcome the person who just joined the list — a real message from Sanction,
+// so a signup is confirmed, not silent. Best-effort; fired from after().
+export async function sendLeadWelcomeEmail(to: string): Promise<void> {
+  const subject = "You're on the list — Sanction"
+  const text = [
+    "Thanks for signing up.",
+    "",
+    "Sanction is the authorization layer for AI agents — one key that governs what an agent may spend, invoke, and provision, with a human in the loop over the line and every decision on the record.",
+    "",
+    "You'll get launch updates and early access as we ship. One email when it matters — no spam, unsubscribe anytime.",
+    "",
+    "Explore what's live: https://getsanction.com",
+    "",
+    "— Eric, founder",
+  ].join("\n")
+  const html = `<!doctype html><html><body style="margin:0;background:#09090b;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e4e4e7">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:18px;font-weight:600;letter-spacing:-0.01em;margin:0 0 24px">Sanction</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px">Thanks for signing up.</p>
+    <p style="font-size:14px;line-height:1.6;color:#a1a1aa;margin:0 0 16px">Sanction is the authorization layer for AI agents — one key that governs what an agent may spend, invoke, and provision, with a human in the loop over the line and every decision on the record.</p>
+    <p style="font-size:14px;line-height:1.6;color:#a1a1aa;margin:0 0 24px">You'll get launch updates and early access as we ship. One email when it matters — no spam, unsubscribe anytime.</p>
+    <a href="https://getsanction.com" style="display:inline-block;background:#10b981;color:#09090b;font-weight:600;font-size:14px;text-decoration:none;padding:12px 20px;border-radius:8px">Explore Sanction</a>
+    <p style="font-size:13px;line-height:1.6;color:#71717a;margin:28px 0 0">— Eric, founder</p>
+  </div></body></html>`
+  await send({ to, subject, html, text })
+}
+
 export async function sendNewLeadEmail(lead: { email: string; source: string }): Promise<void> {
   const subject = `New Sanction signup: ${lead.email}`
   const text = [`${lead.email} just joined the Sanction list.`, "", `Source: ${lead.source}`, `When: ${new Date().toISOString()}`].join("\n")
