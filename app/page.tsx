@@ -570,6 +570,7 @@ export default function Landing() {
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="hover:text-zinc-200 transition-colors">Dashboard</Link>
             <Link href="/ethical-ai" className="hover:text-zinc-200 transition-colors">Ethical AI</Link>
+            <Link href="/mia-local" className="hover:text-zinc-200 transition-colors">MIA Local</Link>
             <a href="/api/openapi.json" className="hover:text-zinc-200 transition-colors">API</a>
             <a href="https://www.npmjs.com/package/sanction-mcp" className="hover:text-zinc-200 transition-colors">MCP</a>
           </div>
