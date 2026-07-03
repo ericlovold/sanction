@@ -28,6 +28,7 @@ const BASE = "https://api.test/v1"
 const WIRE_POLICY = {
   daily_token_budget_usd: 10,
   daily_spend_budget_usd: 50,
+  monthly_spend_budget_usd: 800,
   subtree_daily_cap_usd: null,
   per_transaction_max_usd: 100,
   auto_approve_under_usd: 10,
@@ -155,8 +156,9 @@ describe("SanctionAdminClient policy — snake_case dollar wire", () => {
 
 describe("policy wire mapping is total and reversible", () => {
   it("policyToWire drops undefined fields and renames the rest", () => {
-    expect(policyToWire({ dailySpendBudgetUsd: 50, subtreeDailyCapUsd: null })).toEqual({
+    expect(policyToWire({ dailySpendBudgetUsd: 50, monthlySpendBudgetUsd: 800, subtreeDailyCapUsd: null })).toEqual({
       daily_spend_budget_usd: 50,
+      monthly_spend_budget_usd: 800,
       subtree_daily_cap_usd: null,
     })
   })

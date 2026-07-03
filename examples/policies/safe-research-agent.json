@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "blueprint": "safe-research-agent",
+    "description": "Read-only research agent: queries model/data/news vendors, no write privileges, no production connections. Tighter caps than the coding-agent blueprint. Control-plane only — Sanction holds no money.",
+    "version": "0.2.0",
+    "amounts": "DOLLARS. @sanction/sdk PolicyInput is camelCase dollars; the API stores cents internally.",
+    "enforcement": {
+      "policy.blockedCategories": "ENFORCED — authorize denies on exact category match",
+      "policy.perTransactionMaxUsd": "ENFORCED — denies amount over ceiling",
+      "policy.dailySpendBudgetUsd": "ENFORCED — atomic daily cap (SEC-4)",
+      "policy.monthlySpendBudgetUsd": "ENFORCED — atomic monthly cap",
+      "policy.escalateOverUsd": "ENFORCED — escalate above this amount",
+      "policy.allowedCategories": "NOT YET ENFORCED — documentation of intent",
+      "policy.autoApproveUnderUsd": "ENFORCED — at/under this, auto-approve and never escalate",
+      "clearance": "MODELED ONLY — not yet enforced",
+      "vault": "ENFORCED — scoped 15-min JWT; read-only credential scopes"
+    },
+    "apply": "Send this 'policy' block to PATCH /v1/wallets/policy with the wallet_id + x-mgmt-key (partial update; omitted fields unchanged), or apply it with the SDK's admin.applyBlueprint(). See README.md."
+  },
+
+  "policy": {
+    "dailyTokenBudgetUsd": 10,
+    "dailySpendBudgetUsd": 15,
+    "monthlySpendBudgetUsd": 200,
+    "perTransactionMaxUsd": 5,
+    "autoApproveUnderUsd": 2,
+    "escalateOverUsd": 2,
+    "allowedCategories": ["research", "software"],
+    "blockedCategories": [
+      "gambling",
+      "adult",
+      "crypto",
+      "marketing",
+      "contractor_payment",
+      "production_data_export",
+      "unknown_vendor",
+      "infrastructure",
+      "services"
+    ]
+  },
+
+  "clearance": {
+    "level": 1,
+    "industry": "general",
+    "restrictions": {
+      "repo_write": [],
+      "deploy": [],
+      "database": [],
+      "fail_closed_on": ["any_write", "production_secrets", "billing_admin", "code_execution"]
+    }
+  },
+
+  "vault": {
+    "executionTokenTtlSeconds": 900,
+    "credentials": [
+      { "label": "data-vendor", "scopes": ["query:read"] },
+      { "label": "news-api", "scopes": ["articles:read"] }
+    ]
+  },
+
+  "telemetry": {
+    "required_token_log_fields": ["model", "tokensIn", "tokensOut", "costUsd", "taskLabel"],
+    "required_authorize_fields": ["action", "amount_usd", "merchant", "category", "description"]
+  }
+}

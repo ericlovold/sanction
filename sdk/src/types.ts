@@ -139,6 +139,8 @@ export interface CreatedAgent {
 export interface PolicyInput {
   dailyTokenBudgetUsd?: number
   dailySpendBudgetUsd?: number
+  /** Optional monthly spend cap. Set null to remove it. */
+  monthlySpendBudgetUsd?: number | null
   subtreeDailyCapUsd?: number | null
   perTransactionMaxUsd?: number
   autoApproveUnderUsd?: number
@@ -157,6 +159,7 @@ export interface PolicyInput {
 export interface Policy {
   dailyTokenBudgetUsd: number
   dailySpendBudgetUsd: number
+  monthlySpendBudgetUsd: number | null
   subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number
   autoApproveUnderUsd: number
