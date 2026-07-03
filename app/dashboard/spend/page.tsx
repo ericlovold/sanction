@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DashboardNav } from "@/components/dashboard-nav"
-import { AccountControl } from "@/components/account-control"
+import { NoWallet } from "@/components/no-wallet"
 import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
@@ -151,19 +149,7 @@ async function getSpend(walletId: string) {
 
 export default async function SpendPage() {
   const view = await getViewWallet()
-  if (!view) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-3 text-center">
-          <p className="text-sm text-zinc-400">No wallet to show.</p>
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!view) return <NoWallet />
 
   const s = await getSpend(view.id)
   const tokenBudget = (s.policy?.dailyTokenBudgetUsd ?? 0) / 100
@@ -172,17 +158,7 @@ export default async function SpendPage() {
 
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">{view.name} · spend &amp; token usage</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <DashboardNav active="spend" />
-          <AccountControl view={view} />
-        </div>
-      </div>
+      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Spend &amp; token usage</h1>
 
       {/* Budget vs. actual — today */}
       <Card className="bg-zinc-900 border-zinc-800">
