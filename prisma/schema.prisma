@@ -203,6 +203,7 @@ model Policy {
   // For escalation to be reachable, keep escalateOverUsd < perTransactionMaxUsd.
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
+  monthlySpendBudgetUsd Int?               // optional monthly spend cap; null = no monthly limit
   subtreeDailyCapUsd   Int?                // optional subtree cap; null = no tree-wide cap
   perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
   autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor

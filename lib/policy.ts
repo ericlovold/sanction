@@ -15,6 +15,7 @@ export const policyInputSchema = z
   .object({
     daily_token_budget_usd: dollars,
     daily_spend_budget_usd: dollars,
+    monthly_spend_budget_usd: dollars.nullable(),
     subtree_daily_cap_usd: dollars.nullable(),
     per_transaction_max_usd: dollars,
     auto_approve_under_usd: dollars,
@@ -44,6 +45,9 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
   const data: Record<string, unknown> = {}
   if (d.daily_token_budget_usd !== undefined) data.dailyTokenBudgetUsd = toCents(d.daily_token_budget_usd)
   if (d.daily_spend_budget_usd !== undefined) data.dailySpendBudgetUsd = toCents(d.daily_spend_budget_usd)
+  if (d.monthly_spend_budget_usd !== undefined) {
+    data.monthlySpendBudgetUsd = d.monthly_spend_budget_usd === null ? null : toCents(d.monthly_spend_budget_usd)
+  }
   if (d.subtree_daily_cap_usd !== undefined) {
     data.subtreeDailyCapUsd = d.subtree_daily_cap_usd === null ? null : toCents(d.subtree_daily_cap_usd)
   }
@@ -74,6 +78,7 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
 type PolicyRow = {
   dailyTokenBudgetUsd: number
   dailySpendBudgetUsd: number
+  monthlySpendBudgetUsd: number | null
   subtreeDailyCapUsd: number | null
   perTransactionMaxUsd: number
   autoApproveUnderUsd: number
@@ -91,6 +96,7 @@ export function policyToDollars(p: PolicyRow) {
   return {
     daily_token_budget_usd: p.dailyTokenBudgetUsd / 100,
     daily_spend_budget_usd: p.dailySpendBudgetUsd / 100,
+    monthly_spend_budget_usd: p.monthlySpendBudgetUsd === null ? null : p.monthlySpendBudgetUsd / 100,
     subtree_daily_cap_usd: p.subtreeDailyCapUsd === null ? null : p.subtreeDailyCapUsd / 100,
     per_transaction_max_usd: p.perTransactionMaxUsd / 100,
     auto_approve_under_usd: p.autoApproveUnderUsd / 100,

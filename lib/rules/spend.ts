@@ -16,6 +16,10 @@ export type SpendContext = {
   perTxnMaxCents: number
   dailySpentUsd: number
   dailyBudgetCents: number
+  // Monthly cap is opt-in: null = no monthly limit. monthlySpentUsd is the
+  // agent's approved spend so far this calendar month (read under the lock).
+  monthlySpentUsd: number
+  monthlyBudgetCents: number | null
   autoApproveUnderCents: number
   escalateOverCents: number
   // Execution-token state (live route only; undefined when the agent presented no exec JWT).
@@ -77,6 +81,18 @@ export const dailyBudgetRule: Rule<SpendContext> = {
   },
 }
 
+export const monthlyBudgetRule: Rule<SpendContext> = {
+  id: "monthly_budget",
+  run(c) {
+    if (c.monthlyBudgetCents === null) return allow("monthly_budget") // opt-in; no cap set
+    // Sum dollars then round, mirroring the daily-budget comparison exactly.
+    if (Math.round((c.monthlySpentUsd + c.amountUsd) * 100) > c.monthlyBudgetCents) {
+      return { effect: "deny", ruleId: "monthly_budget", code: "MONTHLY_BUDGET_EXCEEDED", reason: "Monthly spend budget exceeded" }
+    }
+    return allow("monthly_budget")
+  },
+}
+
 export const executionBudgetRule: Rule<SpendContext> = {
   id: "execution_budget",
   run(c) {
@@ -108,10 +124,10 @@ export const ladderRule: Rule<SpendContext> = {
 }
 
 // The pure ladder (no execution-token gate) — the simulate path + decidePolicy.
-export const SPEND_LADDER: Rule<SpendContext>[] = [categoryRule, perTransactionRule, dailyBudgetRule, ladderRule]
+export const SPEND_LADDER: Rule<SpendContext>[] = [categoryRule, perTransactionRule, dailyBudgetRule, monthlyBudgetRule, ladderRule]
 
 // Live route: stateless gates run before the advisory lock…
 export const SPEND_STATELESS: Rule<SpendContext>[] = [categoryRule, perTransactionRule]
 
 // …and the stateful gates + ladder run inside it, against budget state read under the lock.
-export const SPEND_STATEFUL: Rule<SpendContext>[] = [dailyBudgetRule, executionBudgetRule, ladderRule]
+export const SPEND_STATEFUL: Rule<SpendContext>[] = [dailyBudgetRule, monthlyBudgetRule, executionBudgetRule, ladderRule]

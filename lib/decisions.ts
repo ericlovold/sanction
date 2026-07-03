@@ -21,6 +21,7 @@ export type DecisionCode =
   | "AMOUNT_MISMATCH"
   | "PER_TXN_LIMIT"
   | "DAILY_BUDGET_EXCEEDED"
+  | "MONTHLY_BUDGET_EXCEEDED"
   | "SUBTREE_CAP_EXCEEDED"
   | "EXEC_BUDGET_EXCEEDED"
   | "GRANT_NOT_FOUND"
@@ -51,6 +52,8 @@ export const REMEDIATION: Record<DecisionCode, string> = {
     "Amount exceeds the per-transaction limit. Split into smaller charges or ask the owner to raise the limit.",
   DAILY_BUDGET_EXCEEDED:
     "The wallet's daily spend budget is exhausted. Retry after the daily reset or ask the owner to raise the budget.",
+  MONTHLY_BUDGET_EXCEEDED:
+    "The wallet's monthly spend budget is exhausted. Retry after the monthly reset or ask the owner to raise the monthly cap.",
   SUBTREE_CAP_EXCEEDED:
     "This wallet tree's daily spend cap is exhausted. Retry after the daily reset or ask the owner to raise the parent cap.",
   EXEC_BUDGET_EXCEEDED:
@@ -73,6 +76,9 @@ export type DecideInput = {
   perTxnMaxCents: number
   dailySpentUsd: number
   dailyBudgetCents: number
+  // Optional monthly cap. Omit both for no monthly limit (backward-compatible).
+  monthlySpentUsd?: number
+  monthlyBudgetCents?: number | null
   autoApproveUnderCents: number
   escalateOverCents: number
 }
@@ -98,6 +104,8 @@ export function decidePolicy(i: DecideInput): PolicyDecision {
       perTxnMaxCents: i.perTxnMaxCents,
       dailySpentUsd: i.dailySpentUsd,
       dailyBudgetCents: i.dailyBudgetCents,
+      monthlySpentUsd: i.monthlySpentUsd ?? 0,
+      monthlyBudgetCents: i.monthlyBudgetCents ?? null,
       autoApproveUnderCents: i.autoApproveUnderCents,
       escalateOverCents: i.escalateOverCents,
     },
@@ -130,6 +138,8 @@ export function decideProvisionPolicy(i: ProvisionDecideInput): PolicyDecision {
       perTxnMaxCents: i.perTxnMaxCents,
       dailySpentUsd: i.dailySpentUsd,
       dailyBudgetCents: i.dailyBudgetCents,
+      monthlySpentUsd: i.monthlySpentUsd ?? 0,
+      monthlyBudgetCents: i.monthlyBudgetCents ?? null,
       autoApproveUnderCents: i.autoApproveUnderCents,
       escalateOverCents: i.escalateOverCents,
       resource: i.resource,
@@ -157,6 +167,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note.startsWith("Category")) return "CATEGORY_BLOCKED"
   if (note.startsWith("Exceeds per-transaction")) return "PER_TXN_LIMIT"
   if (note === "Daily spend budget exceeded") return "DAILY_BUDGET_EXCEEDED"
+  if (note === "Monthly spend budget exceeded") return "MONTHLY_BUDGET_EXCEEDED"
   if (note === "Subtree daily spend cap exceeded") return "SUBTREE_CAP_EXCEEDED"
   if (note === "Execution budget exceeded") return "EXEC_BUDGET_EXCEEDED"
   return "POLICY_DENIED"

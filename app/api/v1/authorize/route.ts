@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
 
   // Shared spend context for the decision engine (ADR-0009). Budget-state fields
   // (dailySpentUsd, exec) are filled per phase; everything else is stable here.
-  const ctxBase: Omit<SpendContext, "dailySpentUsd" | "exec"> = {
+  const ctxBase: Omit<SpendContext, "dailySpentUsd" | "monthlySpentUsd" | "exec"> = {
     amountUsd: amount_usd,
     amountCents,
     category,
@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
     allowedCategories: policy.allowedCategories,
     perTxnMaxCents: perTxnMax,
     dailyBudgetCents: dailySpendBudget,
+    monthlyBudgetCents: policy.monthlySpendBudgetUsd,
     autoApproveUnderCents: policy.autoApproveUnderUsd,
     escalateOverCents: escalateOver,
     escalationTimeoutMins: policy.escalationTimeoutMins,
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest) {
   // Stateless gates (no budget state) run before the advisory lock. The simulate
   // path uses the shared ladder (decidePolicy) below, so it need not repeat them.
   if (!simulate) {
-    const gate = evaluate({ ...ctxBase, dailySpentUsd: 0 }, SPEND_STATELESS)
+    const gate = evaluate({ ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }, SPEND_STATELESS)
     if (gate.effect === "deny") {
       return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: gate.reason }, agent.name)
     }
@@ -175,13 +176,20 @@ export async function POST(req: NextRequest) {
   // enterprise hard stop for parent wallets that set subtreeDailyCapUsd.
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
 
   // Simulation: compute the decision via the shared ladder and check existing
   // ancestor counters without writing.
   if (simulate) {
-    const [dailySpend, cascadeExceeded] = await Promise.all([
+    const [dailySpend, monthlySpend, cascadeExceeded] = await Promise.all([
       db.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        _sum: { amountUsd: true },
+      }),
+      db.authorizationRequest.aggregate({
+        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
         _sum: { amountUsd: true },
       }),
       cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain),
@@ -195,6 +203,8 @@ export async function POST(req: NextRequest) {
       perTxnMaxCents: perTxnMax,
       dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
       dailyBudgetCents: dailySpendBudget,
+      monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0,
+      monthlyBudgetCents: policy.monthlySpendBudgetUsd,
       autoApproveUnderCents: policy.autoApproveUnderUsd,
       escalateOverCents: escalateOver,
     })
@@ -217,10 +227,16 @@ export async function POST(req: NextRequest) {
       // and execution-budget gates are stateful, so they run here (not in the
       // stateless pre-check) — and before the ladder, so a sub-floor charge can
       // never bypass a hard budget.
-      const dailySpend = await tx.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-        _sum: { amountUsd: true },
-      })
+      const [dailySpend, monthlySpend] = await Promise.all([
+        tx.authorizationRequest.aggregate({
+          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+          _sum: { amountUsd: true },
+        }),
+        tx.authorizationRequest.aggregate({
+          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+          _sum: { amountUsd: true },
+        }),
+      ])
       let exec: SpendContext["exec"]
       if (execTokenId) {
         const et = await tx.executionToken.findUnique({ where: { id: execTokenId } })
@@ -228,7 +244,10 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const decision = evaluate({ ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, exec }, SPEND_STATEFUL)
+      const decision = evaluate(
+        { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
+        SPEND_STATEFUL,
+      )
 
       if (decision.effect === "deny") {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
