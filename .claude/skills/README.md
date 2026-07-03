@@ -18,3 +18,4 @@ not in these files.
 | scope-fence | Change exactly what was asked; flag adjacent issues, never drive-by fix |
 | ruthless-editor | Cutting pass on all prose; every sentence earns its place |
 | memory-hygiene | What deserves persisting, dated; recalled facts re-verified before use |
+| zoomout | Homegrown (not from the pack): rebuild the map from live state between work arcs — resync, re-read README/roadmap/changelog/traceability, surface drift, rank next best actions |
