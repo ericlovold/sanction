@@ -15,6 +15,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-03",
+    title: "The audit plane arrives — unified feed, daily summary, monthly caps, and a TypeScript SDK",
+    tags: ["audit", "budgets", "sdk", "dashboard"],
+    body: `Yesterday the authorization plane grew muscles; today it grew a memory and a voice:
+
+- **Unified audit feed** — \`GET /v1/audit-events\` merges every spend decision, token log, and credential injection into one time-sorted feed with type filters and cursor pagination. The "what did my agents do?" endpoint.
+- **Daily summary** — \`GET /v1/reporting/daily-summary\`: one call returns the day's spend, decision counts, token cost, secret accesses, and the five most expensive tasks. The screen you check before coffee.
+- **Monthly spend caps** — policies can now set an opt-in \`monthly_spend_budget_usd\` alongside the daily cap, enforced atomically on **both** spend and provision (a provision is spend — no side doors). New \`MONTHLY_BUDGET_EXCEEDED\` decision code with a remediation hint.
+- **@sanction/sdk** — a zero-dependency TypeScript SDK for both planes: \`SanctionClient\` (authorize, log tokens, scoped credential injection) and \`SanctionAdminClient\` (wallets, agents, policy). A \`denied\` decision is *returned, not thrown* — agents branch and replan.
+- **Runnable starter kit** — \`examples/nightly-coding-agent\` demonstrates the whole governed-autonomy loop offline against a deterministic mock, plus copyable policy blueprints for coding and research agents.
+- **Console shell** — the dashboard is now one console: a persistent sidebar with a live pending-approvals badge across Overview, Agents, Pools, Spend, Approvals, and Grants.
+- **Red-team CI gate** — five adversarial guardrail probes (over-limit spend, blocked category, over-clearance credential, out-of-scope injection, exec-budget breach) now run on every push. The suite passing *is* the "5/5 guardrails held" scorecard.
+
+Next on the [roadmap](/roadmap): Sanction Local, and a local-first SDK fallback for when the network isn't there.`,
+  },
+  {
     date: "2026-07-02",
     title: "Provision authorization, no-surprises alerts, DB-level tenant isolation — and sanction-mcp 0.3.0",
     version: "v0.3.0",
