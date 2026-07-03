@@ -161,14 +161,32 @@ export default async function ApprovalsPage() {
                   </p>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-2">
-                  {r.grants[0] ? (
-                    <span
-                      className="rounded border border-emerald-500/20 bg-emerald-500/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-emerald-300"
-                      title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
-                    >
-                      grant {r.grants[0].consumedAt ? "consumed" : r.grants[0].status}
-                    </span>
-                  ) : null}
+                  {r.grants[0] ? (() => {
+                    const grant = r.grants[0]
+                    const isExpired = grant.expiresAt && new Date(grant.expiresAt) < new Date()
+                    const isConsumed = !!grant.consumedAt
+                    const badgeClass = isExpired || grant.status === "expired"
+                      ? "border-zinc-500/20 bg-zinc-500/[0.06] text-zinc-400"
+                      : isConsumed || grant.status === "consumed"
+                        ? "border-zinc-500/20 bg-zinc-500/[0.06] text-zinc-400"
+                        : "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300"
+                    const label = isConsumed ? "consumed" : grant.status
+                    const tooltip = isExpired && grant.expiresAt
+                      ? `Grant expired ${new Date(grant.expiresAt).toLocaleString()}`
+                      : isConsumed
+                        ? "Grant consumed"
+                        : grant.expiresAt
+                          ? `Grant expires ${new Date(grant.expiresAt).toLocaleString()}`
+                          : "Grant"
+                    return (
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${badgeClass}`}
+                        title={tooltip}
+                      >
+                        grant {label}
+                      </span>
+                    )
+                  })() : null}
                   <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>
                 </div>
               </div>

@@ -65,6 +65,16 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
   const holderRaw = String(form.get("holder") ?? "").trim()
   const expiresRaw = String(form.get("expires_at") ?? "").trim()
 
+  // Validate holder length matches create flow (1-120 chars if non-empty).
+  if (holderRaw && (holderRaw.length < 1 || holderRaw.length > 120)) {
+    return { ok: false, error: "Holder must be 1-120 characters." }
+  }
+
+  // Validate expiry format: must be empty or valid YYYY-MM-DD.
+  if (expiresRaw && !/^\d{4}-\d{2}-\d{2}$/.test(expiresRaw)) {
+    return { ok: false, error: "Expiry date must be YYYY-MM-DD or empty." }
+  }
+
   await db.agent.update({
     where: { id: agentId },
     data: {
@@ -72,8 +82,8 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
       dailySpendBudgetUsd: toCentsOrNull(form.get("daily_spend_budget_usd")),
       perTransactionMaxUsd: toCentsOrNull(form.get("per_transaction_max_usd")),
       escalateOverUsd: toCentsOrNull(form.get("escalate_over_usd")),
-      holder: holderRaw ? holderRaw.slice(0, 120) : null,
-      expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null,
+      holder: holderRaw || null,
+      expiresAt: expiresRaw ? new Date(`${expiresRaw}T23:59:59Z`) : null,
     },
   })
 

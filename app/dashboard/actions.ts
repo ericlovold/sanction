@@ -20,7 +20,7 @@ export async function createAgentAction(_prev: CreateAgentState, form: FormData)
   const holder = z.string().trim().min(1).max(120).safeParse(form.get("holder"))
   // Date input sends YYYY-MM-DD; the seat stays live through that whole day.
   const expiresRaw = String(form.get("expires_at") ?? "").trim()
-  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : undefined
+  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59Z`) : undefined
 
   const key = generateApiKey()
   await db.agent.create({
