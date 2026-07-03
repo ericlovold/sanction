@@ -103,6 +103,18 @@ See `.env.example` for the authoritative list (copy to `.env.local` for dev). Co
 - **Bedrock Agent:** `JXRNIJRMCX` (us-east-1), Action Group `sanction-api`
 - **npm:** `sanction-mcp` (published; `npx sanction-mcp`)
 
+## Session Skills
+
+`.claude/skills/` vendors six rigor skills (plan-gate, adversarial-verify,
+live-state-truth, scope-fence, ruthless-editor, memory-hygiene) from Iwo's
+Rigor Pack v1.0.0 — provenance and review record in `.claude/skills/README.md`.
+They encode this repo's working style: evidence before plans, verify against
+the live system, fence your diffs, cut your prose, date your memory.
+`zoomout` is homegrown: Eric's between-arcs ritual (resync, re-read the
+product's claims, rank next best actions) as a callable skill. Kept
+verbatim for clean upstream diffs; repo-specific guidance belongs here, not in
+the skill files.
+
 ## Business Context
 
 - Owner: Eric Lovold (solo founder). Primary agent client: AIIA Brain (Mac Mini agent; its integration lives outside this repo in `~/aiia-brain`).

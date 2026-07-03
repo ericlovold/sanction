@@ -34,6 +34,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "One recipe for any agent builder: before spend, tools, credentials, or provisioning, ask Sanction — act on approved, wait for the grant on escalated, stop clean on denied. REST, MCP, and webhooks.",
   },
+  "authorize-then-act": {
+    file: "AUTHORIZE-THEN-ACT.md",
+    title: "Authorize, then act",
+    description:
+      "How third-party agent instructions enter this codebase: the review procedure we ran on a friend's skill pack before letting it steer our sessions. Steal it for your own repos.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",
