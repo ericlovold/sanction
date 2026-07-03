@@ -37,62 +37,13 @@ if (!databaseUrl) {
   process.exit(1)
 }
 
-const env = { ...process.env, DATABASE_URL: databaseUrl }
-
-// ── One-shot drift recovery (REMOVE after the 2026-07 recovery deploy lands) ──
-// The never-merged GTM branch applied its own monthlySpendBudgetUsd column to
-// the production DB on 2026-06-17 (via the preview-migration leak this script
-// now guards against). When 20260702180000_monthly_spend_budget shipped, its
-// ADD COLUMN collided ("already exists", 42701) and Prisma marked the migration
-// FAILED (P3018) — which blocks every subsequent production deploy.
-//
-// The existing prod column is Int?/nullable — byte-identical to what this
-// migration creates — so resolving it as applied is the documented Prisma
-// recovery (https://pris.ly/d/migrate-resolve) and is safe. Scoped to exactly
-// this migration + exactly this error, so any other failure still fails loudly.
-const RECOVERABLE_MIGRATION = "20260702180000_monthly_spend_budget"
-
-function run(cmd) {
-  // Capture output so we can pattern-match failures; echo it either way so the
-  // Vercel build log stays as informative as stdio:"inherit" was.
-  try {
-    const out = execSync(cmd, { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
-    process.stdout.write(out)
-    return { ok: true, out }
-  } catch (e) {
-    const out = `${e.stdout ?? ""}\n${e.stderr ?? ""}`
-    process.stdout.write(out)
-    return { ok: false, out }
-  }
-}
-
+// NOTE: a one-shot drift-recovery guard lived here 2026-07-03 (PRs #75/#76) to
+// resolve the failed 20260702180000_monthly_spend_budget record left by the
+// 2026-06-17 preview-migration leak. Recovery landed (dpl_…cd6rwciqq); if a
+// failed-migration record ever blocks deploys again, see those PRs — and note
+// Prisma reports it as P3018 on the recording run but P3009 on every run after.
 console.log("[migrate-deploy] applying prisma migrate deploy to the production target…")
-const first = run("npx prisma migrate deploy")
-if (!first.ok) {
-  // The same failed-migration record surfaces under two codes: P3018 with
-  // "already exists" on the run that records the failure, and P3009 ("migrate
-  // found failed migrations") on every run after it. Both name the migration.
-  const namesIt = first.out.includes(RECOVERABLE_MIGRATION)
-  const isKnownDrift =
-    (namesIt && first.out.includes("P3018") && first.out.includes("already exists")) ||
-    (namesIt && first.out.includes("P3009"))
-  if (!isKnownDrift) {
-    console.error("[migrate-deploy] migrate deploy failed (not the known drift) — failing the build.")
-    process.exit(1)
-  }
-  console.log(
-    `[migrate-deploy] known drift detected: ${RECOVERABLE_MIGRATION} collided with the pre-existing ` +
-      `column from the 2026-06-17 preview-migration leak. Resolving as applied and retrying…`,
-  )
-  const resolve = run(`npx prisma migrate resolve --applied ${RECOVERABLE_MIGRATION}`)
-  if (!resolve.ok) {
-    console.error("[migrate-deploy] migrate resolve failed — failing the build.")
-    process.exit(1)
-  }
-  const retry = run("npx prisma migrate deploy")
-  if (!retry.ok) {
-    console.error("[migrate-deploy] migrate deploy still failing after resolve — failing the build.")
-    process.exit(1)
-  }
-  console.log("[migrate-deploy] drift recovered; migrations are current.")
-}
+execSync("npx prisma migrate deploy", {
+  stdio: "inherit",
+  env: { ...process.env, DATABASE_URL: databaseUrl },
+})
