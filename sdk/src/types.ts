@@ -10,6 +10,22 @@ export interface ClientOptions {
   fetch?: Fetch
 }
 
+/** Options for the agent data-plane client, incl. the local-first fallback. */
+export interface AgentClientOptions extends ClientOptions {
+  /**
+   * Policy to evaluate against locally when Sanction is unreachable. Mirrors the
+   * server decision order for spend (category → per-txn → daily budget → floor →
+   * escalate). Amounts are dollars, like PolicyInput.
+   */
+  localPolicy?: PolicyInput
+  /** With no localPolicy and Sanction unreachable, deny (true, default) or allow (false). */
+  failClosed?: boolean
+  /** Abort a slow /authorize after this many ms and decide locally. Default 3000. */
+  networkTimeoutMs?: number
+  /** Never touch the network — always decide locally against localPolicy. */
+  offline?: boolean
+}
+
 // ---- Authorization (data plane: pxy_ key) ----
 
 export type SpendAction = "purchase" | "subscribe" | "transfer"
@@ -59,6 +75,8 @@ export interface Decision {
   agent: string
   amountUsd: number
   merchant: string
+  /** True when the SDK decided this locally because Sanction was unreachable. */
+  decidedLocally?: boolean
 }
 
 export interface LogTokensInput {
