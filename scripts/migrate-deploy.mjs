@@ -69,8 +69,13 @@ function run(cmd) {
 console.log("[migrate-deploy] applying prisma migrate deploy to the production target…")
 const first = run("npx prisma migrate deploy")
 if (!first.ok) {
+  // The same failed-migration record surfaces under two codes: P3018 with
+  // "already exists" on the run that records the failure, and P3009 ("migrate
+  // found failed migrations") on every run after it. Both name the migration.
+  const namesIt = first.out.includes(RECOVERABLE_MIGRATION)
   const isKnownDrift =
-    first.out.includes("P3018") && first.out.includes(RECOVERABLE_MIGRATION) && first.out.includes("already exists")
+    (namesIt && first.out.includes("P3018") && first.out.includes("already exists")) ||
+    (namesIt && first.out.includes("P3009"))
   if (!isKnownDrift) {
     console.error("[migrate-deploy] migrate deploy failed (not the known drift) — failing the build.")
     process.exit(1)
