@@ -183,6 +183,19 @@ describe("authorize — the spend ladder", () => {
     expect((await res.json()).code).toBe("DAILY_BUDGET_EXCEEDED")
   })
 
+  it("denies when the monthly cap is exhausted even though the day is clear", async () => {
+    // Monthly cap $800; month-to-date $798. Daily budget is untouched ($10k).
+    dbMock.agent.findUnique.mockResolvedValue({
+      ...AGENT,
+      wallet: { ...AGENT.wallet, policy: { ...POLICY, monthlySpendBudgetUsd: 80_000 } },
+    })
+    // Both the daily and monthly aggregate reads resolve to the same month total.
+    dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 798 } })
+    const res = await authorize(req(SPEND)) // $798 + $5 > $800 monthly, but « $10k daily
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe("MONTHLY_BUDGET_EXCEEDED")
+  })
+
   it("honors a tighter per-agent per-transaction override", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, perTransactionMaxUsd: 300 }) // $3
     const res = await authorize(req(SPEND)) // $5 > $3

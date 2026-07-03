@@ -13,6 +13,7 @@ import {
   executionBudgetRule,
   humanApproval,
   ladderRule,
+  monthlyBudgetRule,
   perTransactionRule,
   type SpendContext,
 } from "@/lib/rules/spend"
@@ -47,10 +48,10 @@ export const resourceRule: Rule<ProvisionContext> = {
 }
 
 // The pure ladder (no execution-token gate) — the simulate path + decideProvisionPolicy.
-export const PROVISION_LADDER: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule, dailyBudgetRule, ladderRule]
+export const PROVISION_LADDER: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule, dailyBudgetRule, monthlyBudgetRule, ladderRule]
 
 // Live route: stateless gates run before the advisory lock…
 export const PROVISION_STATELESS: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule]
 
 // …and the stateful gates + ladder run inside it, against budget state read under the lock.
-export const PROVISION_STATEFUL: Rule<ProvisionContext>[] = [dailyBudgetRule, executionBudgetRule, ladderRule]
+export const PROVISION_STATEFUL: Rule<ProvisionContext>[] = [dailyBudgetRule, monthlyBudgetRule, executionBudgetRule, ladderRule]

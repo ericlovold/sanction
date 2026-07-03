@@ -10,6 +10,7 @@ import { applyPolicyUpdate, policyToDollars } from "../lib/policy"
 const ROW = {
   dailyTokenBudgetUsd: 0,
   dailySpendBudgetUsd: 0,
+  monthlySpendBudgetUsd: null,
   subtreeDailyCapUsd: null,
   perTransactionMaxUsd: 0,
   autoApproveUnderUsd: 0,
@@ -57,6 +58,14 @@ describe("applyPolicyUpdate — validation + dollars→cents", () => {
     expect(upsert.mock.calls[0][0].update.subtreeDailyCapUsd).toBeNull()
   })
 
+  it("converts the optional monthly cap dollars→cents, and clears it with null", async () => {
+    await applyPolicyUpdate("w1", { monthly_spend_budget_usd: 800 })
+    expect(upsert.mock.calls[0][0].update.monthlySpendBudgetUsd).toBe(80000)
+    upsert.mockClear()
+    await applyPolicyUpdate("w1", { monthly_spend_budget_usd: null })
+    expect(upsert.mock.calls[0][0].update.monthlySpendBudgetUsd).toBeNull()
+  })
+
   it("is partial — only sent fields are written", async () => {
     await applyPolicyUpdate("w1", { escalate_over_usd: 25 })
     const update = upsert.mock.calls[0][0].update
@@ -82,6 +91,7 @@ describe("policyToDollars — cents→dollars round-trip", () => {
       ...ROW,
       dailyTokenBudgetUsd: 10000,
       dailySpendBudgetUsd: 5000,
+      monthlySpendBudgetUsd: 80000,
       subtreeDailyCapUsd: 25000,
       perTransactionMaxUsd: 1999,
       autoApproveUnderUsd: 500,
@@ -93,6 +103,7 @@ describe("policyToDollars — cents→dollars round-trip", () => {
     })
     expect(d.daily_token_budget_usd).toBe(100)
     expect(d.daily_spend_budget_usd).toBe(50)
+    expect(d.monthly_spend_budget_usd).toBe(800)
     expect(d.subtree_daily_cap_usd).toBe(250)
     expect(d.per_transaction_max_usd).toBe(19.99)
     expect(d.auto_approve_under_usd).toBe(5)

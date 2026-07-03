@@ -319,6 +319,7 @@ export const spec = {
         properties: {
           daily_token_budget_usd: { type: "number" },
           daily_spend_budget_usd: { type: "number" },
+          monthly_spend_budget_usd: { type: "number", nullable: true, description: "Optional monthly spend cap (dollars). Null disables the monthly limit." },
           subtree_daily_cap_usd: { type: "number", nullable: true, description: "Optional tree-wide daily cap for this wallet and all descendants. Null disables subtree cap enforcement." },
           per_transaction_max_usd: { type: "number" },
           auto_approve_under_usd: { type: "number", description: "At or under this, auto-approve and never escalate (floor wins over escalation)." },
@@ -337,6 +338,7 @@ export const spec = {
           wallet_id: { type: "string" },
           daily_token_budget_usd: { type: "number", minimum: 0 },
           daily_spend_budget_usd: { type: "number", minimum: 0 },
+          monthly_spend_budget_usd: { type: "number", minimum: 0, nullable: true, description: "Optional monthly spend cap (dollars). Null disables the monthly limit." },
           subtree_daily_cap_usd: { type: "number", minimum: 0, nullable: true },
           per_transaction_max_usd: { type: "number", minimum: 0 },
           auto_approve_under_usd: { type: "number", minimum: 0 },

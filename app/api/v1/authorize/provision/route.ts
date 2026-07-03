@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
   const dailySpendBudget = agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd
   const escalateOver = agent.escalateOverUsd ?? policy.escalateOverUsd
 
-  const ctxBase: Omit<ProvisionContext, "dailySpentUsd" | "exec"> = {
+  const ctxBase: Omit<ProvisionContext, "dailySpentUsd" | "monthlySpentUsd" | "exec"> = {
     amountUsd: amount_usd,
     amountCents,
     category,
@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
     allowedCategories: policy.allowedCategories,
     perTxnMaxCents: perTxnMax,
     dailyBudgetCents: dailySpendBudget,
+    monthlyBudgetCents: policy.monthlySpendBudgetUsd,
     autoApproveUnderCents: policy.autoApproveUnderUsd,
     escalateOverCents: escalateOver,
     escalationTimeoutMins: policy.escalationTimeoutMins,
@@ -187,7 +188,7 @@ export async function POST(req: NextRequest) {
   // via preDecision instead of short-circuiting here.
   let preDecision: ReturnType<typeof evaluate> | null = null
   if (!simulate) {
-    preDecision = evaluate({ ...ctxBase, dailySpentUsd: 0 }, PROVISION_STATELESS)
+    preDecision = evaluate({ ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }, PROVISION_STATELESS)
     if (preDecision.effect === "deny") {
       return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: preDecision.reason }, agent.name)
     }
@@ -195,11 +196,18 @@ export async function POST(req: NextRequest) {
 
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
 
   if (simulate) {
-    const [dailySpend, cascadeExceeded] = await Promise.all([
+    const [dailySpend, monthlySpend, cascadeExceeded] = await Promise.all([
       db.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        _sum: { amountUsd: true },
+      }),
+      db.authorizationRequest.aggregate({
+        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
         _sum: { amountUsd: true },
       }),
       cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain),
@@ -213,6 +221,8 @@ export async function POST(req: NextRequest) {
       perTxnMaxCents: perTxnMax,
       dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
       dailyBudgetCents: dailySpendBudget,
+      monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0,
+      monthlyBudgetCents: policy.monthlySpendBudgetUsd,
       autoApproveUnderCents: policy.autoApproveUnderUsd,
       escalateOverCents: escalateOver,
       resource,
@@ -261,10 +271,16 @@ export async function POST(req: NextRequest) {
         return escalateNow(preDecision.reason ?? "Resource requires human approval")
       }
 
-      const dailySpend = await tx.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-        _sum: { amountUsd: true },
-      })
+      const [dailySpend, monthlySpend] = await Promise.all([
+        tx.authorizationRequest.aggregate({
+          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+          _sum: { amountUsd: true },
+        }),
+        tx.authorizationRequest.aggregate({
+          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+          _sum: { amountUsd: true },
+        }),
+      ])
       let exec: SpendContext["exec"]
       if (execTokenId) {
         const et = await tx.executionToken.findUnique({ where: { id: execTokenId } })
@@ -272,7 +288,10 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const decision = evaluate({ ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, exec }, PROVISION_STATEFUL)
+      const decision = evaluate(
+        { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
+        PROVISION_STATEFUL,
+      )
 
       if (decision.effect === "deny") {
         return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
