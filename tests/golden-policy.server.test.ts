@@ -14,10 +14,13 @@ type GoldenPolicy = {
   blockedCategories: string[]
 }
 
-type GoldenObligation =
-  | { type: "reserve_budget"; enforcement: "required" | "advisory"; scope: "agent" | "wallet_tree" }
-  | { type: "human_approval"; enforcement: "required" | "advisory"; timeoutMins?: number; onTimeout?: "allow" | "deny" }
-  | { type: string; enforcement: "required" | "advisory" }
+type GoldenObligation = {
+  type: string
+  enforcement: "required" | "advisory"
+  scope?: "agent" | "wallet_tree"
+  timeoutMins?: number
+  onTimeout?: "allow" | "deny"
+}
 
 type GoldenCase = {
   id: string

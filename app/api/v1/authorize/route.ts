@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decidePolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { evaluate } from "@/lib/evaluation"
 import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
@@ -180,10 +180,11 @@ export async function POST(req: NextRequest) {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  // Simulation: compute the decision via the shared ladder and check existing
-  // ancestor counters without writing.
+  // Simulation: compute the decision through the same full rule sequence, then
+  // check existing ancestor counters only when the engine would approve. That
+  // preserves live precedence: policy denies/escalations win before subtree caps.
   if (simulate) {
-    const [dailySpend, monthlySpend, cascadeExceeded] = await Promise.all([
+    const [dailySpend, monthlySpend] = await Promise.all([
       db.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
         _sum: { amountUsd: true },
@@ -192,22 +193,24 @@ export async function POST(req: NextRequest) {
         where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
         _sum: { amountUsd: true },
       }),
-      cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain),
     ])
-    if (cascadeExceeded) return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
-    const { status, note } = decidePolicy({
-      amountUsd: amount_usd,
-      category,
-      blockedCategories: policy.blockedCategories,
-      allowedCategories: policy.allowedCategories,
-      perTxnMaxCents: perTxnMax,
-      dailySpentUsd: dailySpend._sum.amountUsd ?? 0,
-      dailyBudgetCents: dailySpendBudget,
-      monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0,
-      monthlyBudgetCents: policy.monthlySpendBudgetUsd,
-      autoApproveUnderCents: policy.autoApproveUnderUsd,
-      escalateOverCents: escalateOver,
-    })
+
+    let exec: SpendContext["exec"]
+    if (execTokenId) {
+      const et = await db.executionToken.findUnique({ where: { id: execTokenId } })
+      const valid = !!et && et.status === "active" && et.expiresAt >= new Date()
+      exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
+    }
+
+    const decision = evaluate(
+      { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
+      [...SPEND_STATELESS, ...SPEND_STATEFUL],
+    )
+    const status = decision.effect === "allow" ? "approved" : decision.effect === "escalate" ? "escalated" : "denied"
+    const note = decision.reason ?? ""
+    if (decision.effect === "allow" && (await cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain))) {
+      return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
+    }
     return simulateResponse(status, note, agent.name, amount_usd, merchant)
   }
 
