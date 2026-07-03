@@ -55,6 +55,14 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
+  // A navigation to /login means the session is over or changing — purge the
+  // cached dashboard pages so a shared device can never replay the previous
+  // account's screens offline.
+  if (req.mode === "navigate" && url.pathname === "/login") {
+    event.waitUntil(caches.delete(PAGE_CACHE))
+    return
+  }
+
   // Dashboard page navigations: network-first, cached copy as the offline/
   // slow-network fallback. Never cache non-dashboard routes (marketing pages
   // change per deploy and auth routes must stay live).

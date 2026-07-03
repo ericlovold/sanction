@@ -571,7 +571,7 @@ export default async function PoolsPage() {
             </div>
           </CardHeader>
           <CardContent className="px-5 pb-5">
-            {pools.rows.length === 0 && <p className="text-sm text-zinc-600">No pools found.</p>}
+            {pools.rows.length === 0 && <p className="text-sm text-zinc-600">No pools yet. Create a child wallet (POST /v1/wallets with parent_id) and its budget becomes a pool that rolls up here.</p>}
             <div>
               {pools.rows.map((pool) => (
                 <PoolLedgerRow key={pool.id} pool={pool} rootId={view.id} />

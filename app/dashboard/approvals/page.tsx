@@ -88,8 +88,12 @@ export default async function ApprovalsPage() {
     db.pendingApproval.findMany({
       where: { walletId, status: { in: ["approved", "denied", "expired"] } },
       orderBy: { updatedAt: "desc" },
-      take: 8,
-      include: { agent: { select: { name: true } } },
+      take: 20,
+      include: {
+        agent: { select: { name: true } },
+        // The fold: a grant is the receipt of an approval — show it on the row.
+        grants: { select: { id: true, status: true, expiresAt: true, consumedAt: true }, take: 1, orderBy: { createdAt: "desc" } },
+      },
     }),
     db.webhook.findMany({
       where: { walletId },
@@ -138,9 +142,13 @@ export default async function ApprovalsPage() {
       <ApprovalQueue pending={pending} editable={view.isSession} />
 
       <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">Recently resolved</CardTitle></CardHeader>
+        <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">Resolved — issued authority</CardTitle></CardHeader>
         <CardContent className="px-4 pb-4">
-          {resolved.length === 0 && <p className="text-sm text-zinc-600">Nothing resolved yet</p>}
+          {resolved.length === 0 && (
+            <p className="text-sm text-zinc-600">
+              Decisions land here with the grant they issued — the audit trail of every approval.
+            </p>
+          )}
           <div className="space-y-2">
             {resolved.map((r) => (
               <div key={r.id} className="flex items-center justify-between text-sm">
@@ -153,6 +161,14 @@ export default async function ApprovalsPage() {
                   </p>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-2">
+                  {r.grants[0] ? (
+                    <span
+                      className="rounded border border-emerald-500/20 bg-emerald-500/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-emerald-300"
+                      title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
+                    >
+                      grant {r.grants[0].consumedAt ? "consumed" : r.grants[0].status}
+                    </span>
+                  ) : null}
                   <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>
                 </div>
               </div>

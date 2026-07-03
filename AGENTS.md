@@ -99,7 +99,7 @@ See `.env.example` for the authoritative list (copy to `.env.local` for dev). Co
 
 - **API:** `https://getsanction.com/api/v1` — canonical domain `getsanction.com`
 - **Dashboard:** `https://getsanction.com` · **OpenAPI:** `https://getsanction.com/api/openapi.json`
-- **Hosting:** Vercel (`lovold` account, project `proxy-ai`); DB is Neon via Vercel integration
+- **Hosting:** Vercel (`lovold` team, project `sanction`); DB is Neon via Vercel integration
 - **Bedrock Agent:** `JXRNIJRMCX` (us-east-1), Action Group `sanction-api`
 - **npm:** `sanction-mcp` (published; `npx sanction-mcp`)
 

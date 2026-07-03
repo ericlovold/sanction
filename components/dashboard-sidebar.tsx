@@ -25,11 +25,10 @@ const ICON = {
   pools: "M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5",
   spend: "M3 3v18h18M7 14l3-3 3 3 5-6",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
-  grants: "M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7l7-4ZM9 12l2 2 4-4",
 }
 
 // Ordered by operator job priority: resolve approvals, check burn, manage
-// seats — browsing (Overview/Pools/Grants) trails. On the mobile strip this
+// seats — browsing (Overview/Pools) trails. On the mobile strip this
 // keeps Approvals first and always on-screen.
 const items: Item[] = [
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
@@ -37,7 +36,6 @@ const items: Item[] = [
   { href: "/dashboard/agents", label: "Agents", icon: <Icon d={ICON.agents} /> },
   { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
-  { href: "/dashboard/grants", label: "Grants", icon: <Icon d={ICON.grants} /> },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -66,13 +64,18 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
 export function DashboardSidebar({
   view,
   pendingCount,
+  hasPools = true,
   account,
 }: {
   view: { name: string; isSession: boolean }
   pendingCount: number
+  // Pools is conceptual overhead for a single-wallet operator — hidden until
+  // the wallet actually has children. The page stays reachable by URL.
+  hasPools?: boolean
   account: ReactNode
 }) {
   const pathname = usePathname()
+  const visible = hasPools ? items : items.filter((it) => it.href !== "/dashboard/pools")
   return (
     <>
       {/* Desktop: persistent left rail */}
@@ -87,7 +90,7 @@ export function DashboardSidebar({
           </p>
         </div>
         <nav className="mt-6 flex flex-1 flex-col gap-1">
-          {items.map((it) => (
+          {visible.map((it) => (
             <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
           ))}
         </nav>
@@ -101,7 +104,7 @@ export function DashboardSidebar({
           {account}
         </div>
         <nav className="-mx-1 flex gap-1 overflow-x-auto">
-          {items.map((it) => (
+          {visible.map((it) => (
             <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
           ))}
         </nav>

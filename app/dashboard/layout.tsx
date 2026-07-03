@@ -16,13 +16,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Badge needs a number, not rows. The full read (and expiry settling) runs
   // on the Approvals page itself, where timeouts are actually visible.
-  const pendingCount = await db.pendingApproval.count({ where: { walletId: view.id, status: "pending" } })
+  const [pendingCount, childWallets] = await Promise.all([
+    db.pendingApproval.count({ where: { walletId: view.id, status: "pending" } }),
+    db.wallet.count({ where: { parentId: view.id } }),
+  ])
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <DashboardSidebar
         view={{ name: view.name, isSession: view.isSession }}
         pendingCount={pendingCount}
+        hasPools={childWallets > 0}
         account={<AccountControl view={view} />}
       />
       <main className="min-w-0 flex-1">{children}</main>

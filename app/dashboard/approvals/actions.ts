@@ -29,7 +29,6 @@ export async function resolveApprovalAction(
   // Only the surfaces that show this decision revalidate on the critical path;
   // Overview and Spend are force-dynamic and refresh on their next visit anyway.
   revalidatePath("/dashboard/approvals")
-  revalidatePath("/dashboard/grants")
   return { ok: true, message: decision === "approve" ? "Approved" : "Rejected" }
 }
 
