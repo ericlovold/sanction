@@ -47,7 +47,10 @@ Present, in this order and briefly:
 
 1. **WHERE WE ARE** - what shipped since the last zoom-out, one line each.
 2. **DRIFT** - each mismatch found in step 3, with the one-line fix.
-3. **OPEN LOOPS** - things waiting on a human, oldest first.
+3. **OPEN LOOPS** - things waiting on a human, oldest first. Loops that live
+   OUTSIDE the repo (an email, a text, a call, a handshake) are invisible to
+   you and age silently - phrase those as questions ("did the David email go
+   out?"), never as assertions. The human's world moves between sessions.
 4. **NEXT BEST ACTIONS** - at most five, ranked, each with why-now. Mark ONE
    as the recommendation. Business actions (the unsent email, the pilot
    decision) rank against engineering actions, not below them.
