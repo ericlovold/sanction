@@ -16,6 +16,18 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-03",
+    title: "Seat wallets, slice 1 — seats you can hand around",
+    tags: ["seats", "agents", "management"],
+    body: `An agent is now a **seat**: a keyed identity with budgets you can hand to whoever holds it.
+
+- **Contractor auto-shutoff** — set \`expires_at\` on any agent and its key fails closed past that instant, on the data plane and the LLM gateway both. No deactivation step to forget.
+- **Holders** — every seat can carry the name of the human holding it, for the audit trail and the dashboard. Rotating a key accepts a new \`holder\` in the same motion: the person changes, the seat's history, budgets, and clearance stay.
+- **Batch seats** — \`POST /v1/agents/batch\` stamps one template across up to 50 seats in one call: "five engineering seats, $20/day each, clearance 2, expiring end of quarter." Each key is shown once; only hashes are stored.
+
+Slice 2 (seat-history semantics on reassignment, per-provider budgets within a seat) is being shaped with our design partner. Roadmap: seat wallets stays in **Now** until the full story ships.`,
+  },
+  {
+    date: "2026-07-03",
     title: "Tool escalations reach the inbox — govern any action closes the loop",
     tags: ["authorization", "tools", "grants"],
     body: `Tool governance was decision-only: an escalated tool call answered \`escalated\` and then evaporated. Now it completes the same loop as spend and provision:

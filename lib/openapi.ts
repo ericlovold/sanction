@@ -84,6 +84,57 @@ export const spec = {
           grant_expires_at: { type: "string", format: "date-time" },
         },
       },
+      BatchSeatsRequest: {
+        type: "object",
+        required: ["wallet_id"],
+        properties: {
+          wallet_id: { type: "string" },
+          seats: {
+            type: "array",
+            maxItems: 50,
+            items: {
+              type: "object",
+              required: ["name"],
+              properties: { name: { type: "string" }, holder: { type: "string", description: "Who holds this seat (display/audit)" } },
+            },
+          },
+          name_prefix: { type: "string", description: "With count: mints prefix-1..prefix-N" },
+          count: { type: "integer", minimum: 1, maximum: 50 },
+          template: {
+            type: "object",
+            properties: {
+              daily_token_budget_usd: { type: "number" },
+              daily_spend_budget_usd: { type: "number" },
+              per_transaction_max_usd: { type: "number" },
+              escalate_over_usd: { type: "number" },
+              clearance: { type: "integer", minimum: 1, maximum: 5 },
+              industry: { type: "string", enum: ["general", "healthcare", "legal", "financial", "enterprise"] },
+              expires_at: { type: "string", format: "date-time", description: "Contractor auto-shutoff: every seat's key fails closed past this instant" },
+            },
+          },
+        },
+      },
+      BatchSeatsResponse: {
+        type: "object",
+        properties: {
+          wallet_id: { type: "string" },
+          seats: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                holder: { type: "string" },
+                expires_at: { type: "string", format: "date-time" },
+                api_key: { type: "string", description: "Shown once; only the hash is stored" },
+                api_key_prefix: { type: "string" },
+              },
+            },
+          },
+          warning: { type: "string" },
+        },
+      },
       ToolAuthorizeRequest: {
         type: "object",
         required: ["tool"],
@@ -627,7 +678,7 @@ export const spec = {
       post: {
         operationId: "registerAgent",
         summary: "Register (provision) a new agent",
-        description: "Create an agent under a wallet and receive its API key once. Use this to auto-provision one agent per tenant. Management-plane (x-mgmt-key).",
+        description: "Create an agent under a wallet and receive its API key once. Accepts seat fields: holder (who holds it) and expires_at (contractor auto-shutoff — the key fails closed past that instant). Management-plane (x-mgmt-key).",
         security: [{ ManagementKey: [] }],
         requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RegisterAgentRequest" } } } },
         responses: {
@@ -649,7 +700,7 @@ export const spec = {
       patch: {
         operationId: "updateAgent",
         summary: "Set per-agent budgets, clearance, or active state",
-        description: "Override budgets per agent (null clears to inherit the wallet policy), set clearance, or revoke/reactivate the key with { active }. Management-plane.",
+        description: "Override budgets per agent (null clears to inherit the wallet policy), set clearance, revoke/reactivate with { active }, or set seat fields: holder (null clears) and expires_at (null clears the auto-shutoff). Management-plane.",
         security: [{ ManagementKey: [] }],
         requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateAgentRequest" } } } },
         responses: {
@@ -664,7 +715,7 @@ export const spec = {
       post: {
         operationId: "rotateAgentKey",
         summary: "Rotate an agent's API key",
-        description: "Issue a fresh key for an agent; the old key stops working immediately and the new key is shown once. To revoke without re-issuing, PATCH /agents with { active: false }. Management-plane (SEC-6).",
+        description: "Issue a fresh key for an agent; the old key stops working immediately and the new key is shown once. Pass holder to hand the seat to a new person in the same motion — history, budgets, and clearance stay with the seat. To revoke without re-issuing, PATCH /agents with { active: false }. Management-plane (SEC-6).",
         security: [{ ManagementKey: [] }],
         requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RotateAgentRequest" } } } },
         responses: {
@@ -672,6 +723,21 @@ export const spec = {
           "400": { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "401": { description: "Missing or invalid management key" },
           "404": { description: "Agent not found in this wallet" },
+        },
+      },
+    },
+    "/agents/batch": {
+      post: {
+        operationId: "batchCreateSeats",
+        summary: "Create N seats from one template",
+        description:
+          "Seat wallets: stamp one template (budgets, clearance, expiry) across up to 50 seats in a single call — e.g. five engineering seats at $20/day expiring end of quarter. Provide seats[] (names + optional holders) or name_prefix + count. Each seat's API key is shown once; only hashes are stored. Management-plane.",
+        security: [{ ManagementKey: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/BatchSeatsRequest" } } } },
+        responses: {
+          "201": { description: "Seats created; each api_key shown once", content: { "application/json": { schema: { $ref: "#/components/schemas/BatchSeatsResponse" } } } },
+          "400": { description: "Invalid request (missing roster, or over the 50-seat cap)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid management key" },
         },
       },
     },
