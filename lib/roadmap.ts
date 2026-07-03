@@ -6,26 +6,22 @@
 //
 // Principle: the roadmap leads the product by ~one release, never lags it. "Now"
 // is what's shipped/shipping; "Next" leads by one release; "Later" is the arc.
-// The arc reads: today govern spend AND tool actions through one engine → next,
-// human approval + local deployment → later, cryptographic audit + enterprise trust.
+// The arc reads: the engine, approvals→grants, provisioning, pools, the audit
+// plane, and the SDK are shipped (see the changelog) → now, approvals anywhere +
+// seats you can hand around → next, local deployment + plain-English policy →
+// later, cryptographic audit + enterprise trust.
 
 export type RoadmapItem = { title: string; note: string }
 
 export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapItem[] } = {
   now: [
-    { title: "Policy decision engine", note: "One engine evaluates every request — structured allow / deny / escalate with a machine-readable code and fix hint." },
-    { title: "Human approval → one-use grants", note: "Escalations land in your approval inbox; approving mints a one-use grant the agent retries with. Policy timeouts guarantee a terminal outcome — no deadlocks." },
-    { title: "Provision authorization", note: "Govern resource provisioning — seats, licenses, infrastructure — quantity, line item, and dollars in one authorized call." },
-    { title: "Budget pools, daily & monthly caps", note: "Delegated pools across your account tree plus opt-in monthly spend caps — caps cascade down, spend rolls up, no-surprises alerts fire at 80% before anything is denied." },
-    { title: "Unified audit feed & daily summary", note: "Every decision, token, and secret access in one time-sorted feed — plus a one-call daily rollup: spend, decisions, token cost, and the most expensive tasks." },
-    { title: "Govern any MCP tool", note: "Approve, deny, or escalate any tool invocation — not just spending. Authorization for agent actions, not just money." },
-    { title: "TypeScript SDK + starter kit", note: "@sanction/sdk for both planes and a runnable nightly-agent reference with policy blueprints — one recipe for any agent builder." },
+    { title: "Approvals that find you", note: "Escalations routed to the right human wherever they work — email today, Slack and webhooks next." },
+    { title: "Seat wallets", note: "A wallet per seat you can hand to whoever holds it — rotate on attrition, auto-expire contractors, stamp a team template across five seats at once. Budgets by team, by day, by seat." },
   ],
   next: [
     { title: "Sanction Local", note: "Private AI on hardware you own — local models, zero egress by design, and a signed audit trail your assessor can read. Regulated practices first." },
-    { title: "Local-first SDK fallback", note: "When Sanction is unreachable, the SDK decides against a local policy mirror — fail closed by default, and the audit log catches up when the network returns." },
-    { title: "Approvals that find you", note: "Escalations routed to the right human wherever they work — email today, Slack and webhooks next." },
     { title: "Policy templates & plain-English governance", note: "Start from sensible presets; read and write your guardrails in words, not cents." },
+    { title: "Budget reallocation", note: "Move unused budget across the account tree to where it's needed — leftover tokens become working capital, and the reallocation shows up in the audit." },
   ],
   later: [
     { title: "Tamper-evident audit exports", note: "Hash-chained, exportable decision history — governance as cryptographic evidence." },

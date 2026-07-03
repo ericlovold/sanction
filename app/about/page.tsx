@@ -5,7 +5,7 @@ import "../brand.css"
 export const metadata: Metadata = {
   title: "Work with Eric — AI implementation for executives & regulated SMBs",
   description:
-    "Eric Lovold works 1:1 with executives implementing productive AI workflows, tools, and best practices — and builds AI systems for SMBs in regulated industries: healthcare, legal, and real estate.",
+    "Eric Lovold works 1:1 with executives implementing productive AI workflows, tools, and best practices. He builds AI systems for SMBs in regulated industries: healthcare, legal, and real estate.",
 }
 
 // "Book" → Eric's Calendly. NEXT_PUBLIC_CALENDLY_URL overrides at build time.
@@ -61,8 +61,9 @@ export default function About() {
           Putting AI to work for executives and regulated teams.
         </h1>
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "56ch" }}>
-          I work with executives and SMBs implementing productive AI workflows, tools, and best practices — a decade
-          driving outcomes in healthcare and technology, now focused on what AI means for the future of humanity.
+          I work 1:1 with executives and SMBs on implementing productive AI workflows, tools, and best practices.
+          I&apos;ve spent the last decade driving outcomes in healthcare and technology, and I am entirely focused on
+          what AI means for the future of humanity.
         </p>
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "18px auto 32px", maxWidth: "56ch" }}>
           I build AI systems for regulated industries, where confidentiality, audit, and trust are non-negotiable.
