@@ -21,6 +21,8 @@ export type KeyActivity = {
 export type ConsoleAgent = {
   id: string
   name: string
+  holder: string | null
+  expiresAt: string | null
   apiKeyPrefix: string
   isActive: boolean
   createdAt: string
@@ -36,6 +38,21 @@ export type ConsoleAgent = {
   deniedMonth: number
   escalatedMonth: number
   activity: KeyActivity | null
+}
+
+// A seat's effective state: revoked beats expired beats active. Expiry is
+// enforced server-side (the key fails closed); this is the operator's view of it.
+function seatState(agent: ConsoleAgent): "active" | "expired" | "revoked" {
+  if (!agent.isActive) return "revoked"
+  if (agent.expiresAt && new Date(agent.expiresAt) <= new Date()) return "expired"
+  return "active"
+}
+
+function relFuture(iso: string): string {
+  const d = new Date(iso).getTime() - Date.now()
+  const m = Math.round(Math.abs(d) / 60000)
+  const label = m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`
+  return d >= 0 ? `in ${label}` : `${label} ago`
 }
 
 function rel(iso: string | null): string {
@@ -102,9 +119,14 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium text-zinc-100">{agent.name}</p>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] ${agent.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-              {agent.isActive ? "active" : "revoked"}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] ${seatState(agent) === "active" ? "bg-emerald-500/10 text-emerald-400" : seatState(agent) === "expired" ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
+              {seatState(agent)}
             </span>
+            {agent.holder ? (
+              <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] text-zinc-400" title="Seat holder">
+                {agent.holder}
+              </span>
+            ) : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
             <span className="inline-flex items-center gap-1 font-mono">
@@ -113,6 +135,14 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
             </span>
             <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
             <span>last used {rel(agent.lastUsedAt)}</span>
+            {agent.expiresAt ? (
+              <span
+                className={new Date(agent.expiresAt) <= new Date() ? "text-amber-400" : undefined}
+                title={new Date(agent.expiresAt).toLocaleString()}
+              >
+                {new Date(agent.expiresAt) <= new Date() ? "expired" : "expires"} {relFuture(agent.expiresAt)}
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="grid min-w-[260px] grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-lg">

@@ -139,15 +139,49 @@ export interface CreatedWallet {
 export interface RegisterAgentInput {
   walletId: string
   name: string
+  /** Who holds this seat (display/audit, never auth-bearing). */
+  holder?: string
+  /** Contractor auto-shutoff: past this instant the key fails closed everywhere. ISO datetime. */
+  expiresAt?: string
 }
 
 export interface CreatedAgent {
   id: string
   name: string
+  holder?: string | null
+  expiresAt?: string | null
   /** Shown once. The agent's data-plane key (pxy_). */
   apiKey: string
   apiKeyPrefix: string
   walletId: string
+}
+
+/** One template stamped across up to 50 seats. Budgets in dollars. */
+export interface BatchSeatsInput {
+  walletId: string
+  /** Explicit roster; or use namePrefix + count for prefix-1..prefix-N. */
+  seats?: Array<{ name: string; holder?: string }>
+  namePrefix?: string
+  count?: number
+  template?: {
+    dailyTokenBudgetUsd?: number
+    dailySpendBudgetUsd?: number
+    perTransactionMaxUsd?: number
+    escalateOverUsd?: number
+    clearance?: number
+    industry?: "general" | "healthcare" | "legal" | "financial" | "enterprise"
+    expiresAt?: string
+  }
+}
+
+export interface CreatedSeat {
+  id: string
+  name: string
+  holder: string | null
+  expiresAt: string | null
+  /** Shown once. */
+  apiKey: string
+  apiKeyPrefix: string
 }
 
 /**

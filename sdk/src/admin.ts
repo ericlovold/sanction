@@ -1,5 +1,7 @@
 import { DEFAULT_BASE_URL, request } from "./http"
 import type {
+  BatchSeatsInput,
+  CreatedSeat,
   ClientOptions,
   CreateWalletInput,
   CreatedAgent,
@@ -129,11 +131,18 @@ export class SanctionAdminClient {
       method: "POST",
       path: "/agents",
       headers: this.mgmtHeaders(),
-      body: { wallet_id: input.walletId, name: input.name },
+      body: {
+        wallet_id: input.walletId,
+        name: input.name,
+        ...(input.holder !== undefined ? { holder: input.holder } : {}),
+        ...(input.expiresAt !== undefined ? { expires_at: input.expiresAt } : {}),
+      },
     })
     return {
       id: r.id as string,
       name: r.name as string,
+      holder: (r.holder as string | null) ?? null,
+      expiresAt: (r.expires_at as string | null) ?? null,
       apiKey: r.api_key as string,
       apiKeyPrefix: r.api_key_prefix as string,
       walletId: r.wallet_id as string,
@@ -141,6 +150,65 @@ export class SanctionAdminClient {
   }
 
   /** Read the wallet's current policy (dollars). */
+  /**
+   * Stamp one template across up to 50 seats in a single call. Every seat's
+   * key is returned exactly once — store them immediately.
+   */
+  async batchCreateSeats(input: BatchSeatsInput): Promise<CreatedSeat[]> {
+    const t = input.template ?? {}
+    const r = await request<{ seats: Array<Record<string, unknown>> }>({
+      baseUrl: this.baseUrl,
+      fetch: this.fetch,
+      method: "POST",
+      path: "/agents/batch",
+      headers: this.mgmtHeaders(),
+      body: {
+        wallet_id: input.walletId,
+        ...(input.seats ? { seats: input.seats } : {}),
+        ...(input.namePrefix ? { name_prefix: input.namePrefix } : {}),
+        ...(input.count !== undefined ? { count: input.count } : {}),
+        template: {
+          ...(t.dailyTokenBudgetUsd !== undefined ? { daily_token_budget_usd: t.dailyTokenBudgetUsd } : {}),
+          ...(t.dailySpendBudgetUsd !== undefined ? { daily_spend_budget_usd: t.dailySpendBudgetUsd } : {}),
+          ...(t.perTransactionMaxUsd !== undefined ? { per_transaction_max_usd: t.perTransactionMaxUsd } : {}),
+          ...(t.escalateOverUsd !== undefined ? { escalate_over_usd: t.escalateOverUsd } : {}),
+          ...(t.clearance !== undefined ? { clearance: t.clearance } : {}),
+          ...(t.industry !== undefined ? { industry: t.industry } : {}),
+          ...(t.expiresAt !== undefined ? { expires_at: t.expiresAt } : {}),
+        },
+      },
+    })
+    return r.seats.map((seat) => ({
+      id: seat.id as string,
+      name: seat.name as string,
+      holder: (seat.holder as string | null) ?? null,
+      expiresAt: (seat.expires_at as string | null) ?? null,
+      apiKey: seat.api_key as string,
+      apiKeyPrefix: seat.api_key_prefix as string,
+    }))
+  }
+
+  /**
+   * Rotate a seat's key, optionally handing it to a new holder in the same
+   * motion. The old key dies immediately; the new one is shown once.
+   */
+  async rotateAgentKey(walletId: string, agentId: string, opts: { holder?: string } = {}): Promise<{ id: string; holder: string | null; apiKey: string; apiKeyPrefix: string }> {
+    const r = await request<Record<string, unknown>>({
+      baseUrl: this.baseUrl,
+      fetch: this.fetch,
+      method: "POST",
+      path: "/agents/rotate",
+      headers: this.mgmtHeaders(),
+      body: { wallet_id: walletId, agent_id: agentId, ...(opts.holder !== undefined ? { holder: opts.holder } : {}) },
+    })
+    return {
+      id: r.id as string,
+      holder: (r.holder as string | null) ?? null,
+      apiKey: r.api_key as string,
+      apiKeyPrefix: r.api_key_prefix as string,
+    }
+  }
+
   async getPolicy(walletId: string): Promise<Policy> {
     const r = await request<{ policy: PolicyWire }>({
       baseUrl: this.baseUrl,
