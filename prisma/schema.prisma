@@ -355,8 +355,8 @@ model CredentialInjection {
 model AuthorizationRequest {
   id             String    @id @default(cuid())
   agentId        String
-  kind           String    @default("spend") // spend | provision
-  action         String    // spend: purchase | subscribe | transfer · provision: allocate
+  kind           String    @default("spend") // spend | provision | tool
+  action         String    // spend: purchase | subscribe | transfer · provision: allocate · tool: invoke
   amountUsd      Float
   merchant       String    // provision rows store the resource here (shared display/audit column)
   category       String

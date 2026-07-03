@@ -13,9 +13,9 @@ const { dbMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn() },
     policy: { findUnique: vi.fn() },
     tokenLog: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
-    authorizationRequest: { findUnique: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
-    grant: { findFirst: vi.fn() },
-    pendingApproval: { count: vi.fn() },
+    authorizationRequest: { findUnique: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    grant: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+    pendingApproval: { count: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
@@ -26,6 +26,12 @@ vi.mock("next/server", async (orig) => {
   return { ...mod, after: () => {} }
 })
 vi.mock("@/lib/thresholds", () => ({ notifyTokenBudgetThreshold: vi.fn(async () => {}) }))
+vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_URL: "https://test.local/approve" }))
+vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
+vi.mock("@/lib/cascadeBudget", async (orig) => {
+  const mod = await orig<typeof import("@/lib/cascadeBudget")>()
+  return { ...mod, reserveCascadeDailySpend: vi.fn(async () => []) }
+})
 // Timeout-settling logic is covered by approvals.test.ts; pass rows through here.
 vi.mock("@/lib/approvals", async (orig) => {
   const mod = await orig<typeof import("@/lib/approvals")>()
@@ -136,10 +142,79 @@ describe("authorize/tool — tool governance", () => {
     expect((await res.json())).toMatchObject({ authorized: false, status: "denied" })
   })
 
-  it("escalates an escalate-listed tool (200, not authorized)", async () => {
-    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "payments.charge" } }))
+  it("escalates an escalate-listed tool: 200, persisted, and lands in the approval inbox", async () => {
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_t1", createdAt: new Date() })
+    dbMock.pendingApproval.create.mockResolvedValue({ id: "pa_t1" })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "payments.charge", server: "stripe" } }))
     expect(res.status).toBe(200)
-    expect((await res.json())).toMatchObject({ authorized: false, status: "escalated" })
+    expect((await res.json())).toMatchObject({ authorized: false, status: "escalated", request_id: "req_t1" })
+    // The audit row: kind tool, $0, tool name in the shared display column.
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kind: "tool", action: "invoke", amountUsd: 0, merchant: "payments.charge", status: "escalated" }),
+      }),
+    )
+    // The inbox item, one-use grant contract attached.
+    expect(dbMock.pendingApproval.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actionType: "tool.invoke",
+          resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe" },
+          sourceId: "req_t1",
+        }),
+      }),
+    )
+  })
+
+  it("replays a persisted escalation for a repeated Idempotency-Key without re-deciding", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_t1", status: "escalated", decisionNote: "Tool requires approval" })
+    const res = await authorizeTool(
+      req("POST", "/api/v1/authorize/tool", { headers: { ...agentH, "idempotency-key": "idem-t1" }, body: { tool: "payments.charge" } }),
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json())).toMatchObject({ status: "escalated", request_id: "req_t1", code: "TOOL_ESCALATION_REQUIRED" })
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("redeems an approved tool grant: one-use consumption authorizes the invocation", async () => {
+    dbMock.grant.findUnique.mockResolvedValue({
+      id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",
+      resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe" },
+      sourceType: "authorization_request", sourceId: "req_t1", expiresAt: null,
+    })
+    dbMock.grant.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.authorizationRequest.update.mockResolvedValue({ id: "req_t1", status: "approved" })
+    const res = await authorizeTool(
+      req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "payments.charge", server: "stripe", grant_id: "grant_t1" } }),
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json())).toMatchObject({ authorized: true, status: "allowed", grant_id: "grant_t1", grant_status: "consumed" })
+  })
+
+  it("refuses a grant minted for a different tool (GRANT_MISMATCH)", async () => {
+    dbMock.grant.findUnique.mockResolvedValue({
+      id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",
+      resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe" },
+      sourceType: "authorization_request", sourceId: "req_t1", expiresAt: null,
+    })
+    const res = await authorizeTool(
+      req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "shell.exec", grant_id: "grant_t1" } }),
+    )
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe("GRANT_MISMATCH")
+  })
+
+  it("refuses an already-consumed tool grant (409)", async () => {
+    dbMock.grant.findUnique.mockResolvedValue({
+      id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "consumed",
+      resourceJson: { kind: "tool", tool: "payments.charge", server: null },
+      sourceType: "authorization_request", sourceId: "req_t1", expiresAt: null,
+    })
+    const res = await authorizeTool(
+      req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "payments.charge", grant_id: "grant_t1" } }),
+    )
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe("GRANT_ALREADY_USED")
   })
 })
 

@@ -110,6 +110,37 @@ export async function consumeProvisionGrant(
   })
 }
 
+export type ToolGrantRequest = {
+  tool: string
+  server?: string
+}
+
+// Tool grants carry no dollar amount — the cascade reserve is a 0-cent no-op —
+// but consumption is still one-use, expiring, and settles the source request.
+// Runs inside the caller's transaction like the other consumers.
+export async function consumeToolGrant(
+  client: GrantClient,
+  input: {
+    grantId: string
+    walletId: string
+    agentId: string
+    request: ToolGrantRequest
+    now?: Date
+  },
+): Promise<GrantConsumeResult> {
+  return consumeGrantCore(client, {
+    ...input,
+    amountUsd: 0,
+    amountCents: 0,
+    ancestorChain: [],
+    execTokenId: null,
+    expectedActionType: "tool.invoke",
+    matches: (resourceJson) => toolGrantMatches(resourceJson, input.request),
+    unsupportedReason: "Grant is not valid for this tool invocation",
+    mismatchReason: "Grant does not authorize this tool invocation",
+  })
+}
+
 async function consumeGrantCore(
   client: GrantClient,
   input: {
@@ -189,6 +220,14 @@ export function spendGrantMatches(resourceJson: unknown, request: SpendGrantRequ
     resource.category === request.category &&
     approvedDescription === requestDescription
   )
+}
+
+export function toolGrantMatches(resourceJson: unknown, request: ToolGrantRequest): boolean {
+  const resource = asRecord(resourceJson)
+  const approvedServer = stringValue(resource.server)
+  const requestServer = stringValue(request.server)
+
+  return resource.kind === "tool" && resource.tool === request.tool && approvedServer === requestServer
 }
 
 export function provisionGrantMatches(resourceJson: unknown, request: ProvisionGrantRequest): boolean {

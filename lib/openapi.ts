@@ -84,6 +84,50 @@ export const spec = {
           grant_expires_at: { type: "string", format: "date-time" },
         },
       },
+      ToolAuthorizeRequest: {
+        type: "object",
+        required: ["tool"],
+        properties: {
+          tool: { type: "string", description: "Exact name of the tool/action about to be invoked (e.g. github.create_deployment, shell.exec)" },
+          server: { type: "string", description: "MCP server or integration the tool belongs to (e.g. github, filesystem) — matched on grant redemption" },
+          arguments: { type: "object", additionalProperties: true, description: "Arguments the tool would be called with — advisory, not persisted" },
+          grant_id: {
+            type: "string",
+            description: "One-use grant minted when a human approves the escalation. Retry the same tool (and server) with this field to consume it.",
+          },
+        },
+      },
+      ToolAuthorizeResponse: {
+        type: "object",
+        properties: {
+          authorized: { type: "boolean" },
+          status: { type: "string", enum: ["allowed", "denied", "escalated"] },
+          request_id: { type: "string", description: "Present on escalations — poll /authorize/{id} or replay the Idempotency-Key for the terminal decision" },
+          reason: { type: "string" },
+          code: {
+            type: "string",
+            enum: [
+              "TOOL_BLOCKED",
+              "TOOL_NOT_ALLOWED",
+              "TOOL_ESCALATION_REQUIRED",
+              "NO_POLICY",
+              "GRANT_NOT_FOUND",
+              "GRANT_ALREADY_USED",
+              "GRANT_EXPIRED",
+              "GRANT_MISMATCH",
+              "GRANT_UNSUPPORTED",
+            ],
+            description: "Machine-readable decision code (absent when allowed)",
+          },
+          remediation: { type: "string", description: "Hint for how the agent should proceed" },
+          agent: { type: "string" },
+          tool: { type: "string" },
+          server: { type: "string" },
+          grant_id: { type: "string", description: "Echoed on successful grant redemption" },
+          grant_status: { type: "string", enum: ["consumed"] },
+          grant_consumed_at: { type: "string", format: "date-time" },
+        },
+      },
       ProvisionAuthorizeRequest: {
         type: "object",
         required: ["resource", "line_item", "quantity", "amount_usd", "category"],
@@ -458,6 +502,27 @@ export const spec = {
           "400": { description: "Malformed request (including quantity × unit_price_usd ≠ amount_usd)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "403": { description: "Denied by policy", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/authorize/tool": {
+      post: {
+        operationId: "authorizeTool",
+        summary: "Authorize a tool invocation",
+        description:
+          "Check whether an agent may invoke a tool or external action (an MCP tool, a shell command, a deploy). Governed by the wallet's tool block/allow/escalate lists; an empty allow-list allows all (governance is opt-in). Escalated invocations persist to the owner's approval inbox; approval mints a one-use grant — retry the same tool with grant_id to consume it, or poll /authorize/{id}. Supports Idempotency-Key: replaying the key returns the escalation's current state, including the terminal decision once resolved.",
+        security: [{ AgentApiKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/ToolAuthorizeRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Authorization decision (200 for allowed/escalated; 403 for denied; 409 for an already-consumed grant)",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ToolAuthorizeResponse" } } },
+          },
+          "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "403": { description: "Denied by policy or grant mismatch", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

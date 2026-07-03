@@ -18,6 +18,8 @@ import { POST as issueExec } from "../app/api/v1/exec/route"
 import { POST as inject } from "../app/api/v1/credentials/inject/route"
 import { POST as revokeExec } from "../app/api/v1/exec/revoke/route"
 import { POST as resolveApproval } from "../app/api/v1/approvals/route"
+import { POST as authorizeTool } from "../app/api/v1/authorize/tool/route"
+import { GET as authStatus } from "../app/api/v1/authorize/[id]/route"
 
 // End-to-end data-plane smoke against a REAL Postgres. Drives the actual route
 // handlers through the full lifecycle a customer hits — the cross-module
@@ -55,6 +57,7 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
         dailySpendBudgetUsd: 1_000_000,
         allowedCategories: [],
         blockedCategories: ["gambling"],
+        escalateTools: ["payments.charge"],
       },
     })
 
@@ -124,6 +127,39 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
     const resolved = await resolveApproval(req("POST", "/api/v1/approvals", { headers: mgmtH(), body: { wallet_id: walletId, request_id: ebody.request_id, decision: "approve" } }))
     expect(resolved.status).toBe(200)
     expect((await resolved.json()).status).toBe("approved")
+  })
+
+  it("tool escalation loop: escalate → inbox approval → grant minted → redeem on retry → one-use", async () => {
+    const esc = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH(), body: { tool: "payments.charge", server: "stripe" } }))
+    expect(esc.status).toBe(200)
+    const escBody = await esc.json()
+    expect(escBody.status).toBe("escalated")
+    expect(escBody.request_id).toBeTruthy()
+
+    // The escalated tool call is a persisted AuthorizationRequest — it resolves in
+    // the same owner inbox as spend/provision, and approval mints a tool grant.
+    const resolved = await resolveApproval(req("POST", "/api/v1/approvals", { headers: mgmtH(), body: { wallet_id: walletId, request_id: escBody.request_id, decision: "approve" } }))
+    expect(resolved.status).toBe(200)
+    const resolvedBody = await resolved.json()
+    expect(resolvedBody.status).toBe("approved")
+    expect(resolvedBody.grant_id).toBeTruthy()
+
+    // Polling the request shows the terminal decision + the grant receipt.
+    const poll = await authStatus(req("GET", `/api/v1/authorize/${escBody.request_id}`, { headers: agentH() }), { params: Promise.resolve({ id: escBody.request_id }) })
+    expect(poll.status).toBe(200)
+    const pollBody = await poll.json()
+    expect(pollBody.authorized).toBe(true)
+    expect(pollBody.grant_id).toBe(resolvedBody.grant_id)
+
+    // Redeem: retry the same tool with grant_id → allowed, grant consumed.
+    const redeem = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH(), body: { tool: "payments.charge", server: "stripe", grant_id: resolvedBody.grant_id } }))
+    expect(redeem.status).toBe(200)
+    expect((await redeem.json())).toMatchObject({ authorized: true, status: "allowed", grant_status: "consumed" })
+
+    // One-use: a second redemption refuses.
+    const again = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH(), body: { tool: "payments.charge", server: "stripe", grant_id: resolvedBody.grant_id } }))
+    expect(again.status).toBe(409)
+    expect((await again.json()).code).toBe("GRANT_ALREADY_USED")
   })
 
   it("rejects an unauthenticated data-plane call", async () => {
