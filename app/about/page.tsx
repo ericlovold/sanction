@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import "../brand.css"
+import { brandFontVars } from "../brand-fonts"
 
 export const metadata: Metadata = {
   title: "Work with Eric — AI implementation for executives & regulated SMBs",
@@ -23,7 +24,7 @@ const SERVICES: [string, string][] = [
 
 export default function About() {
   return (
-    <main className="sanction" style={{ minHeight: "100vh" }}>
+    <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       {/* Nav */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>

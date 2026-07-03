@@ -2,6 +2,7 @@ import { getViewWallet } from "@/lib/session"
 import { db } from "@/lib/db"
 import { AccountControl } from "@/components/account-control"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
+import { SwRegister } from "@/components/sw-register"
 
 export const dynamic = "force-dynamic"
 
@@ -25,6 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         account={<AccountControl view={view} />}
       />
       <main className="min-w-0 flex-1">{children}</main>
+      <SwRegister />
     </div>
   )
 }

@@ -177,8 +177,24 @@ function subtreeIds(rootId: string, childrenOf: Map<string, string[]>, seen = ne
 }
 
 async function loadWalletSubtree(rootId: string): Promise<{ wallets: WalletNode[]; truncated: boolean }> {
-  const root = await db.wallet.findUnique({
-    where: { id: rootId },
+  // One recursive CTE for the subtree ids (depth- and node-bounded), then one
+  // findMany for the rows — replaces a BFS that paid a round-trip per level.
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    WITH RECURSIVE subtree AS (
+      SELECT id, "parentId", 1 AS depth FROM "Wallet" WHERE id = ${rootId}
+      UNION ALL
+      SELECT w.id, w."parentId", s.depth + 1
+      FROM "Wallet" w JOIN subtree s ON w."parentId" = s.id
+      WHERE s.depth < ${MAX_DEPTH}
+    )
+    SELECT id FROM subtree LIMIT ${MAX_NODES + 1}
+  `
+  if (rows.length === 0) return { wallets: [], truncated: false }
+  const truncated = rows.length > MAX_NODES
+  const ids = rows.slice(0, MAX_NODES).map((r) => r.id)
+
+  const nodes = await db.wallet.findMany({
+    where: { id: { in: ids } },
     select: {
       id: true,
       name: true,
@@ -186,31 +202,8 @@ async function loadWalletSubtree(rootId: string): Promise<{ wallets: WalletNode[
       policy: { select: { dailySpendBudgetUsd: true, dailyTokenBudgetUsd: true, subtreeDailyCapUsd: true } },
     },
   })
-  if (!root) return { wallets: [], truncated: false }
-
-  const wallets: WalletNode[] = [root]
-  let frontier = [root.id]
-  let truncated = false
-
-  for (let depth = 0; depth < MAX_DEPTH && frontier.length; depth++) {
-    const children = await db.wallet.findMany({
-      where: { parentId: { in: frontier } },
-      select: {
-        id: true,
-        name: true,
-        parentId: true,
-        policy: { select: { dailySpendBudgetUsd: true, dailyTokenBudgetUsd: true, subtreeDailyCapUsd: true } },
-      },
-    })
-    if (!children.length) break
-    if (wallets.length + children.length > MAX_NODES) {
-      truncated = true
-      break
-    }
-    wallets.push(...children)
-    frontier = children.map((child) => child.id)
-  }
-
+  // Root first — downstream rendering treats wallets[0] as the tree root.
+  const wallets = [...nodes.filter((w) => w.id === rootId), ...nodes.filter((w) => w.id !== rootId)]
   return { wallets, truncated }
 }
 
