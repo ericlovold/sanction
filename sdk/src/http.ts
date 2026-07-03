@@ -11,6 +11,8 @@ export interface RequestArgs {
   headers?: Record<string, string>
   query?: Record<string, string | undefined>
   body?: unknown
+  /** Abort the request after this many ms (used by local-first fallback). */
+  timeoutMs?: number
 }
 
 /** Sends the request and returns status + parsed body WITHOUT throwing. */
@@ -27,9 +29,21 @@ export async function requestRaw(args: RequestArgs): Promise<{ ok: boolean; stat
     payload = JSON.stringify(args.body)
   }
 
-  const res = await args.fetch(url.toString(), { method: args.method, headers, body: payload })
-  const text = await res.text()
-  return { ok: res.ok, status: res.status, body: text ? safeJson(text) : undefined }
+  let signal: AbortSignal | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  if (args.timeoutMs && args.timeoutMs > 0) {
+    const controller = new AbortController()
+    signal = controller.signal
+    timer = setTimeout(() => controller.abort(), args.timeoutMs)
+  }
+
+  try {
+    const res = await args.fetch(url.toString(), { method: args.method, headers, body: payload, signal })
+    const text = await res.text()
+    return { ok: res.ok, status: res.status, body: text ? safeJson(text) : undefined }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 /** Single place most HTTP goes through: builds the URL, sends JSON, maps errors. */
