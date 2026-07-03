@@ -49,6 +49,7 @@ vi.mock("@/lib/grants", async (orig) => {
 import { POST as authorize } from "../app/api/v1/authorize/route"
 import { createSpendPendingApproval } from "../lib/approvals"
 import { issueExecutionJWT } from "../lib/jwt"
+import { cascadeDailyWouldExceed } from "../lib/cascadeBudget"
 
 const KEY = "pxy_testagentkey"
 const WID = "wallet_1"
@@ -121,6 +122,7 @@ beforeEach(() => {
   dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1", actionType: "spend.purchase", resourceJson: {}, reason: "r" })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
+  vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(false)
 })
 
 describe("authorize — gates before the engine", () => {
@@ -220,6 +222,30 @@ describe("authorize — idempotency + simulate (FUND-1)", () => {
     expect(res.status).toBe(200)
     expect((await res.json())).toMatchObject({ simulated: true, authorized: true, request_id: null })
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("simulate preserves policy-deny precedence ahead of subtree caps", async () => {
+    vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(true)
+    const res = await authorize(req({ ...SPEND, category: "gambling" }, { simulate: true }))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ simulated: true, status: "denied", code: "CATEGORY_BLOCKED" })
+    expect(cascadeDailyWouldExceed).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("simulate honors execution-token budget state without persisting", async () => {
+    const { jwt, jti } = await issueExecutionJWT({ agent: AID, wallet: WID, scope: [], budget_usd: 10, clearance: 1 })
+    dbMock.executionToken.findUnique.mockResolvedValue({
+      id: jti, status: "active", expiresAt: new Date(Date.now() + 60_000), spentUsd: 9, budgetUsd: 10,
+    })
+
+    const res = await authorize(req(SPEND, { simulate: true, bearer: jwt }))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ simulated: true, status: "denied", code: "EXEC_BUDGET_EXCEEDED" })
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.executionToken.update).not.toHaveBeenCalled()
   })
 })
 

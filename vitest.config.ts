@@ -9,15 +9,28 @@ export default defineConfig({
       provider: "v8",
       include: ["lib/**/*.ts", "app/api/**/*.ts"],
       // Generated client + static data/infra carry no logic worth covering.
-      exclude: ["lib/generated/**", "lib/openapi.ts", "lib/db.ts", "lib/log.ts", "**/*.d.ts"],
+      // changelog/roadmap/docs/integrations are page CONTENT (prose, SVG paths);
+      // auth-client is the client-bundle Better Auth stub. None hold decisions.
+      exclude: [
+        "lib/generated/**",
+        "lib/openapi.ts",
+        "lib/db.ts",
+        "lib/log.ts",
+        "lib/changelog.ts",
+        "lib/roadmap.ts",
+        "lib/docs.ts",
+        "lib/integrations.ts",
+        "lib/auth-client.ts",
+        "**/*.d.ts",
+      ],
       reporter: ["text-summary"],
       // Ratchet floor — set just below current so coverage can't silently
       // regress. Raise as coverage grows; never lower.
       thresholds: {
-        statements: 59,
-        lines: 59,
-        functions: 68,
-        branches: 76,
+        statements: 80,
+        lines: 80,
+        functions: 85,
+        branches: 80,
       },
     },
   },

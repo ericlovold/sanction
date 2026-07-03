@@ -20,7 +20,7 @@ provides a Postgres service so both gates run on every push/PR.
 | **ADR-0009** | All authorization flows through one decision engine: ordered rules, deny overrides, escalate before allow, short-circuit | `lib/evaluation.ts`, `lib/rules/{spend,tool,provision,credential}.ts`, `lib/decisions.ts` | `evaluation.test.ts`, `decisions.test.ts`, `authorize-ladder.test.ts`, `provision-ladder.test.ts` | ✅ |
 | **ADR-0009 M3** | Any MCP tool invocation is authorized like spend (block/allow/escalate lists; empty allow-list = opt-in); escalations persist to the approval inbox and approval mints a one-use tool grant redeemed on retry | `app/api/v1/authorize/tool/route.ts`, `lib/toolDecisions.ts`, `lib/rules/tool.ts`, `lib/approvals.ts` (`createToolPendingApproval`), `lib/grants.ts` (`consumeToolGrant`) | `tool.test.ts` (rules), `dataplane.route.test.ts` (route: persistence, idempotent replay, grant redemption/mismatch/one-use), `e2e.db.test.ts` (full escalate→approve→redeem loop) | ✅ |
 | **ADR-0009 M4** | Credential injection is a policy decision (clearance, scope, expiry through the engine) | `lib/credentialDecisions.ts`, `lib/rules/credential.ts`, `app/api/v1/credentials/inject/route.ts` | `credential.test.ts`, `credential-inject.route.test.ts` | ✅ |
-| **SEC-1** | Credentials at rest are envelope-encrypted: per-wallet DEK wrapped by KMS (prod) or env master (dev), AAD-bound to `wallet:label` | `lib/credentialCrypto.ts`, `lib/kms.ts`, `WalletKey` model | `crypto.test.ts` | ✅ Phase 1 · **Phase 2 (key rotation) in flight** |
+| **SEC-1** | Credentials at rest are envelope-encrypted: per-wallet DEK wrapped by KMS (prod) or env master (dev), AAD-bound to `wallet:label` | `lib/credentialCrypto.ts`, `lib/kms.ts`, `WalletKey` model | `crypto.test.ts` (envelope/AAD), `keys-rotate.route.test.ts` (owner-only rotation, ARN never leaked) | ✅ Phase 1 + Phase 2 (rotation) |
 | **SEC-3** | Tenant isolation is enforced by Postgres RLS, not just query discipline — cross-tenant reads/writes fail at the database | `lib/rls.ts` (`withTenant`), RLS policies in migrations | `rls.db.test.ts` (7 tests, real Postgres, non-superuser role) | ✅ |
 | **SEC-5** | Execution JWTs are bound to the issuing wallet (`aud`) and agent; alg pinned to HS256 — no replay across wallets/agents, no alg confusion | `lib/jwt.ts` (issue/verify) | `crypto.test.ts` (aud/alg), `authorize.route.test.ts` (garbage → 401, foreign agent → 403) | ✅ |
 | **SEC-6** | Agent keys rotate (old hash overwritten, new key shown once) and revoke (`active:false`); management plane fails closed without a valid `sk_` key | `app/api/v1/agents/rotate/route.ts`, `app/api/v1/agents/route.ts`, `lib/ownerAuth.ts` | `routes.test.ts` (rotate + auth-gate suites), `auth.test.ts` | ✅ |
@@ -60,7 +60,9 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 | Suite | Proves | Gate |
 |---|---|---|
 | `evaluation` / `decisions` / `*-ladder` / `tool` / `credential` | The decision engine and every rule family, as pure functions | unit |
-| `authorize.route` / `provision.route` / `dataplane.route` / `exec.route` / `reporting.route` / `routes` / `credential-inject.route` | Route handlers: auth gates fail closed, validation, codes, persistence shape (mocked DB) | unit |
+| `authorize.route` / `provision.route` / `dataplane.route` / `exec.route` / `reporting.route` / `gateway.route` / `agents.route` / `keys-rotate.route` / `mgmt-routes` / `admin-misc.route` / `routes` / `credential-inject.route` | Route handlers: auth gates fail closed, validation, codes, persistence shape (mocked DB) | unit |
+| `approvals-resolution` / `delivery` | Approval→grant resolution machinery; the best-effort delivery layer (thresholds, webhook fan-out, email, RLS wrapper, rate limiter) | unit |
+| `golden-policy.server` / `golden-policy.sdk` | Golden policy fixtures: server and SDK decide identically on the same policy | unit |
 | `auth` / `crypto` / `webhooks` / `rateLimit` | Security primitives: key hashing, owner auth, JWT binding, envelope crypto, HMAC, SSRF guard, rate limit | unit |
 | `cascadeBudget` / `accountTree` / `budget*` / `pool*` / `burn` / `approvals` / `grants*` | Budget math, tree rollups, pools, thresholds, approval/grant lifecycle | unit |
 | `gateway` | Provider metering + budget enforcement | unit |
@@ -72,3 +74,7 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 
 `vitest.config.ts` holds floor thresholds set just under current coverage —
 they only move **up**. Raising them is part of landing any test-adding PR.
+Current gate: **80/80 statements/lines, 80 branches, 85 functions** (actuals
+~80.8/80.8/86.7 at the time the gate was set). Static page-content modules
+(changelog, roadmap, docs, integrations, auth-client stub) are excluded from
+measurement — they hold prose and SVG paths, not decisions.

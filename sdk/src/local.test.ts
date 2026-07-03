@@ -112,4 +112,42 @@ describe("syncOfflineDecisions", () => {
     expect(c.pendingOfflineDecisions()).toBe(0)
     expect(state.calls).toEqual(["job-1", "job-2"]) // replayed with idempotency keys
   })
+
+  it("keeps queued decisions when replay returns a non-decision server error", async () => {
+    let calls = 0
+    const fetch = (async () => {
+      calls++
+      if (calls === 1) throw new Error("ECONNREFUSED")
+      return {
+        ok: false,
+        status: 500,
+        text: async () => JSON.stringify({ error: "server down" }),
+      } as Response
+    }) as unknown as Fetch
+    const c = new SanctionClient("pxy_x", { fetch, localPolicy: POLICY })
+
+    await c.authorize({ ...buy(3), idempotencyKey: "job-1" })
+    expect(c.pendingOfflineDecisions()).toBe(1)
+
+    expect(await c.syncOfflineDecisions()).toBe(0)
+    expect(c.pendingOfflineDecisions()).toBe(1)
+  })
+
+  it("surfaces auth failures during replay without dropping the queued decision", async () => {
+    let calls = 0
+    const fetch = (async () => {
+      calls++
+      if (calls === 1) throw new Error("ECONNREFUSED")
+      return {
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: "Invalid API key" }),
+      } as Response
+    }) as unknown as Fetch
+    const c = new SanctionClient("pxy_x", { fetch, localPolicy: POLICY })
+    await c.authorize({ ...buy(3), idempotencyKey: "job-1" })
+
+    await expect(c.syncOfflineDecisions()).rejects.toMatchObject({ name: "SanctionError" })
+    expect(c.pendingOfflineDecisions()).toBe(1)
+  })
 })

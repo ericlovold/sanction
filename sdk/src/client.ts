@@ -165,8 +165,9 @@ export class SanctionClient {
     let synced = 0
     while (this.offlineQueue.length > 0) {
       const item = this.offlineQueue[0]
+      let raw: { ok: boolean; status: number; body: unknown }
       try {
-        await requestRaw({
+        raw = await requestRaw({
           baseUrl: this.baseUrl,
           fetch: this.fetch,
           method: "POST",
@@ -183,6 +184,14 @@ export class SanctionClient {
         })
       } catch {
         break // still offline — leave the rest queued
+      }
+      const b = raw.body as Record<string, unknown> | undefined
+      if (!b || typeof b.status !== "string") {
+        if (raw.status >= 500) break
+        throw new SanctionError(
+          (b?.error as string) ?? `Offline decision replay failed (${raw.status})`,
+          { status: raw.status, code: b?.code as string | undefined, body: raw.body },
+        )
       }
       this.offlineQueue.shift()
       synced++
