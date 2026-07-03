@@ -61,6 +61,10 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
   const owned = await ownedAgent(agentId)
   if (!owned) return { ok: false, error: "Not authorized." }
 
+  // Seat fields: empty string clears (holder removed / no auto-expiry).
+  const holderRaw = String(form.get("holder") ?? "").trim()
+  const expiresRaw = String(form.get("expires_at") ?? "").trim()
+
   await db.agent.update({
     where: { id: agentId },
     data: {
@@ -68,6 +72,8 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
       dailySpendBudgetUsd: toCentsOrNull(form.get("daily_spend_budget_usd")),
       perTransactionMaxUsd: toCentsOrNull(form.get("per_transaction_max_usd")),
       escalateOverUsd: toCentsOrNull(form.get("escalate_over_usd")),
+      holder: holderRaw ? holderRaw.slice(0, 120) : null,
+      expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null,
     },
   })
 

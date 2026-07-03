@@ -17,9 +17,21 @@ export async function createAgentAction(_prev: CreateAgentState, form: FormData)
   const parsed = z.string().trim().min(1).max(64).safeParse(form.get("name"))
   if (!parsed.success) return { ok: false, error: "Enter an agent name (1–64 chars)." }
 
+  const holder = z.string().trim().min(1).max(120).safeParse(form.get("holder"))
+  // Date input sends YYYY-MM-DD; the seat stays live through that whole day.
+  const expiresRaw = String(form.get("expires_at") ?? "").trim()
+  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : undefined
+
   const key = generateApiKey()
   await db.agent.create({
-    data: { walletId: wallet.id, name: parsed.data, apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
+    data: {
+      walletId: wallet.id,
+      name: parsed.data,
+      apiKeyHash: key.hash,
+      apiKeyPrefix: key.prefix,
+      holder: holder.success ? holder.data : undefined,
+      expiresAt,
+    },
   })
 
   revalidatePath("/dashboard")

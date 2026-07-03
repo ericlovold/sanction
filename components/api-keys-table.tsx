@@ -265,6 +265,27 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
               </label>
             ))}
           </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+              Holder — audit only
+              <input
+                name="holder"
+                defaultValue={agent.holder ?? ""}
+                maxLength={120}
+                placeholder="unassigned"
+                className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+              Expires — key fails closed after
+              <input
+                name="expires_at"
+                type="date"
+                defaultValue={agent.expiresAt ? agent.expiresAt.slice(0, 10) : ""}
+                className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+              />
+            </label>
+          </div>
           <div className="flex items-end justify-between gap-3">
             <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
               Clearance

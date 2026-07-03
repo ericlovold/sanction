@@ -23,12 +23,10 @@ async function getStats(walletId: string) {
   const agents = await db.agent.findMany({ where: { walletId }, select: { id: true, name: true, isActive: true, apiKeyPrefix: true } })
   const agentIds = agents.map((a) => a.id)
 
-  const [tokenDay, spendDay, spendMonth, recentAuth, recentTokens, pendingCount, activeGrantCount, deniedToday] = await Promise.all([
+  const [tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, firstAuth, firstToken] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
-    db.authorizationRequest.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 8, include: { agent: { select: { name: true } } } }),
-    db.tokenLog.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 8, include: { agent: { select: { name: true } } } }),
     db.pendingApproval.count({ where: { walletId, status: "pending" } }),
     db.grant.count({
       where: {
@@ -38,72 +36,31 @@ async function getStats(walletId: string) {
       },
     }),
     db.authorizationRequest.count({ where: { agentId: { in: agentIds }, status: "denied", createdAt: { gte: dayStart } } }),
+    db.authorizationRequest.findFirst({ where: { agentId: { in: agentIds } }, select: { id: true } }),
+    db.tokenLog.findFirst({ where: { agentId: { in: agentIds } }, select: { id: true } }),
   ])
 
-  const recentGrants = await db.grant.findMany({
-    where: {
-      walletId,
-      sourceType: "authorization_request",
-      sourceId: { in: recentAuth.map((r) => r.id) },
-    },
-    select: { id: true, status: true, sourceId: true, expiresAt: true, consumedAt: true },
-  })
-  const grantsBySource = new Map(recentGrants.map((g) => [g.sourceId, g]))
-
-  return { agents, tokenDay, spendDay, spendMonth, recentAuth, recentTokens, pendingCount, activeGrantCount, deniedToday, grantsBySource }
+  return { agents, tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, hasActivity: !!(firstAuth || firstToken) }
 }
 
-const statusColors: Record<string, string> = {
-  approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  denied: "bg-red-500/15 text-red-400 border-red-500/20",
-  escalated: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  pending: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
-}
 
 function usd(n: number) {
   return `$${n.toFixed(4)}`
 }
 
-function fmt(d: Date) {
-  return new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
 
-function rel(d: Date | null): string {
-  if (!d) return "never"
-  const diff = Date.now() - new Date(d).getTime()
-  const future = diff < 0
-  const min = Math.floor(Math.abs(diff) / 60000)
-  const suffix = future ? "" : " ago"
-  const prefix = future ? "in " : ""
-  if (min < 1) return "just now"
-  if (min < 60) return `${prefix}${min}m${suffix}`
-  const hrs = Math.floor(min / 60)
-  if (hrs < 24) return `${prefix}${hrs}h${suffix}`
-  return `${prefix}${Math.floor(hrs / 24)}d${suffix}`
-}
 
 export default async function Dashboard() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  const {
-    agents,
-    tokenDay,
-    spendDay,
-    spendMonth,
-    recentAuth,
-    recentTokens,
-    pendingCount,
-    activeGrantCount,
-    deniedToday,
-    grantsBySource,
-  } = await getStats(view.id)
+  const { agents, tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, hasActivity } = await getStats(view.id)
   const activeAgents = agents.filter((a) => a.isActive).length
 
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
       {/* First-run guidance — only for a logged-in wallet with no activity yet */}
-      {view.isSession && recentAuth.length === 0 && recentTokens.length === 0 && (
+      {view.isSession && !hasActivity && (
         <Card className="border-emerald-500/25 bg-emerald-500/[0.04]">
           <CardContent className="px-5 py-4 text-sm">
             <p className="font-semibold text-emerald-300">Get started</p>
@@ -172,7 +129,7 @@ export default async function Dashboard() {
               </Link>
             )}
             {activeGrantCount > 0 && (
-              <Link href="/dashboard/grants" className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-sm transition-colors hover:border-emerald-500/35">
+              <Link href="/dashboard/approvals" className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-sm transition-colors hover:border-emerald-500/35">
                 <span className="text-emerald-200">Outstanding grants</span>
                 <span className="font-mono text-xs text-emerald-300">{activeGrantCount}</span>
               </Link>
@@ -202,80 +159,15 @@ export default async function Dashboard() {
                 <p className="mt-1 text-xl font-mono font-semibold">{usd(spendDay._sum.amountUsd ?? 0)}</p>
                 <p className="text-xs text-zinc-600 mt-1">{usd(spendMonth._sum.amountUsd ?? 0)} month</p>
               </div>
+              <div className="col-span-2">
+                <Link href="/dashboard/spend" className="text-xs text-zinc-500 underline-offset-2 transition-colors hover:text-zinc-300 hover:underline">
+                  Full analytics — spend, tokens, burn →
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Recent Authorizations */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-300">Authorization log</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            {recentAuth.length === 0 && <p className="text-zinc-600 text-sm">No requests yet</p>}
-            {recentAuth.map((r) => {
-              const grant = grantsBySource.get(r.id)
-              return (
-                <details key={r.id} className="group rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-zinc-300">{r.merchant}</p>
-                      <p className="text-xs text-zinc-600">{r.agent.name} · {fmt(r.createdAt)} · {r.action}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="font-mono text-xs text-zinc-400">{usd(r.amountUsd)}</span>
-                      <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusColors[r.status]}`}>{r.status}</span>
-                    </div>
-                  </summary>
-                  <div className="mt-3 grid gap-2 border-t border-zinc-800 pt-3 text-xs text-zinc-500 sm:grid-cols-3">
-                    <div>
-                      <p className="text-zinc-600">Request</p>
-                      <p className="mt-1 text-zinc-300">{r.category}</p>
-                      {r.description && <p className="mt-0.5 text-zinc-500">{r.description}</p>}
-                    </div>
-                    <div>
-                      <p className="text-zinc-600">Decision</p>
-                      <p className="mt-1 text-zinc-300">{r.decisionNote ?? (r.status === "escalated" ? "Needs human approval" : "No note")}</p>
-                    </div>
-                    <div>
-                      <p className="text-zinc-600">Grant</p>
-                      {grant ? (
-                        <p className="mt-1 text-zinc-300">
-                          {grant.status}
-                          {grant.consumedAt ? ` · consumed ${rel(grant.consumedAt)}` : grant.expiresAt ? ` · expires ${rel(grant.expiresAt)}` : ""}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-zinc-500">none</p>
-                      )}
-                    </div>
-                  </div>
-                </details>
-              )
-            })}
-          </CardContent>
-        </Card>
-
-        {/* Recent Token Logs */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-300">Token log</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            {recentTokens.length === 0 && <p className="text-zinc-600 text-sm">No token logs yet</p>}
-            {recentTokens.map((t) => (
-              <div key={t.id} className="flex items-center justify-between text-sm">
-                <div className="min-w-0">
-                  <p className="truncate text-zinc-300 font-mono text-xs">{t.model}</p>
-                  <p className="text-xs text-zinc-600">{t.agent.name} · {t.taskLabel ?? "unlabeled"} · {fmt(t.createdAt)}</p>
-                </div>
-                <div className="ml-3 shrink-0 text-right">
-                  <p className="font-mono text-xs text-zinc-400">{usd(t.costUsd)}</p>
-                  <p className="text-[10px] text-zinc-600">{(t.tokensIn + t.tokensOut).toLocaleString()} tok</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Agents */}

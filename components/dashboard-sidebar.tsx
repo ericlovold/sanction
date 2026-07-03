@@ -66,13 +66,18 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
 export function DashboardSidebar({
   view,
   pendingCount,
+  hasPools = true,
   account,
 }: {
   view: { name: string; isSession: boolean }
   pendingCount: number
+  // Pools is conceptual overhead for a single-wallet operator — hidden until
+  // the wallet actually has children. The page stays reachable by URL.
+  hasPools?: boolean
   account: ReactNode
 }) {
   const pathname = usePathname()
+  const visible = hasPools ? items : items.filter((it) => it.href !== "/dashboard/pools")
   return (
     <>
       {/* Desktop: persistent left rail */}
@@ -87,7 +92,7 @@ export function DashboardSidebar({
           </p>
         </div>
         <nav className="mt-6 flex flex-1 flex-col gap-1">
-          {items.map((it) => (
+          {visible.map((it) => (
             <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
           ))}
         </nav>
@@ -101,7 +106,7 @@ export function DashboardSidebar({
           {account}
         </div>
         <nav className="-mx-1 flex gap-1 overflow-x-auto">
-          {items.map((it) => (
+          {visible.map((it) => (
             <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
           ))}
         </nav>

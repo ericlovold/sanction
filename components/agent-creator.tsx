@@ -71,13 +71,26 @@ export function AgentCreator() {
         </div>
       )}
 
-      <form action={formAction} className="flex flex-col gap-2 sm:flex-row">
+      <form action={formAction} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <input
           name="name"
           required
           maxLength={64}
           placeholder={state.ok ? "Name another agent…" : "New agent name — e.g. nightly-coder"}
           className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+        />
+        <input
+          name="holder"
+          maxLength={120}
+          placeholder="Holder (optional)"
+          title="Who holds this seat — audit only, never auth"
+          className="min-w-0 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600 sm:w-44"
+        />
+        <input
+          name="expires_at"
+          type="date"
+          title="Auto-shutoff: the key fails closed after this day (contractors)"
+          className="min-w-0 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-400 outline-none focus:border-zinc-600 sm:w-40"
         />
         <button
           type="submit"
