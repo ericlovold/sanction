@@ -17,6 +17,7 @@ import type {
 const POLICY_TO_WIRE: Record<keyof PolicyInput, string> = {
   dailyTokenBudgetUsd: "daily_token_budget_usd",
   dailySpendBudgetUsd: "daily_spend_budget_usd",
+  monthlySpendBudgetUsd: "monthly_spend_budget_usd",
   subtreeDailyCapUsd: "subtree_daily_cap_usd",
   perTransactionMaxUsd: "per_transaction_max_usd",
   autoApproveUnderUsd: "auto_approve_under_usd",
@@ -44,6 +45,7 @@ export function policyToWire(input: PolicyInput): Record<string, unknown> {
 interface PolicyWire {
   daily_token_budget_usd: number
   daily_spend_budget_usd: number
+  monthly_spend_budget_usd: number | null
   subtree_daily_cap_usd: number | null
   per_transaction_max_usd: number
   auto_approve_under_usd: number
@@ -62,6 +64,7 @@ export function policyFromWire(w: PolicyWire): Policy {
   return {
     dailyTokenBudgetUsd: w.daily_token_budget_usd,
     dailySpendBudgetUsd: w.daily_spend_budget_usd,
+    monthlySpendBudgetUsd: w.monthly_spend_budget_usd ?? null,
     subtreeDailyCapUsd: w.subtree_daily_cap_usd ?? null,
     perTransactionMaxUsd: w.per_transaction_max_usd,
     autoApproveUnderUsd: w.auto_approve_under_usd,
