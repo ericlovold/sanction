@@ -14,6 +14,11 @@ export async function authenticateAgent(req: NextRequest) {
 
   if (!agent) return { agent: null, error: "Invalid API key" }
   if (!agent.isActive) return { agent: null, error: "Agent is inactive" }
+  // Seat expiry (contractor auto-shutoff): past expiresAt the key fails closed
+  // everywhere, no deactivation step required.
+  if (agent.expiresAt && agent.expiresAt <= new Date()) {
+    return { agent: null, error: "Agent key expired" }
+  }
 
   // Best-effort "last used" stamp for the console, throttled to ~5 min so it's
   // not a write on every request. Fire-and-forget — never block or fail auth.

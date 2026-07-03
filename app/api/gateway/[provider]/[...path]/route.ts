@@ -20,6 +20,8 @@ async function authAgent(req: NextRequest) {
     include: { wallet: { include: { policy: true } } },
   })
   if (!agent || !agent.isActive) return null
+  // Seat expiry fails closed on the gateway too — same rule as lib/auth.ts.
+  if (agent.expiresAt && agent.expiresAt <= new Date()) return null
   return agent
 }
 

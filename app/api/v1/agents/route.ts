@@ -8,6 +8,8 @@ import { withTenant } from "@/lib/rls"
 const schema = z.object({
   wallet_id: z.string(),
   name: z.string().min(1).max(64),
+  holder: z.string().min(1).max(120).optional(), // who holds this seat (display/audit)
+  expires_at: z.string().datetime().optional(), // contractor auto-shutoff
 })
 
 // Per-agent budget overrides. A number sets a $ override; null clears it (back
@@ -25,6 +27,10 @@ const patchSchema = z.object({
   clearance_expires_at: z.string().datetime().nullable().optional(),
   // Revoke (false) or reactivate (true) the agent's key. SEC-6.
   active: z.boolean().optional(),
+  // Seat fields: who holds it (null clears) and when the key auto-expires
+  // (null clears the shutoff).
+  holder: z.string().min(1).max(120).nullable().optional(),
+  expires_at: z.string().datetime().nullable().optional(),
 })
 
 // Register a new agent and return its API key (shown once).
@@ -36,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { wallet_id, name } = parsed.data
+  const { wallet_id, name, holder, expires_at } = parsed.data
 
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
@@ -44,13 +50,22 @@ export async function POST(req: NextRequest) {
   const { raw, hash, prefix } = generateApiKey()
 
   const agent = await db.agent.create({
-    data: { walletId: wallet_id, name, apiKeyHash: hash, apiKeyPrefix: prefix },
+    data: {
+      walletId: wallet_id,
+      name,
+      apiKeyHash: hash,
+      apiKeyPrefix: prefix,
+      holder,
+      expiresAt: expires_at ? new Date(expires_at) : undefined,
+    },
   })
 
   // raw key returned once — never stored, never retrievable again
   return NextResponse.json({
     id: agent.id,
     name: agent.name,
+    holder: agent.holder,
+    expires_at: agent.expiresAt,
     api_key: raw,
     api_key_prefix: prefix,
     wallet_id,
@@ -68,7 +83,7 @@ export async function GET(req: NextRequest) {
 
   const agents = await db.agent.findMany({
     where: { walletId },
-    select: { id: true, name: true, apiKeyPrefix: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, holder: true, expiresAt: true, apiKeyPrefix: true, isActive: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   })
 
@@ -99,6 +114,10 @@ export async function PATCH(req: NextRequest) {
     perTransactionMaxUsd: toCents(overrides.per_transaction_max_usd),
     escalateOverUsd: toCents(overrides.escalate_over_usd),
     ...(overrides.active !== undefined ? { isActive: overrides.active } : {}),
+    ...(overrides.holder !== undefined ? { holder: overrides.holder } : {}),
+    ...(overrides.expires_at !== undefined
+      ? { expiresAt: overrides.expires_at === null ? null : new Date(overrides.expires_at) }
+      : {}),
   }
 
   const updated = await db.agent.update({ where: { id: agent_id }, data })
