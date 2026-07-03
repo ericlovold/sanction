@@ -1,5 +1,5 @@
 import { getViewWallet } from "@/lib/session"
-import { listPendingApprovals } from "@/lib/approvals"
+import { db } from "@/lib/db"
 import { AccountControl } from "@/components/account-control"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 
@@ -13,7 +13,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const view = await getViewWallet()
   if (!view) return <>{children}</>
 
-  const pendingCount = (await listPendingApprovals(view.id)).length
+  // Badge needs a number, not rows. The full read (and expiry settling) runs
+  // on the Approvals page itself, where timeouts are actually visible.
+  const pendingCount = await db.pendingApproval.count({ where: { walletId: view.id, status: "pending" } })
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">

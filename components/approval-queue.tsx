@@ -1,7 +1,7 @@
 "use client"
 
-import { useActionState } from "react"
-import { Check, Clock3, FileText, X } from "lucide-react"
+import { useOptimistic, useActionState, useEffect, useRef, useState } from "react"
+import { Check, Plus, X } from "lucide-react"
 import { resolveApprovalAction, type ApprovalActionState } from "@/app/dashboard/approvals/actions"
 
 export type PendingApproval = {
@@ -55,6 +55,7 @@ function approvalTitle(a: PendingApproval) {
   }
   return (
     stringValue(a.resource.label) ??
+    stringValue(a.resource.tool) ??
     stringValue(a.resource.tool_name) ??
     stringValue(a.resource.credential_label) ??
     stringValue(a.resource.name) ??
@@ -74,93 +75,159 @@ function approvalDetails(a: PendingApproval) {
   return details.filter(Boolean).join(" · ")
 }
 
-function grantSummary(a: PendingApproval) {
+// One plain-language sentence: what approving DOES. Replaces the escalation-code
+// and grant-summary boxes — the operator decides on consequences, not codes.
+function consequence(a: PendingApproval) {
   const constraints = a.constraints ?? {}
-  const pieces = []
-  if (constraints.one_use === true) pieces.push("one use")
+  const oneUse = constraints.one_use === true ? "one-use " : ""
   const ttl = numberValue(constraints.grant_ttl_mins)
-  if (ttl !== null) pieces.push(`${ttl}m grant`)
+  const ttlText = ttl !== null ? `, expires in ${ttl}m` : ""
   const amount = money(a.resource.amount_usd)
-  if (amount) pieces.push(amount)
-  const target = stringValue(a.resource.merchant) ?? stringValue(a.resource.line_item)
-  if (target) pieces.push(target)
-  return pieces.join(" · ")
+
+  if (a.resource.kind === "spend") {
+    const merchant = stringValue(a.resource.merchant)
+    return `Approving issues a ${oneUse}${amount ? `${amount} ` : ""}grant${merchant ? ` for ${merchant}` : ""} to ${a.agentName}${ttlText}.`
+  }
+  if (a.resource.kind === "provision") {
+    const quantity = numberValue(a.resource.quantity)
+    const lineItem = stringValue(a.resource.line_item)
+    const what = lineItem ? `${quantity !== null ? `${quantity} × ` : ""}${lineItem}` : "this provision"
+    return `Approving issues a ${oneUse}grant for ${what}${amount ? ` (${amount})` : ""} to ${a.agentName}${ttlText}.`
+  }
+  if (a.resource.kind === "tool") {
+    const tool = stringValue(a.resource.tool) ?? "this tool"
+    return `Approving issues a ${oneUse}grant letting ${a.agentName} invoke ${tool}${ttlText}.`
+  }
+  return `Approving grants ${a.agentName} this authority${ttlText}.`
 }
 
-function ApprovalRow({ a, editable }: { a: PendingApproval; editable: boolean }) {
+// Short label for the armed confirm button: the amount if there is one.
+function confirmLabel(a: PendingApproval) {
+  const amount = money(a.resource.amount_usd)
+  return amount ? `Confirm ${amount}` : "Confirm approve"
+}
+
+function ApprovalRow({
+  a,
+  editable,
+  onResolve,
+}: {
+  a: PendingApproval
+  editable: boolean
+  onResolve: (id: string) => void
+}) {
   const [state, formAction, pending] = useActionState(resolveApprovalAction, initial)
+  // Two-step confirm on Approve only: first tap arms for 3s, second tap submits.
+  // Reject stays one-tap — denying is safe by default.
+  const [armed, setArmed] = useState(false)
+  const disarmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [noteOpen, setNoteOpen] = useState(false)
   const details = approvalDetails(a)
-  const grant = grantSummary(a)
+
+  useEffect(
+    () => () => {
+      if (disarmTimer.current) clearTimeout(disarmTimer.current)
+    },
+    [],
+  )
+
+  function arm() {
+    setArmed(true)
+    if (disarmTimer.current) clearTimeout(disarmTimer.current)
+    disarmTimer.current = setTimeout(() => setArmed(false), 3000)
+  }
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
-              {labelActionType(a.actionType)}
-            </span>
-            <span className="min-w-0 truncate text-sm font-medium text-zinc-200">{approvalTitle(a)}</span>
-          </div>
-          <p className="mt-1 text-xs text-zinc-600">
-            {a.agentName} · {a.reason ?? "Needs approval"} · {new Date(a.createdAt).toLocaleString()}
-          </p>
-          {details && <p className="mt-1 text-xs text-zinc-500">{details}</p>}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+            {labelActionType(a.actionType)}
+          </span>
+          <span className="min-w-0 truncate text-sm font-medium text-zinc-200">{approvalTitle(a)}</span>
         </div>
-        <div className="grid gap-2 text-xs sm:grid-cols-2 lg:min-w-[340px]">
-          <div className="rounded-md border border-amber-500/20 bg-amber-500/[0.04] px-3 py-2">
-            <p className="flex items-center gap-1.5 text-amber-200">
-              <Clock3 className="size-3" />
-              Escalation
-            </p>
-            <p className="mt-1 text-zinc-500">{a.code ?? "ESCALATION_REQUIRED"}</p>
-          </div>
-          <div className="rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2">
-            <p className="flex items-center gap-1.5 text-emerald-200">
-              <FileText className="size-3" />
-              Grant
-            </p>
-            <p className="mt-1 text-zinc-500">{grant || "approval-bound"}</p>
-          </div>
-        </div>
+        <p className="mt-1 text-xs text-zinc-600">
+          {a.agentName} · {a.reason ?? "Needs approval"} · {new Date(a.createdAt).toLocaleString()}
+        </p>
+        {details && <p className="mt-1 text-xs text-zinc-500">{details}</p>}
+        <p className="mt-2 text-xs text-emerald-200/90">{consequence(a)}</p>
       </div>
 
       {editable ? (
-        <form action={formAction} className="mt-4 flex flex-col gap-3 border-t border-zinc-800 pt-3">
+        <form
+          action={(fd) => {
+            // Optimistically clear the card the moment a decision is submitted;
+            // if the action fails, the transition settles without a state change
+            // and the card returns carrying the error message.
+            onResolve(a.id)
+            formAction(fd)
+          }}
+          className="mt-4 flex flex-col gap-3 border-t border-zinc-800 pt-3"
+        >
           <input type="hidden" name="approval_id" value={a.id} />
-          <input
-            name="note"
-            placeholder="Approval note"
-            className="min-h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-zinc-600"
-          />
+          {noteOpen ? (
+            <input
+              name="note"
+              autoFocus
+              placeholder="Approval note"
+              className="min-h-11 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-zinc-600"
+            />
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {state.message && !state.ok ? <span className="text-xs text-red-400">{state.message}</span> : <span />}
             <div className="flex items-center gap-2">
+              {!noteOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setNoteOpen(true)}
+                  className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+                >
+                  <Plus className="size-3" />
+                  Add note
+                </button>
+              ) : null}
+              {state.message && !state.ok ? <span className="text-xs text-red-400">{state.message}</span> : null}
+            </div>
+            <div className="flex items-center gap-3">
               <button
                 type="submit"
                 name="decision"
                 value="reject"
                 disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-red-500/40 hover:text-red-400 disabled:opacity-50"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-300 transition-colors hover:border-red-500/40 hover:text-red-400 disabled:opacity-50"
               >
-                <X className="size-3.5" />
+                <X className="size-4" />
                 Reject
               </button>
-              <button
-                type="submit"
-                name="decision"
-                value="approve"
-                disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
-              >
-                <Check className="size-3.5" />
-                {pending ? "..." : "Approve"}
-              </button>
+              {armed ? (
+                <button
+                  type="submit"
+                  name="decision"
+                  value="approve"
+                  disabled={pending}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-emerald-400 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-300 disabled:opacity-50"
+                >
+                  <Check className="size-4" />
+                  {pending ? "..." : confirmLabel(a)}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={arm}
+                  disabled={pending}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-emerald-500/80 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  <Check className="size-4" />
+                  Approve
+                </button>
+              )}
             </div>
           </div>
         </form>
       ) : (
-        <a href="/login" className="mt-4 inline-flex rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800">
+        <a
+          href="/login"
+          className="mt-4 inline-flex min-h-11 items-center rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
+        >
           Log in to manage
         </a>
       )}
@@ -169,18 +236,27 @@ function ApprovalRow({ a, editable }: { a: PendingApproval; editable: boolean })
 }
 
 export function ApprovalQueue({ pending, editable }: { pending: PendingApproval[]; editable: boolean }) {
-  if (pending.length === 0) {
+  // Optimistic list: a submitted decision removes its card immediately; the
+  // server action + revalidation settle the real state behind it.
+  const [visible, removeOptimistic] = useOptimistic(pending, (current, id: string) =>
+    current.filter((a) => a.id !== id),
+  )
+
+  if (visible.length === 0) {
     return (
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-10 text-center">
         <p className="text-sm text-zinc-400">Nothing waiting</p>
-        <p className="mt-1 text-xs text-zinc-600">No pending human decisions.</p>
+        <p className="mt-1 text-xs text-zinc-600">
+          When an agent&apos;s request crosses your policy&apos;s escalation line it lands here, and the agent
+          waits on your decision. Add a webhook below to get pinged the moment that happens.
+        </p>
       </div>
     )
   }
   return (
     <div className="space-y-3">
-      {pending.map((a) => (
-        <ApprovalRow key={a.id} a={a} editable={editable} />
+      {visible.map((a) => (
+        <ApprovalRow key={a.id} a={a} editable={editable} onResolve={removeOptimistic} />
       ))}
     </div>
   )
