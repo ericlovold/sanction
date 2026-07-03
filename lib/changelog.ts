@@ -16,6 +16,19 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-03",
+    title: "Tool escalations reach the inbox — govern any action closes the loop",
+    tags: ["authorization", "tools", "grants"],
+    body: `Tool governance was decision-only: an escalated tool call answered \`escalated\` and then evaporated. Now it completes the same loop as spend and provision:
+
+- **Escalations persist** — an escalated \`POST /v1/authorize/tool\` writes an audit row and lands in the owner's approval inbox alongside spend and provision requests, with webhook + email notification.
+- **Approval mints a one-use tool grant** — redeem it by retrying the same tool (and server) with \`grant_id\`, or poll \`/v1/authorize/{id}\`. Consumption is atomic and one-use; a mismatched tool gets \`GRANT_MISMATCH\`, a replayed grant gets \`GRANT_ALREADY_USED\`.
+- **Idempotency-Key on tool calls** — replaying the key returns the escalation's current state, including the terminal decision once the owner resolves it, so a re-POST doubles as a status check.
+- **sanction-mcp** \`sanction_authorize_tool\` gains \`grant_id\`, and \`/api/openapi.json\` now documents the endpoint.
+
+Proven end-to-end against real Postgres: escalate → inbox approval → grant minted → redeem on retry → second redemption refused. The full trace is in [docs/TRACEABILITY.md](https://github.com/ericlovold/sanction/blob/main/docs/TRACEABILITY.md).`,
+  },
+  {
+    date: "2026-07-03",
     title: "The audit plane arrives — unified feed, daily summary, monthly caps, and a TypeScript SDK",
     tags: ["audit", "budgets", "sdk", "dashboard"],
     body: `Yesterday the authorization plane grew muscles; today it grew a memory and a voice:

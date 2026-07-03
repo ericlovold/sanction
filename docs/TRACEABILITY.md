@@ -18,7 +18,7 @@ provides a Postgres service so both gates run on every push/PR.
 | ID | Claim | Enforced in | Proven by | Status |
 |---|---|---|---|---|
 | **ADR-0009** | All authorization flows through one decision engine: ordered rules, deny overrides, escalate before allow, short-circuit | `lib/evaluation.ts`, `lib/rules/{spend,tool,provision,credential}.ts`, `lib/decisions.ts` | `evaluation.test.ts`, `decisions.test.ts`, `authorize-ladder.test.ts`, `provision-ladder.test.ts` | ✅ |
-| **ADR-0009 M3** | Any MCP tool invocation is authorized like spend (block/allow/escalate lists; empty allow-list = opt-in) | `app/api/v1/authorize/tool/route.ts`, `lib/toolDecisions.ts`, `lib/rules/tool.ts` | `tool.test.ts` (rules), `dataplane.route.test.ts` (route incl. fail-closed NO_POLICY) | ✅ |
+| **ADR-0009 M3** | Any MCP tool invocation is authorized like spend (block/allow/escalate lists; empty allow-list = opt-in); escalations persist to the approval inbox and approval mints a one-use tool grant redeemed on retry | `app/api/v1/authorize/tool/route.ts`, `lib/toolDecisions.ts`, `lib/rules/tool.ts`, `lib/approvals.ts` (`createToolPendingApproval`), `lib/grants.ts` (`consumeToolGrant`) | `tool.test.ts` (rules), `dataplane.route.test.ts` (route: persistence, idempotent replay, grant redemption/mismatch/one-use), `e2e.db.test.ts` (full escalate→approve→redeem loop) | ✅ |
 | **ADR-0009 M4** | Credential injection is a policy decision (clearance, scope, expiry through the engine) | `lib/credentialDecisions.ts`, `lib/rules/credential.ts`, `app/api/v1/credentials/inject/route.ts` | `credential.test.ts`, `credential-inject.route.test.ts` | ✅ |
 | **SEC-1** | Credentials at rest are envelope-encrypted: per-wallet DEK wrapped by KMS (prod) or env master (dev), AAD-bound to `wallet:label` | `lib/credentialCrypto.ts`, `lib/kms.ts`, `WalletKey` model | `crypto.test.ts` | ✅ Phase 1 · **Phase 2 (key rotation) in flight** |
 | **SEC-3** | Tenant isolation is enforced by Postgres RLS, not just query discipline — cross-tenant reads/writes fail at the database | `lib/rls.ts` (`withTenant`), RLS policies in migrations | `rls.db.test.ts` (7 tests, real Postgres, non-superuser role) | ✅ |
@@ -38,6 +38,7 @@ provides a Postgres service so both gates run on every push/PR.
 | **WEBHOOK-SSRF** | Registered webhook URLs must be public https — loopback/RFC1918/link-local-metadata/`.local`/`.internal` rejected | `lib/webhooks.ts` (`isPublicHttpsUrl`) | `webhooks.test.ts` (12 rejection cases + no-over-block) | ✅ |
 | **RATE** | Unauthenticated endpoints are rate-limited per IP (fixed window) | `lib/rateLimit.ts`, `RateLimit` model | `rateLimit.test.ts` | ✅ |
 | **GATEWAY** | Gateway meters provider usage (Chat Completions + Responses API, incl. SSE) and enforces budgets with `no-store` | `lib/gateway.ts`, `app/api/gateway/**` | `gateway.test.ts` | ✅ |
+| **AUDIT-PLANE** | The unified feed (`/v1/audit-events`) and daily rollup (`/v1/reporting/daily-summary`) are membership-gated, time-sorted/cursor-paginated, and `no-store` | `app/api/v1/audit-events/route.ts`, `app/api/v1/reporting/daily-summary/route.ts`, `lib/reporting.ts` | `reporting.test.ts` (merge/sort/day-range math), `reporting.route.test.ts` (auth matrix, filters, cursor, rollup shape) | ✅ |
 | **STATS-AUTH** | Wallet stats/policy are membership-gated — knowing a `wallet_id` alone reads nothing | `app/api/v1/wallets/stats`, `app/api/v1/wallets/policy`, `lib/ownerAuth.ts` | `dataplane.route.test.ts` (401 matrix incl. foreign-wallet agent key) | ✅ |
 
 ## SECURITY.md crosswalk
@@ -50,10 +51,7 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 
 ## Gaps (known, honest)
 
-1. **Tool escalations don't persist** (ADR-0009 M3 is decision-only): an escalated
-   tool call returns `escalated` but creates no approval-inbox row, unlike spend
-   and provision. Known fast-follow, documented in the route.
-2. **Dashboard pages are untested** (server components; excluded from coverage
+1. **Dashboard pages are untested** (server components; excluded from coverage
    focus). Data comes from the same tested libs; rendering regressions are caught
    manually today.
 
@@ -62,7 +60,7 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 | Suite | Proves | Gate |
 |---|---|---|
 | `evaluation` / `decisions` / `*-ladder` / `tool` / `credential` | The decision engine and every rule family, as pure functions | unit |
-| `authorize.route` / `provision.route` / `dataplane.route` / `exec.route` / `routes` / `credential-inject.route` | Route handlers: auth gates fail closed, validation, codes, persistence shape (mocked DB) | unit |
+| `authorize.route` / `provision.route` / `dataplane.route` / `exec.route` / `reporting.route` / `routes` / `credential-inject.route` | Route handlers: auth gates fail closed, validation, codes, persistence shape (mocked DB) | unit |
 | `auth` / `crypto` / `webhooks` / `rateLimit` | Security primitives: key hashing, owner auth, JWT binding, envelope crypto, HMAC, SSRF guard, rate limit | unit |
 | `cascadeBudget` / `accountTree` / `budget*` / `pool*` / `burn` / `approvals` / `grants*` | Budget math, tree rollups, pools, thresholds, approval/grant lifecycle | unit |
 | `gateway` | Provider metering + budget enforcement | unit |
