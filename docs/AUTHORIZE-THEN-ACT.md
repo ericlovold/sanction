@@ -1,7 +1,7 @@
 # Authorize, then act: how third-party instructions enter this codebase
 
 A friend sent us a skill pack for AI coding agents. Six instruction files, an
-installer, a benchmarks writeup. Good work by a person we like. We adopted it,
+installer, a benchmark write-up. Good work by a person we like. We adopted it,
 and this page documents exactly how, because the procedure is the point.
 
 Skill files are not documentation. They are instructions your agent will
