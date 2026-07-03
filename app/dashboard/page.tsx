@@ -2,9 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DashboardNav } from "@/components/dashboard-nav"
-import { AccountControl } from "@/components/account-control"
+import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
 
@@ -86,19 +84,7 @@ function rel(d: Date | null): string {
 
 export default async function Dashboard() {
   const view = await getViewWallet()
-  if (!view) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-3">
-          <p className="text-zinc-400 text-sm">No wallet to show.</p>
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!view) return <NoWallet />
 
   const {
     agents,
@@ -116,23 +102,6 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-zinc-500 text-sm">{view.name} · authorization operations</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {pendingCount > 0 && (
-            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">
-              {pendingCount} pending approval{pendingCount > 1 ? "s" : ""}
-            </Badge>
-          )}
-          <DashboardNav active="overview" />
-          <AccountControl view={view} />
-        </div>
-      </div>
-
       {/* First-run guidance — only for a logged-in wallet with no activity yet */}
       {view.isSession && recentAuth.length === 0 && recentTokens.length === 0 && (
         <Card className="border-emerald-500/25 bg-emerald-500/[0.04]">

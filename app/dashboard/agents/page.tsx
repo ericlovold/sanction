@@ -2,8 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { getViewWallet } from "@/lib/session"
-import { DashboardNav } from "@/components/dashboard-nav"
-import { AccountControl } from "@/components/account-control"
+import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { ApiKeysTable, type ConsoleAgent } from "@/components/api-keys-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -136,19 +135,7 @@ async function getAgents(walletId: string) {
 
 export default async function AgentsPage() {
   const view = await getViewWallet()
-  if (!view) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-3 text-center">
-          <p className="text-sm text-zinc-400">No wallet to show.</p>
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!view) return <NoWallet />
 
   const agents = await getAgents(view.id)
   const activeAgents = agents.filter((a) => a.isActive).length
@@ -157,16 +144,7 @@ export default async function AgentsPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link href="/" className="font-display text-xl font-semibold tracking-tight transition-colors hover:text-zinc-300">Sanction</Link>
-          <p className="text-sm text-zinc-500">{view.name} · agent identities &amp; capabilities</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <DashboardNav active="agents" />
-          <AccountControl view={view} />
-        </div>
-      </div>
+      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Agents</h1>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-zinc-800 bg-zinc-900">

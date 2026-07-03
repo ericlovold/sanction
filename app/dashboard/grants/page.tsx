@@ -1,10 +1,8 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { db } from "@/lib/db"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AccountControl } from "@/components/account-control"
-import { DashboardNav } from "@/components/dashboard-nav"
+import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
@@ -80,19 +78,7 @@ const statusClasses: Record<string, string> = {
 
 export default async function GrantsPage() {
   const view = await getViewWallet()
-  if (!view) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-3 text-center">
-          <p className="text-sm text-zinc-400">No wallet to show.</p>
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-            <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!view) return <NoWallet />
 
   const grants = await db.grant.findMany({
     where: { walletId: view.id },
@@ -116,20 +102,13 @@ export default async function GrantsPage() {
 
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <Link href="/" className="font-display text-xl font-semibold tracking-tight hover:text-zinc-300 transition-colors">Sanction</Link>
-          <p className="text-sm text-zinc-500">{view.name} · issued human authority</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {activeCount > 0 && (
-            <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-              {activeCount} active grant{activeCount > 1 ? "s" : ""}
-            </Badge>
-          )}
-          <DashboardNav active="grants" />
-          <AccountControl view={view} />
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Issued human authority</h1>
+        {activeCount > 0 && (
+          <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+            {activeCount} active grant{activeCount > 1 ? "s" : ""}
+          </Badge>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
