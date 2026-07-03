@@ -28,12 +28,15 @@ const ICON = {
   grants: "M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7l7-4ZM9 12l2 2 4-4",
 }
 
+// Ordered by operator job priority: resolve approvals, check burn, manage
+// seats — browsing (Overview/Pools/Grants) trails. On the mobile strip this
+// keeps Approvals first and always on-screen.
 const items: Item[] = [
-  { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
-  { href: "/dashboard/agents", label: "Agents", icon: <Icon d={ICON.agents} /> },
-  { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
-  { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
+  { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
+  { href: "/dashboard/agents", label: "Agents", icon: <Icon d={ICON.agents} /> },
+  { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
+  { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
   { href: "/dashboard/grants", label: "Grants", icon: <Icon d={ICON.grants} /> },
 ]
 

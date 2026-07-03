@@ -26,10 +26,10 @@ export async function resolveApprovalAction(
   const result = await resolveApproval(wallet.id, approvalId, decision, note)
   if (!result.ok) return { ok: false, message: result.error }
 
+  // Only the surfaces that show this decision revalidate on the critical path;
+  // Overview and Spend are force-dynamic and refresh on their next visit anyway.
   revalidatePath("/dashboard/approvals")
   revalidatePath("/dashboard/grants")
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/spend")
   return { ok: true, message: decision === "approve" ? "Approved" : "Rejected" }
 }
 
