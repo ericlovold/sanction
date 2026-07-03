@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
 import { NextRequest } from "next/server"
 import { hashApiKey } from "../lib/apiKey"
 
@@ -53,6 +53,8 @@ vi.mock("@/lib/grants", async (orig) => {
 import { POST as provision } from "../app/api/v1/authorize/provision/route"
 import { createProvisionPendingApproval } from "../lib/approvals"
 import { consumeProvisionGrant } from "../lib/grants"
+import { issueExecutionJWT } from "../lib/jwt"
+import { cascadeDailyWouldExceed } from "../lib/cascadeBudget"
 
 const KEY = "pxy_testagentkey"
 const WID = "wallet_1"
@@ -94,15 +96,20 @@ const AGENT = {
   wallet: { id: WID, ownerEmail: "owner@example.com", policy: POLICY },
 }
 
-function req(body: unknown, opts: { key?: string | null; idempotencyKey?: string; simulate?: boolean } = {}) {
+function req(body: unknown, opts: { key?: string | null; idempotencyKey?: string; simulate?: boolean; bearer?: string } = {}) {
   const headers: Record<string, string> = { "content-type": "application/json" }
   if (opts.key !== null) headers["x-api-key"] = opts.key ?? KEY
   if (opts.idempotencyKey) headers["idempotency-key"] = opts.idempotencyKey
+  if (opts.bearer) headers["authorization"] = `Bearer ${opts.bearer}`
   const url = "https://test.local/api/v1/authorize/provision" + (opts.simulate ? "?simulate=true" : "")
   return new NextRequest(url, { method: "POST", headers, body: JSON.stringify(body) })
 }
 
 const SEATS = { resource: "azure:seat", line_item: "Microsoft 365 E3", quantity: 2, amount_usd: 5, category: "software" }
+
+beforeAll(() => {
+  process.env.SANCTION_SIGNING_SECRET ??= "test-signing-secret-material"
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -120,6 +127,7 @@ beforeEach(() => {
   dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1", actionType: "provision.allocate", resourceJson: {}, reason: "r" })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
+  vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(false)
 })
 
 describe("provision route — gates before the engine", () => {
@@ -277,6 +285,30 @@ describe("provision route — simulate (decision-only, nothing persisted)", () =
     expect(res.status).toBe(403)
     expect((await res.json())).toMatchObject({ simulated: true, status: "denied" })
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("simulate preserves resource-deny precedence ahead of subtree caps", async () => {
+    vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(true)
+    const res = await provision(req({ ...SEATS, resource: "aws:root-account" }, { simulate: true }))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ simulated: true, status: "denied", code: "RESOURCE_BLOCKED" })
+    expect(cascadeDailyWouldExceed).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("simulate honors execution-token budget state without persisting", async () => {
+    const { jwt, jti } = await issueExecutionJWT({ agent: AID, wallet: WID, scope: [], budget_usd: 10, clearance: 1 })
+    dbMock.executionToken.findUnique.mockResolvedValue({
+      id: jti, status: "active", expiresAt: new Date(Date.now() + 60_000), spentUsd: 9, budgetUsd: 10,
+    })
+
+    const res = await provision(req(SEATS, { simulate: true, bearer: jwt }))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ simulated: true, status: "denied", code: "EXEC_BUDGET_EXCEEDED" })
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.executionToken.update).not.toHaveBeenCalled()
   })
 })
 
