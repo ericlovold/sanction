@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 import "./brand.css"
+import { brandFontVars } from "./brand-fonts"
 
 // "Talk to us" → book a call. NEXT_PUBLIC_CALENDLY_URL overrides at build time;
 // defaults to Eric's scheduling link so the CTA always books (no dead-end).
@@ -186,7 +187,7 @@ const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "
 
 export default function Landing() {
   return (
-    <main className="sanction" style={{ minHeight: "100vh" }}>
+    <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
       {/* Nav */}

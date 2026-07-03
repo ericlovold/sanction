@@ -82,18 +82,21 @@ export default async function ApprovalsPage() {
     expiresAt: r.expiresAt?.toISOString() ?? null,
   }))
 
-  const resolved = await db.pendingApproval.findMany({
-    where: { walletId, status: { in: ["approved", "denied", "expired"] } },
-    orderBy: { updatedAt: "desc" },
-    take: 8,
-    include: { agent: { select: { name: true } } },
-  })
-
-  const webhooks = await db.webhook.findMany({
-    where: { walletId },
-    select: { id: true, url: true, events: true },
-    orderBy: { createdAt: "desc" },
-  })
+  // Runs after listPendingApprovals on purpose: that read settles expired
+  // escalations, and the resolved list below should include them.
+  const [resolved, webhooks] = await Promise.all([
+    db.pendingApproval.findMany({
+      where: { walletId, status: { in: ["approved", "denied", "expired"] } },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+      include: { agent: { select: { name: true } } },
+    }),
+    db.webhook.findMany({
+      where: { walletId },
+      select: { id: true, url: true, events: true },
+      orderBy: { createdAt: "desc" },
+  }),
+  ])
 
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">

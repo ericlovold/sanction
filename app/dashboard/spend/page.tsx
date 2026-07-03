@@ -69,11 +69,13 @@ async function getSpend(walletId: string) {
   trendStart.setDate(trendStart.getDate() - 13)
   trendStart.setHours(0, 0, 0, 0)
 
-  const wallet = await db.wallet.findUnique({ where: { id: walletId }, include: { policy: true } })
-  const agents = await db.agent.findMany({
-    where: { walletId },
-    select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true, perTransactionMaxUsd: true, escalateOverUsd: true },
-  })
+  const [wallet, agents] = await Promise.all([
+    db.wallet.findUnique({ where: { id: walletId }, include: { policy: true } }),
+    db.agent.findMany({
+      where: { walletId },
+      select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true, perTransactionMaxUsd: true, escalateOverUsd: true },
+    }),
+  ])
   const agentIds = agents.map((a) => a.id)
   const nameOf = new Map(agents.map((a) => [a.id, a.name]))
   const overrideOf = new Map(
