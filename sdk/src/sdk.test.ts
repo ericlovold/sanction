@@ -171,6 +171,50 @@ describe("policy wire mapping is total and reversible", () => {
   })
 })
 
+describe("SanctionAdminClient seats — wire mapping", () => {
+  it("registerAgent sends holder + expires_at and maps them back", async () => {
+    const { fetch, calls } = fakeFetch([
+      { ok: true, status: 201, body: { id: "a1", name: "contractor-1", holder: "Sam", expires_at: "2026-10-01T00:00:00Z", api_key: "pxy_x", api_key_prefix: "pxy_x", wallet_id: "w1" } },
+    ])
+    const admin = new SanctionAdminClient("sk_test", { fetch })
+    const agent = await admin.registerAgent({ walletId: "w1", name: "contractor-1", holder: "Sam", expiresAt: "2026-10-01T00:00:00Z" })
+    const sent = JSON.parse(String(calls[0].init.body))
+    expect(sent).toMatchObject({ wallet_id: "w1", holder: "Sam", expires_at: "2026-10-01T00:00:00Z" })
+    expect(agent).toMatchObject({ holder: "Sam", expiresAt: "2026-10-01T00:00:00Z" })
+  })
+
+  it("batchCreateSeats maps the camelCase template to the snake_case wire and back", async () => {
+    const { fetch, calls } = fakeFetch([
+      { ok: true, status: 201, body: { seats: [
+        { id: "a1", name: "eng-1", holder: null, expires_at: "2026-10-01T00:00:00Z", api_key: "pxy_1", api_key_prefix: "pxy_1" },
+        { id: "a2", name: "eng-2", holder: null, expires_at: "2026-10-01T00:00:00Z", api_key: "pxy_2", api_key_prefix: "pxy_2" },
+      ] } },
+    ])
+    const admin = new SanctionAdminClient("sk_test", { fetch })
+    const seats = await admin.batchCreateSeats({
+      walletId: "w1",
+      namePrefix: "eng",
+      count: 2,
+      template: { dailySpendBudgetUsd: 20, clearance: 2, expiresAt: "2026-10-01T00:00:00Z" },
+    })
+    const sent = JSON.parse(String(calls[0].init.body))
+    expect(calls[0].url).toContain("/agents/batch")
+    expect(sent).toMatchObject({ name_prefix: "eng", count: 2, template: { daily_spend_budget_usd: 20, clearance: 2, expires_at: "2026-10-01T00:00:00Z" } })
+    expect(seats).toHaveLength(2)
+    expect(seats[0]).toMatchObject({ name: "eng-1", apiKey: "pxy_1", expiresAt: "2026-10-01T00:00:00Z" })
+  })
+
+  it("rotateAgentKey passes the seat to a new holder", async () => {
+    const { fetch, calls } = fakeFetch([
+      { ok: true, status: 200, body: { id: "a1", name: "eng-1", holder: "Priya", api_key: "pxy_new", api_key_prefix: "pxy_new", wallet_id: "w1" } },
+    ])
+    const admin = new SanctionAdminClient("sk_test", { fetch })
+    const rotated = await admin.rotateAgentKey("w1", "a1", { holder: "Priya" })
+    expect(JSON.parse(String(calls[0].init.body))).toMatchObject({ wallet_id: "w1", agent_id: "a1", holder: "Priya" })
+    expect(rotated).toMatchObject({ holder: "Priya", apiKey: "pxy_new" })
+  })
+})
+
 describe("constructors guard missing keys", () => {
   it("throws without an agent key", () => {
     expect(() => new SanctionClient("")).toThrow()

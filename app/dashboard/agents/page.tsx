@@ -25,6 +25,8 @@ async function getAgents(walletId: string) {
     select: {
       id: true,
       name: true,
+      holder: true,
+      expiresAt: true,
       apiKeyPrefix: true,
       isActive: true,
       createdAt: true,
@@ -112,6 +114,8 @@ async function getAgents(walletId: string) {
     return {
       id: a.id,
       name: a.name,
+      holder: a.holder,
+      expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
       apiKeyPrefix: a.apiKeyPrefix,
       isActive: a.isActive,
       createdAt: a.createdAt.toISOString(),

@@ -20,6 +20,8 @@ import { POST as revokeExec } from "../app/api/v1/exec/revoke/route"
 import { POST as resolveApproval } from "../app/api/v1/approvals/route"
 import { POST as authorizeTool } from "../app/api/v1/authorize/tool/route"
 import { GET as authStatus } from "../app/api/v1/authorize/[id]/route"
+import { POST as batchSeats } from "../app/api/v1/agents/batch/route"
+import { POST as rotateKey } from "../app/api/v1/agents/rotate/route"
 
 // End-to-end data-plane smoke against a REAL Postgres. Drives the actual route
 // handlers through the full lifecycle a customer hits — the cross-module
@@ -160,6 +162,38 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
     const again = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH(), body: { tool: "payments.charge", server: "stripe", grant_id: resolvedBody.grant_id } }))
     expect(again.status).toBe(409)
     expect((await again.json()).code).toBe("GRANT_ALREADY_USED")
+  })
+
+  it("seats: batch template mints working keys, expiry fails closed, rotate hands the seat over", async () => {
+    // Stamp a two-seat template: one live, then push one into the past.
+    const batch = await batchSeats(req("POST", "/api/v1/agents/batch", { headers: mgmtH(), body: {
+      wallet_id: walletId,
+      seats: [{ name: "seat-live", holder: "Ana" }, { name: "seat-gone", holder: "Bo" }],
+      template: { daily_spend_budget_usd: 20 },
+    } }))
+    expect(batch.status).toBe(201)
+    const { seats } = await batch.json()
+    const [live, gone] = seats
+
+    // A freshly minted seat key authorizes immediately.
+    const ok = await authorize(req("POST", "/api/v1/authorize", { headers: { "x-api-key": live.api_key }, body: { action: "purchase", amount_usd: 3, merchant: "Anthropic", category: "software" } }))
+    expect(ok.status).toBe(200)
+
+    // Expire the second seat at the database and its key fails closed.
+    await db.agent.update({ where: { id: gone.id }, data: { expiresAt: new Date(Date.now() - 1000) } })
+    const dead = await authorize(req("POST", "/api/v1/authorize", { headers: { "x-api-key": gone.api_key }, body: { action: "purchase", amount_usd: 3, merchant: "Anthropic", category: "software" } }))
+    expect(dead.status).toBe(401)
+
+    // Pass the live seat to a new holder: new key works, old key dies, holder moves.
+    const rot = await rotateKey(req("POST", "/api/v1/agents/rotate", { headers: mgmtH(), body: { wallet_id: walletId, agent_id: live.id, holder: "Priya" } }))
+    expect(rot.status).toBe(200)
+    const rotBody = await rot.json()
+    expect(rotBody.holder).toBe("Priya")
+
+    const oldKey = await authorize(req("POST", "/api/v1/authorize", { headers: { "x-api-key": live.api_key }, body: { action: "purchase", amount_usd: 3, merchant: "Anthropic", category: "software" } }))
+    expect(oldKey.status).toBe(401)
+    const newKey = await authorize(req("POST", "/api/v1/authorize", { headers: { "x-api-key": rotBody.api_key }, body: { action: "purchase", amount_usd: 3, merchant: "Anthropic", category: "software" } }))
+    expect(newKey.status).toBe(200)
   })
 
   it("rejects an unauthenticated data-plane call", async () => {
