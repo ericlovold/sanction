@@ -5,7 +5,7 @@ import { after } from "next/server"
 import { db } from "@/lib/db"
 import { resolveApproval } from "@/lib/approvals"
 import { getSessionWallet } from "@/lib/session"
-import { generateWebhookSecret, deliverPing, isPublicHttpsUrl } from "@/lib/webhooks"
+import { generateWebhookSecret, deliverPing, isPublicHttpsUrl, KNOWN_EVENTS, DEFAULT_EVENTS } from "@/lib/webhooks"
 
 export type ApprovalActionState = { ok: boolean; message: string }
 
@@ -39,13 +39,19 @@ export async function addWebhookAction(_prev: WebhookActionState, form: FormData
   const url = String(form.get("url") ?? "").trim()
   if (!isPublicHttpsUrl(url)) return { ok: false, message: "Enter a public https:// URL." }
 
+  // Per-channel routing: the form submits an events[] subset; anything outside
+  // the catalog is dropped, and an empty selection falls back to the defaults.
+  const requested = form.getAll("events").map(String)
+  const valid = requested.filter((e): e is (typeof KNOWN_EVENTS)[number] => (KNOWN_EVENTS as readonly string[]).includes(e))
+  const events = valid.includes("*") ? ["*"] : valid.length > 0 ? valid : DEFAULT_EVENTS
+
   const secret = generateWebhookSecret()
   await db.webhook.create({
     data: {
       walletId: wallet.id,
       url,
       secret,
-      events: ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.exhausted"],
+      events,
     },
   })
   after(() => deliverPing(url, secret))
