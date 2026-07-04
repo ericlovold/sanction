@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
+import { BudgetMeter } from "@/components/budget-meter"
+import { dailyPace } from "@/lib/burn"
 
 export const dynamic = "force-dynamic"
 
@@ -20,13 +22,24 @@ async function getStats(walletId: string) {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true, name: true, isActive: true, apiKeyPrefix: true } })
+  const [agents, policy] = await Promise.all([
+    db.agent.findMany({
+      where: { walletId },
+      select: {
+        id: true, name: true, holder: true, isActive: true, apiKeyPrefix: true,
+        dailySpendBudgetUsd: true, dailyTokenBudgetUsd: true,
+      },
+    }),
+    db.policy.findUnique({ where: { walletId } }),
+  ])
   const agentIds = agents.map((a) => a.id)
 
-  const [tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, firstAuth, firstToken] = await Promise.all([
+  const [tokenDay, spendDay, spendMonth, spendByAgent, tokensByAgent, pendingCount, activeGrantCount, deniedToday, firstAuth, firstToken] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
+    db.authorizationRequest.groupBy({ by: ["agentId"], where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
+    db.tokenLog.groupBy({ by: ["agentId"], where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true } }),
     db.pendingApproval.count({ where: { walletId, status: "pending" } }),
     db.grant.count({
       where: {
@@ -40,7 +53,34 @@ async function getStats(walletId: string) {
     db.tokenLog.findFirst({ where: { agentId: { in: agentIds } }, select: { id: true } }),
   ])
 
-  return { agents, tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, hasActivity: !!(firstAuth || firstToken) }
+  // Budget runway — the macro numbers. Budgets are enforced PER AGENT (each
+  // agent's daily/monthly aggregate vs its effective cap), so the wallet-level
+  // capacity is the sum of effective caps across active agents; cents → dollars.
+  const active = agents.filter((a) => a.isActive)
+  const sumCents = (pick: (a: (typeof agents)[number]) => number | null) =>
+    active.reduce((n, a) => n + (pick(a) ?? 0), 0)
+  const dailySpendCapUsd = policy ? sumCents((a) => a.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd) / 100 : null
+  const dailyTokenCapUsd = policy ? sumCents((a) => a.dailyTokenBudgetUsd ?? policy.dailyTokenBudgetUsd) / 100 : null
+  const monthlyCapUsd =
+    policy?.monthlySpendBudgetUsd != null ? (active.length * policy.monthlySpendBudgetUsd) / 100 : null
+
+  const spendOf = new Map(spendByAgent.map((r) => [r.agentId, r._sum.amountUsd ?? 0]))
+  const tokensOf = new Map(tokensByAgent.map((r) => [r.agentId, r._sum.costUsd ?? 0]))
+  const seats = active.map((a) => ({
+    id: a.id,
+    name: a.name,
+    holder: a.holder,
+    spentTodayUsd: spendOf.get(a.id) ?? 0,
+    tokenTodayUsd: tokensOf.get(a.id) ?? 0,
+    dailySpendCapUsd: policy ? (a.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd) / 100 : null,
+    dailyTokenCapUsd: policy ? (a.dailyTokenBudgetUsd ?? policy.dailyTokenBudgetUsd) / 100 : null,
+  }))
+
+  return {
+    agents, tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday,
+    hasActivity: !!(firstAuth || firstToken),
+    dailySpendCapUsd, dailyTokenCapUsd, monthlyCapUsd, seats,
+  }
 }
 
 
@@ -54,7 +94,14 @@ export default async function Dashboard() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  const { agents, tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, hasActivity } = await getStats(view.id)
+  const {
+    agents, tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, hasActivity,
+    dailySpendCapUsd, dailyTokenCapUsd, monthlyCapUsd, seats,
+  } = await getStats(view.id)
+  const now = new Date()
+  const spendToday = spendDay._sum.amountUsd ?? 0
+  const tokenToday = tokenDay._sum.costUsd ?? 0
+  const spendMonthTotal = spendMonth._sum.amountUsd ?? 0
   const activeAgents = agents.filter((a) => a.isActive).length
 
   return (
@@ -145,30 +192,51 @@ export default async function Dashboard() {
 
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium text-zinc-300">Usage today</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-300">Budget runway — today</CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-zinc-500">Token cost</p>
-                <p className="mt-1 text-xl font-mono font-semibold">{usd(tokenDay._sum.costUsd ?? 0)}</p>
-                <p className="text-xs text-zinc-600 mt-1">{((tokenDay._sum.tokensIn ?? 0) + (tokenDay._sum.tokensOut ?? 0)).toLocaleString()} tokens</p>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500">Approved spend</p>
-                <p className="mt-1 text-xl font-mono font-semibold">{usd(spendDay._sum.amountUsd ?? 0)}</p>
-                <p className="text-xs text-zinc-600 mt-1">{usd(spendMonth._sum.amountUsd ?? 0)} month</p>
-              </div>
-              <div className="col-span-2">
-                <Link href="/dashboard/spend" className="text-xs text-zinc-500 underline-offset-2 transition-colors hover:text-zinc-300 hover:underline">
-                  Full analytics — spend, tokens, burn →
-                </Link>
-              </div>
-            </div>
+          <CardContent className="space-y-4 px-4 pb-4">
+            <BudgetMeter
+              label="Agent spend"
+              spentUsd={spendToday}
+              capUsd={dailySpendCapUsd}
+              pace={dailyPace(spendToday, dailySpendCapUsd, now)}
+            />
+            <BudgetMeter
+              label="LLM tokens"
+              spentUsd={tokenToday}
+              capUsd={dailyTokenCapUsd}
+              pace={dailyPace(tokenToday, dailyTokenCapUsd, now)}
+              sublabel={`${((tokenDay._sum.tokensIn ?? 0) + (tokenDay._sum.tokensOut ?? 0)).toLocaleString()} tokens`}
+            />
+            <BudgetMeter label="Month to date" spentUsd={spendMonthTotal} capUsd={monthlyCapUsd} />
+            <Link href="/dashboard/spend" className="inline-block text-xs text-zinc-500 underline-offset-2 transition-colors hover:text-zinc-300 hover:underline">
+              Full analytics — spend, tokens, burn →
+            </Link>
           </CardContent>
         </Card>
-
       </div>
+
+      {/* Drill-down: the same runway, seat by seat */}
+      {seats.length > 0 && (
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="px-4 pt-4 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-300">Runway by seat</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-x-8 gap-y-4 px-4 pb-4 md:grid-cols-2">
+            {seats.map((seat) => (
+              <Link key={seat.id} href="/dashboard/agents" className="block rounded-md px-2 py-1.5 -mx-2 transition-colors hover:bg-zinc-800/40">
+                <BudgetMeter
+                  label={seat.name}
+                  sublabel={seat.holder ?? undefined}
+                  spentUsd={seat.spentTodayUsd}
+                  capUsd={seat.dailySpendCapUsd}
+                  pace={dailyPace(seat.spentTodayUsd, seat.dailySpendCapUsd, now)}
+                />
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Agents */}
       <Card className="bg-zinc-900 border-zinc-800">
