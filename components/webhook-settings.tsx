@@ -51,7 +51,7 @@ export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]
                 name="url"
                 type="url"
                 required
-                placeholder="https://hooks.your-tool.com/…"
+                placeholder="https://hooks.slack.com/… or any https endpoint"
                 className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 outline-none focus:border-zinc-600"
               />
               <button

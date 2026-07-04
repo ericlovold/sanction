@@ -15,6 +15,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-04",
+    title: "Approvals that find you — Slack, natively",
+    tags: ["approvals", "notifications", "slack"],
+    body: `Paste a Slack incoming-webhook URL into notification routes and escalations arrive as readable messages, not raw JSON:
+
+- **Approvals** land as "*tenet* needs approval for *$60.00* — Vendor" with a **Review in Sanction** button.
+- **Budget warnings** read "*tenet* has used *84%* of its daily spend" — same 80% line as the dashboard meters and emails.
+- **Resolutions and exhaustions** report themselves too. Machine consumers are untouched: non-Slack endpoints keep the HMAC-signed raw payload.
+
+No Slack app to install, no OAuth — the incoming-webhook URL is the whole setup, and Sanction detects it automatically.`,
+  },
+  {
     date: "2026-07-03",
     title: "Seat wallets, slice 1 — seats you can hand around",
     tags: ["seats", "agents", "management"],
