@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return respond(req, await evaluateAuthZen(agent, parsed.data), 200)
+    return respond(req, await evaluateAuthZen(agent, parsed.data, { origin: req.nextUrl.origin }), 200)
   } catch (e) {
     if (e instanceof AuthZenBadRequest) return respond(req, { error: e.message }, 400)
     throw e
