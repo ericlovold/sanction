@@ -33,13 +33,14 @@ async function getStats(walletId: string) {
     db.policy.findUnique({ where: { walletId } }),
   ])
   const agentIds = agents.map((a) => a.id)
+  const activeAgentIds = agents.filter((a) => a.isActive).map((a) => a.id)
 
   const [tokenDay, spendDay, spendMonth, spendByAgent, tokensByAgent, pendingCount, activeGrantCount, deniedToday, firstAuth, firstToken] = await Promise.all([
-    db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
-    db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
-    db.authorizationRequest.groupBy({ by: ["agentId"], where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
-    db.tokenLog.groupBy({ by: ["agentId"], where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true } }),
+    db.tokenLog.aggregate({ where: { agentId: { in: activeAgentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
+    db.authorizationRequest.aggregate({ where: { agentId: { in: activeAgentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
+    db.authorizationRequest.aggregate({ where: { agentId: { in: activeAgentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
+    db.authorizationRequest.groupBy({ by: ["agentId"], where: { agentId: { in: activeAgentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
+    db.tokenLog.groupBy({ by: ["agentId"], where: { agentId: { in: activeAgentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true } }),
     db.pendingApproval.count({ where: { walletId, status: "pending" } }),
     db.grant.count({
       where: {

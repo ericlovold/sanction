@@ -69,14 +69,14 @@ export function BudgetMeter({ label, spentUsd, capUsd, pace, sublabel }: MeterPr
     )
 
   return (
-    <div title={`${usd(spentUsd)} of ${usd(capUsd)} (${Math.round(pct)}%)`}>
+    <div title={`${usd(spentUsd)} of ${usd(capUsd)} (${Math.floor(pct)}%)`}>
       <div className="flex items-baseline justify-between gap-3">
         <p className="truncate text-xs text-zinc-500">
           {label}
           {sublabel ? <span className="text-zinc-700"> · {sublabel}</span> : null}
         </p>
         <p className="shrink-0 font-mono text-sm">
-          <span className={`font-semibold ${pctInk}`}>{Math.round(pct)}%</span>
+          <span className={`font-semibold ${pctInk}`}>{Math.floor(pct)}%</span>
           <span className="text-zinc-600"> · {usd(spentUsd)} / {usd(capUsd)}</span>
         </p>
       </div>
