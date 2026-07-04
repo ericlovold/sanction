@@ -510,6 +510,92 @@ export const spec = {
           reason: { type: "string" },
         },
       },
+      AuthZenEntity: {
+        type: "object",
+        required: ["type", "id"],
+        description: "An AuthZEN subject or resource: a typed identifier with optional properties.",
+        properties: {
+          type: { type: "string" },
+          id: { type: "string" },
+          properties: { type: "object", additionalProperties: true },
+        },
+      },
+      AuthZenAction: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          properties: { type: "object", additionalProperties: true },
+        },
+      },
+      AuthZenEvaluationRequest: {
+        type: "object",
+        required: ["subject", "action", "resource"],
+        description:
+          "OpenID AuthZEN 1.0 evaluation request. subject.id must be the authenticated agent's id or name. resource.type selects the ladder: 'tool' (resource.id = tool name), 'spend' (properties: amount_usd required, category), 'provision' (resource.id = resource; properties: amount_usd required, category, quantity, unit_price_usd, line_item). Properties may be set on the resource or the action; action properties win.",
+        properties: {
+          subject: { $ref: "#/components/schemas/AuthZenEntity" },
+          action: { $ref: "#/components/schemas/AuthZenAction" },
+          resource: { $ref: "#/components/schemas/AuthZenEntity" },
+          context: { type: "object", additionalProperties: true },
+        },
+      },
+      AuthZenDecision: {
+        type: "object",
+        required: ["decision"],
+        description:
+          "AuthZEN decision. Per the spec a deny is a successful evaluation: HTTP 200 with decision:false. context carries Sanction's stable machine code (e.g. TOOL_BLOCKED, ESCALATION_REQUIRED, DAILY_BUDGET_EXCEEDED, SUBJECT_MISMATCH), the human reason, and a remediation hint. A would-escalate outcome is decision:false whose remediation names the Sanction endpoint that opens the real approval.",
+        properties: {
+          decision: { type: "boolean" },
+          context: {
+            type: "object",
+            properties: {
+              code: { type: "string" },
+              reason: { type: "string" },
+              remediation: { type: "string" },
+            },
+          },
+        },
+      },
+      AuthZenEvaluationItem: {
+        type: "object",
+        description:
+          "One batch evaluation: a member-wise override of the request's top-level defaults, so every field is optional. After merging, each item must have subject, action, and resource.",
+        properties: {
+          subject: { $ref: "#/components/schemas/AuthZenEntity" },
+          action: { $ref: "#/components/schemas/AuthZenAction" },
+          resource: { $ref: "#/components/schemas/AuthZenEntity" },
+          context: { type: "object", additionalProperties: true },
+        },
+      },
+      AuthZenEvaluationsRequest: {
+        type: "object",
+        description:
+          "OpenID AuthZEN 1.0 batch request. Top-level subject/action/resource are defaults; each item in evaluations overrides them member-wise. Without an evaluations array the defaults are evaluated as a single evaluation. Max 50 items.",
+        properties: {
+          subject: { $ref: "#/components/schemas/AuthZenEntity" },
+          action: { $ref: "#/components/schemas/AuthZenAction" },
+          resource: { $ref: "#/components/schemas/AuthZenEntity" },
+          context: { type: "object", additionalProperties: true },
+          evaluations: { type: "array", maxItems: 50, items: { $ref: "#/components/schemas/AuthZenEvaluationItem" } },
+          options: {
+            type: "object",
+            properties: {
+              evaluations_semantic: {
+                type: "string",
+                enum: ["execute_all", "deny_on_first_deny", "permit_on_first_permit"],
+                description: "execute_all (default) evaluates every item; the others stop at the first deny/permit and return results up to that point.",
+              },
+            },
+          },
+        },
+      },
+      AuthZenEvaluationsResponse: {
+        type: "object",
+        properties: {
+          evaluations: { type: "array", items: { $ref: "#/components/schemas/AuthZenDecision" } },
+        },
+      },
     },
   },
   paths: {
@@ -574,6 +660,54 @@ export const spec = {
           },
           "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "403": { description: "Denied by policy or grant mismatch", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    // AuthZEN PDP surface: mounted at the spec-canonical /access/v1/* suffix off
+    // the PDP base URL (https://getsanction.com/api), NOT under /api/v1 — hence
+    // the path-level servers override. Any AuthZEN PEP pointed at that base
+    // interoperates with zero Sanction-specific code.
+    "/access/v1/evaluation": {
+      servers: [{ url: "https://getsanction.com/api", description: "AuthZEN PDP base" }],
+      post: {
+        operationId: "authzenEvaluation",
+        summary: "AuthZEN access evaluation (Sanction as PDP)",
+        description:
+          "OpenID AuthZEN Authorization API 1.0 single-evaluation endpoint. POST the standard subject/action/resource tuple and receive { decision: boolean } — evaluated against the same engine as /v1/authorize, but decision-only: nothing is persisted, no budget debited, no approval opened (the contract of ?simulate=true). resource.type routes the request: 'tool' → the tool block/allow/escalate ladder; 'spend' and 'provision' → the dollar ladders against live budget state. subject.id must be the authenticated agent's id or name. Echoes X-Request-ID.",
+        security: [{ AgentApiKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AuthZenEvaluationRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Evaluation result — a deny is HTTP 200 with decision:false",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthZenDecision" } } },
+          },
+          "400": { description: "Malformed request (including missing amount_usd for spend/provision)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/access/v1/evaluations": {
+      servers: [{ url: "https://getsanction.com/api", description: "AuthZEN PDP base" }],
+      post: {
+        operationId: "authzenEvaluations",
+        summary: "AuthZEN batch access evaluation",
+        description:
+          "OpenID AuthZEN 1.0 batch endpoint. Top-level subject/action/resource act as defaults each item overrides; options.evaluations_semantic selects execute_all (default), deny_on_first_deny, or permit_on_first_permit. Decision-only, like the single-evaluation endpoint.",
+        security: [{ AgentApiKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AuthZenEvaluationsRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Per-item results, in request order (possibly truncated by the chosen semantic)",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthZenEvaluationsResponse" } } },
+          },
+          "400": { description: "Malformed request or item (the whole batch fails; the error names the item index)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

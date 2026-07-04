@@ -46,6 +46,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Escalations and budget alerts, delivered where humans are: email by default, Slack with one pasted URL, signed webhooks for your own systems — with per-channel event routing.",
   },
+  authzen: {
+    file: "AUTHZEN.md",
+    title: "Sanction as an AuthZEN PDP",
+    description:
+      "Point any OpenID AuthZEN 1.0 enforcement point at Sanction as its policy decision point — standard subject/action/resource in, decision out, mapped onto the same ladders as the native API.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",

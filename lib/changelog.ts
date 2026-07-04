@@ -16,6 +16,19 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-04",
+    title: "Sanction speaks AuthZEN — a standards-native PDP",
+    tags: ["authorization", "standards", "authzen"],
+    body: `Sanction now answers the [OpenID AuthZEN Authorization API 1.0](https://openid.net/specs/authorization-api-1_0.html) — the approved standard for how an enforcement point asks a decision point "may this happen?". Any AuthZEN-capable gateway or framework can point at Sanction as its PDP with zero Sanction-specific code:
+
+- **\`POST /access/v1/evaluation\`** — the standard subject/action/resource tuple in, \`{ "decision": true }\` out. \`resource.type\` selects the ladder: \`tool\` runs the block/allow/escalate lists, \`spend\` and \`provision\` run the dollar ladders against live budget state (daily, monthly, per-transaction, cascading subtree caps).
+- **\`POST /access/v1/evaluations\`** — the batch form, with all three spec semantics: \`execute_all\`, \`deny_on_first_deny\`, \`permit_on_first_permit\`.
+- **Denials explain themselves.** A deny is a spec-correct \`decision: false\`, and \`context\` carries Sanction's stable machine code and remediation — \`TOOL_BLOCKED\`, \`ESCALATION_REQUIRED\`, \`DAILY_BUDGET_EXCEEDED\` — so agents replan instead of guessing.
+- **Decision-only, fail-closed.** Evaluation never debits a budget or opens an approval (the \`?simulate=true\` contract); a would-escalate answer tells the PEP exactly which Sanction endpoint opens the real approval and mints the one-use grant. The subject binds to the authenticated agent's key — asking about anyone else fails closed.
+
+The AuthZEN access-request-and-approval profile (AARP) — the standards path for Sanction's escalate → approve → grant loop — is next.`,
+  },
+  {
+    date: "2026-07-04",
     title: "Approvals that find you — Slack, natively",
     tags: ["approvals", "notifications", "slack"],
     body: `Paste a Slack incoming-webhook URL into notification routes and escalations arrive as readable messages, not raw JSON:
