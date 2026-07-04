@@ -103,6 +103,43 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(body).toMatchObject({ event: "approval.created", wallet_id: "wallet_1", request_id: "req_1" })
   })
 
+  it("routes Slack URLs as Block Kit with a Review button and NO signature header", async () => {
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    dbMock.webhook.findMany.mockResolvedValue([
+      { url: "https://hooks.slack.com/services/T0/B0/xyz", secret: "whsec_slack", events: ["*"], isActive: true },
+    ])
+    const fetchMock = vi.fn(async () => new Response("ok"))
+    global.fetch = fetchMock as never
+
+    await deliverEvent("wallet_1", "approval.created", { agent: "tenet", amount_usd: 60, merchant: "Vendor", reason: "Exceeds escalation threshold" })
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const headers = new Headers(init.headers)
+    expect(headers.get("x-sanction-signature")).toBeNull() // the Slack URL is the secret
+    const payload = JSON.parse(String(init.body))
+    expect(payload.blocks[0].text.text).toContain("tenet")
+    expect(payload.blocks[0].text.text).toContain("$60.00")
+    expect(payload.blocks[1].elements[0]).toMatchObject({ type: "button", url: expect.stringContaining("/dashboard/approvals") })
+  })
+
+  it("keeps signed raw JSON for non-Slack consumers on the same event", async () => {
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    dbMock.webhook.findMany.mockResolvedValue([
+      { url: "https://hooks.slack.com/services/T0/B0/xyz", secret: "whsec_a", events: ["*"], isActive: true },
+      { url: "https://api.example.com/hook", secret: "whsec_b", events: ["*"], isActive: true },
+    ])
+    const fetchMock = vi.fn(async () => new Response("ok"))
+    global.fetch = fetchMock as never
+
+    await deliverEvent("wallet_1", "budget.threshold", { scope: "daily_spend", pct_used: 84, spent_usd: 21, cap_usd: 25, agent: "tenet" })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>
+    const machine = calls.find(([u]) => String(u).includes("api.example.com"))!
+    expect(new Headers(machine[1].headers).get("x-sanction-signature")).toMatch(/^sha256=/)
+    expect(JSON.parse(String(machine[1].body))).toMatchObject({ event: "budget.threshold", wallet_id: "wallet_1", pct_used: 84 })
+    const slack = calls.find(([u]) => String(u).includes("hooks.slack.com"))!
+    expect(JSON.parse(String(slack[1].body)).blocks[0].text.text).toContain("84%")
+  })
+
   it("does nothing when no hook matches, and swallows delivery failures", async () => {
     const { deliverEvent, deliverPing } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
     dbMock.webhook.findMany.mockResolvedValue([])
