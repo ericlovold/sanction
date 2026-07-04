@@ -1,30 +1,65 @@
 # Sanction
 
-**The trust and governance layer for autonomous AI agents.**
+**The authorization layer for autonomous AI agents.**
 
-Sanction gives agents a wallet, a credential vault, and a clearance system — so they can act autonomously without acting without limits.
+Before an agent spends money, invokes a tool, touches a credential, or
+provisions a resource, it asks Sanction. Sanction decides — approve, escalate
+to a human, or deny — and every decision is logged, auditable, and provable.
 
 ---
 
-## What It Does
+## What it does
 
-Autonomous agents need permission to spend money, access credentials, and operate in sensitive domains. Sanction is the layer that grants that permission, enforces policy, and logs everything.
+One policy decision engine governs every kind of agent action:
 
-| Pillar | Capability |
-|--------|-----------|
-| **Agent Wallet** | Spend authorization with configurable policy. Auto-approve under threshold, escalate over it, deny what's blocked. Daily and monthly budgets per agent. |
-| **Credential Vault** | AES-256-GCM encrypted secrets. Scoped execution JWTs (15-minute TTL) gate every injection. Every access is audit-logged. |
-| **Clearance Levels** | 1–5 clearance system for domain authorization. Agents only access what they're cleared for. |
+| Governed action | What Sanction enforces |
+|---|---|
+| **Spend** (`/authorize`) | Auto-approve floor, human-escalation band, per-transaction hard cap, daily and monthly budgets — checked and debited atomically. |
+| **Tools** (`/authorize/tool`) | Block/allow/escalate lists for any MCP tool or external action. Escalations reach the approval inbox like spend does. |
+| **Credentials** (`/exec` + `/credentials/inject`) | AES-256-GCM envelope-encrypted vault (KMS-wrapped, rotating keys). Injection requires a scoped 15-minute execution JWT and clearance ≥ the credential's bar. Every access audit-logged. |
+| **Provisioning** (`/authorize/provision`) | Seats, licenses, infrastructure — resource, line item, quantity, and dollars authorized in one call. |
+
+Around the engine:
+
+- **Human approvals → one-use grants.** Escalations land in an approval inbox
+  (dashboard PWA, email, Slack). Approving mints a single-use, expiring grant
+  the agent redeems on retry. Policy timeouts guarantee a terminal outcome.
+- **Seats.** An agent is a seat you can hand to whoever holds it: named
+  holders, contractor auto-expiry (the key fails closed past the date), key
+  rotation that keeps history, and batch creation from one template.
+- **Budgets that cascade.** Wallets nest into trees; subtree caps are enforced
+  atomically so sibling agents can't race past a parent's limit. The dashboard
+  leads with budget runway — % used, pace, exhaust ETA — from wallet down to seat.
+- **Notifications that find you.** Email by default; Slack with one pasted
+  webhook URL (readable messages, Review button); signed JSON webhooks for
+  machines — each route subscribed to its own events. [Guide](docs/NOTIFICATIONS.md)
+- **The audit plane.** `GET /audit-events` merges every decision, token log,
+  and secret access into one feed; `GET /reporting/daily-summary` is the
+  one-call morning rollup.
+- **LLM gateway.** Point your model SDK's base URL at
+  `https://getsanction.com/api/gateway/<provider>` with `x-sanction-key` —
+  usage is metered and budget-capped with zero per-call instrumentation.
+
+Every security claim above maps to enforcing code and a regression test in
+[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 500+ tests behind an 80%
+coverage gate, including concurrency and Postgres row-level-security suites.
 
 ---
 
 ## Distribution
 
-Sanction is available through three channels:
+- **MCP server** — `npx sanction-mcp` in any MCP host (Claude Desktop, etc.)
+- **TypeScript SDK** — `@sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane)
+- **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
+- **AWS Bedrock Action Group** — enterprise agent orchestration
+- **LLM gateway** — cross-provider metering with no code changes
 
-- **MCP Server** — drop into any Claude Desktop, AIIA, or MCP-compatible agent host
-- **REST API** — direct integration via `x-api-key` auth
-- **AWS Bedrock Action Group** — enterprise agent orchestration (`agentId: JXRNIJRMCX`, us-east-1)
+Guides: [Quickstart](docs/QUICKSTART.md) ·
+[Starter kit](docs/STARTER-KIT.md) ·
+[LangChain](docs/LANGCHAIN.md) · [CrewAI](docs/CREWAI.md) ·
+[Vercel AI SDK](docs/VERCEL-AI-SDK.md) ·
+[Multi-tenant runbook](docs/INTEGRATION.md) ·
+[Notifications](docs/NOTIFICATIONS.md)
 
 ---
 
@@ -32,38 +67,39 @@ Sanction is available through three channels:
 
 Base URL: `https://getsanction.com/api/v1`
 
-**Integrating a multi-tenant platform?** Start with the
-[Multi-Tenant Integration Runbook](docs/INTEGRATION.md) — provision an agent per
-tenant, govern budgets centrally, meter LLM calls through the gateway, rotate keys.
-Using the Vercel AI SDK? See the [AI SDK guide](docs/VERCEL-AI-SDK.md).
-
 ```
-POST  /wallets               — Create a wallet (master account) + spend policy
-GET   /wallets/stats         — Dashboard stats (today + MTD)
-GET   /wallets/policy        — Read the wallet spend policy
-PATCH /wallets/policy        — Update budgets, thresholds, categories
-POST  /agents                — Register (provision) an agent under a wallet
-GET   /agents                — List a wallet's agents
-PATCH /agents                — Per-agent budgets, clearance, revoke/reactivate
-POST  /agents/rotate         — Rotate an agent's key (old dies immediately)
-POST  /authorize             — Authorize a spend action before any transaction
-POST  /tokens                — Log LLM token consumption for budget tracking
-POST  /exec                  — Issue a scoped execution JWT (15-min TTL)
-POST  /credentials/vault     — Store an encrypted credential
-POST  /credentials/inject    — Inject a decrypted credential (requires JWT)
-GET   /api/openapi.json      — OpenAPI 3.0 spec (Bedrock compatible)
+# Authorization (agent key: x-api-key pxy_...)
+POST  /authorize                — Authorize a spend action (grant_id redeems an approval)
+POST  /authorize/tool           — Authorize a tool invocation
+POST  /authorize/provision      — Authorize provisioning (resource + line item + $)
+GET   /authorize/{id}           — Poll an escalated decision (grant receipt included)
+POST  /tokens                   — Log LLM token consumption against the daily budget
+POST  /exec                     — Issue a scoped execution JWT (15-min TTL)
+POST  /credentials/inject       — Inject a decrypted credential (Bearer JWT)
+GET   /audit-events             — Unified audit feed (decisions, tokens, secret access)
+GET   /reporting/daily-summary  — One-day rollup
+
+# Management (owner key: x-mgmt-key sk_...)
+POST  /wallets                  — Create a wallet + policy (management key shown once)
+GET   /wallets/stats            — Today + month-to-date stats
+GET   /wallets/tree             — Subtree spend rollup
+GET/PATCH /wallets/policy       — Read / update budgets, thresholds, lists
+POST  /wallets/keys/rotate      — Rotate the wallet's data-encryption key
+POST  /agents                   — Register a seat (holder, expiry; key shown once)
+POST  /agents/batch             — Stamp one template across up to 50 seats
+GET/PATCH /agents               — List / per-seat budgets, clearance, holder, expiry
+POST  /agents/rotate            — Rotate a seat's key (optionally pass to a new holder)
+POST  /credentials/vault        — Store an encrypted credential
+POST  /exec/revoke              — Kill a live execution token
+GET/POST /approvals             — The approval inbox; approving mints a one-use grant
+POST  /webhooks                 — Register a notification route (per-event subscriptions)
 ```
 
-The LLM gateway lives at `https://getsanction.com/api/gateway/<provider>` (point
-your model SDK's base URL there, send `x-sanction-key`).
-
-### Auth
-
-Agent API calls use `x-api-key: pxy_...` header. Credential injection requires a short-lived Bearer JWT issued by `/exec`.
+Full schemas: [`/api/openapi.json`](https://getsanction.com/api/openapi.json).
 
 ---
 
-## MCP Setup
+## MCP setup
 
 ```json
 {
@@ -85,26 +121,24 @@ Agent API calls use `x-api-key: pxy_...` header. Credential injection requires a
 
 ## Stack
 
-- **Next.js 16** (App Router) + TypeScript
-- **Neon** (serverless Postgres) via Prisma 7
-- **Vercel** deployment
-- **jose** for JWT signing (HS256)
-- **Node crypto** for AES-256-GCM encryption
+Next.js 16 (App Router) + TypeScript · Prisma 7 on Neon Postgres (row-level
+security enforced at the database) · Vercel · jose (HS256, alg-pinned) ·
+AES-256-GCM envelope encryption with AWS KMS root of trust in production.
 
----
+## Contributing & security
+
+[CONTRIBUTING.md](CONTRIBUTING.md) gets you from clone to green PR
+(`npm install && npm run check` — no database needed for unit tests).
+Security model and disclosure: [docs/SECURITY.md](docs/SECURITY.md).
+Vocabulary: [docs/DOMAIN.md](docs/DOMAIN.md).
 
 ## Pricing
 
-| Tier | Price | Agents | Token Budget |
-|------|-------|--------|-------------|
-| Free | $0 | 1 | $10/mo |
-| Pro | $19/mo | 5 | $100/mo |
-| Team | $49/mo | 25 | $500/mo |
-| Enterprise | Custom | Unlimited | Custom |
-
----
+**Free** for individuals — no card, personal and production use.
+**Enterprise** — paid license: SSO, policy administration, audit export, SLA,
+deployment control. [Talk to us](https://getsanction.com/#pricing).
 
 ## License
 
 - **`packages/sanction-mcp`** (the MCP client) — [MIT](packages/sanction-mcp/LICENSE). Embed it anywhere.
-- **Everything else** (server, dashboard, API) — [Functional Source License 1.1](LICENSE) (FSL-1.1-MIT). Source-available: use and self-host it for any purpose except offering a competing service. Converts to MIT two years after release.
+- **Everything else** (server, dashboard, API) — [Functional Source License 1.1](LICENSE) (FSL-1.1-MIT). Source-available: use and self-host for any purpose except offering a competing service. Converts to MIT two years after release.
