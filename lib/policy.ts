@@ -10,6 +10,9 @@ const dollars = z.number().min(0).max(1_000_000)
 const categories = z.array(z.string().trim().toLowerCase().min(1).max(40)).max(50)
 // Tool names are case-sensitive and may be namespaced (e.g. github.create_deployment).
 const tools = z.array(z.string().trim().min(1).max(80)).max(200)
+const capabilityRules = z
+  .array(z.object({ pattern: z.string().trim().min(1).max(120), effect: z.enum(["block", "allow", "escalate"]) }))
+  .max(200)
 
 export const policyInputSchema = z
   .object({
@@ -25,6 +28,7 @@ export const policyInputSchema = z
     allowed_tools: tools,
     blocked_tools: tools,
     escalate_tools: tools,
+    capability_rules: capabilityRules,
     escalation_timeout_mins: z.number().int().min(0).max(10_080), // 0 = never; cap 7 days
     escalation_timeout_action: z.enum(["deny", "approve"]),
   })
@@ -59,6 +63,7 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
   if (d.allowed_tools !== undefined) data.allowedTools = d.allowed_tools
   if (d.blocked_tools !== undefined) data.blockedTools = d.blocked_tools
   if (d.escalate_tools !== undefined) data.escalateTools = d.escalate_tools
+  if (d.capability_rules !== undefined) data.capabilityRules = d.capability_rules
   if (d.escalation_timeout_mins !== undefined) data.escalationTimeoutMins = d.escalation_timeout_mins
   if (d.escalation_timeout_action !== undefined) data.escalationTimeoutAction = d.escalation_timeout_action
 
@@ -121,6 +126,7 @@ type PolicyRow = {
   allowedTools: string[]
   blockedTools: string[]
   escalateTools: string[]
+  capabilityRules?: unknown
   escalationTimeoutMins: number
   escalationTimeoutAction: string
 }
@@ -139,6 +145,7 @@ export function policyToDollars(p: PolicyRow) {
     allowed_tools: p.allowedTools,
     blocked_tools: p.blockedTools,
     escalate_tools: p.escalateTools,
+    capability_rules: p.capabilityRules ?? [],
     escalation_timeout_mins: p.escalationTimeoutMins,
     escalation_timeout_action: p.escalationTimeoutAction,
   }

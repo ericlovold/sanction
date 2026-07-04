@@ -4,7 +4,8 @@ import { SignJWT, jwtVerify } from "jose"
 import { db } from "@/lib/db"
 import { decidePolicy, decideProvisionPolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { decideTool, TOOL_REMEDIATION } from "@/lib/toolDecisions"
-import { consumeSpendGrant, consumeProvisionGrant, consumeToolGrant, type GrantConsumeResult } from "@/lib/grants"
+import { CAPABILITY_REMEDIATION, decideCapability, parseCapabilityRules } from "@/lib/capability"
+import { consumeSpendGrant, consumeProvisionGrant, consumeToolGrant, consumeCapabilityGrant, type GrantConsumeResult } from "@/lib/grants"
 import { APPEALABLE_DENIALS } from "@/lib/evidence"
 import {
   CascadeBudgetExceeded,
@@ -111,12 +112,13 @@ export function authzenRespond(req: NextRequest, body: unknown, status: number) 
 const AUTHZEN_REMEDIATION: Record<string, string> = {
   SUBJECT_MISMATCH:
     "This PDP evaluates the authenticated agent only. Set subject.id to the agent id (or name) that owns the presented API key.",
-  UNSUPPORTED_RESOURCE_TYPE: "Sanction evaluates resource.type 'tool', 'spend', or 'provision'.",
+  UNSUPPORTED_RESOURCE_TYPE: "Sanction evaluates resource.type 'tool', 'capability', 'spend', or 'provision'.",
 }
 
 // Evaluation never opens an approval; tell the PEP which endpoint does.
 const OPEN_APPROVAL: Record<string, string> = {
   tool: " Evaluation is decision-only — POST the invocation to /api/v1/authorize/tool to open the approval and receive a grant.",
+  capability: " Evaluation is decision-only — POST the request to /api/v1/authorize/capability to open the approval and receive a grant.",
   spend: " Evaluation is decision-only — POST the action to /api/v1/authorize to open the approval and receive a grant.",
   provision:
     " Evaluation is decision-only — POST the action to /api/v1/authorize/provision to open the approval and receive a grant.",
@@ -136,6 +138,7 @@ type PolicyShape = {
   blockedResources: string[]
   allowedResources: string[]
   escalateResources: string[]
+  capabilityRules?: unknown
 }
 
 export type AuthZenAgent = {
@@ -246,6 +249,19 @@ export async function evaluateAuthZen(
       if (d.status === "allowed") return { decision: true }
       const remediation = d.code
         ? TOOL_REMEDIATION[d.code] + (d.status === "escalated" ? OPEN_APPROVAL.tool : "")
+        : undefined
+      const context: AuthZenDecision["context"] = { code: d.code ?? "POLICY_DENIED", reason: d.reason, remediation }
+      if (d.status === "escalated") {
+        context.access_request = await accessRequestOffer(agent, r, d.reason, opts.origin)
+      }
+      return { decision: false, context }
+    }
+
+    case "capability": {
+      const d = decideCapability({ capability: r.resource.id, rules: parseCapabilityRules(policy.capabilityRules) })
+      if (d.status === "allowed") return { decision: true }
+      const remediation = d.code
+        ? CAPABILITY_REMEDIATION[d.code] + (d.status === "escalated" ? OPEN_APPROVAL.capability : "")
         : undefined
       const context: AuthZenDecision["context"] = { code: d.code ?? "POLICY_DENIED", reason: d.reason, remediation }
       if (d.status === "escalated") {
@@ -438,6 +454,7 @@ export type AccessRequestBody = z.infer<typeof accessRequestSchema>
 // the denied evaluation.
 export type CanonicalSarc =
   | { t: "tool"; tool: string; server: string | null }
+  | { t: "capability"; capability: string }
   | { t: "spend"; action: string; merchant: string; amount_cents: number; category: string }
   | {
       t: "provision"
@@ -454,6 +471,8 @@ export function canonicalSarc(r: AuthZenRequest): CanonicalSarc {
   switch (r.resource.type) {
     case "tool":
       return { t: "tool", tool: r.resource.id, server: stringProp(props, "server") ?? null }
+    case "capability":
+      return { t: "capability", capability: r.resource.id }
     case "spend": {
       const amountUsd = numberProp(props, "amount_usd")
       if (amountUsd === undefined || amountUsd <= 0) {
@@ -585,6 +604,17 @@ async function redeemApproval(agent: AuthZenAgent, r: AuthZenRequest, grantId: s
             walletId: agent.walletId,
             agentId: agent.id,
             request: { tool: r.resource.id, server: stringProp(props, "server") ?? undefined },
+          }),
+        )
+        break
+      }
+      case "capability": {
+        result = await db.$transaction((tx) =>
+          consumeCapabilityGrant(tx, {
+            grantId,
+            walletId: agent.walletId,
+            agentId: agent.id,
+            request: { capability: r.resource.id },
           }),
         )
         break

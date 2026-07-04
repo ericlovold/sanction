@@ -889,6 +889,37 @@ export const spec = {
         },
       },
     },
+    "/authorize/capability": {
+      post: {
+        operationId: "authorizeCapability",
+        summary: "Authorize acquiring or exercising a capability",
+        description:
+          "CAP-1: installing a skill, adding a plugin, calling a new API — new capability is a governed action. Evaluated against the wallet's ordered capability rules (namespaced prefix-glob patterns like skill:install:*, effect block/allow/escalate; empty = allow all). Escalations persist to the approval inbox with replayable evidence; approval mints a one-use grant — retry with grant_id to consume. Supports Idempotency-Key.",
+        security: [{ AgentApiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["capability"],
+                properties: {
+                  capability: { type: "string", description: "Namespaced capability id, e.g. skill:install:web-scraper, plugin:browser, api:github.com/repos" },
+                  arguments: { type: "object", additionalProperties: true, description: "Advisory — not policy-evaluated or persisted" },
+                  grant_id: { type: "string", description: "One-use grant from an approval; retry the same capability with this to consume it" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "allowed or escalated (poll /authorize/{id}, or replay the Idempotency-Key)" },
+          "401": { description: "Invalid API key" },
+          "403": { description: "Denied by policy or grant mismatch", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "409": { description: "Grant already consumed", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/tokens": {
       post: {
         operationId: "logTokenUsage",

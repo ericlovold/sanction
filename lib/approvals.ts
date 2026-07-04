@@ -50,6 +50,50 @@ export const PROVISION_ACTION_TYPE = "provision.allocate"
 
 export const TOOL_ACTION_TYPE = "tool.invoke"
 
+export const CAPABILITY_ACTION_TYPE = "capability.use"
+
+// Capability escalation (CAP-1) → the same PendingApproval/Grant workflow.
+// resourceJson carries the capability id so the minted grant matches exactly
+// on redemption and renders in the inbox.
+export async function createCapabilityPendingApproval(
+  client: ApprovalClient,
+  input: {
+    walletId: string
+    agentName: string
+    request: { id: string; agentId: string; capability: string; createdAt: Date }
+    policy: Exclude<EscalationPolicy, null>
+    reason: string
+  },
+) {
+  const { walletId, agentName, request, policy, reason } = input
+  const expiresAt =
+    policy.escalationTimeoutMins > 0
+      ? new Date(request.createdAt.getTime() + policy.escalationTimeoutMins * 60_000)
+      : null
+
+  return client.pendingApproval.create({
+    data: {
+      walletId,
+      agentId: request.agentId,
+      actionType: CAPABILITY_ACTION_TYPE,
+      subjectJson: { agent_id: request.agentId, agent_name: agentName },
+      resourceJson: { kind: "capability", capability: request.capability },
+      constraintsJson: {
+        one_use: true,
+        grant_ttl_mins: DEFAULT_SPEND_GRANT_TTL_MINS,
+        timeout_mins: policy.escalationTimeoutMins,
+        timeout_action: policy.escalationTimeoutAction,
+      },
+      reason,
+      code: "ESCALATION_REQUIRED",
+      sourceType: SOURCE_AUTHORIZATION_REQUEST,
+      sourceId: request.id,
+      expiresAt,
+      createdAt: request.createdAt,
+    } as never,
+  })
+}
+
 type ToolApprovalRequest = {
   id: string
   agentId: string
