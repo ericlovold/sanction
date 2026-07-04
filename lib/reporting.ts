@@ -53,7 +53,11 @@ export const CSV_COLUMNS = [
 
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return ""
-  const s = String(v)
+  let s = String(v)
+  // Formula/DDE injection guard (CWE-1236): merchant/category/task_label are
+  // agent-supplied and this file opens in Excel/Sheets. A leading formula
+  // trigger gets a single-quote prefix, rendering it inert text.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 

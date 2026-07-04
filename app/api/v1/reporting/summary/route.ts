@@ -92,6 +92,9 @@ export async function GET(req: NextRequest) {
   if (groupByAgent) {
     const rows = new Map<string, { spend_usd: number; approved: number; denied: number; escalated: number; token_cost_usd: number }>()
     const blank = () => ({ spend_usd: 0, approved: 0, denied: 0, escalated: 0, token_cost_usd: 0 })
+    // Every agent appears, zeroed if idle — "which seats did nothing this
+    // period" is a signal, not an omission.
+    for (const id of agentIds) rows.set(id, blank())
     for (const r of perAgentSpend) {
       const row = rows.get(r.agentId) ?? blank()
       if (r.status === "approved") row.spend_usd += r._sum.amountUsd ?? 0

@@ -72,6 +72,14 @@ describe("lib math", () => {
     expect(() => rangeUtc("2026-01-01", "2026-06-01")).toThrow(/max 92/)
   })
 
+  it("neutralizes spreadsheet formula triggers in agent-supplied fields", () => {
+    const csv = toCsv([{ at: "t", type: "x", merchant: "=HYPERLINK(\"evil\")", category: "-2+3+cmd", task_label: "@sum" }])
+    const row = csv.split("\n")[1]
+    expect(row).toContain("'=HYPERLINK")
+    expect(row).toContain("'-2+3+cmd")
+    expect(row).toContain("'@sum")
+  })
+
   it("toCsv escapes quotes, commas, and newlines", () => {
     const csv = toCsv([{ at: "t", type: "x", reason: 'said "no", twice' }])
     expect(csv.split("\n")[0].startsWith("at,type,id")).toBe(true)
@@ -130,10 +138,16 @@ describe("GET /v1/reporting/summary", () => {
     expect(body.by_agent).toBeUndefined()
   })
 
-  it("groups by agent when asked", async () => {
+  it("groups by agent when asked, including idle agents zeroed", async () => {
+    dbMock.agent.findMany.mockResolvedValue([
+      { id: "agent_1", name: "tenet" },
+      { id: "agent_idle", name: "sleeper" },
+    ])
     const res = await summary(getReq(`/api/v1/reporting/summary?wallet_id=${WID}&group_by=agent`))
     const body = await res.json()
-    expect(body.by_agent).toHaveLength(1)
+    expect(body.by_agent).toHaveLength(2)
+    const idle = body.by_agent.find((a: { agent_id: string }) => a.agent_id === "agent_idle")
+    expect(idle).toEqual(expect.objectContaining({ agent_name: "sleeper", spend_usd: 0, token_cost_usd: 0 }))
     expect(body.by_agent[0]).toEqual(
       expect.objectContaining({ agent_id: "agent_1", agent_name: "tenet", spend_usd: 120, denied: 3, token_cost_usd: 4.2 }),
     )
