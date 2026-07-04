@@ -3,18 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
-import { generateWebhookSecret, deliverPing, isPublicHttpsUrl } from "@/lib/webhooks"
-
-const KNOWN_EVENTS = [
-  "approval.created",
-  "approval.resolved",
-  "escalation.created",
-  "escalation.resolved",
-  "budget.exhausted",
-  "budget.threshold",
-  "*",
-] as const
-const DEFAULT_EVENTS = ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.threshold"]
+import { generateWebhookSecret, deliverPing, isPublicHttpsUrl, KNOWN_EVENTS, DEFAULT_EVENTS } from "@/lib/webhooks"
 
 const schema = z.object({
   wallet_id: z.string(),

@@ -6,6 +6,25 @@ import { db } from "./db"
 
 export const APPROVE_URL = "https://getsanction.com/dashboard/approvals"
 
+// The event catalog — one source of truth for the API route, the dashboard
+// form, and the docs. "*" subscribes to everything, present and future.
+export const KNOWN_EVENTS = [
+  "approval.created",
+  "approval.resolved",
+  "escalation.created",
+  "escalation.resolved",
+  "budget.exhausted",
+  "budget.threshold",
+  "*",
+] as const
+export const DEFAULT_EVENTS = [
+  "approval.created",
+  "approval.resolved",
+  "escalation.created",
+  "escalation.resolved",
+  "budget.threshold",
+]
+
 export function generateWebhookSecret(): string {
   return `whsec_${randomBytes(24).toString("hex")}`
 }
