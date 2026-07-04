@@ -174,6 +174,27 @@ worth keeping as canonical positioning:
 - **The arc.** Today: govern spend + provisioning + tool actions through one
   engine. Next: human approval everywhere + local deployment (Sanction Local).
   Later: cryptographic audit + customer-managed keys + payment-rail neutrality.
+- **Across platforms, not inside one.** Incumbents optimize governance inside
+  their own platform. Sanction optimizes authorization across platforms —
+  providers, payment rails, identities, and agent ecosystems.
+
+## Engineering principles
+
+Three invariants that prevent roadmap drift. Copy and code both answer to them:
+
+- **Identity stays upstream.** Sanction consumes canonical identity (Better
+  Auth users, upstream IdPs) and mints governed runtime identity (seats,
+  `pxy_` keys). Two different identity domains; the output is always an
+  authorization decision, never an identity of record.
+- **Atomic authorization.** Budget, policy, approval, grant, ledger, and
+  audit resolve together, in one engine, under one lock. Bolting approvals
+  onto an external PDP recreates the race conditions, stale budgets, and
+  replay problems this fusion eliminates. The approval loop only works
+  because it is the same code path as the decision.
+- **Determinism.** The same request, against the same policy revision and
+  state snapshot, always produces the same decision. Rules are pure over
+  their context (ADR-0009) precisely so decisions can be replayed, debugged,
+  and evidenced.
 
 See `lib/roadmap.ts` for the live Now/Next/Later — it already reflects all of the
 above; this section is the *why*, not a second source of truth.

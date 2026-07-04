@@ -10,6 +10,11 @@ Point) with no Sanction-specific code.
 **Auth:** the agent's data-plane key, `x-api-key: pxy_...` — the PDP answers
 for the agent that key belongs to.
 
+Sanction consumes canonical identity and mints governed runtime identity.
+Your humans stay in Entra, Okta, or wherever they live today. Agents get
+seats and keys from Sanction, scoped by policy. The PDP's output is always
+an authorization decision, never an identity of record.
+
 ## One evaluation
 
 ```bash

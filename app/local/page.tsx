@@ -21,7 +21,7 @@ const pillars = [
   },
   {
     title: "Provable",
-    body: "Every action your AI takes is logged to a signed, append-only audit trail. When the assessor asks what your AI did, you hand them the report, already current.",
+    body: "Every action your AI takes is logged to an append-only audit trail. When the assessor asks what your AI did, you hand them the report, already current.",
   },
 ]
 

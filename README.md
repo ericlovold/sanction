@@ -1,10 +1,12 @@
 # Sanction
 
-**The authorization layer for autonomous AI agents.**
+**The independent authorization plane for AI agents.**
 
 Before an agent spends money, invokes a tool, touches a credential, or
-provisions a resource, it asks Sanction. Sanction decides — approve, escalate
-to a human, or deny — and every decision is logged, auditable, and provable.
+provisions a resource, it asks Sanction. Sanction approves, escalates to a
+human, or denies. Every decision is logged and auditable. Sanction belongs to
+no platform: one policy engine answers across model providers, payment rails,
+identities, and agent ecosystems.
 
 ---
 
@@ -47,6 +49,9 @@ coverage gate, including concurrency and Postgres row-level-security suites.
 ---
 
 ## Distribution
+
+Platform vendors govern agents inside their own walls. Sanction authorizes
+agents wherever they run:
 
 - **MCP server** — `npx sanction-mcp` in any MCP host (Claude Desktop, etc.)
 - **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
