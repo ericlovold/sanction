@@ -16,6 +16,7 @@ const { dbMock } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/ownerAuth", () => ({ authenticateOwner: vi.fn(async () => ({ wallet: null })) }))
 
+import { authenticateOwner } from "../lib/ownerAuth"
 import { decisionEvidence, replayEvidence, type DecisionEvidence } from "../lib/evidence"
 import { GET as evidenceRoute } from "../app/api/v1/authorize/[id]/evidence/route"
 
@@ -131,6 +132,15 @@ describe("GET /v1/authorize/{id}/evidence", () => {
     expect(body.decision.rule_id).toBe("per_transaction")
     expect(body.context.amountCents).toBe(15_000)
     expect(body.replay.matches).toBe(true)
+  })
+
+  it("grants the owner's management key access without an agent key", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(null) // no agent key presented
+    vi.mocked(authenticateOwner).mockResolvedValueOnce({ wallet: { id: WID } } as never)
+    dbMock.authorizationRequest.findUnique.mockResolvedValue(row())
+    const res = await evidenceRoute(getReq(null), { params: Promise.resolve({ id: "req_1" }) })
+    expect(res.status).toBe(200)
+    expect((await res.json()).replay.matches).toBe(true)
   })
 
   it("exposes a record that no longer reproduces its decision", async () => {

@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { decisionCode } from "@/lib/decisions"
-import { replayEvidence, type DecisionEvidence } from "@/lib/evidence"
+import { isDecisionEvidence, replayEvidence } from "@/lib/evidence"
 
 // EVID-1: the evidence view of a decision. Returns the policy revision that
 // was in force, the exact engine context the decision evaluated, and a live
@@ -36,7 +36,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })
       : null
 
-  const evidence = row.decisionContextJson as DecisionEvidence | null
+  // Json column is trusted only after the shape guard — a foreign blob
+  // reports as null rather than leaking partial fields.
+  const evidence = isDecisionEvidence(row.decisionContextJson) ? row.decisionContextJson : null
   const replay = evidence ? replayEvidence(evidence) : null
 
   return NextResponse.json({

@@ -47,14 +47,28 @@ export type ReplayResult = {
 }
 
 /** Re-run the pure ladder over the stored context and compare to the stored outcome. */
+/** Runtime shape guard — DB Json columns are trusted only after this check. */
+export function isDecisionEvidence(v: unknown): v is DecisionEvidence {
+  const e = v as DecisionEvidence | null
+  return (
+    !!e && typeof e === "object" && typeof e.rule_id === "string" &&
+    typeof e.effect === "string" && !!e.ctx && typeof e.ctx === "object" &&
+    typeof e.ladder === "string" && e.ladder in LADDERS
+  )
+}
+
 export function replayEvidence(e: DecisionEvidence): ReplayResult | null {
-  if (!e || !(e.ladder in LADDERS) || !e.ctx || typeof e.ctx !== "object") return null
+  if (!isDecisionEvidence(e)) return null
   const d = evaluate(e.ctx as never, LADDERS[e.ladder] as never)
   return {
     effect: d.effect,
     rule_id: d.ruleId,
     code: d.code,
     reason: d.reason,
-    matches: d.effect === e.effect && (d.code ?? null) === (e.code ?? null) && d.ruleId === e.rule_id,
+    matches:
+      d.effect === e.effect &&
+      (d.code ?? null) === (e.code ?? null) &&
+      (d.reason ?? null) === (e.reason ?? null) &&
+      d.ruleId === e.rule_id,
   }
 }
