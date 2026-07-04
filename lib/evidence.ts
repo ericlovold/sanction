@@ -47,6 +47,92 @@ export type ReplayResult = {
 }
 
 /** Re-run the pure ladder over the stored context and compare to the stored outcome. */
+// Rich denials (UX-3): the four questions every denial must answer.
+// What happened → code. Why → reason + these numbers. What changes the
+// answer → resets_at / the appeal offer. Where is the evidence → links.
+// Derived from the decision's own stored evidence, so idempotent replays
+// answer identically without re-reading budget state.
+
+export const APPEALABLE_DENIALS = new Set([
+  "PER_TXN_LIMIT",
+  "DAILY_BUDGET_EXCEEDED",
+  "MONTHLY_BUDGET_EXCEEDED",
+  "SUBTREE_CAP_EXCEEDED",
+])
+
+export type LimitBlock = {
+  kind: "per_transaction" | "daily_spend_budget" | "monthly_spend_budget" | "escalation_band"
+  limit_usd: number
+  used_usd?: number
+  remaining_usd?: number
+  requested_usd: number
+  resets_at?: string
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+/** The limit that fired, with live values, from a decision's stored evidence. */
+export function limitFromDecision(code: string | undefined, evidence: unknown): LimitBlock | undefined {
+  if (!code || !isDecisionEvidence(evidence)) return undefined
+  const c = evidence.ctx as Record<string, unknown>
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined)
+  const requested = num(c.amountUsd)
+  if (requested === undefined) return undefined
+
+  const nextMidnight = () => {
+    const d = new Date()
+    d.setHours(24, 0, 0, 0)
+    return d.toISOString()
+  }
+  const nextMonthStart = () => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + 1, 1)
+    d.setHours(0, 0, 0, 0)
+    return d.toISOString()
+  }
+
+  switch (code) {
+    case "PER_TXN_LIMIT": {
+      const limit = num(c.perTxnMaxCents)
+      return limit === undefined ? undefined : { kind: "per_transaction", limit_usd: round2(limit / 100), requested_usd: requested }
+    }
+    case "DAILY_BUDGET_EXCEEDED": {
+      const limit = num(c.dailyBudgetCents)
+      const used = num(c.dailySpentUsd) ?? 0
+      if (limit === undefined) return undefined
+      const limitUsd = round2(limit / 100)
+      return {
+        kind: "daily_spend_budget",
+        limit_usd: limitUsd,
+        used_usd: round2(used),
+        remaining_usd: round2(Math.max(0, limitUsd - used)),
+        requested_usd: requested,
+        resets_at: nextMidnight(),
+      }
+    }
+    case "MONTHLY_BUDGET_EXCEEDED": {
+      const limit = num(c.monthlyBudgetCents)
+      const used = num(c.monthlySpentUsd) ?? 0
+      if (limit === undefined) return undefined
+      const limitUsd = round2(limit / 100)
+      return {
+        kind: "monthly_spend_budget",
+        limit_usd: limitUsd,
+        used_usd: round2(used),
+        remaining_usd: round2(Math.max(0, limitUsd - used)),
+        requested_usd: requested,
+        resets_at: nextMonthStart(),
+      }
+    }
+    case "ESCALATION_REQUIRED": {
+      const over = num(c.escalateOverCents)
+      return over === undefined ? undefined : { kind: "escalation_band", limit_usd: round2(over / 100), requested_usd: requested }
+    }
+    default:
+      return undefined
+  }
+}
+
 /** Runtime shape guard — DB Json columns are trusted only after this check. */
 export function isDecisionEvidence(v: unknown): v is DecisionEvidence {
   const e = v as DecisionEvidence | null

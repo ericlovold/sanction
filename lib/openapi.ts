@@ -74,6 +74,27 @@ export const spec = {
             description: "Stable machine-readable decision code (absent when approved). Branch on this to replan.",
           },
           remediation: { type: "string", description: "Suggested next step for the agent when not approved" },
+        limit: {
+          type: "object",
+          description: "UX-3: the limit that fired, with live values from the decision's stored evidence.",
+          properties: {
+            kind: { type: "string", enum: ["per_transaction", "daily_spend_budget", "monthly_spend_budget", "escalation_band"] },
+            limit_usd: { type: "number" },
+            used_usd: { type: "number" },
+            remaining_usd: { type: "number" },
+            requested_usd: { type: "number" },
+            resets_at: { type: "string", format: "date-time" },
+          },
+        },
+        links: {
+          type: "object",
+          properties: { record: { type: "string" }, evidence: { type: "string" } },
+        },
+        access_request: {
+          type: "object",
+          description: "Present on hard budget denials: the signed appeal offer (AARP) — POST it to /access/v1/access-request to put the denial in front of a human.",
+          properties: { endpoint: { type: "string" }, expires_at: { type: "string", format: "date-time" }, binding_token: { type: "string" } },
+        },
           request_id: { type: "string" },
           agent: { type: "string" },
           amount_usd: { type: "number" },
