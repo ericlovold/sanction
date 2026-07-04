@@ -1,6 +1,7 @@
 # Traceability — requirements → code → proof
 
-Sanction's pitch is that every agent action is provable. This registry applies the
+Sanction's pitch is that every security claim maps to enforcing code and a
+regression test. This registry applies the
 same standard to the codebase: every security/behavior claim we make has an ID, the
 code that enforces it, and the test that fails if it regresses. If you can't point
 to the proving test, the claim goes in **Gaps** — not in marketing.

@@ -85,6 +85,14 @@ Prisma 7 with `@prisma/adapter-pg` driver adapter; schema in `prisma/schema.pris
 
 ## Conventions & Gotchas
 
+- **Engineering principles** (canonical text in `docs/DOMAIN.md` § Engineering
+  principles; confirmed by Eric 2026-07-04): (1) Identity stays upstream —
+  Sanction consumes canonical identity and mints governed runtime identity,
+  never an identity of record. (2) Atomic authorization — budget, policy,
+  approval, grant, ledger, audit resolve together in one engine; the fusion
+  is the moat, not either half. (3) Determinism — same request + same policy
+  revision + same state snapshot ⇒ same decision; rules stay pure so
+  decisions can be replayed and evidenced. Weigh new work against these.
 - Path alias `@/*` maps to the repo root (both tsconfig and vitest).
 - `_`-prefixed variables/args are intentionally unused (ESLint is configured for this).
 - `.npmrc` sets `legacy-peer-deps=true` — expected, don't "fix" it.
