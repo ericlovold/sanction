@@ -1,12 +1,14 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { authenticateAgent } from "@/lib/auth"
 import {
   AuthZenBadRequest,
+  authzenRespond as respond,
   evaluateAuthZen,
   evaluationRequestSchema,
   evaluationsRequestSchema,
   mergeEvaluation,
   type AuthZenRequest,
+  type AuthZenDecision,
   type EvaluationsSemantic,
 } from "@/lib/authzen"
 import { logger } from "@/lib/log"
@@ -43,13 +45,20 @@ export async function POST(req: NextRequest) {
   }
 
   const semantic: EvaluationsSemantic = parsed.data.options?.evaluations_semantic ?? "execute_all"
-  const evaluations = []
+  let evaluations: AuthZenDecision[] = []
   try {
-    for (const item of merged) {
-      const decision = await evaluateAuthZen(agent, item)
-      evaluations.push(decision)
-      if (semantic === "deny_on_first_deny" && !decision.decision) break
-      if (semantic === "permit_on_first_permit" && decision.decision) break
+    if (semantic === "execute_all") {
+      // Items are independent under execute_all — evaluate concurrently;
+      // Promise.all preserves request order in the result.
+      evaluations = await Promise.all(merged.map((item) => evaluateAuthZen(agent, item)))
+    } else {
+      // The short-circuiting semantics are inherently sequential.
+      for (const item of merged) {
+        const decision = await evaluateAuthZen(agent, item)
+        evaluations.push(decision)
+        if (semantic === "deny_on_first_deny" && !decision.decision) break
+        if (semantic === "permit_on_first_permit" && decision.decision) break
+      }
     }
   } catch (e) {
     if (e instanceof AuthZenBadRequest) return respond(req, { error: e.message }, 400)
@@ -57,12 +66,4 @@ export async function POST(req: NextRequest) {
   }
 
   return respond(req, { evaluations }, 200)
-}
-
-// The spec recommends echoing the PEP's X-Request-ID on every response.
-function respond(req: NextRequest, body: unknown, status: number) {
-  const res = NextResponse.json(body, { status })
-  const requestId = req.headers.get("x-request-id")
-  if (requestId) res.headers.set("X-Request-ID", requestId)
-  return res
 }

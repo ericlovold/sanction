@@ -557,6 +557,17 @@ export const spec = {
           },
         },
       },
+      AuthZenEvaluationItem: {
+        type: "object",
+        description:
+          "One batch evaluation: a member-wise override of the request's top-level defaults, so every field is optional. After merging, each item must have subject, action, and resource.",
+        properties: {
+          subject: { $ref: "#/components/schemas/AuthZenEntity" },
+          action: { $ref: "#/components/schemas/AuthZenAction" },
+          resource: { $ref: "#/components/schemas/AuthZenEntity" },
+          context: { type: "object", additionalProperties: true },
+        },
+      },
       AuthZenEvaluationsRequest: {
         type: "object",
         description:
@@ -566,7 +577,7 @@ export const spec = {
           action: { $ref: "#/components/schemas/AuthZenAction" },
           resource: { $ref: "#/components/schemas/AuthZenEntity" },
           context: { type: "object", additionalProperties: true },
-          evaluations: { type: "array", maxItems: 50, items: { $ref: "#/components/schemas/AuthZenEvaluationRequest" } },
+          evaluations: { type: "array", maxItems: 50, items: { $ref: "#/components/schemas/AuthZenEvaluationItem" } },
           options: {
             type: "object",
             properties: {
@@ -662,7 +673,7 @@ export const spec = {
         operationId: "authzenEvaluation",
         summary: "AuthZEN access evaluation (Sanction as PDP)",
         description:
-          "OpenID AuthZEN Authorization API 1.0 single-evaluation endpoint. POST the standard subject/action/resource tuple and receive { decision: boolean } — evaluated against the same engine as /v1/authorize, but decision-only: nothing is persisted, no budget debited, no approval opened (the contract of ?simulate=true). resource.type routes the request: 'tool' → the tool block/allow/escalate ladder; 'spend' and 'provision' → the dollar ladders against live budget state. subject.id must be the authenticated agent. Echoes X-Request-ID.",
+          "OpenID AuthZEN Authorization API 1.0 single-evaluation endpoint. POST the standard subject/action/resource tuple and receive { decision: boolean } — evaluated against the same engine as /v1/authorize, but decision-only: nothing is persisted, no budget debited, no approval opened (the contract of ?simulate=true). resource.type routes the request: 'tool' → the tool block/allow/escalate ladder; 'spend' and 'provision' → the dollar ladders against live budget state. subject.id must be the authenticated agent's id or name. Echoes X-Request-ID.",
         security: [{ AgentApiKey: [] }],
         requestBody: {
           required: true,

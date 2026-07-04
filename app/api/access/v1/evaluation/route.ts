@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { authenticateAgent } from "@/lib/auth"
-import { AuthZenBadRequest, evaluateAuthZen, evaluationRequestSchema } from "@/lib/authzen"
+import { AuthZenBadRequest, authzenRespond as respond, evaluateAuthZen, evaluationRequestSchema } from "@/lib/authzen"
 import { logger } from "@/lib/log"
 
 const log = logger("access/v1/evaluation")
@@ -29,12 +29,4 @@ export async function POST(req: NextRequest) {
     if (e instanceof AuthZenBadRequest) return respond(req, { error: e.message }, 400)
     throw e
   }
-}
-
-// The spec recommends echoing the PEP's X-Request-ID on every response.
-function respond(req: NextRequest, body: unknown, status: number) {
-  const res = NextResponse.json(body, { status })
-  const requestId = req.headers.get("x-request-id")
-  if (requestId) res.headers.set("X-Request-ID", requestId)
-  return res
 }

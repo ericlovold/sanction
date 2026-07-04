@@ -193,10 +193,8 @@ describe("resource.type = spend", () => {
   })
 
   it("denies when live daily spend state exhausts the budget", async () => {
-    // Daily aggregate is read first, monthly second (Promise.all order).
-    dbMock.authorizationRequest.aggregate
-      .mockResolvedValueOnce({ _sum: { amountUsd: 9_999 } })
-      .mockResolvedValueOnce({ _sum: { amountUsd: 9_999 } })
+    // Same value for the daily and monthly reads — order-independent.
+    dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 9_999 } })
     const res = await evaluation(req("/access/v1/evaluation", spend(50)))
     expect((await res.json()).context.code).toBe("DAILY_BUDGET_EXCEEDED")
   })
@@ -334,11 +332,14 @@ describe("POST /access/v1/evaluations — batch", () => {
     expect(res.status).toBe(400)
   })
 
-  it("echoes X-Request-ID and 401s without a key", async () => {
+  it("echoes X-Request-ID", async () => {
     const ok = await evaluations(
       req("/access/v1/evaluations", { ...defaults, resource: { type: "tool", id: "search" } }, { requestId: "rid-7" }),
     )
     expect(ok.headers.get("x-request-id")).toBe("rid-7")
+  })
+
+  it("401s without a key", async () => {
     const anon = await evaluations(req("/access/v1/evaluations", {}, { key: null }))
     expect(anon.status).toBe(401)
   })

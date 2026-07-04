@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { decidePolicy, decideProvisionPolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { decideTool, TOOL_REMEDIATION } from "@/lib/toolDecisions"
@@ -79,6 +80,14 @@ export type AuthZenDecision = {
 
 /** Malformed-but-parseable requests (missing amount, bad arithmetic) → HTTP 400. */
 export class AuthZenBadRequest extends Error {}
+
+/** Shared PDP response envelope: the spec recommends echoing X-Request-ID on every response. */
+export function authzenRespond(req: NextRequest, body: unknown, status: number) {
+  const res = NextResponse.json(body, { status })
+  const requestId = req.headers.get("x-request-id")
+  if (requestId) res.headers.set("X-Request-ID", requestId)
+  return res
+}
 
 // AuthZEN-specific codes, alongside the engine's DecisionCodes.
 const AUTHZEN_REMEDIATION: Record<string, string> = {
