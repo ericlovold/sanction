@@ -20,10 +20,10 @@ export const CHANGELOG: ChangelogEntry[] = [
     tags: ["authorization", "developer-experience", "evidence"],
     body: `A 403 is a dead end. A Sanction denial now answers the four questions an agent actually has:
 
-- **What happened?** The machine code, as always: \\`DAILY_BUDGET_EXCEEDED\\`.
-- **Why?** A \\`limit\\` block with the fired rule's live values: limit $200, used $184.20, remaining $15.80, you asked for $42.
-- **What changes the answer?** \\`resets_at\\` tells you when the clock helps. And hard budget denials now carry the same signed \\`access_request\\` offer as escalations — on the native API and the AuthZEN wire both — so the agent can appeal to a human instead of waiting for midnight.
-- **Where is the evidence?** \\`links.record\\` and \\`links.evidence\\` point at the decision and its replay.
+- **What happened?** The machine code, as always: \`DAILY_BUDGET_EXCEEDED\`.
+- **Why?** A \`limit\` block with the fired rule's live values: limit $200, used $184.20, remaining $15.80, you asked for $42.
+- **What changes the answer?** \`resets_at\` tells you when the clock helps. And hard budget denials now carry the same signed \`access_request\` offer as escalations — on the native API and the AuthZEN wire both — so the agent can appeal to a human instead of waiting for midnight.
+- **Where is the evidence?** \`links.record\` and \`links.evidence\` point at the decision and its replay.
 
 The numbers come from the decision's own stored evidence, so an idempotent replay answers identically without re-reading budget state. An appealed denial lands in the same inbox as every escalation; approving mints the same one-use grant.`,
   },
