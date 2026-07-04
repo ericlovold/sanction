@@ -387,6 +387,17 @@ export const AARP_PROBLEM = {
   unknown_task: "urn:openid:authzen:access-request:error:unknown_task",
 } as const
 
+/**
+ * Map a persisted AuthorizationRequest state to the profile's task status.
+ * Timeout settlement is detected via decisionCode — the canonical
+ * (status, decisionNote) → code contract — not by re-matching note text here.
+ */
+export function aarpTaskStatus(status: string, decisionNote: string | null): "pending" | "approved" | "denied" | "expired" {
+  if (status === "escalated") return "pending"
+  if (status === "approved") return "approved"
+  return decisionCode(status, decisionNote) === "ESCALATION_TIMED_OUT" ? "expired" : "denied"
+}
+
 /** RFC 9457 problem+json response for the AARP endpoints. */
 export function aarpProblem(req: NextRequest, type: string, title: string, status: number) {
   const res = NextResponse.json({ type, title, status }, { status })
@@ -458,12 +469,23 @@ export function canonicalSarc(r: AuthZenRequest): CanonicalSarc {
       if (amountUsd === undefined || amountUsd <= 0) {
         throw new AuthZenBadRequest("provision requires a positive numeric amount_usd property")
       }
+      const quantity = numberProp(props, "quantity")
       const unitPriceUsd = numberProp(props, "unit_price_usd")
+      // Same arithmetic contract as the evaluation path — canonicalSarc also
+      // guards access-request submission and redemption, which don't pass
+      // through the evaluation branch's own check.
+      if (
+        unitPriceUsd !== undefined &&
+        quantity !== undefined &&
+        quantity * Math.round(unitPriceUsd * 100) !== Math.round(amountUsd * 100)
+      ) {
+        throw new AuthZenBadRequest("quantity × unit_price_usd must equal amount_usd")
+      }
       return {
         t: "provision",
         resource: r.resource.id,
         line_item: stringProp(props, "line_item") ?? r.resource.id,
-        quantity: numberProp(props, "quantity") ?? 1,
+        quantity: quantity ?? 1,
         unit_price_cents: unitPriceUsd !== undefined ? Math.round(unitPriceUsd * 100) : null,
         amount_cents: Math.round(amountUsd * 100),
         category: stringProp(props, "category") ?? "general",
@@ -472,6 +494,17 @@ export function canonicalSarc(r: AuthZenRequest): CanonicalSarc {
     default:
       throw new AuthZenBadRequest(`resource.type '${r.resource.type}' is not requestable`)
   }
+}
+
+/**
+ * The origin advertised in discovery documents and access_request offers.
+ * SANCTION_PUBLIC_ORIGIN pins it in deployments behind proxies where the
+ * request host can't be trusted; unset (local, CI, Vercel previews — where
+ * the platform validates the Host header) the request origin is used so
+ * every deployment self-describes correctly.
+ */
+export function publicOrigin(req: NextRequest): string {
+  return process.env.SANCTION_PUBLIC_ORIGIN || req.nextUrl.origin
 }
 
 function getSigningKey() {

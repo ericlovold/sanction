@@ -7,9 +7,11 @@ import {
   ACCESS_REQUEST_PATH,
   AuthZenBadRequest,
   aarpProblem,
+  aarpTaskStatus,
   accessRequestSchema,
   authzenRespond as respond,
   canonicalSarc,
+  publicOrigin,
   sarcEquals,
   verifyBindingToken,
   type CanonicalSarc,
@@ -76,10 +78,14 @@ export async function POST(req: NextRequest) {
 
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
   if (idempotencyKey) {
+    // Replay reports the request's REAL state — a retry after the owner
+    // decided must not claim "pending".
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return respond(req, taskResponse(existing.id, "pending", req.nextUrl.origin), 200)
+    if (existing) {
+      return respond(req, taskResponse(existing.id, aarpTaskStatus(existing.status, existing.decisionNote), publicOrigin(req)), 200)
+    }
   }
 
   const sarc = verified.sarc
@@ -212,13 +218,15 @@ export async function POST(req: NextRequest) {
       ]),
     )
 
-    return respond(req, taskResponse(escalated.id, "pending", req.nextUrl.origin), 201)
+    return respond(req, taskResponse(escalated.id, "pending", publicOrigin(req)), 201)
   } catch (e: unknown) {
     if (idempotencyKey && isUniqueViolation(e)) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return respond(req, taskResponse(existing.id, "pending", req.nextUrl.origin), 200)
+      if (existing) {
+        return respond(req, taskResponse(existing.id, aarpTaskStatus(existing.status, existing.decisionNote), publicOrigin(req)), 200)
+      }
     }
     throw e
   }

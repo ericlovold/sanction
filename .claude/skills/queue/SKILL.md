@@ -23,7 +23,7 @@ The user says it, you write it down, you go back to what you were doing.
 
 ## Entry format
 
-```
+```text
 - [ ] 2026-07-04 — Should we make the repo private? (question, from Eric,
       market-intel arc) · take delivered in-session: stay source-available
 ```

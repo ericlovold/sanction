@@ -778,11 +778,16 @@ export const spec = {
         },
         responses: {
           "201": {
-            description: "Escalation opened — task handle returned (200 on idempotent replay)",
+            description: "Escalation opened — task handle returned",
             content: { "application/json": { schema: { $ref: "#/components/schemas/AarpTaskResponse" } } },
           },
-          "400": { description: "Malformed request or invalid denial binding (problem+json)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "200": {
+            description: "Idempotent replay (Idempotency-Key already seen) — the existing task with its CURRENT status",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AarpTaskResponse" } } },
+          },
+          "400": { description: "Malformed request (plain error JSON), or invalid denial binding — tampered token or mismatched tuple (problem+json)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "403": { description: "subject.id does not match the authenticated agent", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "410": { description: "The denial has expired — re-evaluate for a fresh one (problem+json)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { authenticateAgent } from "@/lib/auth"
-import { AuthZenBadRequest, authzenRespond as respond, evaluateAuthZen, evaluationRequestSchema } from "@/lib/authzen"
+import { AuthZenBadRequest, authzenRespond as respond, evaluateAuthZen, evaluationRequestSchema, publicOrigin } from "@/lib/authzen"
 import { logger } from "@/lib/log"
 
 const log = logger("access/v1/evaluation")
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return respond(req, await evaluateAuthZen(agent, parsed.data, { origin: req.nextUrl.origin }), 200)
+    return respond(req, await evaluateAuthZen(agent, parsed.data, { origin: publicOrigin(req) }), 200)
   } catch (e) {
     if (e instanceof AuthZenBadRequest) return respond(req, { error: e.message }, 400)
     throw e

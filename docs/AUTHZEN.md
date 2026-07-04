@@ -108,7 +108,9 @@ you can appeal, a human who decides, a time-boxed approval you present back.
 3. **Poll the task.** `GET /access/v1/access-request/{id}` until the status
    is terminal: `approved`, `denied`, or `expired`. Approval carries
    `result.mode: "reevaluate"` and the `approval` object — `approval.id` is
-   the one-use grant, `approved_until` its expiry.
+   the one-use grant, `approved_until` its expiry, and `approval.status`
+   its live state (`active` until redeemed; a consumed grant stays visible
+   but is spent).
 
 4. **Redeem by re-evaluating.** POST the same tuple to
    `/access/v1/evaluation` with `context.approval: { id }`. Sanction
@@ -128,6 +130,10 @@ events, signed), request catalogs and form schemas, and bulk `items[]`.
 
 - `X-Request-ID` from the request is echoed on every response.
 - Malformed requests are HTTP 400 (a batch fails whole, naming the bad
-  item's index); a missing or invalid key is 401. AARP endpoints use RFC 9457
-  problem+json with the profile's error URNs.
+  item's index); a missing or invalid key is 401; a subject other than the
+  authenticated agent is 403 on the access-request endpoint. The AARP
+  binding and task errors specifically (tampered/mismatched token, expired
+  denial, unknown task) are RFC 9457 problem+json with the profile's URNs.
+- Retrying `POST /access/v1/access-request` with the same `Idempotency-Key`
+  returns HTTP 200 with the existing task at its current status.
 - Full schemas: [`/api/openapi.json`](https://getsanction.com/api/openapi.json).

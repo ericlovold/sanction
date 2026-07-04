@@ -7,6 +7,7 @@ import {
   evaluationRequestSchema,
   evaluationsRequestSchema,
   mergeEvaluation,
+  publicOrigin,
   type AuthZenRequest,
   type AuthZenDecision,
   type EvaluationsSemantic,
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
   const semantic: EvaluationsSemantic = parsed.data.options?.evaluations_semantic ?? "execute_all"
   let evaluations: AuthZenDecision[] = []
   try {
-    const origin = req.nextUrl.origin
+    const origin = publicOrigin(req)
     if (semantic === "execute_all") {
       // Items are independent under execute_all — evaluate concurrently;
       // Promise.all preserves request order in the result.

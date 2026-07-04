@@ -261,7 +261,7 @@ describe("POST /access/v1/access-request", () => {
 
   it("replays idempotently instead of opening a duplicate", async () => {
     const offer = await obtainOffer()
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_existing", status: "escalated" })
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_existing", status: "escalated", decisionNote: null })
     const request = new NextRequest("https://test.local/api/access/v1/access-request", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": KEY, "idempotency-key": "idem-1" },
@@ -269,8 +269,26 @@ describe("POST /access/v1/access-request", () => {
     })
     const res = await openAccessRequest(request)
     expect(res.status).toBe(200)
-    expect((await res.json()).task.id).toBe("req_existing")
+    const body = await res.json()
+    expect(body.task.id).toBe("req_existing")
+    expect(body.task.status).toBe("pending")
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("replay reports the real status once the owner has decided", async () => {
+    const offer = await obtainOffer()
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_existing",
+      status: "approved",
+      decisionNote: "Approved by owner",
+    })
+    const request = new NextRequest("https://test.local/api/access/v1/access-request", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": KEY, "idempotency-key": "idem-1" },
+      body: JSON.stringify({ ...escalatedTool, denial: { binding_token: offer.binding_token } }),
+    })
+    const res = await openAccessRequest(request)
+    expect((await res.json()).task.status).toBe("approved")
   })
 
   it("400s without a policy or without a denial object", async () => {
@@ -327,7 +345,20 @@ describe("GET /access/v1/access-request/{id}", () => {
     expect(body.task.status).toBe("approved")
     expect(body.result.mode).toBe("reevaluate")
     expect(body.result.approval.id).toBe("grant_1")
+    expect(body.result.approval.status).toBe("active")
     expect(body.result.approval.approved_until).toBe(expiresAt.toISOString())
+  })
+
+  it("shows a consumed grant as spent, not as a fresh approval", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...baseRow, status: "approved", decisionNote: "Grant consumed" })
+    dbMock.grant.findFirst.mockResolvedValue({
+      id: "grant_1",
+      status: "consumed",
+      expiresAt: new Date(Date.now() + 5 * 60_000),
+      createdAt: new Date(),
+    })
+    const res = await taskStatus(getReq("/api/access/v1/access-request/req_1"), { params: Promise.resolve({ id: "req_1" }) })
+    expect((await res.json()).result.approval.status).toBe("consumed")
   })
 
   it("maps a policy-timeout settlement to expired", async () => {
@@ -442,6 +473,17 @@ describe("re-evaluation with context.approval", () => {
     expect(body.context.aarp_reason).toBe("policy_denied")
   })
 
+  it("400s a provision redemption whose arithmetic is inconsistent", async () => {
+    const provision = {
+      subject,
+      action: { name: "allocate", properties: { amount_usd: 5, quantity: 2, unit_price_usd: 3 } },
+      resource: { type: "provision", id: "azure:seat" },
+      context: { approval: { id: "grant_1" } },
+    }
+    const res = await evaluation(req("/api/access/v1/evaluation", provision))
+    expect(res.status).toBe(400)
+  })
+
   it("400s a context.approval without a string id", async () => {
     const res = await evaluation(
       req("/api/access/v1/evaluation", { ...escalatedTool, context: { approval: { id: 42 } } }),
@@ -474,5 +516,17 @@ describe("GET /.well-known/authzen-configuration", () => {
     expect(body.access_evaluation_endpoint).toBe("https://test.local/api/access/v1/evaluation")
     expect(body.access_request_endpoint).toBe("https://test.local/api/access/v1/access-request")
     expect(body.capabilities).toContain("urn:openid:authzen:capability:access-request")
+  })
+
+  it("SANCTION_PUBLIC_ORIGIN pins the advertised origin over the request host", async () => {
+    process.env.SANCTION_PUBLIC_ORIGIN = "https://getsanction.com"
+    try {
+      const res = await wellKnown(getReq("/.well-known/authzen-configuration", { key: null }))
+      expect((await res.json()).access_request_endpoint).toBe("https://getsanction.com/api/access/v1/access-request")
+      const offer = await obtainOffer()
+      expect(offer.endpoint).toBe("https://getsanction.com/api/access/v1/access-request")
+    } finally {
+      delete process.env.SANCTION_PUBLIC_ORIGIN
+    }
   })
 })

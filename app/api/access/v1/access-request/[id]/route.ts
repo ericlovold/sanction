@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { AARP_PROBLEM, ACCESS_REQUEST_PATH, aarpProblem, authzenRespond as respond } from "@/lib/authzen"
+import { AARP_PROBLEM, ACCESS_REQUEST_PATH, aarpProblem, aarpTaskStatus, authzenRespond as respond, publicOrigin } from "@/lib/authzen"
 import { settleIfExpired } from "@/lib/approvals"
 import { APPROVE_URL } from "@/lib/webhooks"
 
@@ -29,15 +29,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // Settle the escalation if it outlived the policy timeout, so pollers get a
   // terminal state instead of waiting forever (UX-2, same as the native poll).
   const d = await settleIfExpired(row, row.agent.wallet.policy)
-
-  const timedOut = d.decisionNote?.startsWith("Escalation timed out") ?? false
-  const status =
-    d.status === "escalated" ? "pending" : d.status === "approved" ? "approved" : timedOut ? "expired" : "denied"
+  const status = aarpTaskStatus(d.status, d.decisionNote)
 
   const task: Record<string, unknown> = {
     id: row.id,
     status,
-    status_endpoint: `${req.nextUrl.origin}${ACCESS_REQUEST_PATH}/${row.id}`,
+    status_endpoint: `${publicOrigin(req)}${ACCESS_REQUEST_PATH}/${row.id}`,
     links: { review: APPROVE_URL },
   }
   if (status === "pending") {
@@ -51,9 +48,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (status !== "approved") return respond(req, { task }, 200)
 
-  // Approved: surface the grant as the AARP approval artifact. A timeout
-  // auto-approve mints no grant — the task reports approved without a result,
-  // and a fresh evaluation of the same action will approve on its own.
+  // Approved: surface the grant as the AARP approval artifact, WITH its live
+  // state — a consumed or revoked grant must not read as a fresh approval to
+  // pollers. A timeout auto-approve mints no grant — the task reports
+  // approved without a result, and a fresh evaluation will approve on its own.
   const grant = await db.grant.findFirst({
     where: { sourceType: "authorization_request", sourceId: row.id },
     orderBy: { createdAt: "desc" },
@@ -69,6 +67,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         mode: "reevaluate",
         approval: {
           id: grant.id,
+          status: grant.status,
           approved_at: grant.createdAt.toISOString(),
           approved_until: grant.expiresAt?.toISOString() ?? null,
         },
