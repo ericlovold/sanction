@@ -16,7 +16,7 @@ import {
   verifyBindingToken,
   type CanonicalSarc,
 } from "@/lib/authzen"
-import { createSpendPendingApproval, createToolPendingApproval, createProvisionPendingApproval } from "@/lib/approvals"
+import { createSpendPendingApproval, createToolPendingApproval, createProvisionPendingApproval, createCapabilityPendingApproval } from "@/lib/approvals"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { logger } from "@/lib/log"
@@ -117,7 +117,31 @@ export async function POST(req: NextRequest) {
         })
         return row
       }
-      if (sarc.t === "spend") {
+      if (sarc.t === "capability") {
+        const row = await tx.authorizationRequest.create({
+          data: {
+            agentId: agent.id,
+            kind: "capability",
+            action: "use",
+            amountUsd: 0,
+            merchant: sarc.capability,
+            category: "capability",
+            detailsJson: { capability: sarc.capability },
+            status: "escalated",
+            decisionNote: reason,
+            idempotencyKey,
+          },
+        })
+        await createCapabilityPendingApproval(tx, {
+          walletId: agent.walletId,
+          agentName: agent.name,
+          request: { id: row.id, agentId: agent.id, capability: sarc.capability, createdAt: row.createdAt },
+          policy,
+          reason,
+        })
+        return row
+      }
+            if (sarc.t === "spend") {
         const row = await tx.authorizationRequest.create({
           data: {
             agentId: agent.id,
@@ -188,13 +212,13 @@ export async function POST(req: NextRequest) {
     })
 
     // Same fan-out as a native escalation: the approval finds its human.
-    const amountUsd = sarc.t === "tool" ? 0 : sarc.amount_cents / 100
-    const merchant = sarc.t === "tool" ? sarc.tool : sarc.t === "spend" ? sarc.merchant : sarc.resource
+    const amountUsd = sarc.t === "tool" || sarc.t === "capability" ? 0 : sarc.amount_cents / 100
+    const merchant = sarc.t === "tool" ? sarc.tool : sarc.t === "capability" ? sarc.capability : sarc.t === "spend" ? sarc.merchant : sarc.resource
     after(() =>
       Promise.all([
         deliverEvent(agent.walletId, "approval.created", {
           request_id: escalated.id,
-          action_type: sarc.t === "tool" ? "tool.invoke" : sarc.t === "spend" ? `spend.${sarc.action}` : "provision.allocate",
+          action_type: sarc.t === "tool" ? "tool.invoke" : sarc.t === "capability" ? "capability.use" : sarc.t === "spend" ? `spend.${sarc.action}` : "provision.allocate",
           agent: agent.name,
           resource: { kind: sarc.t, ...sarc },
           reason,
@@ -211,7 +235,7 @@ export async function POST(req: NextRequest) {
           agentName: agent.name,
           amountUsd,
           merchant,
-          category: sarc.t === "tool" ? "tool" : sarc.category,
+          category: sarc.t === "tool" ? "tool" : sarc.t === "capability" ? "capability" : sarc.category,
           description: reason,
           approveUrl: APPROVE_URL,
         }).catch((err) => log.warn("escalation email failed", { err: String(err) })),

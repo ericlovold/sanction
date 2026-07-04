@@ -234,6 +234,13 @@ model Policy {
   blockedResources  String[] @default([])
   escalateResources String[] @default([])
 
+  // Capability governance (CAP-1): one ordered rule list for every kind of
+  // new capability an agent can acquire or exercise — skills, plugins, APIs,
+  // installs. Entries are { pattern, effect: block|allow|escalate } with
+  // namespaced ids (skill:install:*, plugin:*, api:github.com/*) and
+  // prefix-glob matching. Empty = allow all (governance is opt-in, like tools).
+  capabilityRules Json @default("[]")
+
   // Escalation deadlock guard (UX-2): an escalated request that no human resolves
   // within escalationTimeoutMins is settled to the fallback terminal state on the
   // next read. 0 = wait indefinitely. Default action is fail-closed (deny).

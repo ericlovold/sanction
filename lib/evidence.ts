@@ -3,6 +3,7 @@ import { evaluate } from "@/lib/evaluation"
 import { SPEND_STATELESS, SPEND_STATEFUL } from "@/lib/rules/spend"
 import { PROVISION_STATELESS, PROVISION_STATEFUL } from "@/lib/rules/provision"
 import { TOOL_RULES } from "@/lib/rules/tool"
+import { CAPABILITY_RULES } from "@/lib/capability"
 
 // Decision evidence (EVID-1). Because rules are pure over their context
 // (determinism principle, docs/DOMAIN.md), the evidence for a decision is just
@@ -15,6 +16,7 @@ const LADDERS = {
   spend: [...SPEND_STATELESS, ...SPEND_STATEFUL],
   provision: [...PROVISION_STATELESS, ...PROVISION_STATEFUL],
   tool: TOOL_RULES,
+  capability: CAPABILITY_RULES,
 } as const
 
 export type EvidenceLadder = keyof typeof LADDERS

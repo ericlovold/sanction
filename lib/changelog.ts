@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-05",
+    title: "Capability governance — new powers ask first",
+    tags: ["authorization", "capabilities", "skills"],
+    body: "An agent that installs a skill, adds a plugin, or reaches a new API has changed what it can do. That change is now a governed action like spending money. One ordered rule list on the wallet policy, with namespaced patterns: block `skill:install:crypto-*`, escalate `skill:install:*`, allow `api:github.com/*`. `POST /v1/authorize/capability` answers allow, deny, or escalate; escalations land in the same approval inbox, approval mints the same one-use grant, and every escalation carries replayable evidence. The AuthZEN wire speaks it too: `resource.type: \"capability\"`, with the AARP appeal offer on escalations. Skills are how agents grow; now growing is governed.",
+  },
+  {
     date: "2026-07-04",
     title: "Denials that answer back",
     tags: ["authorization", "developer-experience", "evidence"],

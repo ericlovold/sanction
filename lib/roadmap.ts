@@ -15,13 +15,13 @@ export type RoadmapItem = { title: string; note: string }
 
 export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapItem[] } = {
   now: [
+    { title: "Decisions you can replay", note: "Every policy edit becomes an immutable revision; every decision records the revision it ran under. Ask 'why was this denied?' and get the policy that was in force, the values it saw, and a replay that proves it." },
+    { title: "Capability governance", note: "Installing a skill, adding a plugin, calling a new API — new capability is a governed action like spending money. One rule list: allow, escalate, or deny before new power lands in an agent." },
     { title: "Speak the standards (AuthZEN)", note: "Sanction as an OpenID AuthZEN decision point — any standards-speaking gateway can ask before its agent acts, and the escalate → approve → grant loop rides the draft approval profile." },
     { title: "Approvals that find you", note: "Escalations routed to the right human wherever they work — email today, Slack and webhooks next." },
     { title: "Seat wallets", note: "A wallet per seat you can hand to whoever holds it — rotate on attrition, auto-expire contractors, stamp a team template across five seats at once. Budgets by team, by day, by seat." },
   ],
   next: [
-    { title: "Decisions you can replay", note: "Every policy edit becomes an immutable revision; every decision records the revision it ran under. Ask 'why was this denied?' and get the policy that was in force, the values it saw, and a replay that proves it." },
-    { title: "Capability governance", note: "Installing a skill, adding a plugin, calling a new API — new capability is a governed action like spending money. One ladder for tools, skills, plugins, and provisioning: allow, escalate, or deny before it lands in an agent." },
     { title: "Sanction Local", note: "Private AI on hardware you own — local models, zero egress by design, and a signed audit trail your assessor can read. Regulated practices first." },
     { title: "Policy templates & plain-English governance", note: "Start from sensible presets; read and write your guardrails in words, not cents." },
     { title: "Budget reallocation", note: "Move unused budget across the account tree to where it's needed — leftover tokens become working capital, and the reallocation shows up in the audit." },

@@ -141,6 +141,36 @@ export async function consumeToolGrant(
   })
 }
 
+export type CapabilityGrantRequest = { capability: string }
+
+// Capability grants (CAP-1): no dollar amount, one-use, expiring — the tool
+// pattern applied to acquired capability. Runs inside the caller's transaction.
+export async function consumeCapabilityGrant(
+  client: GrantClient,
+  input: {
+    grantId: string
+    walletId: string
+    agentId: string
+    request: CapabilityGrantRequest
+    now?: Date
+  },
+): Promise<GrantConsumeResult> {
+  return consumeGrantCore(client, {
+    ...input,
+    amountUsd: 0,
+    amountCents: 0,
+    ancestorChain: [],
+    execTokenId: null,
+    expectedActionType: "capability.use",
+    matches: (resourceJson) => {
+      const resource = asRecord(resourceJson)
+      return resource.kind === "capability" && resource.capability === input.request.capability
+    },
+    unsupportedReason: "Grant is not valid for this capability",
+    mismatchReason: "Grant does not authorize this capability",
+  })
+}
+
 async function consumeGrantCore(
   client: GrantClient,
   input: {
