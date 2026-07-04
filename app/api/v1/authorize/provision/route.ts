@@ -4,7 +4,8 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
-import { decisionEvidence } from "@/lib/evidence"
+import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/evidence"
+import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
 import { PROVISION_STATELESS, PROVISION_STATEFUL, type ProvisionContext } from "@/lib/rules/provision"
 import type { SpendContext } from "@/lib/rules/spend"
@@ -74,12 +75,28 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
+  // UX-3: hard budget denials are appealable (see spend route).
+  const withAppeal = async (respBody: Record<string, unknown>) => {
+    if (respBody.status === "denied" && typeof respBody.code === "string" && APPEALABLE_DENIALS.has(respBody.code)) {
+      respBody.access_request = await accessRequestOffer(
+        agent,
+        {
+          subject: { type: "agent", id: agent.id },
+          action: { name: "allocate", properties: { amount_usd, category, quantity, unit_price_usd, line_item } },
+          resource: { type: "provision", id: resource },
+        },
+        typeof respBody.reason === "string" ? respBody.reason : undefined,
+        publicOrigin(req),
+      )
+    }
+    return respBody
+  }
 
   if (idempotencyKey && !grant_id) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
   }
 
   // Legacy display columns: merchant holds the resource for provision rows, so
@@ -96,6 +113,7 @@ export async function POST(req: NextRequest) {
     detailsJson: { resource, line_item, quantity, unit_price_usd: unit_price_usd ?? null },
   }
   const ancestorChain = await walletAncestorChain(db, agent.walletId)
+
 
   let execTokenId: string | null = null
   const authz = req.headers.get("authorization")
@@ -195,7 +213,10 @@ export async function POST(req: NextRequest) {
   if (!simulate) {
     preDecision = evaluate(gateCtx, PROVISION_STATELESS)
     if (preDecision.effect === "deny") {
-      return persist({ ...base, ...gateEvidence(), status: "denied", decidedAt: new Date(), decisionNote: preDecision.reason }, agent.name)
+      const rec = await db.authorizationRequest.create({
+        data: { ...base, ...gateEvidence(), status: "denied", decidedAt: new Date(), decisionNote: preDecision.reason } as never,
+      })
+      return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: statusCode(rec.status) })
     }
   }
 
@@ -382,19 +403,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json(decisionResponse(result, agent.name), { status: statusCode(result.status) })
+    return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: statusCode(result.status) })
   } catch (e: unknown) {
     if (idempotencyKey && isUniqueViolation(e)) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
     }
     throw e
   }
 }
 
-type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string; detailsJson?: unknown }
+type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string; detailsJson?: unknown; decisionContextJson?: unknown }
 
 async function persist(data: Record<string, unknown>, agentName: string) {
   const rec = await db.authorizationRequest.create({ data: data as never })
@@ -412,6 +433,9 @@ function decisionResponse(r: Decision, agentName: string) {
     reason: r.decisionNote ?? undefined,
     code,
     remediation: code ? REMEDIATION[code] : undefined,
+    // UX-3: fired limit with live values + evidence links (see spend route).
+    limit: limitFromDecision(code, r.decisionContextJson),
+    links: { record: `/api/v1/authorize/${r.id}`, evidence: `/api/v1/authorize/${r.id}/evidence` },
     agent: agentName,
     amount_usd: r.amountUsd,
     resource: r.merchant,

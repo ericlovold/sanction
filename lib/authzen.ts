@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { decidePolicy, decideProvisionPolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { decideTool, TOOL_REMEDIATION } from "@/lib/toolDecisions"
 import { consumeSpendGrant, consumeProvisionGrant, consumeToolGrant, type GrantConsumeResult } from "@/lib/grants"
+import { APPEALABLE_DENIALS } from "@/lib/evidence"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
@@ -351,7 +352,9 @@ async function settleSpendDecision(
   const code: DecisionCode = decisionCode(decision.status, decision.note) ?? "POLICY_DENIED"
   const remediation = REMEDIATION[code] + (decision.status === "escalated" ? OPEN_APPROVAL[kind] : "")
   const context: AuthZenDecision["context"] = { code, reason: decision.note, remediation }
-  if (decision.status === "escalated") {
+  // Escalations are requestable by definition; hard budget denials are
+  // appealable too (UX-3) — same signed offer, same approval inbox.
+  if (decision.status === "escalated" || APPEALABLE_DENIALS.has(code)) {
     context.access_request = await accessRequestOffer(agent, r, decision.note, origin)
   }
   return { decision: false, context }
@@ -513,8 +516,8 @@ function getSigningKey() {
   return new TextEncoder().encode(secret)
 }
 
-/** The requestable-denial offer attached to escalate outcomes. */
-async function accessRequestOffer(
+/** The requestable-denial offer: signed proof this denial happened here. */
+export async function accessRequestOffer(
   agent: AuthZenAgent,
   r: AuthZenRequest,
   reason: string | undefined,

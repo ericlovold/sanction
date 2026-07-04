@@ -4,7 +4,8 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
-import { decisionEvidence } from "@/lib/evidence"
+import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/evidence"
+import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
 import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
@@ -60,17 +61,36 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
+  // UX-3: a hard budget denial is appealable — attach the same signed
+  // access_request offer the AuthZEN wire carries, so "what changes the
+  // answer" includes a human, not just the clock.
+  const withAppeal = async (body: Record<string, unknown>) => {
+    if (body.status === "denied" && typeof body.code === "string" && APPEALABLE_DENIALS.has(body.code)) {
+      body.access_request = await accessRequestOffer(
+        agent,
+        {
+          subject: { type: "agent", id: agent.id },
+          action: { name: action, properties: { amount_usd, category } },
+          resource: { type: "spend", id: merchant },
+        },
+        typeof body.reason === "string" ? body.reason : undefined,
+        publicOrigin(req),
+      )
+    }
+    return body
+  }
 
   // Idempotent replay: a retry with the same key returns the original decision.
   if (idempotencyKey && !grant_id) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
   }
 
   const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
   const amountCents = Math.round(amount_usd * 100)
+
   const ancestorChain = await walletAncestorChain(db, agent.walletId)
 
   // Optional execution context: if the agent presents its exec JWT, this call is
@@ -169,8 +189,8 @@ export async function POST(req: NextRequest) {
     const gateCtx = { ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }
     const gate = evaluate(gateCtx, SPEND_STATELESS)
     if (gate.effect === "deny") {
-      return persist(
-        {
+      const rec = await db.authorizationRequest.create({
+        data: {
           ...base,
           status: "denied",
           decidedAt: new Date(),
@@ -178,8 +198,8 @@ export async function POST(req: NextRequest) {
           policyRevision: policy.currentRevision,
           decisionContextJson: decisionEvidence("spend", gateCtx),
         },
-        agent.name,
-      )
+      })
+      return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: statusCode(rec.status) })
     }
   }
 
@@ -361,20 +381,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json(decisionResponse(result, agent.name), { status: statusCode(result.status) })
+    return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: statusCode(result.status) })
   } catch (e: unknown) {
     // Unique violation on (agentId, idempotencyKey) => concurrent duplicate; return the winner.
     if (idempotencyKey && isUniqueViolation(e)) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
     }
     throw e
   }
 }
 
-type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string }
+type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string; decisionContextJson?: unknown }
 
 async function persist(data: Record<string, unknown>, agentName: string) {
   const rec = await db.authorizationRequest.create({ data: data as never })
@@ -392,6 +412,10 @@ function decisionResponse(r: Decision, agentName: string) {
     // Machine-readable code + remediation hint so an agent can replan (UX-1).
     code,
     remediation: code ? REMEDIATION[code] : undefined,
+    // UX-3: the limit that fired with live values, from the decision's own
+    // stored evidence — identical on idempotent replays, zero extra reads.
+    limit: limitFromDecision(code, r.decisionContextJson),
+    links: { record: `/api/v1/authorize/${r.id}`, evidence: `/api/v1/authorize/${r.id}/evidence` },
     agent: agentName,
     amount_usd: r.amountUsd,
     merchant: r.merchant,
