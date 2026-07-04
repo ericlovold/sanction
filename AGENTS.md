@@ -136,7 +136,7 @@ the skill files.
 
 - Owner: Eric Lovold (solo founder). Primary agent client: AIIA Brain (Mac Mini agent; its integration lives outside this repo in `~/aiia-brain`).
 - Distribution: MCP (npm), AWS Bedrock Action Groups, direct REST API, LLM gateway.
-- Model: Freemium SaaS — Free / $19 Pro / $49 Team / Enterprise.
+- Model: Free for individuals (no card, personal + production use); Enterprise paid license (SSO, policy administration, audit export, SLA, deployment control). Confirmed 2026-07-04.
 
 ## Design Direction
 
