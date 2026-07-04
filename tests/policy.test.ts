@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 // db is mocked: applyPolicyUpdate's value is the validation + dollars->cents math
 // that runs *before* the upsert. We capture the upsert args to assert the math.
-const { upsert } = vi.hoisted(() => ({ upsert: vi.fn() }))
-vi.mock("../lib/db", () => ({ db: { policy: { upsert } } }))
+const { upsert, revisionCreate } = vi.hoisted(() => ({ upsert: vi.fn(), revisionCreate: vi.fn() }))
+vi.mock("../lib/db", () => ({
+  db: {
+    policy: { upsert },
+    policyRevision: { create: revisionCreate },
+    // upsertPolicyWithRevision runs in a transaction; hand it the same mocks.
+    $transaction: (fn: (tx: unknown) => unknown) => fn({ policy: { upsert }, policyRevision: { create: revisionCreate } }),
+  },
+}))
 
 import { applyPolicyUpdate, policyToDollars } from "../lib/policy"
 
@@ -69,7 +76,8 @@ describe("applyPolicyUpdate — validation + dollars→cents", () => {
   it("is partial — only sent fields are written", async () => {
     await applyPolicyUpdate("w1", { escalate_over_usd: 25 })
     const update = upsert.mock.calls[0][0].update
-    expect(Object.keys(update)).toEqual(["escalateOverUsd"])
+    // currentRevision rides every update (EVID-1 revision bump)
+    expect(Object.keys(update)).toEqual(["escalateOverUsd", "currentRevision"])
     expect(update.escalateOverUsd).toBe(2500)
   })
 
@@ -112,5 +120,21 @@ describe("policyToDollars — cents→dollars round-trip", () => {
     expect(d.blocked_categories).toEqual(["gambling"])
     expect(d.escalation_timeout_mins).toBe(60)
     expect(d.escalation_timeout_action).toBe("approve")
+  })
+})
+
+describe("upsertPolicyWithRevision (EVID-1)", () => {
+  it("writes an immutable revision snapshot alongside every mutation", async () => {
+    revisionCreate.mockClear()
+    upsert.mockResolvedValue({ ...ROW, escalateOverUsd: 2500, id: "pol_1", walletId: "w1", currentRevision: 4, updatedAt: new Date() })
+    await applyPolicyUpdate("w1", { escalate_over_usd: 25 })
+    expect(revisionCreate).toHaveBeenCalledTimes(1)
+    const arg = revisionCreate.mock.calls[0][0].data
+    expect(arg.policyId).toBe("pol_1")
+    expect(arg.revision).toBe(4)
+    // The snapshot carries the policy fields but never the mutable envelope.
+    expect(arg.snapshotJson.escalateOverUsd).toBe(2500)
+    expect(arg.snapshotJson.id).toBeUndefined()
+    expect(arg.snapshotJson.currentRevision).toBeUndefined()
   })
 })

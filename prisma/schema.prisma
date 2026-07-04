@@ -240,8 +240,30 @@ model Policy {
   escalationTimeoutMins   Int    @default(60)
   escalationTimeoutAction String @default("deny") // deny | approve
 
+  // Evidence (EVID-1): every mutation bumps currentRevision and writes an
+  // immutable PolicyRevision snapshot; decisions record the revision they ran
+  // under, so "what policy was in force?" stays answerable after any edit.
+  currentRevision Int @default(1)
+
   updatedAt DateTime @updatedAt
   wallet    Wallet   @relation(fields: [walletId], references: [id])
+  revisions PolicyRevision[]
+}
+
+// Append-only history of policy states (EVID-1). Never updated, never deleted
+// while the policy lives — the evidentiary record replay resolves against.
+model PolicyRevision {
+  id           String   @id @default(cuid())
+  policyId     String
+  walletId     String
+  revision     Int
+  snapshotJson Json     // full policy fields in cents at this revision
+  createdAt    DateTime @default(now())
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, revision])
+  @@index([walletId, createdAt])
 }
 
 model TokenLog {
@@ -372,6 +394,11 @@ model AuthorizationRequest {
   status         String    @default("pending") // pending | approved | denied | escalated
   decidedAt      DateTime?
   decisionNote   String?
+  // Evidence (EVID-1): the policy revision this decision ran under, and the
+  // exact engine context it evaluated — enough to replay the pure ladder and
+  // reproduce the decision (determinism principle, docs/DOMAIN.md).
+  policyRevision      Int?
+  decisionContextJson Json?
   idempotencyKey String?   // client-supplied; dedupes retries per agent
   createdAt      DateTime  @default(now())
 

@@ -4,6 +4,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decideTool, TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
+import { decisionEvidence } from "@/lib/evidence"
 import { createToolPendingApproval } from "@/lib/approvals"
 import { consumeToolGrant } from "@/lib/grants"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
@@ -120,6 +121,14 @@ export async function POST(req: NextRequest) {
             detailsJson: { tool, server: server ?? null },
             status: "escalated",
             decisionNote: decision.reason,
+            // EVID-1: the tool ladder is fully stateless — the lists ARE the state.
+            policyRevision: policy.currentRevision,
+            decisionContextJson: decisionEvidence("tool", {
+              tool,
+              blockedTools: policy.blockedTools,
+              allowedTools: policy.allowedTools,
+              escalateTools: policy.escalateTools,
+            }),
             idempotencyKey,
           },
         })

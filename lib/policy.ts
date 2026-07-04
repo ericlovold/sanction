@@ -66,13 +66,46 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
     return { ok: false as const, error: "No fields to update" }
   }
 
-  const policy = await db.policy.upsert({
-    where: { walletId },
-    update: data,
-    create: { walletId, ...data },
-  })
+  const policy = await db.$transaction((tx) => upsertPolicyWithRevision(tx, walletId, data))
 
   return { ok: true as const, policy: policyToDollars(policy) }
+}
+
+type RevisionClient = Pick<typeof db, "policy" | "policyRevision">
+
+/**
+ * The ONLY way policy rows change (EVID-1): upsert the policy, bump
+ * currentRevision, and write the immutable PolicyRevision snapshot in the
+ * same transaction. Decisions record the revision they ran under, so every
+ * mutation path that skips this helper breaks the evidentiary chain — don't.
+ */
+export async function upsertPolicyWithRevision(client: RevisionClient, walletId: string, data: Record<string, unknown>) {
+  const policy = await client.policy.upsert({
+    where: { walletId },
+    update: { ...data, currentRevision: { increment: 1 } },
+    create: { walletId, ...data },
+  })
+  await client.policyRevision.create({
+    data: {
+      policyId: policy.id,
+      walletId,
+      revision: policy.currentRevision,
+      snapshotJson: policySnapshot(policy) as never,
+    },
+  })
+  return policy
+}
+
+/** The immutable per-revision snapshot: every governed policy field, in cents. */
+export function policySnapshot(p: Record<string, unknown>) {
+  const {
+    id: _id,
+    walletId: _walletId,
+    currentRevision: _currentRevision,
+    updatedAt: _updatedAt,
+    ...fields
+  } = p
+  return fields
 }
 
 type PolicyRow = {

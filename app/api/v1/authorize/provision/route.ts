@@ -4,6 +4,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionEvidence } from "@/lib/evidence"
 import { evaluate } from "@/lib/evaluation"
 import { PROVISION_STATELESS, PROVISION_STATEFUL, type ProvisionContext } from "@/lib/rules/provision"
 import type { SpendContext } from "@/lib/rules/spend"
@@ -187,10 +188,14 @@ export async function POST(req: NextRequest) {
   // escalated request + pending approval, so it flows into the transaction below
   // via preDecision instead of short-circuiting here.
   let preDecision: ReturnType<typeof evaluate> | null = null
+  const gateCtx = { ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }
+  // EVID-1: stateless outcomes replay over the zero-state context (the gate
+  // that fired doesn't read budget state, so the replay reproduces it exactly).
+  const gateEvidence = () => ({ policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("provision", gateCtx) })
   if (!simulate) {
-    preDecision = evaluate({ ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }, PROVISION_STATELESS)
+    preDecision = evaluate(gateCtx, PROVISION_STATELESS)
     if (preDecision.effect === "deny") {
-      return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: preDecision.reason }, agent.name)
+      return persist({ ...base, ...gateEvidence(), status: "denied", decidedAt: new Date(), decisionNote: preDecision.reason }, agent.name)
     }
   }
 
@@ -242,8 +247,8 @@ export async function POST(req: NextRequest) {
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
-      const escalateNow = async (reason: string) => {
-        const escalated = await tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+      const escalateNow = async (reason: string, evid: Record<string, unknown>) => {
+        const escalated = await tx.authorizationRequest.create({ data: { ...base, ...evid, status: "escalated" } })
         await createProvisionPendingApproval(tx, {
           walletId: agent.walletId,
           agentName: agent.name,
@@ -268,7 +273,7 @@ export async function POST(req: NextRequest) {
       // An escalate-listed resource requires a human regardless of amount — it
       // short-circuits before the budget gates and dollar ladder.
       if (preDecision?.effect === "escalate") {
-        return escalateNow(preDecision.reason ?? "Resource requires human approval")
+        return escalateNow(preDecision.reason ?? "Resource requires human approval", gateEvidence())
       }
 
       const [dailySpend, monthlySpend] = await Promise.all([
@@ -288,16 +293,16 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const decision = evaluate(
-        { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
-        PROVISION_STATEFUL,
-      )
+      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec }
+      const decision = evaluate(ctxFull, PROVISION_STATEFUL)
+      // EVID-1: revision in force + exact evaluated context — replayable later.
+      const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("provision", ctxFull) }
 
       if (decision.effect === "deny") {
-        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
+        return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
       }
       if (decision.effect === "escalate") {
-        return escalateNow(decision.reason ?? "Exceeds escalation threshold")
+        return escalateNow(decision.reason ?? "Exceeds escalation threshold", evidence)
       }
 
       try {
@@ -313,7 +318,7 @@ export async function POST(req: NextRequest) {
       spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
 
       const approved = await tx.authorizationRequest.create({
-        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
+        data: { ...base, ...evidence, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
       })
       if (execTokenId && decision.obligations.some((o) => o.type === "reserve_budget")) {
         await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })

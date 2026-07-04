@@ -20,6 +20,7 @@ type DbMock = {
   agentClearance: Record<"findFirst" | "findUnique" | "update" | "updateMany", MockFn>
   authorizationRequest: Record<"groupBy", MockFn>
   policy: Record<"upsert", MockFn>
+  policyRevision: Record<"create", MockFn>
   wallet: Record<"count" | "create" | "findFirst" | "findMany" | "findUnique", MockFn>
 }
 type TransactionArg = ((client: DbMock) => unknown) | Promise<unknown>[]
@@ -43,6 +44,9 @@ const { apiKeyMock, dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() =>
     },
     policy: {
       upsert: vi.fn(),
+    },
+    policyRevision: {
+      create: vi.fn(),
     },
     agent: {
       findFirst: vi.fn(),
@@ -297,7 +301,7 @@ describe("updatePoolCapAction", () => {
     expect(result).toEqual(expect.objectContaining({ ok: true, message: "Pool cap saved" }))
     expect(dbMock.policy.upsert).toHaveBeenCalledWith({
       where: { walletId: "pool_grandchild" },
-      update: { subtreeDailyCapUsd: 1999 },
+      update: { subtreeDailyCapUsd: 1999, currentRevision: { increment: 1 } },
       create: { walletId: "pool_grandchild", subtreeDailyCapUsd: 1999 },
     })
     expect(revalidatedPaths()).toEqual(expect.arrayContaining(["/dashboard", "/dashboard/pools"]))
@@ -316,7 +320,7 @@ describe("updatePoolCapAction", () => {
     expect(result).toEqual(expect.objectContaining({ ok: true, message: "Pool cap cleared" }))
     expect(dbMock.policy.upsert).toHaveBeenCalledWith({
       where: { walletId: "pool_child" },
-      update: { subtreeDailyCapUsd: null },
+      update: { subtreeDailyCapUsd: null, currentRevision: { increment: 1 } },
       create: { walletId: "pool_child", subtreeDailyCapUsd: null },
     })
     expect(revalidatedPaths()).toEqual(expect.arrayContaining(["/dashboard", "/dashboard/pools"]))
@@ -353,12 +357,12 @@ describe("applyPoolAllocationAction", () => {
     expect(dbMock.$transaction).toHaveBeenCalledOnce()
     expect(dbMock.policy.upsert).toHaveBeenCalledWith({
       where: { walletId: "pool_child" },
-      update: { subtreeDailyCapUsd: 8000 },
+      update: { subtreeDailyCapUsd: 8000, currentRevision: { increment: 1 } },
       create: { walletId: "pool_child", subtreeDailyCapUsd: 8000 },
     })
     expect(dbMock.policy.upsert).toHaveBeenCalledWith({
       where: { walletId: "pool_support" },
-      update: { subtreeDailyCapUsd: 2000 },
+      update: { subtreeDailyCapUsd: 2000, currentRevision: { increment: 1 } },
       create: { walletId: "pool_support", subtreeDailyCapUsd: 2000 },
     })
     expect(dbMock.policy.upsert).not.toHaveBeenCalledWith(expect.objectContaining({ where: { walletId: "pool_grandchild" } }))

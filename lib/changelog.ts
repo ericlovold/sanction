@@ -16,6 +16,18 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-04",
+    title: "Decisions you can replay",
+    tags: ["evidence", "policy", "audit"],
+    body: `Audit tells you what happened. Evidence proves the engine decided correctly under the policy that existed then. Those are different problems, and today Sanction solves the second one:
+
+- **Every policy edit is now an immutable revision.** Change a budget, a threshold, a tool list — the previous state is snapshotted forever, and the policy's revision number ticks up. There is no code path that mutates a policy without writing the record.
+- **Every decision records what it saw.** The revision in force, and the exact context the engine evaluated — the amount, the budget state read under the lock, the lists, the thresholds.
+- **\`GET /v1/authorize/{id}/evidence\`** returns all of it, plus a live replay: the same pure rules re-run over the stored context, right now, with a \`matches\` flag proving the record still reproduces the decision.
+
+This is the determinism principle doing real work: same request, same policy revision, same state snapshot, same decision — so replay is one call to a pure function, not a reconstruction project. Existing policies were backfilled as revision 1; hash-chained exports stay on the roadmap as the next rung.`,
+  },
+  {
+    date: "2026-07-04",
     title: "The approval loop speaks AuthZEN too — AARP, same day",
     tags: ["authorization", "standards", "authzen", "approvals"],
     body: `This morning Sanction learned to answer the AuthZEN evaluation wire. Tonight the part that makes Sanction *Sanction* — deny is easy, escalate is the product — rides the standard too, via the draft [Access Request and Approval Profile](https://openid.github.io/authzen/authzen-access-request-approval-profile-1_0.html):
