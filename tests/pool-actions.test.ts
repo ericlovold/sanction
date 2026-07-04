@@ -304,6 +304,8 @@ describe("updatePoolCapAction", () => {
       update: { subtreeDailyCapUsd: 1999, currentRevision: { increment: 1 } },
       create: { walletId: "pool_grandchild", subtreeDailyCapUsd: 1999 },
     })
+    // EVID-1: the cap write must also mint the revision snapshot.
+    expect(dbMock.policyRevision.create).toHaveBeenCalledTimes(1)
     expect(revalidatedPaths()).toEqual(expect.arrayContaining(["/dashboard", "/dashboard/pools"]))
   })
 
@@ -323,6 +325,7 @@ describe("updatePoolCapAction", () => {
       update: { subtreeDailyCapUsd: null, currentRevision: { increment: 1 } },
       create: { walletId: "pool_child", subtreeDailyCapUsd: null },
     })
+    expect(dbMock.policyRevision.create).toHaveBeenCalledTimes(1)
     expect(revalidatedPaths()).toEqual(expect.arrayContaining(["/dashboard", "/dashboard/pools"]))
   })
 
@@ -366,6 +369,8 @@ describe("applyPoolAllocationAction", () => {
       create: { walletId: "pool_support", subtreeDailyCapUsd: 2000 },
     })
     expect(dbMock.policy.upsert).not.toHaveBeenCalledWith(expect.objectContaining({ where: { walletId: "pool_grandchild" } }))
+    // EVID-1: one revision snapshot per allocated child.
+    expect(dbMock.policyRevision.create).toHaveBeenCalledTimes(2)
     expect(revalidatedPaths()).toEqual(expect.arrayContaining(["/dashboard", "/dashboard/pools"]))
   })
 
