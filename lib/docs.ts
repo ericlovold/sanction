@@ -40,6 +40,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "How third-party agent instructions enter this codebase: the review procedure we ran on a friend's skill pack before letting it steer our sessions. Steal it for your own repos.",
   },
+  notifications: {
+    file: "NOTIFICATIONS.md",
+    title: "Approvals that find you",
+    description:
+      "Escalations and budget alerts, delivered where humans are: email by default, Slack with one pasted URL, signed webhooks for your own systems — with per-channel event routing.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",

@@ -115,6 +115,23 @@ product's claims, rank next best actions) as a callable skill. Kept
 verbatim for clean upstream diffs; repo-specific guidance belongs here, not in
 the skill files.
 
+## Session Ops Notes (dated — prune when stale)
+
+- As of 2026-07-04: PRs merge as SQUASHES here. After your PR merges, the
+  remote work branch still holds pre-squash commits that are NOT in main's
+  ancestry — a plain push from a main-rebuilt branch gets rejected as
+  non-fast-forward. Do not force-push; absorb instead:
+  `git merge -s ours origin/<branch>` then push (lossless — content is in main).
+- As of 2026-07-04: to verify dashboard UI by rendering: seed local Postgres,
+  set `SANCTION_WALLET_ID=<seeded wallet id>` (+ DATABASE_URL, signing/crypto
+  envs), `npx next dev`, then screenshot with the preinstalled Chromium via
+  playwright-core (`executablePath: /opt/pw-browsers/chromium`). The demo-view
+  path renders /dashboard read-only without login.
+- As of 2026-07-04: local Postgres 16 binaries live at
+  /usr/lib/postgresql/16/bin; run initdb/pg_ctl as the `postgres` user with
+  PGDATA under /var/lib/postgresql (scratchpad dirs are not postgres-writable).
+  Containers are reclaimed — re-check `pg_ctl status` before every db-test run.
+
 ## Business Context
 
 - Owner: Eric Lovold (solo founder). Primary agent client: AIIA Brain (Mac Mini agent; its integration lives outside this repo in `~/aiia-brain`).
