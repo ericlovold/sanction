@@ -111,9 +111,11 @@ Rigor Pack v1.0.0 — provenance and review record in `.claude/skills/README.md`
 They encode this repo's working style: evidence before plans, verify against
 the live system, fence your diffs, cut your prose, date your memory.
 `zoomout` is homegrown: Eric's between-arcs ritual (resync, re-read the
-product's claims, rank next best actions) as a callable skill. Kept
-verbatim for clean upstream diffs; repo-specific guidance belongs here, not in
-the skill files.
+product's claims, rank next best actions) as a callable skill. `queue` is
+homegrown too: capture a mid-arc thought/idea/question into `docs/BACKLOG.md`
+(dated, public-repo-safe phrasing) without derailing the current work; the
+backlog drains through `/zoomout`. Kept verbatim for clean upstream diffs;
+repo-specific guidance belongs here, not in the skill files.
 
 ## Session Ops Notes (dated — prune when stale)
 
