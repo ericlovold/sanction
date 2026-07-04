@@ -134,9 +134,10 @@ Vocabulary: [docs/DOMAIN.md](docs/DOMAIN.md).
 
 ## Pricing
 
-**Free** for individuals — no card, personal and production use.
-**Enterprise** — paid license: SSO, policy administration, audit export, SLA,
-deployment control. [Talk to us](https://getsanction.com/#pricing).
+It's free, or it's an agreement. **Free** for individuals — no card, personal
+and production use. Beyond that, an enterprise agreement shaped to your
+deployment: SSO, policy administration, audit export, SLA.
+[Talk to us](https://getsanction.com/#pricing).
 
 ## License
 
