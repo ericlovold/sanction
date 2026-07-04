@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
-import { authEventType, mergeEvents } from "@/lib/reporting"
+import { authEventType, mergeEvents, toCsv } from "@/lib/reporting"
 
 // Unified, time-sorted audit feed for a wallet: spend decisions, token usage, and
 // credential injections (secret access). The "what did my agents do?" surface —
@@ -97,5 +97,18 @@ export async function GET(req: NextRequest) {
   )
 
   const nextBefore = events.length === limit ? events[events.length - 1].at : null
+
+  // CSV export (REPORT-1): the same page of the same feed, spreadsheet-ready.
+  // Paginate with `before` exactly like the JSON shape.
+  if (req.nextUrl.searchParams.get("format") === "csv") {
+    return new NextResponse(toCsv(events), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="sanction-audit-${walletId}.csv"`,
+        "Cache-Control": "no-store",
+      },
+    })
+  }
+
   return NextResponse.json({ wallet_id: walletId, events, next_before: nextBefore }, { headers: { "Cache-Control": "no-store" } })
 }

@@ -920,6 +920,26 @@ export const spec = {
         },
       },
     },
+    "/reporting/summary": {
+      get: {
+        operationId: "getPeriodSummary",
+        summary: "Period rollup: totals, day buckets, per-agent grouping",
+        description:
+          "REPORT-1: the daily summary over any range up to 92 days (defaults to the last 7). Totals for spend/decisions/tokens/secret access, a day-by-day series, and group_by=agent for the per-seat breakdown. Membership-gated like the other reporting surfaces.",
+        security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "from", schema: { type: "string", format: "date" } },
+          { in: "query", name: "to", schema: { type: "string", format: "date" } },
+          { in: "query", name: "group_by", schema: { type: "string", enum: ["agent"] } },
+        ],
+        responses: {
+          "200": { description: "Totals + days[] (+ by_agent[] when grouped)" },
+          "400": { description: "Invalid range (reversed, malformed, or over 92 days)" },
+          "401": { description: "Management key or wallet agent key required" },
+        },
+      },
+    },
     "/tokens": {
       post: {
         operationId: "logTokenUsage",

@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-05",
+    title: "Reporting that looks both ways",
+    tags: ["reporting", "projections", "budgets"],
+    body: "Reporting used to answer one day at a time, looking backward. Now it spans periods and looks ahead. `GET /v1/reporting/summary` takes any range up to 92 days and returns totals, day-by-day buckets, and per-agent breakdowns — this week vs last week is two calls. `GET /v1/wallets/stats` now projects: today and this month each carry their budget, the linear pace projection, and an exhaustion forecast (\"at this pace, the month's budget runs out on the 23rd\"). The early-morning and early-month guards keep one 6 a.m. purchase from projecting nonsense. And `GET /v1/audit-events?format=csv` hands finance the whole feed, spreadsheet-ready. Scheduled digests — the Monday-morning summary in your Slack — are next.",
+  },
+  {
+    date: "2026-07-05",
     title: "Capability governance — new powers ask first",
     tags: ["authorization", "capabilities", "skills"],
     body: "An agent that installs a skill, adds a plugin, or reaches a new API has changed what it can do. That change is now a governed action like spending money. One ordered rule list on the wallet policy, with namespaced patterns: block `skill:install:crypto-*`, escalate `skill:install:*`, allow `api:github.com/*`. `POST /v1/authorize/capability` answers allow, deny, or escalate; escalations land in the same approval inbox, approval mints the same one-use grant, and every escalation carries replayable evidence. The AuthZEN wire speaks it too: `resource.type: \"capability\"`, with the AARP appeal offer on escalations. Skills are how agents grow; now growing is governed.",

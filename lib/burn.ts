@@ -29,9 +29,10 @@ export type Pace = {
 }
 
 const DAY_MS = 86_400_000
-// Don't extrapolate the first ~30 minutes of a day — one early charge would
-// project absurd end-of-day totals.
-const MIN_FRACTION = 0.02
+// Morning guard: don't extrapolate the first ~72 minutes of a day — one early
+// charge would project absurd end-of-day totals. (Raised from ~30m after the
+// runway board shipped; a 6am charge was still projecting wildly.)
+const MIN_FRACTION = 0.05
 
 export function dailyPace(spent: number, cap: number | null, now: Date): Pace {
   const start = new Date(now)
@@ -40,6 +41,31 @@ export function dailyPace(spent: number, cap: number | null, now: Date): Pace {
   const pctOfCap = cap && cap > 0 ? (spent / cap) * 100 : null
 
   if (spent <= 0 || fraction < MIN_FRACTION) {
+    return { onPace: null, willExhaust: false, exhaustAt: null, pctOfCap }
+  }
+
+  const onPace = spent / fraction
+  const willExhaust = cap != null && cap > 0 && spent < cap && onPace >= cap
+  const exhaustAt = willExhaust
+    ? new Date(start.getTime() + (now.getTime() - start.getTime()) * (cap / spent))
+    : null
+  return { onPace, willExhaust, exhaustAt, pctOfCap }
+}
+
+// Month-scale projection for "will this month's budget survive?" — the same
+// linear model, month-length aware. The early-month guard is proportionally
+// stricter: day one of a month is ~3% elapsed, and a single purchase would
+// project a wild month-end total.
+const MIN_MONTH_FRACTION = 0.05
+
+export function monthlyPace(spent: number, cap: number | null, now: Date): Pace {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const span = end.getTime() - start.getTime()
+  const fraction = Math.min(1, (now.getTime() - start.getTime()) / span)
+  const pctOfCap = cap && cap > 0 ? (spent / cap) * 100 : null
+
+  if (spent <= 0 || fraction < MIN_MONTH_FRACTION) {
     return { onPace: null, willExhaust: false, exhaustAt: null, pctOfCap }
   }
 

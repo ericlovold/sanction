@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
+import { monthlyPace, dailyPace } from "@/lib/burn"
 
 export async function GET(req: NextRequest) {
   const walletId = req.nextUrl.searchParams.get("wallet_id")
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
   const agents = await db.agent.findMany({ where: { walletId }, select: { id: true } })
   const agentIds = agents.map((a) => a.id)
 
-  const [tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens, pending] = await Promise.all([
+  const [tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens, pending, policy] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: monthStart } }, _sum: { costUsd: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
@@ -37,18 +38,38 @@ export async function GET(req: NextRequest) {
     db.authorizationRequest.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 10, include: { agent: { select: { name: true } } } }),
     db.tokenLog.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 10, include: { agent: { select: { name: true } } } }),
     db.pendingApproval.count({ where: { walletId, status: "pending" } }),
+    db.policy.findUnique({ where: { walletId }, select: { monthlySpendBudgetUsd: true, dailySpendBudgetUsd: true } }),
   ])
+
+  // Projections (REPORT-1): linear pace against the wallet caps. The guards in
+  // lib/burn.ts keep early-day / early-month extrapolation honest (null).
+  const round2 = (n: number | null) => (n === null ? null : Math.round(n * 100) / 100)
+  const now = new Date()
+  const daySpendUsd = spendDay._sum.amountUsd ?? 0
+  const monthSpendUsd = spendMonth._sum.amountUsd ?? 0
+  const dayCapUsd = policy ? policy.dailySpendBudgetUsd / 100 : null
+  const monthCapUsd = policy?.monthlySpendBudgetUsd != null ? policy.monthlySpendBudgetUsd / 100 : null
+  const dayPace = dailyPace(daySpendUsd, dayCapUsd, now)
+  const monthPace = monthlyPace(monthSpendUsd, monthCapUsd, now)
 
   return NextResponse.json({
     today: {
       token_cost_usd: tokenDay._sum.costUsd ?? 0,
       tokens_in: tokenDay._sum.tokensIn ?? 0,
       tokens_out: tokenDay._sum.tokensOut ?? 0,
-      spend_usd: spendDay._sum.amountUsd ?? 0,
+      spend_usd: daySpendUsd,
+      spend_budget_usd: dayCapUsd,
+      projected_spend_usd: round2(dayPace.onPace),
+      will_exhaust: dayPace.willExhaust,
+      exhaust_at: dayPace.exhaustAt?.toISOString() ?? null,
     },
     month: {
       token_cost_usd: tokenMonth._sum.costUsd ?? 0,
-      spend_usd: spendMonth._sum.amountUsd ?? 0,
+      spend_usd: monthSpendUsd,
+      spend_budget_usd: monthCapUsd,
+      projected_spend_usd: round2(monthPace.onPace),
+      will_exhaust: monthPace.willExhaust,
+      exhaust_at: monthPace.exhaustAt?.toISOString() ?? null,
     },
     pending_approvals: pending,
     recent_auth: recentAuth,
