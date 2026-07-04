@@ -596,6 +596,59 @@ export const spec = {
           evaluations: { type: "array", items: { $ref: "#/components/schemas/AuthZenDecision" } },
         },
       },
+      AarpAccessRequest: {
+        type: "object",
+        required: ["subject", "action", "resource", "denial"],
+        description:
+          "AuthZEN Access Request and Approval Profile (draft) submission: the denied subject/action/resource plus the binding_token from the requestable denial's context.access_request. Opens a real Sanction escalation in the owner's approval inbox.",
+        properties: {
+          subject: { $ref: "#/components/schemas/AuthZenEntity" },
+          action: { $ref: "#/components/schemas/AuthZenAction" },
+          resource: { $ref: "#/components/schemas/AuthZenEntity" },
+          context: { type: "object", additionalProperties: true },
+          denial: {
+            type: "object",
+            required: ["binding_token"],
+            properties: {
+              binding_token: { type: "string", description: "Signed token from the requestable denial — proves this submission is the denied evaluation." },
+              expires_at: { type: "string", format: "date-time" },
+              reason: { type: "string" },
+            },
+          },
+          requested_access: { type: "object", additionalProperties: true },
+        },
+      },
+      AarpTaskResponse: {
+        type: "object",
+        description:
+          "The AARP task handle. status pending → poll status_endpoint; approved carries result.mode 'reevaluate' plus the approval object (approval.id is the one-use grant, approved_until its expiry) to present back to the evaluation endpoint as context.approval.",
+        properties: {
+          task: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              status: { type: "string", enum: ["pending", "approved", "denied", "expired"] },
+              status_endpoint: { type: "string" },
+              expires_at: { type: "string", format: "date-time" },
+              links: { type: "object", properties: { review: { type: "string" } } },
+            },
+          },
+          result: {
+            type: "object",
+            properties: {
+              mode: { type: "string", enum: ["reevaluate"] },
+              approval: {
+                type: "object",
+                properties: {
+                  id: { type: "string", description: "The one-use grant id — present as context.approval.id on re-evaluation." },
+                  approved_at: { type: "string", format: "date-time" },
+                  approved_until: { type: "string", format: "date-time", nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
   paths: {
@@ -708,6 +761,53 @@ export const spec = {
           },
           "400": { description: "Malformed request or item (the whole batch fails; the error names the item index)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/access/v1/access-request": {
+      servers: [{ url: "https://getsanction.com/api", description: "AuthZEN PDP base" }],
+      post: {
+        operationId: "authzenAccessRequest",
+        summary: "AARP: open an approval from a requestable denial",
+        description:
+          "AuthZEN Access Request and Approval Profile (draft 1). Submit the denied subject/action/resource with denial.binding_token (from the evaluation's context.access_request) to open a real Sanction escalation — it lands in the owner's approval inbox and notifies via email/Slack/webhooks. Returns the AARP task handle; poll its status_endpoint. Supports Idempotency-Key. Errors are RFC 9457 problem+json: 400 invalid_denial_binding (tampered token or mismatched tuple), 410 expired_denial.",
+        security: [{ AgentApiKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AarpAccessRequest" } } },
+        },
+        responses: {
+          "201": {
+            description: "Escalation opened — task handle returned",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AarpTaskResponse" } } },
+          },
+          "200": {
+            description: "Idempotent replay (Idempotency-Key already seen) — the existing task with its CURRENT status",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AarpTaskResponse" } } },
+          },
+          "400": { description: "Malformed request (plain error JSON), or invalid denial binding — tampered token or mismatched tuple (problem+json)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "403": { description: "subject.id does not match the authenticated agent", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "410": { description: "The denial has expired — re-evaluate for a fresh one (problem+json)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/access/v1/access-request/{id}": {
+      servers: [{ url: "https://getsanction.com/api", description: "AuthZEN PDP base" }],
+      get: {
+        operationId: "authzenAccessRequestStatus",
+        summary: "AARP: poll a task for its terminal state",
+        description:
+          "Task status for an open access request (wallet-scoped: any of the wallet's agent keys). pending until the owner decides or the policy timeout settles it; approved carries result.mode 'reevaluate' and the approval object — present it back to POST /access/v1/evaluation as context.approval to redeem the one-use grant.",
+        security: [{ AgentApiKey: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": {
+            description: "Task state (with result.approval once approved)",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AarpTaskResponse" } } },
+          },
+          "401": { description: "Invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Unknown task (problem+json)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

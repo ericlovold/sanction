@@ -16,6 +16,20 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-04",
+    title: "The approval loop speaks AuthZEN too — AARP, same day",
+    tags: ["authorization", "standards", "authzen", "approvals"],
+    body: `This morning Sanction learned to answer the AuthZEN evaluation wire. Tonight the part that makes Sanction *Sanction* — deny is easy, escalate is the product — rides the standard too, via the draft [Access Request and Approval Profile](https://openid.github.io/authzen/authzen-access-request-approval-profile-1_0.html):
+
+- **Requestable denials.** A would-escalate evaluation now returns \`context.access_request\`: where to open the approval, and a signed \`binding_token\` proving the denial happened here.
+- **\`POST /access/v1/access-request\`** turns that denial into a real escalation — the owner's inbox, email, Slack, webhooks, all of it. You get an AARP task handle back.
+- **Poll the task**, and approval carries the profile's artifact: \`approval.id\` is the one-use grant, \`approved_until\` its expiry.
+- **Redeem by re-evaluating** with \`context.approval\` — the grant is consumed atomically, one use, exactly the native semantics. A replay denies with \`aarp_reason: "approval_expired"\` and \`next_action: "request"\` so the agent replans instead of retrying forever.
+- **\`GET /.well-known/authzen-configuration\`** advertises the endpoints and the access-request capability, so a PEP given only the hostname finds everything.
+
+The profile is draft 1; we implemented the loop and skipped the periphery (callbacks — use notification routes; catalogs and form schemas) while it stabilizes. The loop itself has been in production here since before the profile named it.`,
+  },
+  {
+    date: "2026-07-04",
     title: "Sanction speaks AuthZEN — a standards-native PDP",
     tags: ["authorization", "standards", "authzen"],
     body: `Sanction now answers the [OpenID AuthZEN Authorization API 1.0](https://openid.net/specs/authorization-api-1_0.html) — the approved standard for how an enforcement point asks a decision point "may this happen?". Any AuthZEN-capable gateway or framework can point at Sanction as its PDP with zero Sanction-specific code:

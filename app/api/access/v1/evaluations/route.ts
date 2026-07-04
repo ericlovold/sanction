@@ -7,6 +7,7 @@ import {
   evaluationRequestSchema,
   evaluationsRequestSchema,
   mergeEvaluation,
+  publicOrigin,
   type AuthZenRequest,
   type AuthZenDecision,
   type EvaluationsSemantic,
@@ -47,14 +48,15 @@ export async function POST(req: NextRequest) {
   const semantic: EvaluationsSemantic = parsed.data.options?.evaluations_semantic ?? "execute_all"
   let evaluations: AuthZenDecision[] = []
   try {
+    const origin = publicOrigin(req)
     if (semantic === "execute_all") {
       // Items are independent under execute_all — evaluate concurrently;
       // Promise.all preserves request order in the result.
-      evaluations = await Promise.all(merged.map((item) => evaluateAuthZen(agent, item)))
+      evaluations = await Promise.all(merged.map((item) => evaluateAuthZen(agent, item, { origin })))
     } else {
       // The short-circuiting semantics are inherently sequential.
       for (const item of merged) {
-        const decision = await evaluateAuthZen(agent, item)
+        const decision = await evaluateAuthZen(agent, item, { origin })
         evaluations.push(decision)
         if (semantic === "deny_on_first_deny" && !decision.decision) break
         if (semantic === "permit_on_first_permit" && decision.decision) break

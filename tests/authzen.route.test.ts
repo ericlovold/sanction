@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
 import { NextRequest } from "next/server"
 import { hashApiKey } from "../lib/apiKey"
 
@@ -89,6 +89,11 @@ const spend = (amountUsd: number, extra: Record<string, unknown> = {}) => ({
   subject,
   action: { name: "purchase", properties: { amount_usd: amountUsd, ...extra } },
   resource: { type: "spend", id: "github" },
+})
+
+beforeAll(() => {
+  // Escalate outcomes sign an AARP binding token (requestable denials).
+  process.env.SANCTION_SIGNING_SECRET ??= "test-signing-secret-material"
 })
 
 beforeEach(() => {
