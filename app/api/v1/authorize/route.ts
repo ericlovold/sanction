@@ -4,6 +4,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionEvidence } from "@/lib/evidence"
 import { evaluate } from "@/lib/evaluation"
 import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
@@ -165,9 +166,20 @@ export async function POST(req: NextRequest) {
   // Stateless gates (no budget state) run before the advisory lock. The simulate
   // path uses the shared ladder (decidePolicy) below, so it need not repeat them.
   if (!simulate) {
-    const gate = evaluate({ ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }, SPEND_STATELESS)
+    const gateCtx = { ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }
+    const gate = evaluate(gateCtx, SPEND_STATELESS)
     if (gate.effect === "deny") {
-      return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: gate.reason }, agent.name)
+      return persist(
+        {
+          ...base,
+          status: "denied",
+          decidedAt: new Date(),
+          decisionNote: gate.reason,
+          policyRevision: policy.currentRevision,
+          decisionContextJson: decisionEvidence("spend", gateCtx),
+        },
+        agent.name,
+      )
     }
   }
 
@@ -247,17 +259,18 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const decision = evaluate(
-        { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
-        SPEND_STATEFUL,
-      )
+      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec }
+      const decision = evaluate(ctxFull, SPEND_STATEFUL)
+      // EVID-1: persist the revision in force plus the exact context evaluated,
+      // so this decision can be replayed and proven later.
+      const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("spend", ctxFull) }
 
       if (decision.effect === "deny") {
-        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
+        return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
       }
       if (decision.effect === "escalate") {
         // No decisionNote - the response derives ESCALATION_REQUIRED from status.
-        const escalated = await tx.authorizationRequest.create({ data: { ...base, status: "escalated" } })
+        const escalated = await tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "escalated" } })
         await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
         return escalated
       }
@@ -280,7 +293,7 @@ export async function POST(req: NextRequest) {
       spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
 
       const approved = await tx.authorizationRequest.create({
-        data: { ...base, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
+        data: { ...base, ...evidence, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
       })
       if (execTokenId && decision.obligations.some((o) => o.type === "reserve_budget")) {
         await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })

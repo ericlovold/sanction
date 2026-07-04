@@ -6,6 +6,7 @@ import { generateManagementKey } from "@/lib/apiKey"
 import { allocatePoolCaps, parseAllocationStrategy, type AllocationChildInput } from "@/lib/budgetAllocation"
 import { parseOwnerEmail, parsePoolCapDollars, parsePoolName } from "@/lib/poolForms"
 import { agentIsInWalletSet, walletSubtreeIds } from "@/lib/poolAccess"
+import { upsertPolicyWithRevision } from "@/lib/policy"
 import { getSessionWallet } from "@/lib/session"
 
 export type CreatePoolState = {
@@ -89,11 +90,7 @@ export async function updatePoolCapAction(
   const allowedWalletIds = await walletSubtreeIds(db, wallet.id)
   if (!allowedWalletIds.includes(walletId)) return { ok: false, message: "Not authorized for that pool." }
 
-  await db.policy.upsert({
-    where: { walletId },
-    update: { subtreeDailyCapUsd: cap.cents },
-    create: { walletId, subtreeDailyCapUsd: cap.cents },
-  })
+  await db.$transaction((tx) => upsertPolicyWithRevision(tx, walletId, { subtreeDailyCapUsd: cap.cents }))
 
   revalidatePools()
   return { ok: true, message: cap.cents === null ? "Pool cap cleared" : "Pool cap saved" }
@@ -186,13 +183,11 @@ export async function applyPoolAllocationAction(
   if (children.length === 0) return { ok: false, message: "That pool has no child pools to allocate." }
 
   const allocation = allocatePoolCaps(parentCapCents, children, strategy)
-  await db.$transaction(allocation.map((row) => (
-    db.policy.upsert({
-      where: { walletId: row.id },
-      update: { subtreeDailyCapUsd: row.capCents },
-      create: { walletId: row.id, subtreeDailyCapUsd: row.capCents },
-    })
-  )))
+  await db.$transaction(async (tx) => {
+    for (const row of allocation) {
+      await upsertPolicyWithRevision(tx, row.id, { subtreeDailyCapUsd: row.capCents })
+    }
+  })
 
   revalidatePools()
   return { ok: true, message: `Allocation applied to ${allocation.length} child pools.` }

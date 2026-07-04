@@ -811,6 +811,61 @@ export const spec = {
         },
       },
     },
+    "/authorize/{id}/evidence": {
+      get: {
+        operationId: "getDecisionEvidence",
+        summary: "Evidence view of a decision (revision, context, replay)",
+        description:
+          "EVID-1: returns the immutable policy revision that was in force when the engine decided, the exact context it evaluated, and a live replay — the same pure rules re-run over the stored context with a matches flag proving the record reproduces the outcome. Readable by the wallet's agent keys or the owner's management key.",
+        security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": {
+            description: "Decision evidence with replay",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    request_id: { type: "string" },
+                    kind: { type: "string" },
+                    status: { type: "string" },
+                    decided_at: { type: "string", format: "date-time", nullable: true },
+                    decision_note: { type: "string" },
+                    code: { type: "string" },
+                    agent: { type: "string" },
+                    policy_revision: {
+                      type: "object",
+                      nullable: true,
+                      properties: {
+                        revision: { type: "integer" },
+                        created_at: { type: "string", format: "date-time" },
+                        policy: { type: "object", additionalProperties: true, description: "Immutable snapshot, cents" },
+                      },
+                    },
+                    decision: { type: "object", nullable: true, additionalProperties: true },
+                    context: { type: "object", nullable: true, additionalProperties: true },
+                    replay: {
+                      type: "object",
+                      nullable: true,
+                      properties: {
+                        effect: { type: "string" },
+                        rule_id: { type: "string" },
+                        code: { type: "string" },
+                        reason: { type: "string" },
+                        matches: { type: "boolean", description: "True when the replay reproduces the persisted outcome exactly" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Wallet agent key or management key required", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Request not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/tokens": {
       post: {
         operationId: "logTokenUsage",
