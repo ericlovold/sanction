@@ -61,18 +61,6 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
-
-  // Idempotent replay: a retry with the same key returns the original decision.
-  if (idempotencyKey && !grant_id) {
-    const existing = await db.authorizationRequest.findUnique({
-      where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
-    })
-    if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
-  }
-
-  const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
-  const amountCents = Math.round(amount_usd * 100)
-
   // UX-3: a hard budget denial is appealable — attach the same signed
   // access_request offer the AuthZEN wire carries, so "what changes the
   // answer" includes a human, not just the clock.
@@ -91,6 +79,18 @@ export async function POST(req: NextRequest) {
     }
     return body
   }
+
+  // Idempotent replay: a retry with the same key returns the original decision.
+  if (idempotencyKey && !grant_id) {
+    const existing = await db.authorizationRequest.findUnique({
+      where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
+    })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+  }
+
+  const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
+  const amountCents = Math.round(amount_usd * 100)
+
   const ancestorChain = await walletAncestorChain(db, agent.walletId)
 
   // Optional execution context: if the agent presents its exec JWT, this call is
@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(decisionResponse(existing, agent.name), { status: statusCode(existing.status) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
     }
     throw e
   }

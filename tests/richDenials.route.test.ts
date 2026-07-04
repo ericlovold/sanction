@@ -157,12 +157,14 @@ describe("native spend denials answer the four questions", () => {
     expect(body.access_request).toBeDefined()
   })
 
-  it("escalations carry the band; approvals carry links but no limit", async () => {
+  it("escalations carry the band, without an offer (they already sit in the inbox)", async () => {
     const escalated = await (await authorize(spendReq(60))).json()
     expect(escalated.status).toBe("escalated")
     expect(escalated.limit.kind).toBe("escalation_band")
-    expect(escalated.access_request).toBeUndefined() // native escalations already sit in the inbox
+    expect(escalated.access_request).toBeUndefined()
+  })
 
+  it("approvals carry links but no limit", async () => {
     const approved = await (await authorize(spendReq(5))).json()
     expect(approved.authorized).toBe(true)
     expect(approved.limit).toBeUndefined()
@@ -183,6 +185,24 @@ describe("AuthZEN wire: appealable hard denials carry the offer", () => {
     const body = await res.json()
     expect(body.decision).toBe(false)
     expect(body.context.code).toBe("DAILY_BUDGET_EXCEEDED")
+    expect(body.context.access_request.binding_token).toBeDefined()
+  })
+
+  it("monthly-budget denial carries the offer too", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({
+      ...AGENT,
+      wallet: { ...AGENT.wallet, policy: { ...POLICY, dailySpendBudgetUsd: 10_000_000, monthlySpendBudgetUsd: 1_000_000 } },
+    })
+    dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 9_999 } })
+    const res = await evaluation(
+      jsonReq("/api/access/v1/evaluation", {
+        subject: { type: "agent", id: AID },
+        action: { name: "purchase", properties: { amount_usd: 50, category: "software" } },
+        resource: { type: "spend", id: "github" },
+      }),
+    )
+    const body = await res.json()
+    expect(body.context.code).toBe("MONTHLY_BUDGET_EXCEEDED")
     expect(body.context.access_request.binding_token).toBeDefined()
   })
 })
