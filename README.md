@@ -49,6 +49,7 @@ coverage gate, including concurrency and Postgres row-level-security suites.
 ## Distribution
 
 - **MCP server** — `npx sanction-mcp` in any MCP host (Claude Desktop, etc.)
+- **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
 - **TypeScript SDK** — `@sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
 - **AWS Bedrock Action Group** — enterprise agent orchestration
@@ -58,6 +59,7 @@ Guides: [Quickstart](docs/QUICKSTART.md) ·
 [Starter kit](docs/STARTER-KIT.md) ·
 [LangChain](docs/LANGCHAIN.md) · [CrewAI](docs/CREWAI.md) ·
 [Vercel AI SDK](docs/VERCEL-AI-SDK.md) ·
+[AuthZEN PDP](docs/AUTHZEN.md) ·
 [Multi-tenant runbook](docs/INTEGRATION.md) ·
 [Notifications](docs/NOTIFICATIONS.md)
 
@@ -78,6 +80,10 @@ POST  /exec                     — Issue a scoped execution JWT (15-min TTL)
 POST  /credentials/inject       — Inject a decrypted credential (Bearer JWT)
 GET   /audit-events             — Unified audit feed (decisions, tokens, secret access)
 GET   /reporting/daily-summary  — One-day rollup
+
+# AuthZEN PDP (agent key; base https://getsanction.com/api — spec-canonical paths)
+POST  /access/v1/evaluation     — OpenID AuthZEN 1.0 evaluation (decision-only)
+POST  /access/v1/evaluations    — AuthZEN batch, all three evaluation semantics
 
 # Management (owner key: x-mgmt-key sk_...)
 POST  /wallets                  — Create a wallet + policy (management key shown once)
