@@ -30953,6 +30953,43 @@ var StdioServerTransport = class {
   }
 };
 
+// lib/mcpWalletStatus.ts
+function isRecord(value) {
+  return typeof value === "object" && value !== null;
+}
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+function isNonNegativeInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+function isWalletStatusResult(value) {
+  if (!isRecord(value) || !isRecord(value.today) || !isRecord(value.month)) return false;
+  return isFiniteNumber(value.today.token_cost_usd) && isFiniteNumber(value.today.spend_usd) && isFiniteNumber(value.month.token_cost_usd) && isFiniteNumber(value.month.spend_usd) && isNonNegativeInteger(value.pending_approvals);
+}
+function walletStatusFailureText(result) {
+  if (isRecord(result)) {
+    const detail = result.reason ?? result.error ?? result.message;
+    if (typeof detail === "string" && detail.trim()) {
+      return `Status unknown: ${detail}`;
+    }
+  }
+  return "Status unknown: Sanction returned an unexpected wallet status response.";
+}
+function renderWalletStatus(result) {
+  if (!isWalletStatusResult(result)) {
+    return { ok: false, text: walletStatusFailureText(result) };
+  }
+  return {
+    ok: true,
+    text: [
+      `Today - tokens: $${result.today.token_cost_usd.toFixed(4)} | spend: $${result.today.spend_usd.toFixed(2)}`,
+      `Month - tokens: $${result.month.token_cost_usd.toFixed(4)} | spend: $${result.month.spend_usd.toFixed(2)}`,
+      result.pending_approvals > 0 ? `Attention: ${result.pending_approvals} pending approval(s)` : "No pending approvals"
+    ].join("\n")
+  };
+}
+
 // mcp-server.ts
 var API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1";
 var API_KEY = process.env.SANCTION_API_KEY ?? "";
@@ -31017,7 +31054,7 @@ async function callSanction(path, method, body, bearerToken) {
 }
 var server = new McpServer({
   name: "sanction",
-  version: "0.3.0",
+  version: "0.3.1",
   description: "Sanction \u2014 pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)"
 });
 server.tool(
@@ -31081,15 +31118,16 @@ server.tool(
   {
     tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
     server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
-    arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation")
+    arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation"),
+    grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 retry with the grant_id from sanction_check_status")
   },
-  async ({ tool, server: srv, arguments: args }) => {
-    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args });
+  async ({ tool, server: srv, arguments: args, grant_id }) => {
+    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id });
     const authorized = result.authorized === true;
     return {
       content: [{
         type: "text",
-        text: authorized ? `\u2713 Authorized \u2014 ${tool}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval." : "Do not invoke."}`
+        text: authorized ? `\u2713 Authorized \u2014 ${tool}${result.grant_status === "consumed" ? " (grant consumed)" : ""}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval \u2014 check status with request_id ${result.request_id ?? ""}, then retry with the grant_id.` : "Do not invoke."}`
       }],
       isError: !authorized
     };
@@ -31172,14 +31210,14 @@ server.tool(
       return { content: [{ type: "text", text: "SANCTION_WALLET_ID not configured" }], isError: true };
     }
     const result = await callSanction(`/wallets/stats?wallet_id=${WALLET_ID}`, "GET");
+    const status = renderWalletStatus(result);
+    if (!status.ok) {
+      return { content: [{ type: "text", text: status.text }], isError: true };
+    }
     return {
       content: [{
         type: "text",
-        text: [
-          `Today \u2014 tokens: $${result.today?.token_cost_usd?.toFixed(4)} | spend: $${result.today?.spend_usd?.toFixed(2)}`,
-          `Month \u2014 tokens: $${result.month?.token_cost_usd?.toFixed(4)} | spend: $${result.month?.spend_usd?.toFixed(2)}`,
-          result.pending_approvals > 0 ? `\u26A0 ${result.pending_approvals} pending approval(s)` : "No pending approvals"
-        ].join("\n")
+        text: status.text
       }]
     };
   }

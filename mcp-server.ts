@@ -32,6 +32,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
+import { renderWalletStatus } from "./lib/mcpWalletStatus"
 
 const API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1"
 const API_KEY = process.env.SANCTION_API_KEY ?? ""
@@ -106,7 +107,7 @@ async function callSanction(path: string, method: "GET" | "POST", body?: unknown
 
 const server = new McpServer({
   name: "sanction",
-  version: "0.3.0",
+  version: "0.3.1",
   description: "Sanction — pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)",
 })
 
@@ -282,14 +283,14 @@ server.tool(
       return { content: [{ type: "text" as const, text: "SANCTION_WALLET_ID not configured" }], isError: true }
     }
     const result = await callSanction(`/wallets/stats?wallet_id=${WALLET_ID}`, "GET")
+    const status = renderWalletStatus(result)
+    if (!status.ok) {
+      return { content: [{ type: "text" as const, text: status.text }], isError: true }
+    }
     return {
       content: [{
         type: "text" as const,
-        text: [
-          `Today — tokens: $${result.today?.token_cost_usd?.toFixed(4)} | spend: $${result.today?.spend_usd?.toFixed(2)}`,
-          `Month — tokens: $${result.month?.token_cost_usd?.toFixed(4)} | spend: $${result.month?.spend_usd?.toFixed(2)}`,
-          result.pending_approvals > 0 ? `⚠ ${result.pending_approvals} pending approval(s)` : "No pending approvals",
-        ].join("\n"),
+        text: status.text,
       }],
     }
   }
