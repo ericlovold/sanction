@@ -2,25 +2,22 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { rangeUtc } from "@/lib/reporting"
-import { policyInputSchema } from "@/lib/policy"
-import { partitionFields } from "@/lib/simulate"
+import { findPack } from "@/lib/policyPacks"
 import { runSimulation } from "@/lib/simulationRun"
 
-// Retro-simulation (SIM-1): POST a candidate policy (partial, dollars — the
-// same shape as the policy update) and a range; every stored decision in the
-// window replays under the overlay and the response reports what flips.
-// Owner-only: policy experimentation is a management-plane activity. Purely
-// read + compute — nothing is persisted, debited, or escalated. The engine
-// itself lives in lib/simulationRun.ts, shared with the policy pack preview.
+// Preview a pack before applying it (PACK-1): the roadmap promise made real —
+// every pack ships with a simulation of what it would have done to your last
+// 30 days. Same engine as POST /policy/simulate, same honesty envelope.
+// Owner-only; read + compute, nothing persisted.
 
 const bodySchema = z.object({
   wallet_id: z.string().min(1),
   from: z.string().optional(),
   to: z.string().optional(),
-  policy: policyInputSchema,
 })
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   let raw: unknown
   try {
     raw = await req.json()
@@ -31,24 +28,20 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
-  const { wallet_id: walletId, policy } = parsed.data
+  const walletId = parsed.data.wallet_id
 
   const owner = await authenticateOwner(req, walletId)
   if (!owner.wallet) {
     return NextResponse.json({ error: "Unauthorized: management key required" }, { status: 401 })
   }
 
-  const { applied, ignored } = partitionFields(policy)
-  if (applied.length === 0) {
-    return NextResponse.json(
-      { error: "No simulatable policy fields provided", ignored_fields: ignored },
-      { status: 400 },
-    )
-  }
+  const pack = findPack(id)
+  if (!pack) return NextResponse.json({ error: `Unknown pack '${id}'` }, { status: 404 })
 
+  // Default window: the last 30 days, today inclusive.
   const today = new Date().toISOString().slice(0, 10)
-  const weekAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  const from = parsed.data.from ?? weekAgo
+  const monthAgo = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const from = parsed.data.from ?? monthAgo
   const to = parsed.data.to ?? today
   let start: Date, end: Date
   try {
@@ -57,9 +50,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "invalid range" }, { status: 400 })
   }
 
-  const report = await runSimulation(walletId, policy, start, end)
+  const report = await runSimulation(walletId, pack.policy, start, end)
   return NextResponse.json(
-    { wallet_id: walletId, from, to, ...report },
+    {
+      pack: { id: pack.id, name: pack.name, maturity: pack.maturity },
+      wallet_id: walletId,
+      from,
+      to,
+      ...report,
+    },
     { headers: { "Cache-Control": "no-store" } },
   )
 }

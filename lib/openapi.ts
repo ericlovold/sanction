@@ -1005,6 +1005,100 @@ export const spec = {
         },
       },
     },
+    "/policy/packs": {
+      get: {
+        operationId: "listPolicyPacks",
+        summary: "List installable policy packs",
+        description:
+          "PACK-1: the curated pack catalog — installable starting policies mapped to the governance maturity ladder (metering-first → startup-defaults → team-workspace → compliance-baseline). Each pack is a partial policy in dollars, the policy-update shape. Public; rate-limited per IP.",
+        security: [],
+        responses: {
+          "200": {
+            description: "The pack catalog",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    packs: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          name: { type: "string" },
+                          tagline: { type: "string" },
+                          audience: { type: "string" },
+                          maturity: { type: "string", enum: ["metering", "authorization", "governance", "evidence"] },
+                          policy: { $ref: "#/components/schemas/SimulatePolicyCandidate" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "429": { description: "Rate limited" },
+        },
+      },
+    },
+    "/policy/packs/{id}/preview": {
+      post: {
+        operationId: "previewPolicyPack",
+        summary: "Simulate a pack against your recent history",
+        description:
+          "PACK-1: run a pack through the retro-simulation before applying it — what would this pack have done to your last 30 days (default; any range up to 92 days). Same engine and honesty envelope as POST /policy/simulate. Read + compute only. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  from: { type: "string", format: "date" },
+                  to: { type: "string", format: "date" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Simulation report (the simulatePolicy shape) plus the pack identity" },
+          "400": { description: "Invalid range or malformed body" },
+          "401": { description: "Management key required" },
+          "404": { description: "Unknown pack id" },
+        },
+      },
+    },
+    "/policy/packs/{id}/apply": {
+      post: {
+        operationId: "applyPolicyPack",
+        summary: "Install a pack as the wallet policy",
+        description:
+          "PACK-1: apply the pack's fields as the wallet policy in one call. Flows through the same validate/convert/write path as PUT /wallets/policy, so the change writes an immutable PolicyRevision like every other policy mutation. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object", required: ["wallet_id"], properties: { wallet_id: { type: "string" } } },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Pack applied; returns the resulting policy in dollars" },
+          "400": { description: "Malformed body or validation failure" },
+          "401": { description: "Management key required" },
+          "404": { description: "Unknown pack id" },
+        },
+      },
+    },
     "/policy/simulate": {
       post: {
         operationId: "simulatePolicy",

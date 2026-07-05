@@ -18,20 +18,15 @@ conversation, not here.
 - [ ] 2026-07-05 — Maturity model as sales framing: Visibility → Metering →
       Authorization → Governance → Evidence. Meet a team at its rung, sell
       the next one; the product already spans all five. (idea, from external
-      strategy review)
+      strategy review) · 2026-07-05: the pack catalog now encodes this ladder
+      in-product (each pack carries a maturity tag); the sales-framing use
+      remains open.
 - [ ] 2026-07-05 — Authority map as a product surface: render who can
       authorize what across the wallet tree. Pairs with the queued
       multi-agent visualization idea. (idea, from external strategy review)
-- [ ] 2026-07-05 — The Manifesto: a technical philosophy doc — why
-      authorization is external, deterministic, grant-producing, replayable.
-      New public surface; needs Eric's call given the lexicon-placement
-      decision. (idea, from external strategy review)
 - [ ] 2026-07-05 — Distribution track: pursue agent frameworks/gateways as
       the default authorization adapter; compatibility badges. Mostly
       founder BD/content time. (idea, from external strategy review)
-- [ ] 2026-07-05 — Policy packs: sharpen roadmap's "Policy templates" into
-      installable starters (startup defaults, compliance baselines, per-team
-      packs). (idea, from external strategy review)
 - [ ] 2026-07-05 — Rich denial extras: would_become projected total + rule
       rendered as an expression string. Cosmetic delta on UX-3. (idea)
 
@@ -42,6 +37,10 @@ conversation, not here.
 
 ## Closed
 
+- [x] 2026-07-05 — Policy packs: installable starters. **Promoted** → PACK-1,
+      pack catalog + 30-day simulation preview + one-call apply.
+- [x] 2026-07-05 — The Manifesto. **Shipped** as [/why](../app/why/page.tsx)
+      (six claims; surface decision amended by Eric 2026-07-05).
 - [x] 2026-07-05 — Simulation mode: replay stored decision contexts against a
       modified policy. **Promoted same day** → SIM-1, `POST /v1/policy/simulate`
       (slice 1, as-recorded replay; cascade re-fold deferred to slice 2).

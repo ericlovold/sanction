@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-05",
+    title: "Policy packs — start from a policy that fits, with proof",
+    tags: ["policy", "packs", "simulation"],
+    body: "A blank policy form asks you to invent numbers. Packs start you from a position: **Metering first** (watch, don't block), **Startup defaults** (a ceiling, not a committee), **Team workspace** (departmental budgets, escalation where it matters), **Compliance baseline** (fail closed — everything asks). `GET /v1/policy/packs` lists them; one call applies one — through the same revision-writing path as every policy edit, so the evidentiary chain doesn't care whether you typed the numbers or picked a pack. And because simulation shipped first, every pack comes with proof instead of promises: `POST /v1/policy/packs/{id}/preview` replays your last 30 days under the pack and shows exactly which calls would have flipped — before you commit.",
+  },
+  {
+    date: "2026-07-05",
     title: "The architecture, taught",
     tags: ["docs", "architecture"],
     body: "The docs taught integration before they taught the mental model. Fixed, in three surfaces. [How Sanction works](/architecture): the whole system in one diagram — identity stays upstream, every action passes through one atomic evaluation, three outcomes, execution wherever the agent runs. [Why Sanction](/why): the six claims underneath everything — identity isn't authorization, prompts aren't policy, observability isn't enforcement, approval is not execution, evidence requires replay, governance should travel with the agent. And a [Concepts library](/docs) — Authorization, Evidence & replay, Capability governance — so the model comes before the endpoints. Read those once and every API makes sense.",
