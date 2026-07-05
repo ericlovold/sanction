@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-05",
+    title: "The architecture, taught",
+    tags: ["docs", "architecture"],
+    body: "The docs taught integration before they taught the mental model. Fixed, in three surfaces. [How Sanction works](/architecture): the whole system in one diagram — identity stays upstream, every action passes through one atomic evaluation, three outcomes, execution wherever the agent runs. [Why Sanction](/why): the six claims underneath everything — identity isn't authorization, prompts aren't policy, observability isn't enforcement, approval is not execution, evidence requires replay, governance should travel with the agent. And a [Concepts library](/docs) — Authorization, Evidence & replay, Capability governance — so the model comes before the endpoints. Read those once and every API makes sense.",
+  },
+  {
+    date: "2026-07-05",
     title: "What if? — test a policy against last week before you set it",
     tags: ["policy", "evidence", "simulation"],
     body: "Editing a budget used to be a guess: set $500, wait a week, see what breaks. Now you ask first. `POST /v1/policy/simulate` takes a candidate policy — any subset of the normal policy fields, in dollars — and replays your real decision history under it: *under a $500 daily budget, 14 of last week's 212 approvals would have been denied, $1,840 of spend would not have cleared, and these are the exact fourteen.* Every stored decision already carries the exact context the engine evaluated (that's the evidence layer), and the rules are pure, so the simulation is the same code path that made the original calls — not an estimate. The response is honest about its envelope: counters are held as recorded (an early simulated denial doesn't free up budget for a later request — yet), and anything it can't simulate is counted and named, never guessed.",

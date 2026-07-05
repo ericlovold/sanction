@@ -77,6 +77,14 @@ const workflows = [
   },
 ]
 
+const concepts = [
+  { title: "How Sanction works", desc: "The architecture in one diagram: identity upstream, one atomic decision, evidence.", href: "/architecture" },
+  { title: "Why Sanction", desc: "Six claims on why authorization is its own system.", href: "/why" },
+  { title: "Authorization: the decision", desc: "Wallets, agents, the ladder, grants — and the invariants.", href: "/docs/authorization" },
+  { title: "Evidence & replay", desc: "Revisions, stored contexts, replay with proof, what-if simulation.", href: "/docs/evidence-and-replay" },
+  { title: "Capability governance", desc: "New powers ask first — skills and plugins governed like money.", href: "/docs/capability-governance" },
+]
+
 const deeper = [
   { title: "Quickstart", desc: "First metered, governed call in under five minutes.", href: "/docs/quickstart" },
   { title: "Vercel AI SDK guide", desc: "Drop Sanction into the AI SDK with two lines of config.", href: "/docs/ai-sdk" },
@@ -145,6 +153,20 @@ export default function Docs() {
                   {w.link.label} →
                 </a>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Concepts — the model, not just the APIs */}
+        <section className="mt-16">
+          <h2 className="font-display text-2xl font-semibold tracking-tight">Concepts</h2>
+          <p className="mt-2 text-zinc-400">The model behind the endpoints — read these once and every API makes sense.</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {concepts.map((d) => (
+              <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
+                <p className="font-medium text-zinc-100">{d.title}</p>
+                <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>
+              </a>
             ))}
           </div>
         </section>
