@@ -37,6 +37,7 @@ vi.mock("@/lib/cascadeBudget", async (orig) => {
   }
 })
 
+import { verifyBindingToken, type AuthZenAgent } from "../lib/authzen"
 import { POST as evaluation } from "../app/api/access/v1/evaluation/route"
 import { POST as openAccessRequest } from "../app/api/access/v1/access-request/route"
 import { GET as taskStatus } from "../app/api/access/v1/access-request/[id]/route"
@@ -196,6 +197,23 @@ describe("POST /access/v1/access-request", () => {
     )
     expect(res.status).toBe(400)
     expect((await res.json()).type).toContain("invalid_denial_binding")
+  })
+
+  it("binds the token to its agent — a same-wallet peer cannot redeem it (Fearless P8)", async () => {
+    // A binding token is minted for AID and scoped to the wallet audience. A
+    // different agent in the SAME wallet passes the audience check but must
+    // fail the subject binding — otherwise agent A's approval is replayable by
+    // agent B. verifyBindingToken is the enforcement point; this pins it
+    // directly (the route/PDP subject checks would otherwise mask a regression).
+    const offer = await obtainOffer() // token.sub = AID
+    const base = { name: "x", perTransactionMaxUsd: null, dailySpendBudgetUsd: null, escalateOverUsd: null, wallet: { policy: null } }
+    const self: AuthZenAgent = { ...base, id: AID, walletId: WID }
+    const peer: AuthZenAgent = { ...base, id: "agent_2", walletId: WID }
+
+    // Positive control: the rightful agent verifies clean, proving the token is
+    // otherwise valid — so the peer's rejection is specifically the sub binding.
+    expect((await verifyBindingToken(self, offer.binding_token)).ok).toBe(true)
+    expect((await verifyBindingToken(peer, offer.binding_token)).ok).toBe(false)
   })
 
   it("rejects an expired denial with 410", async () => {
