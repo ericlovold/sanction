@@ -6,7 +6,10 @@ import type { GatewayUsage } from "@/lib/gateway"
 import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 60
+// Streaming responses relay at the provider's pace; give long generations room
+// so a live stream is never cut mid-flight (the old buffered path could burn
+// tokens then time out at 60s with nothing delivered).
+export const maxDuration = 300
 
 // Headers we must not forward upstream (Sanction auth, hop-by-hop, encoding).
 const STRIP_REQ = new Set(["host", "x-sanction-key", "content-length", "accept-encoding", "connection"])
@@ -95,6 +98,21 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       return false
     }
   }
+  // Meter with bounded retries — for the streaming path, where the client has
+  // already received the bytes so we can't withhold. The budget gate above
+  // already fails closed on a DB outage (the read throws before the provider
+  // is ever called), so the only case this covers is a transient write blip
+  // after a healthy read. Retries clear that; a hard final failure is logged
+  // loudly (a genuine anomaly) and left as a single-call under-count — the
+  // honest limit without an external durable queue.
+  const meterWithRetry = async (usage: GatewayUsage): Promise<void> => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (await meterObservedUsage(usage)) return
+    }
+    console.error("gateway meter write failed after retries — usage uncounted", {
+      agentId: agent.id, provider, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut,
+    })
+  }
 
   let upstream: Response
   try {
@@ -105,29 +123,43 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
 
   const ct = upstream.headers.get("content-type") ?? ""
 
-  // Streaming (SSE) must not reach the client unmetered. Buffer the stream,
-  // inspect usage, persist the meter row, then release the original bytes.
+  // Streaming (SSE) → tee bytes straight through to the client as the provider
+  // produces them, parse `data:` events as they pass, and meter the accumulated
+  // usage when the stream ends. Live streaming is preserved; metering settles at
+  // stream-end with retries. (Withholding a stream we've already begun sending
+  // is impossible, and buffering the whole thing first kills streaming and risks
+  // a token-burn-then-timeout at maxDuration — that's why the enforcement leans
+  // on the pre-call budget gate, which fails closed on a DB outage.)
   if (ct.includes("text/event-stream") && upstream.body) {
     const meter = makeStreamMeter(provider)
-    const text = await upstream.text()
-    for (const line of text.split(/\r?\n/)) {
-      const trimmed = line.trim()
-      if (trimmed.startsWith("data:")) {
-        const payload = trimmed.slice(5).trim()
-        if (payload && payload !== "[DONE]") {
-          try {
-            meter.feed(JSON.parse(payload))
-          } catch {
-            // partial/non-JSON event line - ignore
+    const decoder = new TextDecoder()
+    let buf = ""
+    const transform = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk) // live pass-through — the client sees every token as it lands
+        buf += decoder.decode(chunk, { stream: true })
+        let nl: number
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim()
+          buf = buf.slice(nl + 1)
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim()
+            if (payload && payload !== "[DONE]") {
+              try {
+                meter.feed(JSON.parse(payload))
+              } catch {
+                // partial/non-JSON event line — ignore
+              }
+            }
           }
         }
-      }
-    }
-    const usage = meter.result()
-    if ((usage.tokensIn || usage.tokensOut) && !(await meterObservedUsage(usage))) {
-      return meteringFailure()
-    }
-    return passthroughResponse(upstream, text)
+      },
+      async flush() {
+        const usage = meter.result()
+        if (usage.tokensIn || usage.tokensOut) await meterWithRetry(usage)
+      },
+    })
+    return passthroughResponse(upstream, upstream.body.pipeThrough(transform))
   }
 
   // JSON response -> read, meter, return.

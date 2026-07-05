@@ -55,8 +55,9 @@ budgets with `PATCH /api/v1/agents`.
 
 ## Streaming
 
-Streaming is metered. The gateway reads the SSE stream, parses the usage event,
-persists the meter row, then releases the original provider bytes to the client:
+Streaming is metered and **stays live** — the gateway tees the SSE stream to your
+client untouched, so tokens arrive as the provider generates them, and settles the
+meter when the stream ends:
 - **Anthropic** & **Gemini** — usage is in the stream by default; metered automatically.
 - **OpenAI** — set `stream_options: {include_usage: true}` so the final chunk carries
   usage; otherwise a streamed OpenAI call can't be metered.
@@ -64,7 +65,14 @@ persists the meter row, then releases the original provider bytes to the client:
 ## Notes / limits
 
 - Pricing is an **estimate** per model (see `lib/gateway.ts`); tune as needed.
-- If usage is present but Sanction cannot persist the meter row, the gateway
-  withholds the provider response and returns `502` fail-closed.
+- **Fail-closed is enforced at the budget gate**, before the provider is called:
+  if the daily token budget is exhausted, or Sanction can't read spend state
+  (a DB outage makes the pre-call read throw), the call is stopped and the
+  provider is never reached. For a **non-streaming (JSON)** response, if usage
+  can't be metered afterward, Sanction withholds the body and returns `502`.
+  For a **streaming** response — where the client has already begun receiving
+  bytes and withholding is impossible — the meter write is retried at stream
+  end; a hard failure is logged and left as a single-call under-count rather
+  than breaking the stream.
 - The agent still holds the provider key today. A vault-injected mode (the agent
   never sees the provider key) is the natural next step.
