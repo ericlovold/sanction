@@ -132,6 +132,33 @@ describe("POST /v1/policy/simulate — overlay semantics", () => {
     expect(body.approved_spend_usd).toEqual({ was: 60, would: 60 })
   })
 
+  it("a well-formed envelope with a rotten ctx is counted unreplayable, not fatal", async () => {
+    dbMock.authorizationRequest.findMany.mockResolvedValue([
+      // passes isDecisionEvidence but ctx lacks `rules` — the capability ladder
+      // would throw; the row must be isolated, the healthy row still simulated
+      row("bad", { ladder: "capability", effect: "allow", rule_id: "capability_escalate", ctx: {} }),
+      row("good", decisionEvidence("spend", SPEND_ALLOW_CTX)),
+    ])
+    const res = await simulate(req({ wallet_id: WID, policy: { daily_spend_budget_usd: 150 } }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.counts).toEqual({ considered: 2, simulated: 1, changed: 1, out_of_scope: 0, unreplayable: 1 })
+    expect(body.changes.map((c: { id: string }) => c.id)).toEqual(["good"])
+  })
+
+  it("caps the window at MAX_ROWS and says so", async () => {
+    const evidence = decisionEvidence("spend", SPEND_ALLOW_CTX)
+    dbMock.authorizationRequest.findMany.mockResolvedValue(
+      Array.from({ length: 5001 }, (_, i) => row(`r${i}`, evidence)),
+    )
+    const body = await (
+      await simulate(req({ wallet_id: WID, policy: { per_transaction_max_usd: 100 } }))
+    ).json()
+    expect(body.truncated).toBe(true)
+    expect(body.counts.considered).toBe(5000)
+    expect(body.counts.simulated).toBe(5000)
+  })
+
   it("defaults to the last 7 days and stays inside the wallet's agents", async () => {
     await simulate(req({ wallet_id: WID, policy: { escalate_over_usd: 10 } }))
     const where = dbMock.authorizationRequest.findMany.mock.calls[0][0].where

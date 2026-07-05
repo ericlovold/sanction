@@ -88,7 +88,15 @@ export async function POST(req: NextRequest) {
       counts.unreplayable++ // pre-EVID-1 rows have no stored context — never guess at one
       continue
     }
-    const sim = simulateEvidence(e, policy)
+    let sim: ReturnType<typeof simulateEvidence>
+    try {
+      sim = simulateEvidence(e, policy)
+    } catch {
+      // A well-formed envelope can still hold a stale/incomplete ctx the rules
+      // choke on; one bad row must not fail the whole simulation.
+      counts.unreplayable++
+      continue
+    }
     if (sim === null) {
       counts.out_of_scope++ // provision/tool ladders: not overlaid in slice 1
       continue

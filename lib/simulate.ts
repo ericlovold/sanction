@@ -1,6 +1,8 @@
 import { evaluate } from "@/lib/evaluation"
 import { LADDERS, type DecisionEvidence, type EvidenceLadder } from "@/lib/evidence"
 import type { PolicyInput } from "@/lib/policy"
+import type { SpendContext } from "@/lib/rules/spend"
+import type { CapabilityContext } from "@/lib/capability"
 
 // Retro-simulation (SIM-1): replay stored decision contexts under a candidate
 // policy. EVID-1 persisted the exact context each decision evaluated and the
@@ -39,23 +41,27 @@ export function partitionFields(p: PolicyInput): { applied: string[]; ignored: s
 
 export const SIMULATABLE_LADDERS: ReadonlySet<EvidenceLadder> = new Set(["spend", "capability"])
 
-/** Overlay the candidate's applicable fields onto a stored context. */
-function overlayCtx(ladder: EvidenceLadder, ctx: Record<string, unknown>, p: PolicyInput): Record<string, unknown> {
-  if (ladder === "spend") {
-    const o = { ...ctx }
-    if (p.per_transaction_max_usd !== undefined) o.perTxnMaxCents = toCents(p.per_transaction_max_usd)
-    if (p.daily_spend_budget_usd !== undefined) o.dailyBudgetCents = toCents(p.daily_spend_budget_usd)
-    if (p.monthly_spend_budget_usd !== undefined) {
-      o.monthlyBudgetCents = p.monthly_spend_budget_usd === null ? null : toCents(p.monthly_spend_budget_usd)
-    }
-    if (p.auto_approve_under_usd !== undefined) o.autoApproveUnderCents = toCents(p.auto_approve_under_usd)
-    if (p.escalate_over_usd !== undefined) o.escalateOverCents = toCents(p.escalate_over_usd)
-    if (p.allowed_categories !== undefined) o.allowedCategories = p.allowed_categories
-    if (p.blocked_categories !== undefined) o.blockedCategories = p.blocked_categories
-    return o
+// Overlay the candidate's applicable fields onto a stored context. The single
+// cast at each function head is the JSON boundary — stored evidence contexts
+// arrive untyped; from there on the ladder's own context type holds.
+function overlaySpend(ctx: Record<string, unknown>, p: PolicyInput): SpendContext {
+  const o = { ...ctx } as SpendContext
+  if (p.per_transaction_max_usd !== undefined) o.perTxnMaxCents = toCents(p.per_transaction_max_usd)
+  if (p.daily_spend_budget_usd !== undefined) o.dailyBudgetCents = toCents(p.daily_spend_budget_usd)
+  if (p.monthly_spend_budget_usd !== undefined) {
+    o.monthlyBudgetCents = p.monthly_spend_budget_usd === null ? null : toCents(p.monthly_spend_budget_usd)
   }
-  // capability
-  return p.capability_rules === undefined ? { ...ctx } : { ...ctx, rules: p.capability_rules }
+  if (p.auto_approve_under_usd !== undefined) o.autoApproveUnderCents = toCents(p.auto_approve_under_usd)
+  if (p.escalate_over_usd !== undefined) o.escalateOverCents = toCents(p.escalate_over_usd)
+  if (p.allowed_categories !== undefined) o.allowedCategories = p.allowed_categories
+  if (p.blocked_categories !== undefined) o.blockedCategories = p.blocked_categories
+  return o
+}
+
+function overlayCapability(ctx: Record<string, unknown>, p: PolicyInput): CapabilityContext {
+  const o = { ...ctx } as CapabilityContext
+  if (p.capability_rules !== undefined) o.rules = p.capability_rules
+  return o
 }
 
 export type SimOutcome = { effect: string; code?: string; rule_id: string }
@@ -68,7 +74,10 @@ export type SimResult = { was: SimOutcome; would: SimOutcome; changed: boolean }
  */
 export function simulateEvidence(e: DecisionEvidence, p: PolicyInput): SimResult | null {
   if (!SIMULATABLE_LADDERS.has(e.ladder)) return null
-  const d = evaluate(overlayCtx(e.ladder, e.ctx, p) as never, LADDERS[e.ladder] as never)
+  const d =
+    e.ladder === "spend"
+      ? evaluate(overlaySpend(e.ctx, p), [...LADDERS.spend])
+      : evaluate(overlayCapability(e.ctx, p), [...LADDERS.capability])
   const was: SimOutcome = { effect: e.effect, code: e.code, rule_id: e.rule_id }
   const would: SimOutcome = { effect: d.effect, code: d.code, rule_id: d.ruleId }
   return { was, would, changed: was.effect !== would.effect || (was.code ?? null) !== (would.code ?? null) }
