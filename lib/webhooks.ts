@@ -125,12 +125,13 @@ function slackText(event: string, data: Record<string, unknown>): string {
         if (pct !== 0) delta = ` (${pct > 0 ? "▲" : "▼"}${Math.abs(pct)}% wk/wk)`
       }
       const top = s("top_agent")
+      const topUsd = money(n("top_agent_usd"))
       return (
         `:calendar: *Your week with Sanction* (${s("period_start") ?? "?"} – ${s("period_end") ?? "?"})\n` +
         `Spend *${money(spend)}*${delta} · tokens *${money(n("token_cost_usd") ?? 0)}* · ` +
         `${n("approved") ?? 0} approved / ${n("denied") ?? 0} denied / ${n("escalated") ?? 0} escalated · ` +
         `${n("secret_accesses") ?? 0} secret accesses` +
-        (top ? `\nBusiest agent: *${top}* (${money(n("top_agent_usd"))})` : "")
+        (top ? `\nBusiest agent: *${top}*${topUsd ? ` (${topUsd})` : ""}` : "")
       )
     }
     case "ping":
