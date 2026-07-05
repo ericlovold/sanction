@@ -17,13 +17,12 @@ export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapI
   now: [
     { title: "What-if, answered from history", note: "Replay your real decisions under a candidate policy before you set it — see exactly which calls would flip, what spend wouldn't clear, and why. The same engine that made the original calls, pointed backward." },
     { title: "The architecture, taught", note: "How Sanction Works, Why Sanction, and a Concepts library — the mental model before the quickstart: identity stays upstream, one atomic decision, evidence you can replay." },
+    { title: "Policy packs", note: "Installable starting policies mapped to a maturity ladder — watch first, then guardrails, then fail-closed compliance. Preview any pack against your last 30 days before you apply it." },
     { title: "Capability governance", note: "Installing a skill, adding a plugin, calling a new API — new capability is a governed action like spending money. One rule list: allow, escalate, or deny before new power lands in an agent." },
-    { title: "Reporting that looks both ways", note: "Period summaries and per-seat rollups behind you; burn-pace projections and exhaustion forecasts ahead; a Monday digest in your Slack; CSV for finance." },
   ],
   next: [
     { title: "Sequential simulation", note: "Today's what-if holds recorded state constant; next it replays the week in order — an early simulated denial frees budget for the request that came after, exactly as it would have lived." },
     { title: "Sanction Local", note: "Private AI on hardware you own — local models, zero egress by design, and a signed audit trail your assessor can read. Regulated practices first." },
-    { title: "Policy packs", note: "Installable starting policies — startup defaults, compliance baselines, per-team packs — each shipped with a simulation of what it would have done to your last 30 days." },
     { title: "Budget reallocation", note: "Move unused budget across the account tree to where it's needed — leftover tokens become working capital, and the reallocation shows up in the audit." },
   ],
   later: [

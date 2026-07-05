@@ -497,6 +497,27 @@ export const spec = {
         type: "object",
         properties: { effect: { type: "string", enum: ["allow", "escalate", "deny"] }, code: { type: "string", nullable: true } },
       },
+      PolicyPackPolicy: {
+        type: "object",
+        description: "A pack's policy payload: any subset of the policy-update fields (dollars), minus wallet_id. Broader than SimulatePolicyCandidate — packs may carry fields the simulation can't overlay (token budgets, escalation timeouts).",
+        properties: {
+          daily_token_budget_usd: { type: "number", minimum: 0 },
+          daily_spend_budget_usd: { type: "number", minimum: 0 },
+          monthly_spend_budget_usd: { type: "number", minimum: 0, nullable: true },
+          subtree_daily_cap_usd: { type: "number", minimum: 0, nullable: true },
+          per_transaction_max_usd: { type: "number", minimum: 0 },
+          auto_approve_under_usd: { type: "number", minimum: 0 },
+          escalate_over_usd: { type: "number", minimum: 0 },
+          allowed_categories: { type: "array", items: { type: "string" } },
+          blocked_categories: { type: "array", items: { type: "string" } },
+          allowed_tools: { type: "array", items: { type: "string" } },
+          blocked_tools: { type: "array", items: { type: "string" } },
+          escalate_tools: { type: "array", items: { type: "string" } },
+          capability_rules: { $ref: "#/components/schemas/CapabilityRules" },
+          escalation_timeout_mins: { type: "integer", minimum: 0, maximum: 10080 },
+          escalation_timeout_action: { type: "string", enum: ["deny", "approve"] },
+        },
+      },
       SimulatePolicyCandidate: {
         type: "object",
         description: "Partial candidate policy, dollars — the policy-update field names, minus wallet_id. Fields the simulation cannot honor are echoed back as ignored_fields.",
@@ -1002,6 +1023,100 @@ export const spec = {
           "200": { description: "Totals + days[] (+ by_agent[] when grouped)" },
           "400": { description: "Invalid range (reversed, malformed, or over 92 days)" },
           "401": { description: "Management key or wallet agent key required" },
+        },
+      },
+    },
+    "/policy/packs": {
+      get: {
+        operationId: "listPolicyPacks",
+        summary: "List installable policy packs",
+        description:
+          "PACK-1: the curated pack catalog — installable starting policies mapped to the governance maturity ladder (metering-first → startup-defaults → team-workspace → compliance-baseline). Each pack is a partial policy in dollars, the policy-update shape. Public; rate-limited per IP.",
+        security: [],
+        responses: {
+          "200": {
+            description: "The pack catalog",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    packs: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          name: { type: "string" },
+                          tagline: { type: "string" },
+                          audience: { type: "string" },
+                          maturity: { type: "string", enum: ["metering", "authorization", "governance", "evidence"] },
+                          policy: { $ref: "#/components/schemas/PolicyPackPolicy" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "429": { description: "Rate limited" },
+        },
+      },
+    },
+    "/policy/packs/{id}/preview": {
+      post: {
+        operationId: "previewPolicyPack",
+        summary: "Simulate a pack against your recent history",
+        description:
+          "PACK-1: run a pack through the retro-simulation before applying it — what would this pack have done to your last 30 days (default; any range up to 92 days). Same engine and honesty envelope as POST /policy/simulate. Read + compute only. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  from: { type: "string", format: "date" },
+                  to: { type: "string", format: "date" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Simulation report (the simulatePolicy shape) plus the pack identity" },
+          "400": { description: "Invalid range or malformed body" },
+          "401": { description: "Management key required" },
+          "404": { description: "Unknown pack id" },
+        },
+      },
+    },
+    "/policy/packs/{id}/apply": {
+      post: {
+        operationId: "applyPolicyPack",
+        summary: "Install a pack as the wallet policy",
+        description:
+          "PACK-1: apply the pack's fields as the wallet policy in one call. Flows through the same validate/convert/write path as PUT /wallets/policy, so the change writes an immutable PolicyRevision like every other policy mutation. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object", required: ["wallet_id"], properties: { wallet_id: { type: "string" } } },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Pack applied; returns the resulting policy in dollars" },
+          "400": { description: "Malformed body or validation failure" },
+          "401": { description: "Management key required" },
+          "404": { description: "Unknown pack id" },
         },
       },
     },
