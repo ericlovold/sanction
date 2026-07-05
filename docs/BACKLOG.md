@@ -22,10 +22,6 @@ conversation, not here.
 - [ ] 2026-07-05 — Authority map as a product surface: render who can
       authorize what across the wallet tree. Pairs with the queued
       multi-agent visualization idea. (idea, from external strategy review)
-- [ ] 2026-07-05 — Simulation mode: replay stored decision contexts against a
-      modified policy ("what would this week have looked like under a $500
-      daily budget?"). EVID-1 makes it cheap: pure ladders + stored contexts.
-      Candidate for next build. (idea, from external strategy review)
 - [ ] 2026-07-05 — The Manifesto: a technical philosophy doc — why
       authorization is external, deterministic, grant-producing, replayable.
       New public surface; needs Eric's call given the lexicon-placement
@@ -46,4 +42,6 @@ conversation, not here.
 
 ## Closed
 
-(nothing yet)
+- [x] 2026-07-05 — Simulation mode: replay stored decision contexts against a
+      modified policy. **Promoted same day** → SIM-1, `POST /v1/policy/simulate`
+      (slice 1, as-recorded replay; cascade re-fold deferred to slice 2).

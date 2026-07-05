@@ -471,8 +471,44 @@ export const spec = {
           escalate_over_usd: { type: "number", minimum: 0 },
           allowed_categories: { type: "array", items: { type: "string" } },
           blocked_categories: { type: "array", items: { type: "string" } },
+          capability_rules: { $ref: "#/components/schemas/CapabilityRules" },
           escalation_timeout_mins: { type: "integer", minimum: 0, maximum: 10080 },
           escalation_timeout_action: { type: "string", enum: ["deny", "approve"] },
+        },
+      },
+      CapabilityRules: {
+        type: "array",
+        maxItems: 200,
+        description: "Ordered capability governance rules (CAP-1): namespaced prefix-glob patterns with block → allow-list → escalate precedence.",
+        items: {
+          type: "object",
+          required: ["pattern", "effect"],
+          properties: {
+            pattern: { type: "string", minLength: 1, maxLength: 120, description: "e.g. skill:install:*, api:github.com/*" },
+            effect: { type: "string", enum: ["block", "allow", "escalate"] },
+          },
+        },
+      },
+      SimulateEffectCounts: {
+        type: "object",
+        properties: { allow: { type: "integer" }, escalate: { type: "integer" }, deny: { type: "integer" } },
+      },
+      SimulateOutcome: {
+        type: "object",
+        properties: { effect: { type: "string", enum: ["allow", "escalate", "deny"] }, code: { type: "string", nullable: true } },
+      },
+      SimulatePolicyCandidate: {
+        type: "object",
+        description: "Partial candidate policy, dollars — the policy-update field names, minus wallet_id. Fields the simulation cannot honor are echoed back as ignored_fields.",
+        properties: {
+          daily_spend_budget_usd: { type: "number", minimum: 0 },
+          monthly_spend_budget_usd: { type: "number", minimum: 0, nullable: true },
+          per_transaction_max_usd: { type: "number", minimum: 0 },
+          auto_approve_under_usd: { type: "number", minimum: 0 },
+          escalate_over_usd: { type: "number", minimum: 0 },
+          allowed_categories: { type: "array", items: { type: "string" } },
+          blocked_categories: { type: "array", items: { type: "string" } },
+          capability_rules: { $ref: "#/components/schemas/CapabilityRules" },
         },
       },
       PolicyResponse: {
@@ -966,6 +1002,96 @@ export const spec = {
           "200": { description: "Totals + days[] (+ by_agent[] when grouped)" },
           "400": { description: "Invalid range (reversed, malformed, or over 92 days)" },
           "401": { description: "Management key or wallet agent key required" },
+        },
+      },
+    },
+    "/policy/simulate": {
+      post: {
+        operationId: "simulatePolicy",
+        summary: "Replay stored decisions under a candidate policy",
+        description:
+          "SIM-1 (retro-simulation): POST a partial candidate policy (dollars, same shape as the policy update) and a range up to 92 days (defaults to the last 7); every stored decision in the window re-runs through the pure ladders with the candidate overlaid on its recorded context, and the response reports what flips — totals by effect, approved-spend delta, and the changed decisions with before/after codes. Read + compute only: nothing is persisted, debited, or escalated. state=as_recorded — budget counters are held as the engine saw them, so cascade effects are not modeled. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "policy"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  from: { type: "string", format: "date" },
+                  to: { type: "string", format: "date" },
+                  policy: { $ref: "#/components/schemas/SimulatePolicyCandidate" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Simulation report",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    wallet_id: { type: "string" },
+                    from: { type: "string", format: "date" },
+                    to: { type: "string", format: "date" },
+                    state: { type: "string", enum: ["as_recorded"], description: "Honesty envelope: counters held as the engine saw them; cascade effects not modeled." },
+                    note: { type: "string" },
+                    applied_fields: { type: "array", items: { type: "string" } },
+                    ignored_fields: { type: "array", items: { type: "string" }, description: "Provided candidate fields the simulation cannot honor." },
+                    totals: {
+                      type: "object",
+                      properties: {
+                        was: { $ref: "#/components/schemas/SimulateEffectCounts" },
+                        would: { $ref: "#/components/schemas/SimulateEffectCounts" },
+                      },
+                    },
+                    approved_spend_usd: {
+                      type: "object",
+                      properties: { was: { type: "number" }, would: { type: "number" } },
+                    },
+                    counts: {
+                      type: "object",
+                      properties: {
+                        considered: { type: "integer" },
+                        simulated: { type: "integer" },
+                        changed: { type: "integer" },
+                        out_of_scope: { type: "integer" },
+                        unreplayable: { type: "integer" },
+                      },
+                    },
+                    changes: {
+                      type: "array",
+                      description: "Flipped decisions (first 100).",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          at: { type: "string", format: "date-time" },
+                          agent: { type: "string" },
+                          ladder: { type: "string", enum: ["spend", "capability"] },
+                          action: { type: "string" },
+                          merchant: { type: "string" },
+                          amount_usd: { type: "number" },
+                          final_status: { type: "string", description: "What actually happened, incl. human approvals." },
+                          was: { $ref: "#/components/schemas/SimulateOutcome" },
+                          would: { $ref: "#/components/schemas/SimulateOutcome" },
+                        },
+                      },
+                    },
+                    truncated: { type: "boolean" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Invalid range, malformed body, or no simulatable fields provided" },
+          "401": { description: "Management key required" },
         },
       },
     },

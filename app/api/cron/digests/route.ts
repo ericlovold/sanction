@@ -91,7 +91,9 @@ export async function GET(req: NextRequest) {
         ...digest,
       })
       delivered++
-    } catch {
+    } catch (err) {
+      // Unattended weekly run — a silent count would hide a broken wallet forever.
+      console.error(`weekly digest failed for wallet ${walletId}`, err)
       failed++
     }
   }

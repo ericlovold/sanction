@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-05",
+    title: "What if? — test a policy against last week before you set it",
+    tags: ["policy", "evidence", "simulation"],
+    body: "Editing a budget used to be a guess: set $500, wait a week, see what breaks. Now you ask first. `POST /v1/policy/simulate` takes a candidate policy — any subset of the normal policy fields, in dollars — and replays your real decision history under it: *under a $500 daily budget, 14 of last week's 212 approvals would have been denied, $1,840 of spend would not have cleared, and these are the exact fourteen.* Every stored decision already carries the exact context the engine evaluated (that's the evidence layer), and the rules are pure, so the simulation is the same code path that made the original calls — not an estimate. The response is honest about its envelope: counters are held as recorded (an early simulated denial doesn't free up budget for a later request — yet), and anything it can't simulate is counted and named, never guessed.",
+  },
+  {
+    date: "2026-07-05",
     title: "The Monday-morning digest",
     tags: ["reporting", "notifications"],
     body: "The week now reports itself. Subscribe a notification route to `report.weekly_digest` (one checkbox on the dashboard, or the `events` array on `POST /v1/webhooks`) and every Monday your Slack gets last week in one card: spend and token cost with week-over-week deltas, approved / denied / escalated counts, secret accesses, and the busiest agent. Machine endpoints get the same rollup as signed JSON. It's opt-in — nothing changes for existing routes unless they subscribed to everything — and a quiet week still reports: all zeros is information too.",
