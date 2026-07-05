@@ -59,6 +59,8 @@ fetches it on first run.
 | Tool | What it does |
 |------|--------------|
 | `sanction_authorize` | Ask before any purchase/subscription/transfer. Returns approve / escalate / deny. |
+| `sanction_authorize_provision` | Ask before provisioning seats/licenses/infrastructure. Governs the resource and the dollars in one call. |
+| `sanction_authorize_tool` | Ask before invoking another tool, shell command, deploy, or email send. Enforces the tool allow/block/escalate policy. |
 | `sanction_log_tokens` | Record LLM token usage against the daily token budget. |
 | `sanction_request_execution` | Issue a short-lived, scoped JWT with a hard spend cap. |
 | `sanction_inject_credential` | Retrieve a vaulted secret with that JWT (audit-logged). |
