@@ -32,6 +32,7 @@ jobs:
         # source this way — caught in #106). Rebuild and require a clean diff.
         run: |
           npm run build:mcp
+          git add -N packages/
           git diff --exit-code packages/
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
