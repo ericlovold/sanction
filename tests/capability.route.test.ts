@@ -139,6 +139,18 @@ describe("POST /v1/authorize/capability", () => {
     )
   })
 
+  it("replays a timed-out escalation with ESCALATION_TIMED_OUT, not a bare denial (F-1)", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_1", status: "denied", decisionNote: "Escalation timed out after 240m — auto-denied by policy",
+    })
+    const res = await capability(capReq({ capability: "skill:install:scraper" }, "idem-c1"))
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: false, status: "denied", code: "ESCALATION_TIMED_OUT" })
+    expect(body.remediation).toContain("approval deadline")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
   it("redeems a one-use grant and refuses a replay", async () => {
     dbMock.grant.findUnique.mockResolvedValue({
       id: "grant_1", walletId: WID, agentId: AID, actionType: "capability.use", status: "active",
