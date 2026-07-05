@@ -15,6 +15,7 @@ export const KNOWN_EVENTS = [
   "escalation.resolved",
   "budget.exhausted",
   "budget.threshold",
+  "report.weekly_digest",
   "*",
 ] as const
 export const DEFAULT_EVENTS = [
@@ -115,6 +116,23 @@ function slackText(event: string, data: Record<string, unknown>): string {
     }
     case "budget.exhausted":
       return `:octagonal_sign: *${s("agent") ?? "An agent"}* exhausted its ${(s("scope") ?? "daily spend").replace(/_/g, " ")} budget — further requests deny.`
+    case "report.weekly_digest": {
+      const spend = n("spend_usd") ?? 0
+      const prev = n("prev_spend_usd")
+      let delta = ""
+      if (prev !== null && prev > 0) {
+        const pct = Math.round(((spend - prev) / prev) * 100)
+        if (pct !== 0) delta = ` (${pct > 0 ? "▲" : "▼"}${Math.abs(pct)}% wk/wk)`
+      }
+      const top = s("top_agent")
+      return (
+        `:calendar: *Your week with Sanction* (${s("period_start") ?? "?"} – ${s("period_end") ?? "?"})\n` +
+        `Spend *${money(spend)}*${delta} · tokens *${money(n("token_cost_usd") ?? 0)}* · ` +
+        `${n("approved") ?? 0} approved / ${n("denied") ?? 0} denied / ${n("escalated") ?? 0} escalated · ` +
+        `${n("secret_accesses") ?? 0} secret accesses` +
+        (top ? `\nBusiest agent: *${top}* (${money(n("top_agent_usd"))})` : "")
+      )
+    }
     case "ping":
       return ":white_check_mark: Sanction connected. Escalations and budget alerts will land here."
     default:

@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-05",
+    title: "The Monday-morning digest",
+    tags: ["reporting", "notifications"],
+    body: "The week now reports itself. Subscribe a notification route to `report.weekly_digest` (one checkbox on the dashboard, or the `events` array on `POST /v1/webhooks`) and every Monday your Slack gets last week in one card: spend and token cost with week-over-week deltas, approved / denied / escalated counts, secret accesses, and the busiest agent. Machine endpoints get the same rollup as signed JSON. It's opt-in — nothing changes for existing routes unless they subscribed to everything — and a quiet week still reports: all zeros is information too.",
+  },
+  {
+    date: "2026-07-05",
     title: "Reporting that looks both ways",
     tags: ["reporting", "projections", "budgets"],
     body: "Reporting used to answer one day at a time, looking backward. Now it spans periods and looks ahead. `GET /v1/reporting/summary` takes any range up to 92 days and returns totals, day-by-day buckets, and per-agent breakdowns — this week vs last week is two calls. `GET /v1/wallets/stats` now projects: today and this month each carry their budget, the linear pace projection, and an exhaustion forecast (\"at this pace, the month's budget runs out on the 23rd\"). The early-morning and early-month guards keep one 6 a.m. purchase from projecting nonsense. And `GET /v1/audit-events?format=csv` hands finance the whole feed, spreadsheet-ready. Scheduled digests — the Monday-morning summary in your Slack — are next.",

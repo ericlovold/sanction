@@ -36,10 +36,19 @@ just multiple routes:
 |---|---|
 | `#approvals` | `approval.created`, `approval.resolved` |
 | `#finance-alerts` | `budget.threshold`, `budget.exhausted` |
+| `#leadership` | `report.weekly_digest` (Monday rollup, nothing else) |
 | `#agent-ops` | `*` (everything) |
 
 Add each Slack URL as its own route with the matching events via
 `POST /v1/webhooks` (`events` array), or the dashboard form for the default set.
+
+## The weekly digest (opt-in)
+
+Routes subscribed to `report.weekly_digest` get last week in one message every
+Monday: spend and token cost with week-over-week deltas, approved / denied /
+escalated counts, secret accesses, and the busiest agent. It is never in the
+default event set — subscribe the routes that want it (or a `*` route hears it
+like everything else). A quiet week still reports; all zeros is information.
 
 ## Machine consumers (your own systems)
 

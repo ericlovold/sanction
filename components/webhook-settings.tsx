@@ -100,6 +100,10 @@ export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]
                   <input type="checkbox" name="events" value="escalation.resolved" defaultChecked className="accent-emerald-500" />
                   Escalation resolved
                 </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="events" value="report.weekly_digest" className="accent-emerald-500" />
+                  Weekly digest (Mondays)
+                </label>
                 <label className="flex items-center gap-2 text-zinc-300">
                   <input type="checkbox" name="events" value="*" className="accent-emerald-500" />
                   Everything (present and future)
