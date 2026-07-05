@@ -26,6 +26,14 @@ jobs:
         run: npm run lint
       - name: Unit tests + coverage
         run: npm run test:coverage
+      - name: MCP bundle freshness (shipped artifact matches source)
+        # Sprint Fearless P3: the npm-published bundle is committed, so it can
+        # silently drift from mcp-server.ts (0.3.0 shipped months of missing
+        # source this way — caught in #106). Rebuild and require a clean diff.
+        run: |
+          npm run build:mcp
+          git add -N packages/
+          git diff --exit-code packages/
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
         continue-on-error: true
