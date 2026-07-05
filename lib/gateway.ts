@@ -5,11 +5,11 @@ import { db } from "./db"
 // forward the request to the real provider, read token usage off the response,
 // and meter it — no per-call instrumentation by the agent.
 
-type Usage = { model: string; tokensIn: number; tokensOut: number }
+export type GatewayUsage = { model: string; tokensIn: number; tokensOut: number }
 
 export const GATEWAY_PROVIDERS: Record<
   string,
-  { baseUrl: string; extract: (body: unknown, path: string) => Usage | null }
+  { baseUrl: string; extract: (body: unknown, path: string) => GatewayUsage | null }
 > = {
   anthropic: {
     baseUrl: "https://api.anthropic.com",
@@ -115,7 +115,7 @@ type StreamData = {
  * stream_options.include_usage. feed() each parsed `data:` JSON; result() at end.
  */
 export function makeStreamMeter(provider: string) {
-  const acc: Usage = { model: "", tokensIn: 0, tokensOut: 0 }
+  const acc: GatewayUsage = { model: "", tokensIn: 0, tokensOut: 0 }
   return {
     feed(d: StreamData) {
       if (provider === "anthropic") {
@@ -151,7 +151,7 @@ export function makeStreamMeter(provider: string) {
 }
 
 /** Record metered usage from a proxied call. */
-export async function meterUsage(agentId: string, provider: string, usage: Usage): Promise<number> {
+export async function meterUsage(agentId: string, provider: string, usage: GatewayUsage): Promise<number> {
   const cost = costUsd(usage.model, usage.tokensIn, usage.tokensOut)
   await db.tokenLog.create({
     data: {

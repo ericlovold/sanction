@@ -2,8 +2,8 @@
 
 Point your LLM client at Sanction instead of the provider. Sanction forwards the
 call, reads token usage off the response, meters it against the agent's budget,
-and returns the answer untouched. **No `log_tokens` call to remember** — change a
-base URL and add one header.
+and returns the answer untouched after metering succeeds. **No `log_tokens` call
+to remember** — change a base URL and add one header.
 
 If the agent has already spent its daily token budget, the gateway returns `402`
 **before** calling the provider — the spend is stopped, not just recorded.
@@ -55,8 +55,8 @@ budgets with `PATCH /api/v1/agents`.
 
 ## Streaming
 
-Streaming is metered. The gateway tees the SSE stream to your client untouched and
-parses the usage event as it ends:
+Streaming is metered. The gateway reads the SSE stream, parses the usage event,
+persists the meter row, then releases the original provider bytes to the client:
 - **Anthropic** & **Gemini** — usage is in the stream by default; metered automatically.
 - **OpenAI** — set `stream_options: {include_usage: true}` so the final chunk carries
   usage; otherwise a streamed OpenAI call can't be metered.
@@ -64,5 +64,7 @@ parses the usage event as it ends:
 ## Notes / limits
 
 - Pricing is an **estimate** per model (see `lib/gateway.ts`); tune as needed.
+- If usage is present but Sanction cannot persist the meter row, the gateway
+  withholds the provider response and returns `502` fail-closed.
 - The agent still holds the provider key today. A vault-injected mode (the agent
   never sees the provider key) is the natural next step.
