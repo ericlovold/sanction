@@ -489,6 +489,14 @@ export const spec = {
           },
         },
       },
+      SimulateEffectCounts: {
+        type: "object",
+        properties: { allow: { type: "integer" }, escalate: { type: "integer" }, deny: { type: "integer" } },
+      },
+      SimulateOutcome: {
+        type: "object",
+        properties: { effect: { type: "string", enum: ["allow", "escalate", "deny"] }, code: { type: "string", nullable: true } },
+      },
       SimulatePolicyCandidate: {
         type: "object",
         description: "Partial candidate policy, dollars — the policy-update field names, minus wallet_id. Fields the simulation cannot honor are echoed back as ignored_fields.",
@@ -1022,7 +1030,66 @@ export const spec = {
           },
         },
         responses: {
-          "200": { description: "Simulation report: totals was/would, approved_spend_usd delta, counts, changes[]" },
+          "200": {
+            description: "Simulation report",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    wallet_id: { type: "string" },
+                    from: { type: "string", format: "date" },
+                    to: { type: "string", format: "date" },
+                    state: { type: "string", enum: ["as_recorded"], description: "Honesty envelope: counters held as the engine saw them; cascade effects not modeled." },
+                    note: { type: "string" },
+                    applied_fields: { type: "array", items: { type: "string" } },
+                    ignored_fields: { type: "array", items: { type: "string" }, description: "Provided candidate fields the simulation cannot honor." },
+                    totals: {
+                      type: "object",
+                      properties: {
+                        was: { $ref: "#/components/schemas/SimulateEffectCounts" },
+                        would: { $ref: "#/components/schemas/SimulateEffectCounts" },
+                      },
+                    },
+                    approved_spend_usd: {
+                      type: "object",
+                      properties: { was: { type: "number" }, would: { type: "number" } },
+                    },
+                    counts: {
+                      type: "object",
+                      properties: {
+                        considered: { type: "integer" },
+                        simulated: { type: "integer" },
+                        changed: { type: "integer" },
+                        out_of_scope: { type: "integer" },
+                        unreplayable: { type: "integer" },
+                      },
+                    },
+                    changes: {
+                      type: "array",
+                      description: "Flipped decisions (first 100).",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          at: { type: "string", format: "date-time" },
+                          agent: { type: "string" },
+                          ladder: { type: "string", enum: ["spend", "capability"] },
+                          action: { type: "string" },
+                          merchant: { type: "string" },
+                          amount_usd: { type: "number" },
+                          final_status: { type: "string", description: "What actually happened, incl. human approvals." },
+                          was: { $ref: "#/components/schemas/SimulateOutcome" },
+                          would: { $ref: "#/components/schemas/SimulateOutcome" },
+                        },
+                      },
+                    },
+                    truncated: { type: "boolean" },
+                  },
+                },
+              },
+            },
+          },
           "400": { description: "Invalid range, malformed body, or no simulatable fields provided" },
           "401": { description: "Management key required" },
         },
