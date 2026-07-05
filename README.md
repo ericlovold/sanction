@@ -20,6 +20,7 @@ One policy decision engine governs every kind of agent action:
 | **Tools** (`/authorize/tool`) | Block/allow/escalate lists for any MCP tool or external action. Escalations reach the approval inbox like spend does. |
 | **Credentials** (`/exec` + `/credentials/inject`) | AES-256-GCM envelope-encrypted vault (KMS-wrapped, rotating keys). Injection requires a scoped 15-minute execution JWT and clearance ≥ the credential's bar. Every access audit-logged. |
 | **Provisioning** (`/authorize/provision`) | Seats, licenses, infrastructure — resource, line item, quantity, and dollars authorized in one call. |
+| **Capability** (`/authorize/capability`) | Skills, plugins, new APIs — acquiring capability is governed like spending money. One ordered rule list (block / allow / escalate, prefix-glob patterns) gates new power before it lands in an agent. |
 
 Around the engine:
 
@@ -35,15 +36,24 @@ Around the engine:
 - **Notifications that find you.** Email by default; Slack with one pasted
   webhook URL (readable messages, Review button); signed JSON webhooks for
   machines — each route subscribed to its own events. [Guide](docs/NOTIFICATIONS.md)
+- **Evidence you can replay.** Every policy edit becomes an immutable
+  revision; every decision stores the revision in force and the exact context
+  the engine evaluated. `GET /authorize/{id}/evidence` re-runs the pure rules
+  over the stored context and proves the outcome reproduces.
+- **What-if over real history.** `POST /policy/simulate` replays stored
+  decisions under a candidate policy — which calls flip, what spend wouldn't
+  clear — before you change anything.
 - **The audit plane.** `GET /audit-events` merges every decision, token log,
-  and secret access into one feed; `GET /reporting/daily-summary` is the
-  one-call morning rollup.
+  and secret access into one feed (CSV export included);
+  `GET /reporting/summary` spans any period with day buckets and per-seat
+  rollups; wallet stats project burn pace and exhaustion ETAs; a weekly
+  digest lands in Slack every Monday.
 - **LLM gateway.** Point your model SDK's base URL at
   `https://getsanction.com/api/gateway/<provider>` with `x-sanction-key` —
   usage is metered and budget-capped with zero per-call instrumentation.
 
 Every security claim above maps to enforcing code and a regression test in
-[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 500+ tests behind an 80%
+[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 600+ tests behind an 80%
 coverage gate, including concurrency and Postgres row-level-security suites.
 
 ---

@@ -6,24 +6,24 @@
 //
 // Principle: the roadmap leads the product by ~one release, never lags it. "Now"
 // is what's shipped/shipping; "Next" leads by one release; "Later" is the arc.
-// The arc reads: the engine, approvals→grants, provisioning, pools, the audit
-// plane, and the SDK are shipped (see the changelog) → now, approvals anywhere +
-// seats you can hand around → next, local deployment + plain-English policy →
-// later, cryptographic audit + enterprise trust.
+// The arc reads: the engine, approvals→grants, seats, standards (AuthZEN/AARP),
+// evidence+replay, and capability governance are shipped (see the changelog) →
+// now, simulation + teaching the architecture → next, sequential replay + local
+// deployment + policy packs → later, cryptographic audit + enterprise trust.
 
 export type RoadmapItem = { title: string; note: string }
 
 export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapItem[] } = {
   now: [
-    { title: "Decisions you can replay", note: "Every policy edit becomes an immutable revision; every decision records the revision it ran under. Ask 'why was this denied?' and get the policy that was in force, the values it saw, and a replay that proves it." },
+    { title: "What-if, answered from history", note: "Replay your real decisions under a candidate policy before you set it — see exactly which calls would flip, what spend wouldn't clear, and why. The same engine that made the original calls, pointed backward." },
+    { title: "The architecture, taught", note: "How Sanction Works, Why Sanction, and a Concepts library — the mental model before the quickstart: identity stays upstream, one atomic decision, evidence you can replay." },
     { title: "Capability governance", note: "Installing a skill, adding a plugin, calling a new API — new capability is a governed action like spending money. One rule list: allow, escalate, or deny before new power lands in an agent." },
-    { title: "Speak the standards (AuthZEN)", note: "Sanction as an OpenID AuthZEN decision point — any standards-speaking gateway can ask before its agent acts, and the escalate → approve → grant loop rides the draft approval profile." },
-    { title: "Approvals that find you", note: "Escalations routed to the right human wherever they work — email today, Slack and webhooks next." },
-    { title: "Seat wallets", note: "A wallet per seat you can hand to whoever holds it — rotate on attrition, auto-expire contractors, stamp a team template across five seats at once. Budgets by team, by day, by seat." },
+    { title: "Reporting that looks both ways", note: "Period summaries and per-seat rollups behind you; burn-pace projections and exhaustion forecasts ahead; a Monday digest in your Slack; CSV for finance." },
   ],
   next: [
+    { title: "Sequential simulation", note: "Today's what-if holds recorded state constant; next it replays the week in order — an early simulated denial frees budget for the request that came after, exactly as it would have lived." },
     { title: "Sanction Local", note: "Private AI on hardware you own — local models, zero egress by design, and a signed audit trail your assessor can read. Regulated practices first." },
-    { title: "Policy templates & plain-English governance", note: "Start from sensible presets; read and write your guardrails in words, not cents." },
+    { title: "Policy packs", note: "Installable starting policies — startup defaults, compliance baselines, per-team packs — each shipped with a simulation of what it would have done to your last 30 days." },
     { title: "Budget reallocation", note: "Move unused budget across the account tree to where it's needed — leftover tokens become working capital, and the reallocation shows up in the audit." },
   ],
   later: [
