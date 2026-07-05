@@ -42,7 +42,7 @@ The same purity powers three questions:
 | Question | Surface |
 |---|---|
 | *What would happen now?* | `?simulate=true` — dry-run a request, nothing persisted |
-| *What happened, and can you prove it?* | `GET /authorize/{id}/evidence` — replay with a match verdict |
+| *What happened, and can you prove it?* | `GET /v1/authorize/{id}/evidence` — replay with a match verdict |
 | *What would have happened instead?* | `POST /v1/policy/simulate` — replay a whole period under a candidate policy |
 
 The last one deserves emphasis: before you tighten a budget, Sanction can

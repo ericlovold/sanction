@@ -25,7 +25,7 @@ separation is deliberate.
 
 ## The lifecycle
 
-```
+```text
 Authorization Request
       │
   No policy? ──────────────────────────► DENIED   (default deny — fail closed)
