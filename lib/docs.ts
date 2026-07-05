@@ -4,6 +4,24 @@ import path from "node:path"
 // On-site docs rendered from the repo's markdown guides. Server-only (reads fs).
 // Only public-facing guides are listed here.
 export const DOCS: Record<string, { file: string; title: string; description: string }> = {
+  authorization: {
+    file: "CONCEPTS-AUTHORIZATION.md",
+    title: "Authorization: the decision",
+    description:
+      "The mental model: wallets, agents, policy, the ladder, grants — and the invariants (fail closed, atomic, one-use authority) that make the decision trustworthy.",
+  },
+  "evidence-and-replay": {
+    file: "CONCEPTS-EVIDENCE.md",
+    title: "Evidence & replay",
+    description:
+      "Why every decision can prove itself: pure rules, immutable policy revisions, stored contexts, replay with a match verdict — and simulation over real history.",
+  },
+  "capability-governance": {
+    file: "CONCEPTS-CAPABILITY.md",
+    title: "Capability governance",
+    description:
+      "New skills, plugins, and APIs are governed like money: one ordered rule list, block → allow-list → escalate precedence, the same approval inbox and one-use grants.",
+  },
   quickstart: {
     file: "QUICKSTART.md",
     title: "Quickstart",
