@@ -126,6 +126,11 @@ export default function Architecture() {
         {/* Why it holds up */}
         <section className="mt-14">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Why this shape</h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            The full argument — six claims, from &ldquo;identity isn&rsquo;t authorization&rdquo; to
+            &ldquo;governance should travel with the agent&rdquo; — lives at{" "}
+            <Link href="/why" className="text-emerald-400 hover:text-emerald-300">Why Sanction</Link>.
+          </p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
               <p className="text-sm font-medium text-zinc-100">Deterministic</p>
