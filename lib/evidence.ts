@@ -12,7 +12,7 @@ import { CAPABILITY_RULES } from "@/lib/capability"
 // write time, so what we persist is by construction the decision the route
 // enforced; replayEvidence() re-runs it later and proves the record intact.
 
-const LADDERS = {
+export const LADDERS = {
   spend: [...SPEND_STATELESS, ...SPEND_STATEFUL],
   provision: [...PROVISION_STATELESS, ...PROVISION_STATEFUL],
   tool: TOOL_RULES,

@@ -969,6 +969,37 @@ export const spec = {
         },
       },
     },
+    "/policy/simulate": {
+      post: {
+        operationId: "simulatePolicy",
+        summary: "Replay stored decisions under a candidate policy",
+        description:
+          "SIM-1 (retro-simulation): POST a partial candidate policy (dollars, same shape as the policy update) and a range up to 92 days (defaults to the last 7); every stored decision in the window re-runs through the pure ladders with the candidate overlaid on its recorded context, and the response reports what flips — totals by effect, approved-spend delta, and the changed decisions with before/after codes. Read + compute only: nothing is persisted, debited, or escalated. state=as_recorded — budget counters are held as the engine saw them, so cascade effects are not modeled. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "policy"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  from: { type: "string", format: "date" },
+                  to: { type: "string", format: "date" },
+                  policy: { $ref: "#/components/schemas/PolicyUpdateRequest" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Simulation report: totals was/would, approved_spend_usd delta, counts, changes[]" },
+          "400": { description: "Invalid range, malformed body, or no simulatable fields provided" },
+          "401": { description: "Management key required" },
+        },
+      },
+    },
     "/tokens": {
       post: {
         operationId: "logTokenUsage",
