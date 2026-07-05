@@ -1210,6 +1210,170 @@ export const spec = {
         },
       },
     },
+    "/authorize/{id}": {
+      get: {
+        operationId: "getAuthorizationRequest",
+        summary: "Poll an escalated decision (grant receipt included)",
+        description:
+          "Read the current state of an authorization request by id — used to poll an escalation until a human resolves it. Readable by the wallet's agent key or the management key. On approval the response carries the one-use grant the agent redeems by retrying with grant_id. Settles expired escalations to the policy's timeout action on read.",
+        security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
+        parameters: [
+          { in: "path", name: "id", required: true, schema: { type: "string" } },
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "The request's status, decision, and (if approved) grant receipt" },
+          "401": { description: "Wallet agent key or management key required" },
+          "404": { description: "Request not found" },
+        },
+      },
+    },
+    "/approvals": {
+      get: {
+        operationId: "listApprovals",
+        summary: "The approval inbox — pending escalations",
+        description: "List the wallet's pending human-approval requests (spend, tool, provision, capability). Owner-only.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Pending approvals" },
+          "401": { description: "Management key required" },
+        },
+      },
+      post: {
+        operationId: "resolveApproval",
+        summary: "Approve or reject a pending escalation",
+        description: "Resolve a pending approval by approval_id or request_id. Approving mints a single-use, expiring grant the agent redeems on retry. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "decision"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  approval_id: { type: "string", description: "One of approval_id or request_id is required" },
+                  request_id: { type: "string" },
+                  decision: { type: "string", enum: ["approve", "reject"] },
+                  note: { type: "string", maxLength: 500 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Resolved; approval returns the minted grant" },
+          "400": { description: "Invalid request (neither approval_id nor request_id)" },
+          "401": { description: "Management key required" },
+        },
+      },
+    },
+    "/credentials/vault": {
+      post: {
+        operationId: "storeCredential",
+        summary: "Store an encrypted credential",
+        description: "Envelope-encrypt and store a secret in the wallet's vault (AES-256-GCM, per-wallet DEK). Never returned raw — injected only under a scoped execution JWT with clearance ≥ the credential's bar. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "label", "type", "value"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  label: { type: "string", minLength: 1, maxLength: 64 },
+                  type: { type: "string", enum: ["api_key", "oauth_token", "certificate", "license", "password"] },
+                  value: { type: "string", minLength: 1, description: "The plaintext secret; stored encrypted, never returned" },
+                  allowed_agent_ids: { type: "array", items: { type: "string" } },
+                  scopes: { type: "array", items: { type: "string" } },
+                  min_clearance: { type: "integer", minimum: 1, maximum: 5, default: 1 },
+                  expires_at: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Stored (value returned as [encrypted])" },
+          "400": { description: "Invalid request" },
+          "401": { description: "Management key required" },
+        },
+      },
+    },
+    "/wallets/keys/rotate": {
+      post: {
+        operationId: "rotateWalletKey",
+        summary: "Rotate the wallet's data-encryption key",
+        description: "Rotate the per-wallet DEK; existing credentials are re-wrapped under the new key version. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object", required: ["wallet_id"], properties: { wallet_id: { type: "string" } } } } },
+        },
+        responses: {
+          "200": { description: "Rotated; returns the new key version" },
+          "401": { description: "Management key required" },
+        },
+      },
+    },
+    "/webhooks": {
+      get: {
+        operationId: "listWebhooks",
+        summary: "List notification routes",
+        description: "List the wallet's registered webhook routes (secrets are not returned). Owner-only.",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Webhook routes" }, "401": { description: "Management key required" } },
+      },
+      post: {
+        operationId: "registerWebhook",
+        summary: "Register a notification route (per-event subscriptions)",
+        description: "Register a public https endpoint (or a Slack incoming-webhook URL) to receive events. Deliveries are HMAC-SHA256 signed; the signing secret is shown once at creation. Loopback / private / metadata hosts are rejected. Owner-only.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "url"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  url: { type: "string", format: "uri", description: "Public https endpoint or hooks.slack.com URL" },
+                  events: { type: "array", items: { type: "string" }, description: "Subscribed events; defaults applied if omitted. '*' subscribes to all." },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Registered; signing secret returned once" },
+          "400": { description: "Invalid or non-public URL" },
+          "401": { description: "Management key required" },
+        },
+      },
+    },
+    "/reporting/daily-summary": {
+      get: {
+        operationId: "getDailySummary",
+        summary: "One-day rollup",
+        description: "The single-day counterpart to /reporting/summary: totals for spend, decisions, tokens, and secret access on one UTC date (defaults to today). Membership-gated — wallet owner or any wallet agent.",
+        security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "date", schema: { type: "string", format: "date" } },
+        ],
+        responses: {
+          "200": { description: "One-day totals" },
+          "400": { description: "Invalid date (must be YYYY-MM-DD)" },
+          "401": { description: "Management key or wallet agent key required" },
+        },
+      },
+    },
     "/tokens": {
       post: {
         operationId: "logTokenUsage",
