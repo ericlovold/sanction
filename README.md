@@ -89,22 +89,31 @@ Base URL: `https://getsanction.com/api/v1`
 POST  /authorize                — Authorize a spend action (grant_id redeems an approval)
 POST  /authorize/tool           — Authorize a tool invocation
 POST  /authorize/provision      — Authorize provisioning (resource + line item + $)
+POST  /authorize/capability     — Authorize acquiring capability (skill/plugin/API)
 GET   /authorize/{id}           — Poll an escalated decision (grant receipt included)
+GET   /authorize/{id}/evidence  — Replay a decision over its stored context (match verdict)
 POST  /tokens                   — Log LLM token consumption against the daily budget
 POST  /exec                     — Issue a scoped execution JWT (15-min TTL)
 POST  /credentials/inject       — Inject a decrypted credential (Bearer JWT)
-GET   /audit-events             — Unified audit feed (decisions, tokens, secret access)
+GET   /audit-events             — Unified audit feed (decisions, tokens, secret access; ?format=csv)
+GET   /reporting/summary        — Any range ≤92 days: totals, day buckets, per-agent
 GET   /reporting/daily-summary  — One-day rollup
 
-# AuthZEN PDP (agent key; base https://getsanction.com/api — spec-canonical paths)
+# AuthZEN PDP + AARP (agent key; base https://getsanction.com/api — spec-canonical paths)
 POST  /access/v1/evaluation     — OpenID AuthZEN 1.0 evaluation (decision-only)
 POST  /access/v1/evaluations    — AuthZEN batch, all three evaluation semantics
+POST  /access/v1/access-request — AARP: open an escalation from a signed binding token
+GET   /access/v1/access-request/{id} — AARP task status (maps to the profile's states)
 
 # Management (owner key: x-mgmt-key sk_...)
 POST  /wallets                  — Create a wallet + policy (management key shown once)
-GET   /wallets/stats            — Today + month-to-date stats
+GET   /wallets/stats            — Today + month-to-date stats + burn projections
 GET   /wallets/tree             — Subtree spend rollup
-GET/PATCH /wallets/policy       — Read / update budgets, thresholds, lists
+GET/PATCH /wallets/policy       — Read / update budgets, thresholds, lists, capability rules
+POST  /policy/simulate          — Replay real history under a candidate policy (what-if)
+GET   /policy/packs             — List installable policy packs (public)
+POST  /policy/packs/{id}/preview — Simulate a pack against your last 30 days
+POST  /policy/packs/{id}/apply  — Install a pack as the wallet policy (writes a revision)
 POST  /wallets/keys/rotate      — Rotate the wallet's data-encryption key
 POST  /agents                   — Register a seat (holder, expiry; key shown once)
 POST  /agents/batch             — Stamp one template across up to 50 seats
