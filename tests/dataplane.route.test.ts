@@ -176,6 +176,19 @@ describe("authorize/tool — tool governance", () => {
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 
+  it("replays a timed-out escalation with ESCALATION_TIMED_OUT, not a bare denial (F-1)", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_t1", status: "denied", decisionNote: "Escalation timed out after 240m — auto-denied by policy",
+    })
+    const res = await authorizeTool(
+      req("POST", "/api/v1/authorize/tool", { headers: { ...agentH, "idempotency-key": "idem-t1" }, body: { tool: "payments.charge" } }),
+    )
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: false, status: "denied", code: "ESCALATION_TIMED_OUT" })
+    expect(body.remediation).toContain("approval deadline")
+  })
+
   it("redeems an approved tool grant: one-use consumption authorizes the invocation", async () => {
     dbMock.grant.findUnique.mockResolvedValue({
       id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",

@@ -9,7 +9,7 @@ import { createToolPendingApproval } from "@/lib/approvals"
 import { consumeToolGrant } from "@/lib/grants"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
-import { REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { REMEDIATION, decisionCode, type DecisionCode } from "@/lib/decisions"
 import { logger } from "@/lib/log"
 
 const log = logger("v1/authorize/tool")
@@ -206,14 +206,18 @@ type PersistedTool = { id: string; status: string; decisionNote: string | null }
 
 function replayResponse(r: PersistedTool, agentName: string, tool: string, server?: string) {
   const authorized = r.status === "approved"
+  // Escalated keeps the domain code; settled rows derive from the persisted
+  // note (Sprint Fearless F-1) so a timed-out escalation replays as
+  // ESCALATION_TIMED_OUT instead of a bare denial — fresh and replay agree.
   const code: ToolDecisionCode | undefined = r.status === "escalated" ? "TOOL_ESCALATION_REQUIRED" : undefined
+  const settledCode = code ? undefined : decisionCode(r.status, r.decisionNote)
   return {
     authorized,
     status: r.status === "approved" ? "allowed" : r.status,
     request_id: r.id,
     reason: r.decisionNote ?? undefined,
-    code,
-    remediation: code ? TOOL_REMEDIATION[code] : undefined,
+    code: code ?? settledCode,
+    remediation: code ? TOOL_REMEDIATION[code] : settledCode ? REMEDIATION[settledCode] : undefined,
     agent: agentName,
     tool,
     server,

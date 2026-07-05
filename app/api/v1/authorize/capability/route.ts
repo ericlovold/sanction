@@ -14,7 +14,7 @@ import { createCapabilityPendingApproval } from "@/lib/approvals"
 import { consumeCapabilityGrant } from "@/lib/grants"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
-import { REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { REMEDIATION, decisionCode, type DecisionCode } from "@/lib/decisions"
 import { logger } from "@/lib/log"
 
 const log = logger("v1/authorize/capability")
@@ -192,14 +192,18 @@ type Persisted = { id: string; status: string; decisionNote: string | null }
 
 function replayResponse(r: Persisted, agentName: string, capability: string) {
   const authorized = r.status === "approved"
+  // Escalated keeps the domain code; settled rows derive from the persisted
+  // note (Sprint Fearless F-1) so a timed-out escalation replays as
+  // ESCALATION_TIMED_OUT instead of a bare denial — fresh and replay agree.
   const code: CapabilityDecisionCode | undefined = r.status === "escalated" ? "CAPABILITY_ESCALATION_REQUIRED" : undefined
+  const settledCode = code ? undefined : decisionCode(r.status, r.decisionNote)
   return {
     authorized,
     status: r.status === "approved" ? "allowed" : r.status,
     request_id: r.id,
     reason: r.decisionNote ?? undefined,
-    code,
-    remediation: code ? CAPABILITY_REMEDIATION[code] : undefined,
+    code: code ?? settledCode,
+    remediation: code ? CAPABILITY_REMEDIATION[code] : settledCode ? REMEDIATION[settledCode] : undefined,
     links: { record: `/api/v1/authorize/${r.id}`, evidence: `/api/v1/authorize/${r.id}/evidence` },
     agent: agentName,
     capability,
