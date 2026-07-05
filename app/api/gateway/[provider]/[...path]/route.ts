@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { hashApiKey } from "@/lib/apiKey"
 import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter } from "@/lib/gateway"
+import type { GatewayUsage } from "@/lib/gateway"
 import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
 
 export const dynamic = "force-dynamic"
@@ -20,7 +21,7 @@ async function authAgent(req: NextRequest) {
     include: { wallet: { include: { policy: true } } },
   })
   if (!agent || !agent.isActive) return null
-  // Seat expiry fails closed on the gateway too — same rule as lib/auth.ts.
+  // Seat expiry fails closed on the gateway too - same rule as lib/auth.ts.
   if (agent.expiresAt && agent.expiresAt <= new Date()) return null
   return agent
 }
@@ -43,6 +44,13 @@ function passthroughResponse(upstream: Response, body: BodyInit | null): Respons
   return new Response(body, { status: upstream.status, headers: h })
 }
 
+function meteringFailure(): Response {
+  return NextResponse.json(
+    { error: "Sanction metering failed; provider response withheld" },
+    { status: 502, headers: { "cache-control": "no-store" } },
+  )
+}
+
 async function handle(req: NextRequest, ctx: { params: Promise<{ provider: string; path?: string[] }> }) {
   const { provider, path = [] } = await ctx.params
   const noStore = { "cache-control": "no-store" }
@@ -57,93 +65,83 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   if (exhausted) {
     return NextResponse.json(
       { error: "Daily token budget exhausted", daily_limit_usd: budget, daily_spent_usd: spent },
-      { status: 402 },
+      { status: 402, headers: noStore },
     )
   }
 
   const url = `${cfg.baseUrl}/${path.join("/")}${req.nextUrl.search}`
   const method = req.method
   const body = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer()
+  const notifyThreshold = async (cost: number) => {
+    try {
+      await notifyTokenBudgetThreshold({
+        walletId: agent.walletId,
+        ownerEmail: agent.wallet.ownerEmail,
+        agentName: agent.name,
+        prevUsd: spent,
+        nextUsd: spent + cost,
+        budgetUsd: budget,
+      })
+    } catch {
+      // Threshold alerts are best-effort; the usage write above is not.
+    }
+  }
+  const meterObservedUsage = async (usage: GatewayUsage): Promise<boolean> => {
+    try {
+      const cost = await meterUsage(agent.id, provider, usage)
+      await notifyThreshold(cost)
+      return true
+    } catch {
+      return false
+    }
+  }
 
   let upstream: Response
   try {
     upstream = await fetch(url, { method, headers: upstreamHeaders(req), body })
   } catch {
-    return NextResponse.json({ error: "Upstream provider unreachable" }, { status: 502 })
+    return NextResponse.json({ error: "Upstream provider unreachable" }, { status: 502, headers: noStore })
   }
 
   const ct = upstream.headers.get("content-type") ?? ""
 
-  // Streaming (SSE) → tee bytes straight through to the client, parse `data:`
-  // events as they pass, and meter the accumulated usage when the stream ends.
+  // Streaming (SSE) must not reach the client unmetered. Buffer the stream,
+  // inspect usage, persist the meter row, then release the original bytes.
   if (ct.includes("text/event-stream") && upstream.body) {
     const meter = makeStreamMeter(provider)
-    const decoder = new TextDecoder()
-    let buf = ""
-    const transform = new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        controller.enqueue(chunk)
-        buf += decoder.decode(chunk, { stream: true })
-        let nl: number
-        while ((nl = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, nl).trim()
-          buf = buf.slice(nl + 1)
-          if (line.startsWith("data:")) {
-            const payload = line.slice(5).trim()
-            if (payload && payload !== "[DONE]") {
-              try {
-                meter.feed(JSON.parse(payload))
-              } catch {
-                // partial/non-JSON event line — ignore
-              }
-            }
-          }
-        }
-      },
-      async flush() {
-        const u = meter.result()
-        if (u.tokensIn || u.tokensOut) {
+    const text = await upstream.text()
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith("data:")) {
+        const payload = trimmed.slice(5).trim()
+        if (payload && payload !== "[DONE]") {
           try {
-            const cost = await meterUsage(agent.id, provider, u)
-            // Early warning (no surprises): this call crossed the threshold
-            // line of the daily token budget. Pre-call `spent` is close enough
-            // for a best-effort alert.
-            await notifyTokenBudgetThreshold({
-              walletId: agent.walletId,
-              ownerEmail: agent.wallet.ownerEmail,
-              agentName: agent.name,
-              prevUsd: spent,
-              nextUsd: spent + cost,
-              budgetUsd: budget,
-            })
+            meter.feed(JSON.parse(payload))
           } catch {
-            // metering failure must not break the client's stream
+            // partial/non-JSON event line - ignore
           }
         }
-      },
-    })
-    return passthroughResponse(upstream, upstream.body.pipeThrough(transform))
+      }
+    }
+    const usage = meter.result()
+    if ((usage.tokensIn || usage.tokensOut) && !(await meterObservedUsage(usage))) {
+      return meteringFailure()
+    }
+    return passthroughResponse(upstream, text)
   }
 
-  // JSON response → read, meter, return.
+  // JSON response -> read, meter, return.
   if (ct.includes("application/json")) {
     const buf = await upstream.arrayBuffer()
+    let usage: GatewayUsage | null = null
     try {
       const json = JSON.parse(new TextDecoder().decode(buf))
-      const usage = cfg.extract(json, path.join("/"))
-      if (usage && (usage.tokensIn || usage.tokensOut)) {
-        const cost = await meterUsage(agent.id, provider, usage)
-        await notifyTokenBudgetThreshold({
-          walletId: agent.walletId,
-          ownerEmail: agent.wallet.ownerEmail,
-          agentName: agent.name,
-          prevUsd: spent,
-          nextUsd: spent + cost,
-          budgetUsd: budget,
-        })
-      }
+      usage = cfg.extract(json, path.join("/"))
     } catch {
-      // not parseable / no usage — pass the body through untouched
+      // not parseable / no usage - pass the body through untouched
+    }
+    if (usage && (usage.tokensIn || usage.tokensOut) && !(await meterObservedUsage(usage))) {
+      return meteringFailure()
     }
     return passthroughResponse(upstream, buf)
   }
