@@ -11,6 +11,17 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
+      workshop worksheet, pilot checklist, go-live runbook). Harvest from the
+      first real customer engagement rather than authoring in a vacuum.
+      (idea, from external strategy review)
+- [ ] 2026-07-05 — Maturity model as sales framing: Visibility → Metering →
+      Authorization → Governance → Evidence. Meet a team at its rung, sell
+      the next one; the product already spans all five. (idea, from external
+      strategy review)
+- [ ] 2026-07-05 — Authority map as a product surface: render who can
+      authorize what across the wallet tree. Pairs with the queued
+      multi-agent visualization idea. (idea, from external strategy review)
 - [ ] 2026-07-05 — Simulation mode: replay stored decision contexts against a
       modified policy ("what would this week have looked like under a $500
       daily budget?"). EVID-1 makes it cheap: pure ladders + stored contexts.

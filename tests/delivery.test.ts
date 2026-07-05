@@ -140,6 +140,27 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(JSON.parse(String(slack[1].body)).blocks[0].text.text).toContain("84%")
   })
 
+  it("formats the weekly digest for Slack: wk/wk delta, counts, busiest agent", async () => {
+    const { slackPayload } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    const payload = JSON.parse(
+      slackPayload("report.weekly_digest", {
+        period_start: "2026-06-29", period_end: "2026-07-05",
+        spend_usd: 120, prev_spend_usd: 80, token_cost_usd: 4.2,
+        approved: 8, denied: 3, escalated: 1, secret_accesses: 2,
+        top_agent: "tenet", top_agent_usd: 124.2,
+      }),
+    )
+    const text = payload.blocks[0].text.text
+    expect(text).toContain("$120.00")
+    expect(text).toContain("▲50% wk/wk") // (120-80)/80
+    expect(text).toContain("8 approved / 3 denied / 1 escalated")
+    expect(text).toContain("tenet")
+    expect(text).toContain("$124.20")
+    // a flat week carries no delta noise
+    const flat = JSON.parse(slackPayload("report.weekly_digest", { spend_usd: 80, prev_spend_usd: 80 }))
+    expect(flat.blocks[0].text.text).not.toContain("wk/wk")
+  })
+
   it("does nothing when no hook matches, and swallows delivery failures", async () => {
     const { deliverEvent, deliverPing } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
     dbMock.webhook.findMany.mockResolvedValue([])
