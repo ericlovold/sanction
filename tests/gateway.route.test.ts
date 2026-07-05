@@ -176,21 +176,37 @@ describe("gateway proxy — forwarding and metering", () => {
     expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80, tokensOut: 40 }))
   })
 
-  it("withholds SSE responses when observed usage cannot be metered", async () => {
-    const sse = [
-      'data: {"type":"message_start","message":{"usage":{"input_tokens":80,"output_tokens":0}}}\n',
-      'data: {"type":"message_delta","usage":{"output_tokens":40}}\n',
-      "data: [DONE]\n",
-    ].join("\n")
+  const SSE_WITH_USAGE = [
+    'data: {"type":"message_start","message":{"usage":{"input_tokens":80,"output_tokens":0}}}\n',
+    'data: {"type":"message_delta","usage":{"output_tokens":40}}\n',
+    "data: [DONE]\n",
+  ].join("\n")
+
+  it("retries a transient meter failure at stream end", async () => {
     global.fetch = vi.fn(async () =>
-      new Response(new Blob([sse]).stream(), { status: 200, headers: { "content-type": "text/event-stream" } }),
+      new Response(new Blob([SSE_WITH_USAGE]).stream(), { status: 200, headers: { "content-type": "text/event-stream" } }),
     ) as never
-    vi.mocked(meterUsage).mockRejectedValueOnce(new Error("db down"))
+    vi.mocked(meterUsage).mockRejectedValueOnce(new Error("transient blip")) // first attempt fails, retry succeeds
 
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe(SSE_WITH_USAGE)
+    expect(meterUsage).toHaveBeenCalledTimes(2) // failed once, retried, succeeded
+  })
 
-    expect(res.status).toBe(502)
-    expect(res.headers.get("cache-control")).toBe("no-store")
-    expect(await res.json()).toEqual({ error: "Sanction metering failed; provider response withheld" })
+  it("still streams SSE even if metering ultimately fails — enforcement is the pre-call gate, not withholding", async () => {
+    global.fetch = vi.fn(async () =>
+      new Response(new Blob([SSE_WITH_USAGE]).stream(), { status: 200, headers: { "content-type": "text/event-stream" } }),
+    ) as never
+    vi.mocked(meterUsage).mockRejectedValue(new Error("db down")) // every attempt fails
+
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    // The client already received the bytes; we can't withhold a live stream.
+    // The budget gate fails closed on a DB outage BEFORE the provider call, so
+    // a stream that got this far means the read succeeded — the write blip is
+    // logged and left as a single-call under-count, not a 502.
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe(SSE_WITH_USAGE)
+    expect(meterUsage).toHaveBeenCalledTimes(3) // bounded retries
   })
 })
