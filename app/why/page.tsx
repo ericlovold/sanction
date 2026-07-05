@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import type { ReactNode } from "react"
 import Link from "next/link"
 import { DocsHeader } from "@/components/docs-header"
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 // a short defense. This is the document everything else links back to. Voice
 // belongs to Eric; edit freely, the structure is the point.
 
-const CLAIMS: { title: string; body: React.ReactNode }[] = [
+const CLAIMS: { title: string; body: ReactNode }[] = [
   {
     title: "Identity isn't authorization.",
     body: (

@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import type { ReactNode } from "react"
 import Link from "next/link"
 import { DocsHeader } from "@/components/docs-header"
 
@@ -22,7 +23,7 @@ function Arrow() {
   )
 }
 
-function Stage({ label, title, children }: { label: string; title: string; children: React.ReactNode }) {
+function Stage({ label, title, children }: { label: string; title: string; children: ReactNode }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
       <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-400">{label}</p>
