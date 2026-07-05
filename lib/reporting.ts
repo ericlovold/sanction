@@ -33,3 +33,36 @@ export function mergeEvents<T extends { at: string }>(lists: T[][], limit: numbe
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
     .slice(0, limit)
 }
+
+/** A UTC range [start, end) from two YYYY-MM-DD strings, end-inclusive by day. Max 92 days. */
+export function rangeUtc(from: string, to: string): { start: Date; end: Date } {
+  const { start } = dayRangeUtc(from)
+  const { end } = dayRangeUtc(to)
+  if (end <= start) throw new Error("to must be on or after from")
+  if (end.getTime() - start.getTime() > 92 * 24 * 60 * 60 * 1000) throw new Error("range too large (max 92 days)")
+  return { start, end }
+}
+
+// CSV export of the audit feed: fixed columns so every event type fits one
+// table, RFC 4180 quoting. Finance opens it in a spreadsheet; nothing fancy.
+export const CSV_COLUMNS = [
+  "at", "type", "id", "agent_id", "agent_name", "action", "amount_usd", "merchant",
+  "category", "status", "reason", "model", "cost_usd", "tokens_in", "tokens_out",
+  "task_label", "credential_label",
+] as const
+
+function csvEscape(v: unknown): string {
+  if (v === null || v === undefined) return ""
+  let s = String(v)
+  // Formula/DDE injection guard (CWE-1236): merchant/category/task_label are
+  // agent-supplied and this file opens in Excel/Sheets. A leading formula
+  // trigger gets a single-quote prefix, rendering it inert text.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+export function toCsv(events: Array<Record<string, unknown>>): string {
+  const rows = [CSV_COLUMNS.join(",")]
+  for (const e of events) rows.push(CSV_COLUMNS.map((c) => csvEscape(e[c])).join(","))
+  return rows.join("\n") + "\n"
+}

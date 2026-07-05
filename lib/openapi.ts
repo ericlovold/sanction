@@ -339,6 +339,10 @@ export const spec = {
               tokens_in: { type: "integer" },
               tokens_out: { type: "integer" },
               spend_usd: { type: "number" },
+              spend_budget_usd: { type: "number", nullable: true },
+              projected_spend_usd: { type: "number", nullable: true, description: "Linear end-of-day projection; null while the day is too young to extrapolate." },
+              will_exhaust: { type: "boolean" },
+              exhaust_at: { type: "string", format: "date-time", nullable: true },
             },
           },
           month: {
@@ -346,6 +350,10 @@ export const spec = {
             properties: {
               token_cost_usd: { type: "number" },
               spend_usd: { type: "number" },
+              spend_budget_usd: { type: "number", nullable: true },
+              projected_spend_usd: { type: "number", nullable: true, description: "Linear month-end projection; null early in the month." },
+              will_exhaust: { type: "boolean" },
+              exhaust_at: { type: "string", format: "date-time", nullable: true },
             },
           },
           pending_approvals: { type: "integer" },
@@ -917,6 +925,47 @@ export const spec = {
           "401": { description: "Invalid API key" },
           "403": { description: "Denied by policy or grant mismatch", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "409": { description: "Grant already consumed", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/audit-events": {
+      get: {
+        operationId: "getAuditEvents",
+        summary: "Unified audit feed (JSON or CSV)",
+        description:
+          "Merged, time-sorted feed of spend decisions, token logs, and secret access. Cursor-paginate with `before`. `format=csv` returns the same page spreadsheet-ready (RFC 4180, formula-injection neutralized) as an attachment.",
+        security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "type", schema: { type: "string", enum: ["authorization", "token", "injection"] } },
+          { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 200 } },
+          { in: "query", name: "before", schema: { type: "string", format: "date-time" } },
+          { in: "query", name: "format", schema: { type: "string", enum: ["csv"] }, description: "Omit for JSON" },
+        ],
+        responses: {
+          "200": { description: "Events page (application/json, or text/csv attachment with format=csv)" },
+          "400": { description: "wallet_id missing, or before is not a valid ISO timestamp" },
+          "401": { description: "Management key or wallet agent key required" },
+        },
+      },
+    },
+    "/reporting/summary": {
+      get: {
+        operationId: "getPeriodSummary",
+        summary: "Period rollup: totals, day buckets, per-agent grouping",
+        description:
+          "REPORT-1: the daily summary over any range up to 92 days (defaults to the last 7). Totals for spend/decisions/tokens/secret access, a day-by-day series, and group_by=agent for the per-seat breakdown. Membership-gated like the other reporting surfaces.",
+        security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "from", schema: { type: "string", format: "date" } },
+          { in: "query", name: "to", schema: { type: "string", format: "date" } },
+          { in: "query", name: "group_by", schema: { type: "string", enum: ["agent"] } },
+        ],
+        responses: {
+          "200": { description: "Totals + days[] (+ by_agent[] when grouped)" },
+          "400": { description: "Invalid range (reversed, malformed, or over 92 days)" },
+          "401": { description: "Management key or wallet agent key required" },
         },
       },
     },
