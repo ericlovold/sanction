@@ -31119,7 +31119,7 @@ server.tool(
     tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
     server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
     arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation"),
-    grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 retry with the grant_id from sanction_check_status")
+    grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 poll GET /authorize/{request_id} for the grant_id, then retry this exact request with it")
   },
   async ({ tool, server: srv, arguments: args, grant_id }) => {
     const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id });
@@ -31127,7 +31127,7 @@ server.tool(
     return {
       content: [{
         type: "text",
-        text: authorized ? `\u2713 Authorized \u2014 ${tool}${result.grant_status === "consumed" ? " (grant consumed)" : ""}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval \u2014 check status with request_id ${result.request_id ?? ""}, then retry with the grant_id.` : "Do not invoke."}`
+        text: authorized ? `\u2713 Authorized \u2014 ${tool}${result.grant_status === "consumed" ? " (grant consumed)" : ""}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval \u2014 poll the authorization record${result.request_id ? ` (request_id ${result.request_id})` : ""} for the grant_id, then retry with it.` : "Do not invoke."}`
       }],
       isError: !authorized
     };

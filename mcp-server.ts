@@ -182,7 +182,7 @@ server.tool(
     tool: z.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
     server: z.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' — advisory context for the owner"),
     arguments: z.record(z.string(), z.unknown()).optional().describe("The arguments the tool would be called with — surfaced to the owner on escalation"),
-    grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — retry with the grant_id from sanction_check_status"),
+    grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — poll GET /authorize/{request_id} for the grant_id, then retry this exact request with it"),
   },
   async ({ tool, server: srv, arguments: args, grant_id }) => {
     const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id })
@@ -192,7 +192,7 @@ server.tool(
         type: "text" as const,
         text: authorized
           ? `✓ Authorized — ${tool}${result.grant_status === "consumed" ? " (grant consumed)" : ""}`
-          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval — check status with request_id ${result.request_id ?? ""}, then retry with the grant_id.` : "Do not invoke."}`,
+          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval — poll the authorization record${result.request_id ? ` (request_id ${result.request_id})` : ""} for the grant_id, then retry with it.` : "Do not invoke."}`,
       }],
       isError: !authorized,
     }

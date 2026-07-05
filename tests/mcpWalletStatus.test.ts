@@ -21,6 +21,13 @@ describe("MCP wallet status guard", () => {
     })
   })
 
+  it("reports no pending approvals when the wallet is healthy with zero pending items", () => {
+    const rendered = renderWalletStatus({ ...VALID_STATS, pending_approvals: 0 })
+    expect(rendered.ok).toBe(true)
+    expect(rendered.text).toContain("No pending approvals")
+    expect(rendered.text).toContain("Today - tokens: $1.2346")
+  })
+
   it("turns JSON API errors into status-unknown errors, not empty healthy status", () => {
     const rendered = renderWalletStatus({ error: "Unauthorized: management key or wallet agent key required" })
 
