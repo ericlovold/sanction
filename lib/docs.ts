@@ -22,6 +22,18 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "New skills, plugins, and APIs are governed like money: one ordered rule list, block → allow-list → escalate precedence, the same approval inbox and one-use grants.",
   },
+  compatibility: {
+    file: "COMPATIBILITY.md",
+    title: "Compatibility & badges",
+    description:
+      "Badges and channel paths for MCP hosts, frameworks, gateways, and payment-agent pilots — with the exact Sanction surface each claim rests on.",
+  },
+  "framework-adapters": {
+    file: "FRAMEWORK-ADAPTERS.md",
+    title: "Framework adapters",
+    description:
+      "SanctionMiddleware, LangChain/LangGraph wrappers, and LiteLLM callback recipes for putting authorization before framework tool execution.",
+  },
   quickstart: {
     file: "QUICKSTART.md",
     title: "Quickstart",

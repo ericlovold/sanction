@@ -61,6 +61,8 @@ describe("the catalog itself", () => {
     }
     expect(new Set(POLICY_PACKS.map((p) => p.id)).size).toBe(POLICY_PACKS.length)
     expect(findPack("startup-defaults")?.name).toBe("Startup defaults")
+    expect(findPack("mcp-tool-governance")?.channel).toBe("mcp")
+    expect(findPack("coding-agent-seat")?.useCases).toContain("repository automation")
     expect(findPack("nope")).toBeNull()
   })
 

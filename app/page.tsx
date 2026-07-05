@@ -201,6 +201,7 @@ export default function Landing() {
             <a className="sanction-link" href="#how">How it works</a>
             <a className="sanction-link" href="#security">Security</a>
             <a className="sanction-link" href="#pricing">Pricing</a>
+            <Link className="sanction-link" href="/compatibility">Compatibility</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
