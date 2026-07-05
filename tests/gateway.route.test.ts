@@ -26,6 +26,7 @@ vi.mock("@/lib/gateway", async (orig) => {
 
 import { POST as gateway } from "../app/api/gateway/[provider]/[...path]/route"
 import { isBudgetExhausted, meterUsage } from "../lib/gateway"
+import { notifyTokenBudgetThreshold } from "../lib/thresholds"
 
 const KEY = "pxy_testagentkey"
 const AGENT = {
@@ -85,6 +86,7 @@ describe("gateway proxy — gates before the upstream call", () => {
     global.fetch = vi.fn()
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
     expect(res.status).toBe(402)
+    expect(res.headers.get("cache-control")).toBe("no-store")
     expect((await res.json())).toMatchObject({ daily_limit_usd: 10, daily_spent_usd: 10 })
     expect(global.fetch).not.toHaveBeenCalled() // the wall is BEFORE the provider call
   })
@@ -93,6 +95,7 @@ describe("gateway proxy — gates before the upstream call", () => {
     global.fetch = vi.fn(async () => { throw new Error("ECONNREFUSED") }) as never
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
     expect(res.status).toBe(502)
+    expect(res.headers.get("cache-control")).toBe("no-store")
   })
 })
 
@@ -126,6 +129,30 @@ describe("gateway proxy — forwarding and metering", () => {
     expect(meterUsage).not.toHaveBeenCalled()
   })
 
+  it("withholds JSON responses when observed usage cannot be metered", async () => {
+    const upstreamBody = JSON.stringify({ id: "msg_1", usage: { input_tokens: 100, output_tokens: 50 }, model: "claude-sonnet-5" })
+    global.fetch = vi.fn(async () => new Response(upstreamBody, { status: 200, headers: { "content-type": "application/json" } })) as never
+    vi.mocked(meterUsage).mockRejectedValueOnce(new Error("db down"))
+
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+
+    expect(res.status).toBe(502)
+    expect(res.headers.get("cache-control")).toBe("no-store")
+    expect(await res.json()).toEqual({ error: "Sanction metering failed; provider response withheld" })
+  })
+
+  it("still returns metered JSON responses when threshold notification fails", async () => {
+    const upstreamBody = JSON.stringify({ id: "msg_1", usage: { input_tokens: 100, output_tokens: 50 }, model: "claude-sonnet-5" })
+    global.fetch = vi.fn(async () => new Response(upstreamBody, { status: 200, headers: { "content-type": "application/json" } })) as never
+    vi.mocked(notifyTokenBudgetThreshold).mockRejectedValueOnce(new Error("notify down"))
+
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+
+    expect(res.status).toBe(200)
+    expect(meterUsage).toHaveBeenCalled()
+    expect((await res.json()).id).toBe("msg_1")
+  })
+
   it("passes upstream error statuses through to the client", async () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "overloaded" } }), { status: 529, headers: { "content-type": "application/json" } })) as never
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
@@ -147,5 +174,23 @@ describe("gateway proxy — forwarding and metering", () => {
     const text = await res.text() // draining the stream fires the flush-time metering
     expect(text).toBe(sse)
     expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80, tokensOut: 40 }))
+  })
+
+  it("withholds SSE responses when observed usage cannot be metered", async () => {
+    const sse = [
+      'data: {"type":"message_start","message":{"usage":{"input_tokens":80,"output_tokens":0}}}\n',
+      'data: {"type":"message_delta","usage":{"output_tokens":40}}\n',
+      "data: [DONE]\n",
+    ].join("\n")
+    global.fetch = vi.fn(async () =>
+      new Response(new Blob([sse]).stream(), { status: 200, headers: { "content-type": "text/event-stream" } }),
+    ) as never
+    vi.mocked(meterUsage).mockRejectedValueOnce(new Error("db down"))
+
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+
+    expect(res.status).toBe(502)
+    expect(res.headers.get("cache-control")).toBe("no-store")
+    expect(await res.json()).toEqual({ error: "Sanction metering failed; provider response withheld" })
   })
 })
