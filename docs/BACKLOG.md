@@ -11,6 +11,29 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-05 — Console/API parity: surface the API-only capabilities in the
+      operator console — simulate + pack picker on the policy page, a capability
+      rule editor (CAP-1 deferred it), an audit/reporting page with CSV export
+      and a period picker. Engines + tests already exist; only the UI is
+      missing. Highest-leverage adoption fix. (idea, from product audit)
+- [ ] 2026-07-05 — Runtime parity: close "governed in API" vs "governed in the
+      runtime." Add sanction_authorize_capability to the MCP server; add
+      simulate/packs/evidence/reporting methods to the admin SDK; tool/provision/
+      capability on the client SDK. (idea, from product audit)
+- [ ] 2026-07-05 — Distribution: framework adapter packages, not just guides —
+      SanctionMiddleware for LangChain/LangGraph, a LiteLLM callback, a CrewAI
+      authorize tool, Vercel AI SDK middleware. Plus a /compatibility page +
+      badges ("Sanction-governed MCP", "AuthZEN PDP compatible", "AARP approval
+      loop") and MCP-directory listings (official registry, Smithery, Glama,
+      mcp.so, PulseMCP, Cursor Directory). Mostly founder BD + small packages.
+      (idea, from distribution review)
+- [ ] 2026-07-05 — Channel policy packs: extend PACK-1's catalog with packs
+      shaped to a channel — coding-agent, MCP-tool, contractor-seat,
+      gateway-token-budget, payment-agent. Pure data + one catalog entry each.
+      (idea, from distribution review)
+- [ ] 2026-07-05 — Hosted remote MCP endpoint: today sanction-mcp is stdio/npx
+      only; a hosted remote endpoint with OAuth/API-key onboarding is the
+      enterprise on-ramp. Bigger infra scope. (idea, from distribution review)
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.
