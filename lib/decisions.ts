@@ -153,6 +153,23 @@ export function decideProvisionPolicy(i: ProvisionDecideInput): PolicyDecision {
   return { status, note: d.reason ?? "" }
 }
 
+/**
+ * Replay code + remediation for tool/capability routes, factored out so the two
+ * can't drift (Sprint Fearless F-1: they already had). An escalated row keeps
+ * its domain-specific code + remediation; a settled row (incl. a timed-out
+ * escalation) derives from the persisted note via `decisionCode`, so replay and
+ * a fresh decision always agree.
+ */
+export function deriveReplayCode<T extends string>(
+  status: string,
+  note: string | null,
+  escalated: { code: T; remediation: string },
+): { code: T | DecisionCode | undefined; remediation: string | undefined } {
+  if (status === "escalated") return { code: escalated.code, remediation: escalated.remediation }
+  const settled = decisionCode(status, note)
+  return { code: settled, remediation: settled ? REMEDIATION[settled] : undefined }
+}
+
 /** Map a persisted decision to a stable code. `undefined` for an approval. */
 export function decisionCode(status: string, note: string | null): DecisionCode | undefined {
   if (status === "approved") return undefined
