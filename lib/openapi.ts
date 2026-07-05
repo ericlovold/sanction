@@ -944,6 +944,7 @@ export const spec = {
         ],
         responses: {
           "200": { description: "Events page (application/json, or text/csv attachment with format=csv)" },
+          "400": { description: "wallet_id missing, or before is not a valid ISO timestamp" },
           "401": { description: "Management key or wallet agent key required" },
         },
       },
