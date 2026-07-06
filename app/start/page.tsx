@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { CreateWallet } from "@/components/create-wallet"
+import { McpInstall } from "@/components/mcp-install"
 import { SocialSignIn } from "@/components/social-signin"
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default function StartPage() {
         </p>
 
         <div className="mt-8">
-          <SocialSignIn />
+          <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
         </div>
 
         <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide text-zinc-600">
@@ -38,6 +39,21 @@ export default function StartPage() {
         </div>
 
         <CreateWallet />
+
+        <div className="my-10 flex items-center gap-3 text-[11px] uppercase tracking-wide text-zinc-600">
+          <span className="h-px flex-1 bg-zinc-900" />
+          then connect your agent
+          <span className="h-px flex-1 bg-zinc-900" />
+        </div>
+
+        <h2 className="font-display text-lg font-semibold tracking-tight">Add Sanction to your stack</h2>
+        <p className="mt-1 text-sm text-zinc-400">
+          One click puts the Sanction tools in front of your agent — it asks before it spends, and every decision is
+          logged. Paste the agent key and wallet id from the step above.
+        </p>
+        <div className="mt-5">
+          <McpInstall />
+        </div>
       </main>
     </div>
   )

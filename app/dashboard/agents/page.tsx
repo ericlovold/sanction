@@ -149,6 +149,10 @@ export default async function AgentsPage() {
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
       <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Agents</h1>
+      <p className="-mt-4 text-sm text-zinc-500">
+        Every agent this wallet governs — its key, its budgets, and its overrides. The key is the identity; everything
+        the agent does is checked and logged against it.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-zinc-800 bg-zinc-900">

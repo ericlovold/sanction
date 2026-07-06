@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 import { dailyPace } from "@/lib/burn"
@@ -159,7 +160,12 @@ export default async function SpendPage() {
 
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
-      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Spend &amp; token usage</h1>
+      <div>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Spend &amp; token usage</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Where the money goes — token burn and purchases against their budgets, by agent, model, and task.
+        </p>
+      </div>
 
       {/* Budget vs. actual — today */}
       <Card className="bg-zinc-900 border-zinc-800">
@@ -218,7 +224,12 @@ export default async function SpendPage() {
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">By model · this month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
-            {s.byModel.length === 0 && <p className="text-sm text-zinc-600">No token usage yet</p>}
+            {s.byModel.length === 0 && (
+              <EmptyState
+                title="No token usage yet"
+                hint="Point an agent's model SDK at the Sanction gateway (or log tokens directly) and per-model costs appear here, metered against the daily token budget."
+              />
+            )}
             <div className="space-y-2">
               {s.byModel.map((m) => (
                 <div key={m.model} className="flex items-center justify-between text-sm">
@@ -237,7 +248,12 @@ export default async function SpendPage() {
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">By agent · this month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
-            {s.agentList.length === 0 && <p className="text-sm text-zinc-600">No agents registered</p>}
+            {s.agentList.length === 0 && (
+              <EmptyState
+                title="No agents registered"
+                hint="Create an agent on the Agents page — its burn shows up here the moment it starts working."
+              />
+            )}
             <div className="space-y-2">
               {s.agentList.map((a) => (
                 <div key={a.name} className="flex items-center justify-between text-sm">
@@ -270,7 +286,12 @@ export default async function SpendPage() {
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">By task · this month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
-            {s.byTask.length === 0 && <p className="text-sm text-zinc-600">No labeled tasks yet</p>}
+            {s.byTask.length === 0 && (
+              <EmptyState
+                title="No labeled tasks yet"
+                hint="Send a task_label with token logs and costs group by task here — which jobs are worth what they burn."
+              />
+            )}
             <div className="space-y-2">
               {s.byTask.map((t) => (
                 <div key={t.taskLabel ?? "unlabeled"} className="flex items-center justify-between text-sm">

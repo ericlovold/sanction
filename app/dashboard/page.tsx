@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
@@ -120,7 +121,10 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2">
             {pendingCount === 0 && activeGrantCount === 0 && deniedToday === 0 && (
-              <p className="text-sm text-zinc-600">No open interruptions.</p>
+              <EmptyState
+                title="Nothing waiting on you"
+                hint="When an agent's request crosses your escalation line, it pauses here until you decide — approve it and the agent gets a single-use grant to retry with."
+              />
             )}
             {pendingCount > 0 && (
               <Link href="/dashboard/approvals" className="flex items-center justify-between rounded-md border border-amber-500/20 bg-amber-500/[0.04] px-3 py-2 text-sm transition-colors hover:border-amber-500/35">
@@ -176,7 +180,12 @@ export default async function Dashboard() {
           <CardTitle className="text-sm font-medium text-zinc-300">Agents</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {agents.length === 0 && <p className="text-zinc-600 text-sm">No agents registered yet</p>}
+          {agents.length === 0 && (
+            <EmptyState
+              title="No agents yet"
+              hint="An agent is an identity you govern: it gets its own API key, budgets, and audit trail. Create your first on the Agents page — it takes under a minute."
+            />
+          )}
           <div className="space-y-2">
             {agents.map((a) => (
               <Link key={a.id} href="/dashboard/agents" className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-zinc-950/60">

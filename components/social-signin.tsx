@@ -25,10 +25,22 @@ function GitHubMark() {
   )
 }
 
-export function SocialSignIn({ callbackURL = "/dashboard" }: { callbackURL?: string }) {
-  const [loading, setLoading] = useState<"google" | "github" | null>(null)
+function AppleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden>
+      <path d="M17.05 12.54c-.03-2.89 2.36-4.28 2.47-4.35-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-1-1.94.03-3.72 1.13-4.72 2.86-2.01 3.49-.51 8.66 1.45 11.49.96 1.39 2.1 2.94 3.6 2.88 1.44-.06 1.99-.93 3.73-.93s2.23.93 3.76.9c1.55-.03 2.53-1.41 3.48-2.8 1.1-1.61 1.55-3.17 1.57-3.25-.03-.02-3-1.15-3.02-4.58zM14.16 4.06c.8-.96 1.33-2.3 1.18-3.64-1.14.05-2.53.76-3.35 1.72-.74.85-1.38 2.22-1.21 3.53 1.28.1 2.58-.65 3.38-1.61z" />
+    </svg>
+  )
+}
 
-  async function go(provider: "google" | "github") {
+type Provider = "google" | "github" | "apple"
+
+// `apple` is passed from the server page (client components can't read server
+// env) so the button only renders on deploys with Apple credentials configured.
+export function SocialSignIn({ callbackURL = "/dashboard", apple = false }: { callbackURL?: string; apple?: boolean }) {
+  const [loading, setLoading] = useState<Provider | null>(null)
+
+  async function go(provider: Provider) {
     setLoading(provider)
     try {
       await authClient.signIn.social({ provider, callbackURL })
@@ -50,6 +62,12 @@ export function SocialSignIn({ callbackURL = "/dashboard" }: { callbackURL?: str
         <GitHubMark />
         {loading === "github" ? "Redirecting…" : "Continue with GitHub"}
       </button>
+      {apple && (
+        <button type="button" onClick={() => go("apple")} disabled={loading !== null} className={base}>
+          <AppleMark />
+          {loading === "apple" ? "Redirecting…" : "Continue with Apple"}
+        </button>
+      )}
     </div>
   )
 }

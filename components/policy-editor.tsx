@@ -33,14 +33,46 @@ type PolicyDollars = {
   escalation_timeout_action: string
 }
 
+// Every hint states what the engine actually does (verified against
+// lib/rules/spend.ts) — what the field governs and what happens at the line.
 const dollarFields = [
-  { name: "daily_token_budget_usd", label: "Daily token budget" },
-  { name: "daily_spend_budget_usd", label: "Daily spend budget" },
-  { name: "monthly_spend_budget_usd", label: "Monthly spend budget", optional: true },
-  { name: "subtree_daily_cap_usd", label: "Subtree daily cap", optional: true },
-  { name: "per_transaction_max_usd", label: "Per-transaction max" },
-  { name: "auto_approve_under_usd", label: "Auto-approve under" },
-  { name: "escalate_over_usd", label: "Escalate over" },
+  {
+    name: "daily_token_budget_usd",
+    label: "Daily token budget",
+    hint: "Model-token spend per day, all agents combined. Over budget, gateway calls are refused until the day resets.",
+  },
+  {
+    name: "daily_spend_budget_usd",
+    label: "Daily spend budget",
+    hint: "Total purchases per day. A request that would cross this is denied.",
+  },
+  {
+    name: "monthly_spend_budget_usd",
+    label: "Monthly spend budget",
+    optional: true,
+    hint: "Calendar-month ceiling on purchases. Blank = no monthly cap.",
+  },
+  {
+    name: "subtree_daily_cap_usd",
+    label: "Subtree daily cap",
+    optional: true,
+    hint: "Hard daily ceiling for this wallet plus every pool beneath it. Blank = no cap.",
+  },
+  {
+    name: "per_transaction_max_usd",
+    label: "Per-transaction max",
+    hint: "The most one request may spend. Above this is denied outright — it can't even ask for approval.",
+  },
+  {
+    name: "auto_approve_under_usd",
+    label: "Auto-approve under",
+    hint: "At or under this, spend is approved silently — it never waits on a human.",
+  },
+  {
+    name: "escalate_over_usd",
+    label: "Escalate over",
+    hint: "Above this, spend pauses in your approvals inbox until you decide.",
+  },
 ] as const
 
 const initial: PolicyActionState = { ok: false, message: "" }
@@ -66,7 +98,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
   const setRule = (i: number, patch: Partial<CapabilityRule>) =>
     setRules((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
 
-  const listInput = (name: string, label: string, value: string[], danger?: boolean) => (
+  const listInput = (name: string, label: string, value: string[], hint: string, danger?: boolean) => (
     <label className="block">
       <span className="text-[11px] uppercase tracking-wide text-zinc-600">{label}</span>
       <input
@@ -75,6 +107,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
         defaultValue={value.join(", ")}
         className={`mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-600 ${danger ? "text-red-300" : "text-zinc-100"}`}
       />
+      <span className="mt-1 block text-[10px] leading-snug text-zinc-600">{hint}</span>
     </label>
   )
 
@@ -113,6 +146,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                     className="w-full bg-transparent px-2 py-1.5 font-mono text-sm text-zinc-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
+                <span className="mt-1 block text-[10px] leading-snug text-zinc-600">{f.hint}</span>
               </label>
             ))}
           </div>
@@ -138,7 +172,9 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                 defaultValue={policy.escalation_timeout_mins}
                 className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              <span className="mt-1 block text-[10px] text-zinc-600">0 = never times out</span>
+              <span className="mt-1 block text-[10px] leading-snug text-zinc-600">
+                How long an escalated request waits for a human before the timeout action applies. 0 = waits forever.
+              </span>
             </label>
             <label className="block">
               <span className="text-[11px] uppercase tracking-wide text-zinc-600">On timeout</span>
@@ -155,14 +191,41 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            {listInput("allowed_categories", "Allowed categories", policy.allowed_categories)}
-            {listInput("blocked_categories", "Blocked categories", policy.blocked_categories, true)}
+            {listInput(
+              "allowed_categories",
+              "Allowed categories",
+              policy.allowed_categories,
+              "Comma-separated. Empty = every category allowed. If set, spend outside these is denied.",
+            )}
+            {listInput(
+              "blocked_categories",
+              "Blocked categories",
+              policy.blocked_categories,
+              "Always denied — blocked wins, even over the allow list.",
+              true,
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            {listInput("allowed_tools", "Allowed tools", policy.allowed_tools)}
-            {listInput("blocked_tools", "Blocked tools", policy.blocked_tools, true)}
-            {listInput("escalate_tools", "Escalate tools", policy.escalate_tools)}
+            {listInput(
+              "allowed_tools",
+              "Allowed tools",
+              policy.allowed_tools,
+              "Empty = every tool allowed. If set, unlisted tools are denied. Case-sensitive.",
+            )}
+            {listInput(
+              "blocked_tools",
+              "Blocked tools",
+              policy.blocked_tools,
+              "Always denied — blocked wins.",
+              true,
+            )}
+            {listInput(
+              "escalate_tools",
+              "Escalate tools",
+              policy.escalate_tools,
+              "These tools pause for your approval on every call.",
+            )}
           </div>
 
           {/* Capability rules — ordered block → allow-list → escalate */}
@@ -181,6 +244,10 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                 </button>
               )}
             </div>
+            <p className="mt-1 text-[10px] leading-snug text-zinc-600">
+              Governs what agents may <em>acquire</em> — installing skills, adding plugins, reaching new APIs. Patterns
+              prefix-match with <span className="font-mono">*</span>; block wins, then the allow list, then escalate.
+            </p>
             <div className="mt-2 space-y-2">
               {rules.length === 0 && (
                 <p className="text-[11px] text-zinc-600">
