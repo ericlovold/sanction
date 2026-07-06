@@ -29,7 +29,7 @@ export default function StartPage() {
         </p>
 
         <div className="mt-8">
-          <SocialSignIn />
+          <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
         </div>
 
         <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide text-zinc-600">

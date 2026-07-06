@@ -36,7 +36,7 @@ export default function LoginPage() {
         <p className="mt-2 text-sm text-zinc-400">Welcome back. Sign in to your Sanction console.</p>
 
         <div className="mt-8">
-          <SocialSignIn />
+          <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
         </div>
 
         <Divider label="or with email" />
