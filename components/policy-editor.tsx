@@ -9,6 +9,7 @@ import {
   type SimActionState,
 } from "@/app/dashboard/policy/actions"
 import { SimulationReport } from "@/components/simulation-report"
+import { ActionFlash } from "@/components/ui/action-flash"
 import { MAX_CAPABILITY_RULES, MAX_CAPABILITY_PATTERN_LEN } from "@/lib/policyLimits"
 
 type CapabilityRule = { pattern: string; effect: "block" | "allow" | "escalate" }
@@ -223,14 +224,8 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
           </div>
 
           {editable ? (
-            <div className="flex items-center justify-between gap-3">
-              <span
-                className={`text-xs ${state.message ? (state.ok ? "text-emerald-400" : "text-red-400") : "text-transparent"}`}
-                aria-live="polite"
-              >
-                {state.message || "."}
-              </span>
-              <div className="flex items-center gap-2">
+            <div className="space-y-3">
+              <div className="flex items-center justify-end gap-2">
                 {/* Overrides the form's save action for this button only (React 19):
                     same 15-field FormData, but replays it over history instead of writing. */}
                 <button
@@ -249,6 +244,8 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                   {pending ? "Saving…" : "Save policy"}
                 </button>
               </div>
+              {/* Saving is the completed task — announce it, then revert to default. */}
+              <ActionFlash state={state} />
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">

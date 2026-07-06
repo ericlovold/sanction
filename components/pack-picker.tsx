@@ -9,6 +9,7 @@ import {
   type SimActionState,
 } from "@/app/dashboard/policy/actions"
 import { SimulationReport } from "@/components/simulation-report"
+import { ActionFlash } from "@/components/ui/action-flash"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 const previewInitial: SimActionState = { ok: false, message: "" }
@@ -84,11 +85,8 @@ export function PackPicker({ editable }: { editable: boolean }) {
           ))}
         </div>
 
-        {applyState.message && (
-          <p className={`text-xs ${applyState.ok ? "text-emerald-400" : "text-red-400"}`} aria-live="polite">
-            {applyState.message}
-          </p>
-        )}
+        {/* Applying is the completed task — announce it, then revert to default. */}
+        <ActionFlash state={applyState} />
         {previewState.message && !previewState.ok && (
           <p className="text-xs text-red-400" aria-live="polite">{previewState.message}</p>
         )}
