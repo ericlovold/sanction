@@ -1,9 +1,8 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
-import { PolicyEditor } from "@/components/policy-editor"
-import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
 import { dailyPace } from "@/lib/burn"
 
@@ -300,16 +299,17 @@ export default async function SpendPage() {
         </Card>
       </div>
 
-      {/* Policy editor */}
-      {s.policy ? (
-        <PolicyEditor policy={policyToDollars(s.policy)} editable={view.isSession} />
-      ) : (
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="px-5 py-5">
-            <p className="text-sm text-zinc-600">No policy configured.</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Policy authoring lives on its own page now. */}
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardContent className="flex items-center justify-between px-5 py-4">
+          <span className="text-sm text-zinc-400">
+            {s.policy ? "Budgets, categories, tools, capability rules, and escalation." : "No policy configured yet."}
+          </span>
+          <Link href="/dashboard/policy" className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800">
+            Manage policy →
+          </Link>
+        </CardContent>
+      </Card>
     </div>
   )
 }
