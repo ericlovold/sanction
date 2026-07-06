@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 import { rangeUtc } from "@/lib/reporting"
@@ -159,7 +160,10 @@ export default async function AuditPage({
         </CardHeader>
         <CardContent className="px-5 pb-5">
           {byAgent.length === 0 ? (
-            <p className="text-sm text-zinc-600">No agents on this wallet yet.</p>
+            <EmptyState
+              title="No agents on this wallet yet"
+              hint="Create an agent on the Agents page and give it its API key — every decision it asks for, token it burns, and secret it touches will land here, per agent."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -198,7 +202,10 @@ export default async function AuditPage({
         </CardHeader>
         <CardContent className="px-5 pb-5">
           {feed.events.length === 0 ? (
-            <p className="text-sm text-zinc-600">No activity recorded yet.</p>
+            <EmptyState
+              title="No activity recorded yet"
+              hint="The moment an agent makes its first request, it shows up here with what was asked, what the policy decided, and why — the trail you hand an auditor."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">

@@ -104,7 +104,13 @@ export default async function ApprovalsPage() {
 
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
-      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Authorization inbox</h1>
+      <div>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Authorization inbox</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Requests that crossed your escalation line, paused and waiting on you. Approving one issues a single-use grant
+          the agent redeems on retry.
+        </p>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="bg-zinc-900 border-zinc-800">

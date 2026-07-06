@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { db } from "@/lib/db"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { PackPicker } from "@/components/pack-picker"
 import { PolicyEditor } from "@/components/policy-editor"
@@ -40,7 +41,10 @@ export default async function PolicyPage() {
       ) : (
         <Card className="bg-zinc-900 border-zinc-800">
           <CardContent className="px-5 py-5">
-            <p className="text-sm text-zinc-600">No policy configured for this wallet yet.</p>
+            <EmptyState
+              title="No policy on this wallet yet"
+              hint="Until a policy exists, there are no budgets or escalation lines to enforce. The fastest start is a policy pack above — one click sets a coherent baseline, and every field stays editable afterwards."
+            />
           </CardContent>
         </Card>
       )}

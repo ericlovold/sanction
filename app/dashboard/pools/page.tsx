@@ -3,6 +3,7 @@ import Link from "next/link"
 import { AlertTriangle, GitBranch, Route, ShieldCheck, WalletCards } from "lucide-react"
 import { db } from "@/lib/db"
 import { allocationMoves, grantAuthorityUsd, poolStatus, spendCapPressure, type PoolStatus } from "@/lib/budgetPools"
+import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { PoolControls } from "@/components/pool-controls"
 import { Badge } from "@/components/ui/badge"
@@ -460,7 +461,12 @@ export default async function PoolsPage() {
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Budget pools &amp; allocation</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Delegated budgets — child wallets whose spend rolls up here, with hard caps you set or split from the parent.
+        </p>
+      </div>
         {rootPool && (
           <Badge className={`${statusMeta[rootPool.status].badge} border`}>
             {statusMeta[rootPool.status].label}
@@ -571,7 +577,12 @@ export default async function PoolsPage() {
             </div>
           </CardHeader>
           <CardContent className="px-5 pb-5">
-            {pools.rows.length === 0 && <p className="text-sm text-zinc-600">No pools yet. Create a child wallet (POST /v1/wallets with parent_id) and its budget becomes a pool that rolls up here.</p>}
+            {pools.rows.length === 0 && (
+              <EmptyState
+                title="No pools yet"
+                hint="A pool is a child wallet with its own budget that rolls up to this one — one per team or project. Create a delegated pool with the controls above, and its burn appears here."
+              />
+            )}
             <div>
               {pools.rows.map((pool) => (
                 <PoolLedgerRow key={pool.id} pool={pool} rootId={view.id} />
@@ -602,7 +613,12 @@ export default async function PoolsPage() {
             <CardTitle className="text-sm font-medium text-zinc-300">Model allocation · this month</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {pools.modelCosts.length === 0 && <p className="text-sm text-zinc-600">No token usage yet</p>}
+            {pools.modelCosts.length === 0 && (
+              <EmptyState
+                title="No token usage yet"
+                hint="Once agents in any pool start burning tokens, per-model costs land here."
+              />
+            )}
             <div className="space-y-3">
               {pools.modelCosts.slice(0, 6).map((model) => {
                 const cost = model._sum.costUsd ?? 0
