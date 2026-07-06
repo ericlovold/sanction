@@ -91,6 +91,19 @@ const ecosystem = [
   { title: "Framework adapters", desc: "SanctionMiddleware, Python wrappers, and LiteLLM callback recipes.", href: "/docs/framework-adapters" },
 ]
 
+const licensing = [
+  {
+    title: "Commercial License",
+    desc: "FSL vs commercial use, typical buyers, Sanction Local, and what enterprise agreements cover.",
+    href: "/docs/commercial-license",
+  },
+  {
+    title: "FSL source license",
+    desc: "Functional Source License 1.1 — full text in the repo (converts to MIT after two years).",
+    href: "https://github.com/ericlovold/sanction/blob/main/LICENSE",
+  },
+]
+
 const deeper = [
   { title: "Quickstart", desc: "First metered, governed call in under five minutes.", href: "/docs/quickstart" },
   { title: "Vercel AI SDK guide", desc: "Drop Sanction into the AI SDK with two lines of config.", href: "/docs/ai-sdk" },
@@ -183,6 +196,20 @@ export default function Docs() {
           <p className="mt-2 text-zinc-400">Where Sanction fits into the tools agents already use.</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {ecosystem.map((d) => (
+              <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
+                <p className="font-medium text-zinc-100">{d.title}</p>
+                <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        {/* Licensing */}
+        <section className="mt-16">
+          <h2 className="font-display text-2xl font-semibold tracking-tight">Licensing</h2>
+          <p className="mt-2 text-zinc-400">Free for your own agents. Commercial license when your product embeds or resells governance.</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {licensing.map((d) => (
               <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
                 <p className="font-medium text-zinc-100">{d.title}</p>
                 <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>

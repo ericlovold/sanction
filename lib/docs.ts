@@ -88,6 +88,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Provision an agent per tenant, govern budgets centrally, meter LLM calls through the gateway, and rotate keys — the end-to-end runbook for platforms.",
   },
+  "commercial-license": {
+    file: "COMMERCIAL-LICENSE.md",
+    title: "Commercial License",
+    description:
+      "When the FSL covers your use, when you need a commercial license, and what enterprise agreements include — for procurement, legal, and partners.",
+  },
 }
 
 export function readDoc(slug: string) {

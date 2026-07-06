@@ -339,7 +339,8 @@ export default function Landing() {
           <div className="sn-card" style={{ padding: 32, border: "1px solid var(--pine-8)" }}>
             <MonoLabel color="var(--pine-7)">Enterprise</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Paid license</div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>SSO, policy administration, audit export, SLA, deployment control.</div>
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 12 }}>SSO, policy administration, audit export, SLA, deployment control.</div>
+            <Link className="sanction-link" href="/docs/commercial-license" style={{ fontSize: 13, display: "block", marginBottom: 20 }}>Commercial license guide →</Link>
             <a className="sn-btn sn-btn-primary sn-btn-m" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener" style={{ width: "100%" }}>Talk to us</a>
           </div>
         </div>
