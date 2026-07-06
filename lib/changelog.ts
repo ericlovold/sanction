@@ -15,6 +15,30 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-06",
+    title: "Sanction Local's runtime went air-gapped",
+    tags: ["local", "airgap", "audit"],
+    body: "The reference client ([AIIA](https://github.com/ericlovo/AIIA), the agent runtime we dogfood Sanction with) now has a real air-gap mode: one flag (`AIIA_AIRGAP=1`) and inference, embeddings, retrieval, and memory all stay on the box. Every cloud egress point — LLM providers, transcription, notifications, TTS, web fetch — is denied **fail-closed**, and each denied attempt is reported to Sanction, where it persists as an audit row. That's the Sanction Local claim made mechanical: *data never leaves the building* isn't a promise, it's a deny-list plus an export your assessor can read. The runbook ships with it — probe script, health readout of every governed egress point, and the network-watch commands to verify silence on the wire yourself.",
+  },
+  {
+    date: "2026-07-06",
+    title: "Denials are now evidence",
+    tags: ["audit", "authorization", "evidence"],
+    body: "A denied tool authorization used to be decision-only — correct, deterministic, and gone. Now every deny on `/v1/authorize/tool` persists as an audit row carrying the policy revision it ran under and the exact context the engine evaluated, so it replays like every other decision. Allows stay decision-only (tools fire at high frequency; deterministic decisions replay for free) — but a deny is an anomaly, and on a no-egress policy it's the whole point: the row *is* the proof the attempt was stopped. Denied rows surface in the audit feed and the CSV export with everything else.",
+  },
+  {
+    date: "2026-07-06",
+    title: "Perplexity behind the gateway",
+    tags: ["gateway", "providers", "metering"],
+    body: "The LLM gateway now meters Perplexity. Point any OpenAI-compatible client at `/api/gateway/perplexity` with your `x-sanction-key` and every sonar call — search, reasoning, deep research — lands in the same token budget, spend caps, and audit trail as your Anthropic, OpenAI, and Gemini traffic. Streaming metered in-flight, fail-closed like the rest: if usage can't be metered, the response is withheld, not given away free.",
+  },
+  {
+    date: "2026-07-06",
+    title: "The console catches up to the API",
+    tags: ["console", "onboarding", "auth"],
+    body: "Everything the API could do that the console couldn't: closed. The full policy editor is on the dashboard — every field, packs with a one-click picker, and simulation preview inline so you see which of last month's calls would flip *before* you save. The audit & reporting page brings the decision feed and CSV export to the browser. Onboarding got a guidance layer with one-click MCP installs for Claude Code and Cursor. And Sign in with Apple joins Google and GitHub. You click what you used to curl.",
+  },
+  {
     date: "2026-07-05",
     title: "Policy packs — start from a policy that fits, with proof",
     tags: ["policy", "packs", "simulation"],
