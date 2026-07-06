@@ -4,6 +4,9 @@
 // until the user asks for their diagnostic at the artifact moment (LeadCapture,
 // source=authority-diagnostic). Scoring is pure (lib/readiness.ts), so the
 // result renders instantly on the last click.
+//
+// Styled with the brand system (app/brand.css) — this component renders only
+// inside a `.sanction`-scoped page, so the tokens always resolve.
 
 import { useState } from "react"
 import Link from "next/link"
@@ -80,14 +83,21 @@ function Card({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+      className="rounded-lg border px-4 py-3 text-left transition-colors"
+      style={
         selected
-          ? "border-emerald-500/60 bg-emerald-500/10 text-zinc-100"
-          : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
-      }`}
+          ? { borderColor: "var(--action-primary)", background: "var(--status-approved-bg)", color: "var(--text-body)" }
+          : { borderColor: "var(--paper-3)", background: "var(--surface-card)", color: "var(--text-secondary)" }
+      }
     >
-      <span className="block text-sm font-medium">{label}</span>
-      {hint && <span className="mt-0.5 block text-xs text-zinc-500">{hint}</span>}
+      <span className="block text-sm font-medium" style={{ color: "var(--text-body)" }}>
+        {label}
+      </span>
+      {hint && (
+        <span className="mt-0.5 block text-xs" style={{ color: "var(--text-muted)" }}>
+          {hint}
+        </span>
+      )}
     </button>
   )
 }
@@ -116,9 +126,18 @@ export function ReadinessFlow() {
 
   return (
     <div>
-      <ol className="mb-8 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 print:hidden">
+      <ol className="mb-8 flex flex-wrap gap-x-4 gap-y-1 text-xs print:hidden" style={{ color: "var(--text-muted)" }}>
         {STEPS.map((s, i) => (
-          <li key={s} className={i === step ? "font-semibold text-emerald-400" : i < step ? "text-zinc-300" : ""}>
+          <li
+            key={s}
+            style={
+              i === step
+                ? { color: "var(--action-primary)", fontWeight: 600 }
+                : i < step
+                  ? { color: "var(--text-secondary)" }
+                  : undefined
+            }
+          >
             {i + 1}. {s}
           </li>
         ))}
@@ -126,7 +145,7 @@ export function ReadinessFlow() {
 
       {step === 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-zinc-100">Where is AI being used?</h2>
+          <h2 className="text-lg font-semibold">Where is AI being used?</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {ENVIRONMENTS.map((e) => (
               <Card key={e.id} selected={environment === e.id} onClick={() => setEnvironment(e.id)} label={e.label} />
@@ -137,8 +156,10 @@ export function ReadinessFlow() {
 
       {step === 1 && (
         <section>
-          <h2 className="text-lg font-semibold text-zinc-100">What is AI doing today?</h2>
-          <p className="mt-1 text-sm text-zinc-400">Pick everything that happens — sanctioned or not.</p>
+          <h2 className="text-lg font-semibold">What is AI doing today?</h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Pick everything that happens — sanctioned or not.
+          </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {ACTIVITIES.map((a) => (
               <Card
@@ -155,8 +176,10 @@ export function ReadinessFlow() {
 
       {step === 2 && (
         <section>
-          <h2 className="text-lg font-semibold text-zinc-100">What data could it touch?</h2>
-          <p className="mt-1 text-sm text-zinc-400">Not what it is supposed to touch — what it could reach.</p>
+          <h2 className="text-lg font-semibold">What data could it touch?</h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Not what it is supposed to touch — what it could reach.
+          </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {DATA_CLASSES.map((d) => (
               <Card key={d.id} selected={data.includes(d.id)} onClick={() => setData(toggle(data, d.id))} label={d.label} />
@@ -167,8 +190,10 @@ export function ReadinessFlow() {
 
       {step === 3 && (
         <section>
-          <h2 className="text-lg font-semibold text-zinc-100">What should require a human?</h2>
-          <p className="mt-1 text-sm text-zinc-400">Your instinct is part of the diagnostic. Optional.</p>
+          <h2 className="text-lg font-semibold">What should require a human?</h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Your instinct is part of the diagnostic. Optional.
+          </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {APPROVALS.map((a) => (
               <Card
@@ -185,18 +210,13 @@ export function ReadinessFlow() {
       {step === 4 && result && <ResultView result={result} />}
 
       {step < 4 && (
-        <div className="mt-8 flex items-center gap-3 print:hidden">
+        <div className="mt-8 flex items-center gap-4 print:hidden">
           {step > 0 && (
-            <button type="button" onClick={() => setStep(step - 1)} className="text-sm text-zinc-400 hover:text-zinc-200">
+            <button type="button" onClick={() => setStep(step - 1)} className="sanction-link text-sm">
               Back
             </button>
           )}
-          <button
-            type="button"
-            onClick={next}
-            disabled={!canContinue}
-            className="rounded-md bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-40"
-          >
+          <button type="button" onClick={next} disabled={!canContinue} className="sn-btn sn-btn-primary sn-btn-m">
             {step === 3 ? "Show my authority map" : "Continue"}
           </button>
         </div>
@@ -214,8 +234,10 @@ function ResultView({ result }: { result: ReadinessResult }) {
         <p className="mt-1 text-xs">{new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
       </div>
 
-      <p className="print-accent text-sm font-medium text-emerald-400 print:hidden">Your Agent Authority Map</p>
-      <h2 className="print-accent mt-1 font-display text-2xl font-semibold tracking-tight text-zinc-100">
+      <p className="print-accent sn-mono text-sm print:hidden" style={{ color: "var(--status-approved)" }}>
+        Your Agent Authority Map
+      </p>
+      <h2 className="print-accent mt-1 text-2xl font-semibold" style={{ letterSpacing: "-0.02em" }}>
         Level {result.level} — {result.levelName}
       </h2>
 
@@ -223,41 +245,49 @@ function ResultView({ result }: { result: ReadinessResult }) {
         {LEVELS.map((l) => (
           <li
             key={l.level}
-            className={`rounded-md border px-3 py-2 text-sm ${
+            className="rounded-md border px-3 py-2 text-sm"
+            style={
               l.level === result.level
-                ? "border-emerald-500/50 bg-emerald-500/10 text-zinc-100"
+                ? { borderColor: "var(--action-primary)", background: "var(--status-approved-bg)", color: "var(--text-body)" }
                 : l.level === 3
-                  ? "border-zinc-700 text-zinc-300"
-                  : "border-zinc-800/60 text-zinc-500"
-            }`}
+                  ? { borderColor: "var(--ink-4)", color: "var(--text-secondary)" }
+                  : { borderColor: "var(--paper-3)", color: "var(--text-muted)" }
+            }
           >
             <span className="font-medium">
               L{l.level} {l.name}
             </span>
             <span className="ml-2">{l.line}</span>
             {l.level === 3 ? (
-              <span className="ml-2 text-xs font-semibold text-emerald-400">← the move that matters</span>
+              <span className="ml-2 text-xs font-semibold" style={{ color: "var(--status-approved)" }}>
+                ← the move that matters
+              </span>
             ) : null}
           </li>
         ))}
       </ol>
 
-      <h3 className="mt-8 text-base font-semibold text-zinc-100">Where authority needs a gate</h3>
+      <h3 className="mt-8 text-base font-semibold">Where authority needs a gate</h3>
       <ul className="mt-3 space-y-3">
         {result.risks.map((r) => (
-          <li key={r.title} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-            <p className="text-sm font-medium text-zinc-100">{r.title}</p>
-            <p className="mt-1 text-sm text-zinc-400">{r.detail}</p>
+          <li key={r.title} className="rounded-lg border p-4" style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)" }}>
+            <p className="text-sm font-medium">{r.title}</p>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              {r.detail}
+            </p>
           </li>
         ))}
       </ul>
 
-      <h3 className="mt-8 text-base font-semibold text-zinc-100">Your first governed workflow</h3>
-      <p className="mt-2 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-4 text-sm text-zinc-300">
+      <h3 className="mt-8 text-base font-semibold">Your first governed workflow</h3>
+      <p
+        className="mt-2 rounded-lg border p-4 text-sm"
+        style={{ borderColor: "var(--status-approved)", background: "var(--status-approved-bg)", color: "var(--text-body)" }}
+      >
         {result.firstWorkflow}
       </p>
 
-      <h3 className="mt-8 text-base font-semibold text-zinc-100">Recommended policy posture</h3>
+      <h3 className="mt-8 text-base font-semibold">Recommended policy posture</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {(
           [
@@ -267,9 +297,9 @@ function ResultView({ result }: { result: ReadinessResult }) {
             ["Evidence", result.posture.evidence],
           ] as const
         ).map(([title, items]) => (
-          <div key={title} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-            <p className="text-sm font-medium text-zinc-100">{title}</p>
-            <ul className="mt-2 space-y-1 text-sm text-zinc-400">
+          <div key={title} className="rounded-lg border p-4" style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)" }}>
+            <p className="text-sm font-medium">{title}</p>
+            <ul className="mt-2 space-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
               {items.map((i) => (
                 <li key={i}>· {i}</li>
               ))}
@@ -277,23 +307,25 @@ function ResultView({ result }: { result: ReadinessResult }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-sm text-zinc-400">
-        This posture ships as the <span className="font-medium text-zinc-200">{result.packName}</span> policy pack —
-        applied in one call, previewable against real history before you commit.
+      <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+        This posture ships as the <span className="font-medium" style={{ color: "var(--text-body)" }}>{result.packName}</span>{" "}
+        policy pack — applied in one call, previewable against real history before you commit.
       </p>
 
       {/* On screen: the product fit. In print: dropped — the deliverable
           stands on its own; branding is one footer line. */}
       <div className="print:hidden">
-        <h3 className="mt-8 text-base font-semibold text-zinc-100">Where Sanction fits</h3>
-        <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-          <p className="text-sm font-medium text-zinc-100">{result.fit.primary}</p>
-          <p className="mt-1 text-sm text-zinc-400">{result.fit.detail}</p>
+        <h3 className="mt-8 text-base font-semibold">Where Sanction fits</h3>
+        <div className="mt-3 rounded-lg border p-4" style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)" }}>
+          <p className="text-sm font-medium">{result.fit.primary}</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            {result.fit.detail}
+          </p>
         </div>
       </div>
 
-      <h3 className="mt-8 text-base font-semibold text-zinc-100">Before you give AI more authority, ask</h3>
-      <ul className="mt-3 space-y-1 text-sm text-zinc-400">
+      <h3 className="mt-8 text-base font-semibold">Before you give AI more authority, ask</h3>
+      <ul className="mt-3 space-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
         <li>· Who is acting — a person, a shared account, or an agent?</li>
         <li>· What can it touch that it does not strictly need?</li>
         <li>· Which actions should a human see before they happen?</li>
@@ -302,34 +334,27 @@ function ResultView({ result }: { result: ReadinessResult }) {
       </ul>
 
       <div className="mt-10 print:hidden">
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="w-full rounded-lg bg-emerald-500 px-6 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-500/25 transition-all hover:bg-emerald-400 hover:shadow-emerald-400/30 sm:w-auto sm:px-10"
-        >
+        <button type="button" onClick={() => window.print()} className="sn-btn sn-btn-primary sn-btn-l w-full sm:w-auto">
           Download your Authority Map ↓
         </button>
-        <p className="mt-2 text-xs text-zinc-500">Saves as a PDF — forward it to whoever owns this decision.</p>
+        <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+          Saves as a PDF — forward it to whoever owns this decision.
+        </p>
       </div>
 
-      <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 print:hidden">
-        <p className="text-sm font-medium text-zinc-100">Want the policy template for this result?</p>
-        <p className="mt-1 text-sm text-zinc-400">
+      <div className="mt-8 rounded-lg border p-5 print:hidden" style={{ borderColor: "var(--paper-3)", background: "var(--surface-sunken)" }}>
+        <p className="text-sm font-medium">Want the policy template for this result?</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           We&apos;ll send your diagnostic and the matching starter policy.
         </p>
         <div className="mt-3">
-          <LeadCapture source="authority-diagnostic" />
+          <LeadCapture source="authority-diagnostic" variant="light" />
         </div>
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
-          <Link href="/start" className="font-medium text-emerald-400 hover:text-emerald-300">
+          <Link href="/start" className="sanction-link font-medium">
             Install the Sanction MCP server →
           </Link>
-          <a
-            href={CALENDLY_URL}
-            target="_blank"
-            rel="noopener"
-            className="font-medium text-emerald-400 hover:text-emerald-300"
-          >
+          <a href={CALENDLY_URL} target="_blank" rel="noopener" className="sanction-link font-medium">
             Book a readiness review →
           </a>
         </div>
