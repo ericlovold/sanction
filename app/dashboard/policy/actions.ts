@@ -101,7 +101,7 @@ export async function updatePolicyAction(
   revalidatePath("/dashboard/policy")
   revalidatePath("/dashboard/spend")
   revalidatePath("/dashboard")
-  return { ok: true, message: "Policy saved" }
+  return { ok: true, message: "Policy saved — your changes are live" }
 }
 
 // Default simulation windows mirror the API routes: draft = last 7 days,
@@ -150,7 +150,7 @@ export async function applyPackAction(
   revalidatePath("/dashboard/policy")
   revalidatePath("/dashboard/spend")
   revalidatePath("/dashboard")
-  return { ok: true, message: `Applied "${pack.name}"` }
+  return { ok: true, message: `Applied "${pack.name}" — your policy is now live` }
 }
 
 // Simulate the editor's current draft before saving — the same full 15-field
