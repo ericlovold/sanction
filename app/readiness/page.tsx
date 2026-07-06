@@ -13,10 +13,31 @@ export const metadata: Metadata = {
 // here runs client-side (lib/readiness.ts is pure); the only write is the
 // lead capture at the artifact moment.
 
+// Print: the authority map prints as a light-scheme document — dark-theme
+// text would land near-white on white paper once the browser strips
+// backgrounds. Chrome hides itself; branding drops to one footer line.
+const PRINT_STYLES = `
+@media print {
+  body { background: #fff !important; }
+  #authority-map, #authority-map * {
+    color: #18181b !important;
+    border-color: #d4d4d8 !important;
+    background: transparent !important;
+  }
+  #authority-map .print-accent { color: #047857 !important; }
+  #authority-map li, #authority-map .rounded-lg, #authority-map h3 { break-inside: avoid; }
+  #authority-map h3 { break-after: avoid; }
+  main { max-width: 100% !important; padding: 0 !important; }
+}
+`
+
 export default function Readiness() {
   return (
     <div className="min-h-screen">
-      <DocsHeader />
+      <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
+      <div className="print:hidden">
+        <DocsHeader />
+      </div>
 
       <main className="mx-auto max-w-3xl px-6 py-14">
         <p className="text-sm font-medium text-emerald-400">Readiness check</p>
