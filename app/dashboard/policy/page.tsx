@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { db } from "@/lib/db"
 import { Card, CardContent } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
+import { PackPicker } from "@/components/pack-picker"
 import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
@@ -31,6 +32,8 @@ export default async function PolicyPage() {
           and every change is a replayable revision.
         </p>
       </div>
+
+      <PackPicker editable={view.isSession} />
 
       {wallet?.policy ? (
         <PolicyEditor policy={policyToDollars(wallet.policy)} editable={view.isSession} />

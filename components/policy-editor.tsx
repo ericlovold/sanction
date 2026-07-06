@@ -2,7 +2,13 @@
 
 import { useActionState, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { updatePolicyAction, type PolicyActionState } from "@/app/dashboard/policy/actions"
+import {
+  simulateDraftAction,
+  updatePolicyAction,
+  type PolicyActionState,
+  type SimActionState,
+} from "@/app/dashboard/policy/actions"
+import { SimulationReport } from "@/components/simulation-report"
 import { MAX_CAPABILITY_RULES, MAX_CAPABILITY_PATTERN_LEN } from "@/lib/policyLimits"
 
 type CapabilityRule = { pattern: string; effect: "block" | "allow" | "escalate" }
@@ -37,6 +43,7 @@ const dollarFields = [
 ] as const
 
 const initial: PolicyActionState = { ok: false, message: "" }
+const simInitial: SimActionState = { ok: false, message: "" }
 
 function toRules(value: unknown): CapabilityRule[] {
   if (!Array.isArray(value)) return []
@@ -49,6 +56,7 @@ function toRules(value: unknown): CapabilityRule[] {
 
 export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; editable: boolean }) {
   const [state, formAction, pending] = useActionState(updatePolicyAction, initial)
+  const [simState, simAction, simulating] = useActionState(simulateDraftAction, simInitial)
   const [perTxn, setPerTxn] = useState(policy.per_transaction_max_usd)
   const [escalate, setEscalate] = useState(policy.escalate_over_usd)
   const [rules, setRules] = useState<CapabilityRule[]>(() => toRules(policy.capability_rules))
@@ -222,13 +230,25 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
               >
                 {state.message || "."}
               </span>
-              <button
-                type="submit"
-                disabled={pending}
-                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
-              >
-                {pending ? "Saving…" : "Save policy"}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Overrides the form's save action for this button only (React 19):
+                    same 15-field FormData, but replays it over history instead of writing. */}
+                <button
+                  type="submit"
+                  formAction={simAction}
+                  disabled={simulating}
+                  className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 disabled:opacity-50"
+                >
+                  {simulating ? "Simulating…" : "Simulate before saving"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {pending ? "Saving…" : "Save policy"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">
@@ -239,6 +259,15 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
             </div>
           )}
         </form>
+
+        {simState.message && !simState.ok && (
+          <p className="mt-4 text-xs text-red-400" aria-live="polite">{simState.message}</p>
+        )}
+        {simState.ok && simState.report && (
+          <div className="mt-4">
+            <SimulationReport report={simState.report} title="Draft simulation — your last 7 days" />
+          </div>
+        )}
       </CardContent>
     </Card>
   )
