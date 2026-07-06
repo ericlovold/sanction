@@ -16,9 +16,11 @@ const log = logger("v1/authorize/tool")
 
 // ADR-0009 M3: authorize any MCP tool invocation the same way spend is authorized.
 // "Can this agent invoke this tool?" → allow / deny / escalate via the decision
-// engine, against the wallet's tool block/allow/escalate lists. Allowed and denied
-// calls are decision-only (tools fire at high frequency; deterministic decisions
-// replay for free). An ESCALATED call persists — it becomes an AuthorizationRequest
+// engine, against the wallet's tool block/allow/escalate lists. Allowed calls
+// are decision-only (tools fire at high frequency; deterministic decisions
+// replay for free). A DENIED call persists as an audit row — on a no-egress
+// policy each deny IS the evidence artifact, and denies are anomalies, not
+// hot-path volume. An ESCALATED call persists — it becomes an AuthorizationRequest
 // + PendingApproval, resolves in the same owner inbox as spend/provision, and
 // approval mints a one-use tool grant the agent redeems by retrying with grant_id
 // (or observes by polling /v1/authorize/{request_id}).
@@ -186,11 +188,50 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Denial persists as an audit row (no inbox item — nothing to approve).
+  let requestId: string | undefined
+  if (decision.status === "denied") {
+    try {
+      const denied = await db.authorizationRequest.create({
+        data: {
+          agentId: agent.id,
+          kind: "tool",
+          action: "invoke",
+          amountUsd: 0,
+          merchant: tool,
+          category: "tool",
+          detailsJson: { tool, server: server ?? null },
+          status: "denied",
+          decidedAt: new Date(),
+          decisionNote: decision.reason,
+          policyRevision: policy.currentRevision,
+          decisionContextJson: decisionEvidence("tool", {
+            tool,
+            blockedTools: policy.blockedTools,
+            allowedTools: policy.allowedTools,
+            escalateTools: policy.escalateTools,
+          }),
+          idempotencyKey,
+        },
+      })
+      requestId = denied.id
+    } catch (e: unknown) {
+      if (idempotencyKey && isUniqueViolation(e)) {
+        const existing = await db.authorizationRequest.findUnique({
+          where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
+        })
+        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: statusCode(existing.status) })
+      }
+      throw e
+    }
+  }
+
   const authorized = decision.status === "allowed"
   return NextResponse.json(
     {
       authorized,
       status: decision.status,
+      request_id: requestId,
       code: decision.code,
       remediation: decision.code ? TOOL_REMEDIATION[decision.code] : undefined,
       reason: decision.reason,

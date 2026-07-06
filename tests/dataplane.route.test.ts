@@ -136,10 +136,43 @@ describe("authorize/tool — tool governance", () => {
     expect((await res.json())).toMatchObject({ authorized: true, status: "allowed", tool: "web.search" })
   })
 
-  it("denies a blocked tool", async () => {
+  it("denies a blocked tool and persists the denial as an audit row", async () => {
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_d1", createdAt: new Date() })
     const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "shell.exec" } }))
     expect(res.status).toBe(403)
-    expect((await res.json())).toMatchObject({ authorized: false, status: "denied" })
+    expect((await res.json())).toMatchObject({ authorized: false, status: "denied", request_id: "req_d1" })
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: "tool", action: "invoke", amountUsd: 0, merchant: "shell.exec", status: "denied",
+          decidedAt: expect.any(Date),
+          decisionContextJson: expect.objectContaining({ ladder: "tool", effect: "deny" }),
+        }),
+      }),
+    )
+  })
+
+  it("persists a deny from a non-empty allow-list (the no-egress policy shape)", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({
+      ...AGENT,
+      wallet: { ...AGENT.wallet, policy: { ...POLICY, allowedTools: ["local.ollama", "local.chroma"] } },
+    })
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_d2", createdAt: new Date() })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "anthropic.messages" } }))
+    expect(res.status).toBe(403)
+    expect((await res.json())).toMatchObject({ authorized: false, status: "denied", code: "TOOL_NOT_ALLOWED", request_id: "req_d2" })
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          merchant: "anthropic.messages",
+          status: "denied",
+          decisionContextJson: expect.objectContaining({
+            effect: "deny",
+            ctx: expect.objectContaining({ allowedTools: ["local.ollama", "local.chroma"] }),
+          }),
+        }),
+      }),
+    )
   })
 
   it("escalates an escalate-listed tool: 200, persisted, and lands in the approval inbox", async () => {
