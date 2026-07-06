@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { updatePolicyAction, type PolicyActionState } from "@/app/dashboard/policy/actions"
+import { MAX_CAPABILITY_RULES, MAX_CAPABILITY_PATTERN_LEN } from "@/lib/policyLimits"
 
 type CapabilityRule = { pattern: string; effect: "block" | "allow" | "escalate" }
 
@@ -36,7 +37,6 @@ const dollarFields = [
 ] as const
 
 const initial: PolicyActionState = { ok: false, message: "" }
-const MAX_RULES = 200
 
 function toRules(value: unknown): CapabilityRule[] {
   if (!Array.isArray(value)) return []
@@ -160,9 +160,9 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-wide text-zinc-600">
-                Capability rules ({rules.length}/{MAX_RULES})
+                Capability rules ({rules.length}/{MAX_CAPABILITY_RULES})
               </span>
-              {editable && rules.length < MAX_RULES && (
+              {editable && rules.length < MAX_CAPABILITY_RULES && (
                 <button
                   type="button"
                   onClick={() => setRules((rs) => [...rs, { pattern: "", effect: "escalate" }])}
@@ -184,7 +184,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                   <input
                     value={r.pattern}
                     disabled={!editable}
-                    maxLength={120}
+                    maxLength={MAX_CAPABILITY_PATTERN_LEN}
                     onChange={(e) => setRule(i, { pattern: e.target.value })}
                     placeholder="skill:install:*"
                     className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600"

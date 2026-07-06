@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
@@ -304,9 +305,9 @@ export default async function SpendPage() {
           <span className="text-sm text-zinc-400">
             {s.policy ? "Budgets, categories, tools, capability rules, and escalation." : "No policy configured yet."}
           </span>
-          <a href="/dashboard/policy" className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800">
+          <Link href="/dashboard/policy" className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800">
             Manage policy →
-          </a>
+          </Link>
         </CardContent>
       </Card>
     </div>

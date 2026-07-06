@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { db } from "./db"
+import { MAX_CAPABILITY_RULES, MAX_CAPABILITY_PATTERN_LEN } from "./policyLimits"
 
 // Policy is stored in cents; the API and UI speak dollars. This module is the
 // single place that validates input, converts dollars -> cents, and writes —
@@ -11,8 +12,8 @@ const categories = z.array(z.string().trim().toLowerCase().min(1).max(40)).max(5
 // Tool names are case-sensitive and may be namespaced (e.g. github.create_deployment).
 const tools = z.array(z.string().trim().min(1).max(80)).max(200)
 const capabilityRules = z
-  .array(z.object({ pattern: z.string().trim().min(1).max(120), effect: z.enum(["block", "allow", "escalate"]) }))
-  .max(200)
+  .array(z.object({ pattern: z.string().trim().min(1).max(MAX_CAPABILITY_PATTERN_LEN), effect: z.enum(["block", "allow", "escalate"]) }))
+  .max(MAX_CAPABILITY_RULES)
 
 export const policyInputSchema = z
   .object({

@@ -28,6 +28,7 @@ const FULL = {
   daily_token_budget_usd: "50",
   daily_spend_budget_usd: "200",
   monthly_spend_budget_usd: "1500",
+  subtree_daily_cap_usd: "100",
   per_transaction_max_usd: "500",
   auto_approve_under_usd: "5",
   escalate_over_usd: "50",
@@ -61,10 +62,18 @@ describe("updatePolicyAction", () => {
     expect(input.capability_rules).toEqual([{ pattern: "skill:install:*", effect: "escalate" }])
     // previously-omitted fields forwarded
     expect(input.monthly_spend_budget_usd).toBe(1500)
+    expect(input.subtree_daily_cap_usd).toBe(100)
     expect(input.escalation_timeout_mins).toBe(240)
     expect(input.escalation_timeout_action).toBe("deny")
     expect(revalidateMock).toHaveBeenCalledWith("/dashboard/policy")
     expect(revalidateMock).toHaveBeenCalledWith("/dashboard/spend")
+  })
+
+  it("leaves a cleared numeric field unchanged (undefined), never forces it to $0", async () => {
+    await updatePolicyAction({ ok: false, message: "" }, form({ ...FULL, per_transaction_max_usd: "" }))
+    const input = applyMock.mock.calls[0][1]
+    // undefined → applyPolicyUpdate skips it → prior guardrail preserved.
+    expect(input.per_transaction_max_usd).toBeUndefined()
   })
 
   it("treats an empty capability_rules array as a valid 'clear all rules' state", async () => {

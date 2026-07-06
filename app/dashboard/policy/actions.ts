@@ -15,6 +15,9 @@ const parseList = (s: FormDataEntryValue | null, lower: boolean) =>
     .filter(Boolean)
 
 const num = (s: FormDataEntryValue | null) => {
+  // Blank/missing → undefined (leave the field unchanged), NOT 0 — clearing a
+  // guardrail input must never silently force it to $0. Number("") is 0.
+  if (s === null || String(s).trim() === "") return undefined
   const n = Number(s)
   return Number.isFinite(n) ? n : undefined
 }
