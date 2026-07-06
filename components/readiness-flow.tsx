@@ -207,9 +207,15 @@ export function ReadinessFlow() {
 
 function ResultView({ result }: { result: ReadinessResult }) {
   return (
-    <section>
-      <p className="text-sm font-medium text-emerald-400">Your Agent Authority Map</p>
-      <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-zinc-100">
+    <section id="authority-map">
+      {/* Print-only document header — on paper this is the title block. */}
+      <div className="hidden print:block">
+        <p className="text-xs uppercase tracking-widest">Agent Authority Map</p>
+        <p className="mt-1 text-xs">{new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+      </div>
+
+      <p className="print-accent text-sm font-medium text-emerald-400 print:hidden">Your Agent Authority Map</p>
+      <h2 className="print-accent mt-1 font-display text-2xl font-semibold tracking-tight text-zinc-100">
         Level {result.level} — {result.levelName}
       </h2>
 
@@ -276,10 +282,14 @@ function ResultView({ result }: { result: ReadinessResult }) {
         applied in one call, previewable against real history before you commit.
       </p>
 
-      <h3 className="mt-8 text-base font-semibold text-zinc-100">Where Sanction fits</h3>
-      <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-        <p className="text-sm font-medium text-zinc-100">{result.fit.primary}</p>
-        <p className="mt-1 text-sm text-zinc-400">{result.fit.detail}</p>
+      {/* On screen: the product fit. In print: dropped — the deliverable
+          stands on its own; branding is one footer line. */}
+      <div className="print:hidden">
+        <h3 className="mt-8 text-base font-semibold text-zinc-100">Where Sanction fits</h3>
+        <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+          <p className="text-sm font-medium text-zinc-100">{result.fit.primary}</p>
+          <p className="mt-1 text-sm text-zinc-400">{result.fit.detail}</p>
+        </div>
       </div>
 
       <h3 className="mt-8 text-base font-semibold text-zinc-100">Before you give AI more authority, ask</h3>
@@ -291,10 +301,21 @@ function ResultView({ result }: { result: ReadinessResult }) {
         <li>· If a regulator asks in six months, what can you hand them?</li>
       </ul>
 
-      <div className="mt-10 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 print:hidden">
+      <div className="mt-10 print:hidden">
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="w-full rounded-lg bg-emerald-500 px-6 py-4 text-base font-semibold text-zinc-950 shadow-lg shadow-emerald-500/25 transition-all hover:bg-emerald-400 hover:shadow-emerald-400/30 sm:w-auto sm:px-10"
+        >
+          Download your Authority Map ↓
+        </button>
+        <p className="mt-2 text-xs text-zinc-500">Saves as a PDF — forward it to whoever owns this decision.</p>
+      </div>
+
+      <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 print:hidden">
         <p className="text-sm font-medium text-zinc-100">Want the policy template for this result?</p>
         <p className="mt-1 text-sm text-zinc-400">
-          We&apos;ll send your diagnostic and the matching starter policy. Forward it to whoever owns this decision.
+          We&apos;ll send your diagnostic and the matching starter policy.
         </p>
         <div className="mt-3">
           <LeadCapture source="authority-diagnostic" />
@@ -311,11 +332,13 @@ function ResultView({ result }: { result: ReadinessResult }) {
           >
             Book a readiness review →
           </a>
-          <button type="button" onClick={() => window.print()} className="font-medium text-zinc-400 hover:text-zinc-200">
-            Print / save as PDF
-          </button>
         </div>
       </div>
+
+      {/* Print-only footer — the one line of presence on the deliverable. */}
+      <p className="mt-10 hidden border-t pt-3 text-xs print:block">
+        Prepared with the Sanction Agent Authority Readiness Check · getsanction.com/readiness
+      </p>
     </section>
   )
 }
