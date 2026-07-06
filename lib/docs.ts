@@ -22,6 +22,18 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "New skills, plugins, and APIs are governed like money: one ordered rule list, block → allow-list → escalate precedence, the same approval inbox and one-use grants.",
   },
+  compatibility: {
+    file: "COMPATIBILITY.md",
+    title: "Compatibility & badges",
+    description:
+      "Badges and channel paths for MCP hosts, frameworks, gateways, and payment-agent pilots — with the exact Sanction surface each claim rests on.",
+  },
+  "framework-adapters": {
+    file: "FRAMEWORK-ADAPTERS.md",
+    title: "Framework adapters",
+    description:
+      "SanctionMiddleware, LangChain/LangGraph wrappers, and LiteLLM callback recipes for putting authorization before framework tool execution.",
+  },
   quickstart: {
     file: "QUICKSTART.md",
     title: "Quickstart",
@@ -75,6 +87,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     title: "Multi-Tenant Integration Runbook",
     description:
       "Provision an agent per tenant, govern budgets centrally, meter LLM calls through the gateway, and rotate keys — the end-to-end runbook for platforms.",
+  },
+  "commercial-license": {
+    file: "COMMERCIAL-LICENSE.md",
+    title: "Commercial License",
+    description:
+      "When the FSL covers your use, when you need a commercial license, and what enterprise agreements include — for procurement, legal, and partners.",
   },
 }
 
