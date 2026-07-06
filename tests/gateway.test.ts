@@ -46,6 +46,11 @@ describe("GATEWAY_PROVIDERS.extract — per-provider usage shape", () => {
     expect(u).toEqual({ model: "gpt-5", tokensIn: 12, tokensOut: 8 })
   })
 
+  it("perplexity prompt/completion tokens (OpenAI-compatible shape)", () => {
+    const u = GATEWAY_PROVIDERS.perplexity.extract({ model: "sonar-pro", usage: { prompt_tokens: 30, completion_tokens: 11 } }, "chat/completions")
+    expect(u).toEqual({ model: "sonar-pro", tokensIn: 30, tokensOut: 11 })
+  })
+
   it("gemini usageMetadata, model from path when modelVersion absent", () => {
     const u = GATEWAY_PROVIDERS.gemini.extract({ usageMetadata: { promptTokenCount: 7, candidatesTokenCount: 3 } }, "v1beta/models/gemini-2.5-flash:generateContent")
     expect(u).toEqual({ model: "gemini-2.5-flash", tokensIn: 7, tokensOut: 3 })
@@ -55,6 +60,7 @@ describe("GATEWAY_PROVIDERS.extract — per-provider usage shape", () => {
     expect(GATEWAY_PROVIDERS.anthropic.extract({ model: "claude-x" }, "x")).toBeNull()
     expect(GATEWAY_PROVIDERS.openai.extract({}, "x")).toBeNull()
     expect(GATEWAY_PROVIDERS.gemini.extract({}, "x")).toBeNull()
+    expect(GATEWAY_PROVIDERS.perplexity.extract({ model: "sonar" }, "x")).toBeNull()
   })
 })
 
@@ -76,6 +82,12 @@ describe("makeStreamMeter — accumulates SSE usage", () => {
     const m = makeStreamMeter("openai")
     m.feed({ type: "response.completed", response: { model: "gpt-5", usage: { input_tokens: 30, output_tokens: 12 } } })
     expect(m.result()).toEqual({ model: "gpt-5", tokensIn: 30, tokensOut: 12 })
+  })
+
+  it("perplexity: reads usage from stream chunks like openai", () => {
+    const m = makeStreamMeter("perplexity")
+    m.feed({ model: "sonar-pro", usage: { prompt_tokens: 40, completion_tokens: 9 } })
+    expect(m.result()).toEqual({ model: "sonar-pro", tokensIn: 40, tokensOut: 9 })
   })
 
   it("gemini: reads usageMetadata", () => {
