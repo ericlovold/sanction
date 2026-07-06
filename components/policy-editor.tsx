@@ -2,22 +2,33 @@
 
 import { useActionState, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { updatePolicyAction, type PolicyActionState } from "@/app/dashboard/spend/actions"
+import { updatePolicyAction, type PolicyActionState } from "@/app/dashboard/policy/actions"
+
+type CapabilityRule = { pattern: string; effect: "block" | "allow" | "escalate" }
 
 type PolicyDollars = {
   daily_token_budget_usd: number
   daily_spend_budget_usd: number
+  monthly_spend_budget_usd: number | null
   subtree_daily_cap_usd: number | null
   per_transaction_max_usd: number
   auto_approve_under_usd: number
   escalate_over_usd: number
   allowed_categories: string[]
   blocked_categories: string[]
+  allowed_tools: string[]
+  blocked_tools: string[]
+  escalate_tools: string[]
+  // Prisma Json column — loosely typed upstream; narrowed at the boundary below.
+  capability_rules: unknown
+  escalation_timeout_mins: number
+  escalation_timeout_action: string
 }
 
-const fields = [
+const dollarFields = [
   { name: "daily_token_budget_usd", label: "Daily token budget" },
   { name: "daily_spend_budget_usd", label: "Daily spend budget" },
+  { name: "monthly_spend_budget_usd", label: "Monthly spend budget", optional: true },
   { name: "subtree_daily_cap_usd", label: "Subtree daily cap", optional: true },
   { name: "per_transaction_max_usd", label: "Per-transaction max" },
   { name: "auto_approve_under_usd", label: "Auto-approve under" },
@@ -25,12 +36,38 @@ const fields = [
 ] as const
 
 const initial: PolicyActionState = { ok: false, message: "" }
+const MAX_RULES = 200
+
+function toRules(value: unknown): CapabilityRule[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((v) =>
+    v && typeof v === "object" && "pattern" in v && "effect" in v
+      ? [{ pattern: String((v as CapabilityRule).pattern), effect: (v as CapabilityRule).effect }]
+      : [],
+  )
+}
 
 export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; editable: boolean }) {
   const [state, formAction, pending] = useActionState(updatePolicyAction, initial)
   const [perTxn, setPerTxn] = useState(policy.per_transaction_max_usd)
   const [escalate, setEscalate] = useState(policy.escalate_over_usd)
+  const [rules, setRules] = useState<CapabilityRule[]>(() => toRules(policy.capability_rules))
   const escalationDead = escalate >= perTxn
+
+  const setRule = (i: number, patch: Partial<CapabilityRule>) =>
+    setRules((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+
+  const listInput = (name: string, label: string, value: string[], danger?: boolean) => (
+    <label className="block">
+      <span className="text-[11px] uppercase tracking-wide text-zinc-600">{label}</span>
+      <input
+        name={name}
+        disabled={!editable}
+        defaultValue={value.join(", ")}
+        className={`mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-600 ${danger ? "text-red-300" : "text-zinc-100"}`}
+      />
+    </label>
+  )
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -39,8 +76,12 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
       </CardHeader>
       <CardContent className="px-5 pb-5">
         <form action={formAction} className="space-y-5">
+          {/* Serialized capability rules — one hidden JSON input; the server's
+              capabilityRules zod is the single validator. */}
+          <input type="hidden" name="capability_rules" value={JSON.stringify(rules)} />
+
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-            {fields.map((f) => (
+            {dollarFields.map((f) => (
               <label key={f.name} className="block">
                 <span className="text-[11px] uppercase tracking-wide text-zinc-600">{f.label}</span>
                 <div className="mt-1 flex items-center rounded-md border border-zinc-800 bg-zinc-950 focus-within:border-zinc-600">
@@ -74,27 +115,103 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
             </p>
           )}
 
+          {/* Escalation timeout */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-zinc-600">Allowed categories</span>
+              <span className="text-[11px] uppercase tracking-wide text-zinc-600">Escalation timeout (min)</span>
               <input
-                name="allowed_categories"
+                type="number"
+                name="escalation_timeout_mins"
+                step="1"
+                min="0"
+                max="10080"
                 disabled={!editable}
-                defaultValue={policy.allowed_categories.join(", ")}
-                placeholder="software, services, research"
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600"
+                defaultValue={policy.escalation_timeout_mins}
+                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
+              <span className="mt-1 block text-[10px] text-zinc-600">0 = never times out</span>
             </label>
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-zinc-600">Blocked categories</span>
-              <input
-                name="blocked_categories"
+              <span className="text-[11px] uppercase tracking-wide text-zinc-600">On timeout</span>
+              <select
+                name="escalation_timeout_action"
                 disabled={!editable}
-                defaultValue={policy.blocked_categories.join(", ")}
-                placeholder="gambling, adult, crypto"
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-red-300 outline-none focus:border-zinc-600"
-              />
+                defaultValue={policy.escalation_timeout_action}
+                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+              >
+                <option value="deny">Deny (fail closed)</option>
+                <option value="approve">Approve</option>
+              </select>
             </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {listInput("allowed_categories", "Allowed categories", policy.allowed_categories)}
+            {listInput("blocked_categories", "Blocked categories", policy.blocked_categories, true)}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {listInput("allowed_tools", "Allowed tools", policy.allowed_tools)}
+            {listInput("blocked_tools", "Blocked tools", policy.blocked_tools, true)}
+            {listInput("escalate_tools", "Escalate tools", policy.escalate_tools)}
+          </div>
+
+          {/* Capability rules — ordered block → allow-list → escalate */}
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] uppercase tracking-wide text-zinc-600">
+                Capability rules ({rules.length}/{MAX_RULES})
+              </span>
+              {editable && rules.length < MAX_RULES && (
+                <button
+                  type="button"
+                  onClick={() => setRules((rs) => [...rs, { pattern: "", effect: "escalate" }])}
+                  className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300"
+                >
+                  + Add rule
+                </button>
+              )}
+            </div>
+            <div className="mt-2 space-y-2">
+              {rules.length === 0 && (
+                <p className="text-[11px] text-zinc-600">
+                  No capability rules — acquiring skills/plugins/APIs is ungoverned. Add a rule like{" "}
+                  <span className="font-mono">skill:install:*</span> → escalate.
+                </p>
+              )}
+              {rules.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    value={r.pattern}
+                    disabled={!editable}
+                    maxLength={120}
+                    onChange={(e) => setRule(i, { pattern: e.target.value })}
+                    placeholder="skill:install:*"
+                    className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600"
+                  />
+                  <select
+                    value={r.effect}
+                    disabled={!editable}
+                    onChange={(e) => setRule(i, { effect: e.target.value as CapabilityRule["effect"] })}
+                    className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+                  >
+                    <option value="block">block</option>
+                    <option value="allow">allow</option>
+                    <option value="escalate">escalate</option>
+                  </select>
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() => setRules((rs) => rs.filter((_, j) => j !== i))}
+                      className="shrink-0 rounded-md border border-zinc-800 px-2 py-1.5 text-xs text-zinc-500 hover:text-red-400"
+                      aria-label="Remove rule"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {editable ? (

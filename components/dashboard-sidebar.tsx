@@ -25,6 +25,7 @@ const ICON = {
   pools: "M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5",
   spend: "M3 3v18h18M7 14l3-3 3 3 5-6",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
+  policy: "M9 12l2 2 4-4M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z",
 }
 
 // Ordered by operator job priority: resolve approvals, check burn, manage
@@ -32,6 +33,7 @@ const ICON = {
 // keeps Approvals first and always on-screen.
 const items: Item[] = [
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
+  { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
   { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
   { href: "/dashboard/agents", label: "Agents", icon: <Icon d={ICON.agents} /> },
   { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
