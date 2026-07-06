@@ -34,6 +34,20 @@ export const GATEWAY_PROVIDERS: Record<
       return { model: b.model ?? "gpt", tokensIn, tokensOut }
     },
   },
+  perplexity: {
+    // OpenAI-compatible Chat Completions shape; usage arrives on the response
+    // body (and in-stream on the final chunks, no opt-in flag needed).
+    baseUrl: "https://api.perplexity.ai",
+    extract: (body) => {
+      const b = body as { model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number } }
+      const u = b?.usage
+      if (!u) return null
+      const tokensIn = u.prompt_tokens ?? 0
+      const tokensOut = u.completion_tokens ?? 0
+      if (!tokensIn && !tokensOut) return null
+      return { model: b.model ?? "sonar", tokensIn, tokensOut }
+    },
+  },
   gemini: {
     baseUrl: "https://generativelanguage.googleapis.com",
     extract: (body, path) => {
@@ -55,6 +69,11 @@ const PRICING: Array<[string, number, number]> = [
   ["gpt-4o", 2.5, 10],
   ["gpt-4.1", 2, 8],
   ["o1", 15, 60],
+  ["sonar-deep-research", 2, 8],
+  ["sonar-reasoning-pro", 2, 8],
+  ["sonar-reasoning", 1, 5],
+  ["sonar-pro", 3, 15],
+  ["sonar", 1, 1],
   ["gemini-2.5-pro", 1.25, 10],
   ["gemini-3-pro", 2, 12],
   ["gemini-pro", 1.25, 5],
@@ -126,7 +145,7 @@ export function makeStreamMeter(provider: string) {
         } else if (d.type === "message_delta" && d.usage) {
           acc.tokensOut = d.usage.output_tokens ?? acc.tokensOut
         }
-      } else if (provider === "openai") {
+      } else if (provider === "openai" || provider === "perplexity") {
         if (d.model) acc.model = d.model
         if (d.usage) {
           acc.tokensIn = d.usage.prompt_tokens ?? d.usage.input_tokens ?? acc.tokensIn
