@@ -1,15 +1,43 @@
 import type { SimulationReport } from "@/app/dashboard/policy/actions"
 
-// Renders the runSimulation honesty envelope verbatim — as_recorded state,
-// was/would tallies, approved-spend delta, per-row changes, and every caveat
-// (ignored_fields, unreplayable/out-of-scope counts, truncation). Swallowing
-// any of these would misrepresent what the simulation actually covered, which
-// is the whole point of the envelope.
+// Renders the runSimulation honesty envelope — but in the user's language, not
+// the engine's. The envelope is still shown in full (nothing swallowed), yet
+// every surface answers three questions: what am I looking at, is this good or
+// bad, what do I do next. Raw field names and internal terms ("ladders",
+// "as_recorded") get translated; the "unaffected settings" note reads as
+// information, not an error.
 
 const effectColor: Record<string, string> = {
   allow: "text-emerald-400",
   escalate: "text-amber-400",
   deny: "text-red-400",
+}
+
+// Engine field names → the labels the policy editor already shows.
+const FIELD_LABEL: Record<string, string> = {
+  daily_token_budget_usd: "Daily token budget",
+  daily_spend_budget_usd: "Daily spend budget",
+  monthly_spend_budget_usd: "Monthly spend budget",
+  subtree_daily_cap_usd: "Subtree daily cap",
+  per_transaction_max_usd: "Per-transaction max",
+  auto_approve_under_usd: "Auto-approve under",
+  escalate_over_usd: "Escalate over",
+  allowed_categories: "Allowed categories",
+  blocked_categories: "Blocked categories",
+  allowed_tools: "Allowed tools",
+  blocked_tools: "Blocked tools",
+  escalate_tools: "Escalate tools",
+  capability_rules: "Capability rules",
+  escalation_timeout_mins: "Escalation timeout",
+  escalation_timeout_action: "On timeout",
+}
+
+const STATE_LABEL: Record<string, string> = { as_recorded: "Based on your history" }
+
+export function humanField(name: string): string {
+  if (FIELD_LABEL[name]) return FIELD_LABEL[name]
+  // Fallback: prettify an unknown field name rather than leak the raw token.
+  return name.replace(/_usd$/, "").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
 }
 
 function Tally({ label, t }: { label: string; t: { allow: number; escalate: number; deny: number } }) {
@@ -31,25 +59,45 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
   const truncated = "truncated" in report ? report.truncated : undefined
   const noteTruncated = "note_truncated" in report ? report.note_truncated : undefined
   const spendDelta = approved_spend_usd.would - approved_spend_usd.was
+  const hasActivity = counts.considered > 0
+
+  const verdict =
+    counts.changed === 0
+      ? "Nothing would change — this policy matches every decision already on record."
+      : `${counts.changed} of ${counts.simulated} replayed decision${counts.simulated === 1 ? "" : "s"} would change under this policy. Review the rows below before you save.`
 
   return (
     <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-sm font-medium text-zinc-200">{title}</h3>
-        <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">
-          {report.state}
+        <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-500" title="Your real past decisions, replayed under the policy shown — nothing is saved.">
+          {STATE_LABEL[report.state] ?? report.state}
         </span>
       </div>
 
-      <p className="text-[11px] leading-relaxed text-zinc-600">{report.note}</p>
+      {/* What am I looking at? */}
+      <p className="text-xs leading-relaxed text-zinc-500">
+        Your recent decisions replayed under the policy shown, so you can see what would change before you commit.
+        Read-only — nothing is saved.
+      </p>
 
-      {counts.considered === 0 ? (
-        <p className="text-xs text-zinc-500">No decisions in the window — nothing to simulate yet.</p>
+      {!hasActivity ? (
+        // Guiding empty state — what's missing AND what to do about it.
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-3">
+          <p className="text-xs text-zinc-300">No agent activity in this window yet, so there&rsquo;s nothing to replay.</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+            Simulation compares a candidate policy against your real past decisions. Once your agents start making
+            requests, come back to test changes safely before saving. Have older activity? Widen the date range.
+          </p>
+        </div>
       ) : (
         <>
+          {/* Is this good or bad? */}
+          <p className={`text-xs font-medium ${counts.changed === 0 ? "text-emerald-400" : "text-amber-400"}`}>{verdict}</p>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Tally label="Recorded (was)" t={totals.was} />
-            <Tally label="Candidate (would)" t={totals.would} />
+            <Tally label="Under this policy (would)" t={totals.would} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -110,13 +158,25 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
         </>
       )}
 
+      {/* Informational, NOT a warning: which of the editor's settings this kind
+          of simulation doesn't touch, in plain language + human labels. */}
       {ignored && ignored.length > 0 && (
-        <p className="text-[11px] text-amber-400/80">
-          Not simulated (tool / provision ladders aren&rsquo;t overlaid): <span className="font-mono">{ignored.join(", ")}</span>
-        </p>
+        <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+          <p className="text-[11px] leading-relaxed text-zinc-400">
+            <span className="font-medium text-zinc-300">These settings don&rsquo;t affect this result.</span> A spend
+            simulation replays each past decision against your spend budgets and categories. The settings below govern
+            other things — tools, token metering, escalation timeouts, and sub-wallet caps — which are enforced live on
+            new requests, not replayed here. Expected, not an error.
+          </p>
+          <p className="mt-1.5 text-[11px] text-zinc-600">
+            Unaffected: <span className="text-zinc-500">{ignored.map(humanField).join(" · ")}</span>
+          </p>
+        </div>
       )}
       {truncated && (
-        <p className="text-[11px] text-amber-400/80">{noteTruncated ?? "Results were truncated."}</p>
+        <p className="text-[11px] text-amber-400/80">
+          {noteTruncated ?? "Only the most recent decisions were simulated — narrow the date range for a complete picture."}
+        </p>
       )}
     </div>
   )
