@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { LeadCapture } from "@/components/lead-capture"
+import "../brand.css"
+import { brandFontVars } from "../brand-fonts"
 
 export const metadata: Metadata = {
   title: "Sanction Local: Private AI that never leaves your building",
@@ -43,17 +45,32 @@ const steps = [
   },
 ]
 
+const sectionBorder = { borderBottom: "1px solid var(--paper-3)" }
+const card = { borderColor: "var(--paper-3)", background: "var(--surface-card)" }
+const monoLabel: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 13,
+  letterSpacing: ".12em",
+  textTransform: "uppercase",
+  color: "var(--text-muted)",
+}
+
 export default function LocalOffering() {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div
+      className={`sanction ${brandFontVars}`}
+      style={{ minHeight: "100vh", background: "var(--surface-page)", color: "var(--text-body)" }}
+    >
       {/* Nav */}
-      <header className="border-b border-zinc-900">
+      <header style={sectionBorder}>
         <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="font-display font-semibold tracking-tight">Sanction</Link>
-          <div className="flex items-center gap-5 text-sm text-zinc-400">
-            <a href="#how" className="hidden hover:text-zinc-100 sm:inline">How it works</a>
-            <a href="#engagements" className="hidden hover:text-zinc-100 sm:inline">Engagements</a>
-            <a href={CONTACT} className="rounded-md bg-emerald-500 px-3.5 py-1.5 font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+          <Link href="/" style={{ fontWeight: 600, fontSize: 17, letterSpacing: "-0.02em" }}>
+            Sanction
+          </Link>
+          <div className="flex items-center gap-5 text-sm">
+            <a href="#how" className="sanction-link hidden sm:inline">How it works</a>
+            <a href="#engagements" className="sanction-link hidden sm:inline">Engagements</a>
+            <a href={CONTACT} className="sn-btn sn-btn-primary sn-btn-s">
               Book a fit call
             </a>
           </div>
@@ -61,45 +78,48 @@ export default function LocalOffering() {
       </header>
 
       {/* Hero */}
-      <section className="border-b border-zinc-900">
+      <section style={sectionBorder}>
         <div className="mx-auto max-w-5xl px-6 py-20">
-          <p className="font-mono text-xs uppercase tracking-widest text-emerald-400">Sanction Local</p>
-          <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+          <p style={{ ...monoLabel, color: "var(--status-approved)" }}>Sanction Local</p>
+          <h1 className="text-balance" style={{ font: "var(--text-display)", letterSpacing: "-0.02em", marginTop: 16 }}>
             Private AI that never leaves your building.
           </h1>
-          <p className="mt-5 max-w-2xl text-lg text-zinc-400">
+          <p className="max-w-2xl" style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", marginTop: 20 }}>
             Your team needs AI, but every public tool puts your client and patient data on someone
             else&apos;s servers. We install AI that runs entirely on your own hardware, and prove it stays
             there with an audit trail your assessor will accept.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href={CONTACT} className="rounded-md bg-emerald-500 px-5 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+            <a href={CONTACT} className="sn-btn sn-btn-primary sn-btn-l">
               Book a 20-min fit call
             </a>
-            <a href="#how" className="rounded-md border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-300 transition-colors hover:text-zinc-100">
+            <a href="#how" className="sn-btn sn-btn-secondary sn-btn-l">
               See how it works
             </a>
           </div>
-          <p className="mt-6 text-sm text-zinc-600">
-            Built for small regulated practices: <span className="text-zinc-400">law firms · clinics · accounting · real estate · specialty manufacturing.</span>
+          <p className="mt-6 text-sm" style={{ color: "var(--text-faint)" }}>
+            Built for small regulated practices:{" "}
+            <span style={{ color: "var(--text-muted)" }}>
+              law firms · clinics · accounting · real estate · specialty manufacturing.
+            </span>
           </p>
         </div>
       </section>
 
       {/* The problem */}
-      <section className="border-b border-zinc-900">
+      <section style={sectionBorder}>
         <div className="mx-auto max-w-5xl px-6 py-16">
-          <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">When cloud AI isn&apos;t an option</h2>
+          <h2 style={monoLabel}>When cloud AI isn&apos;t an option</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-2">
-            <p className="text-zinc-300">
-              Confidentiality has teeth. Under <span className="text-zinc-500">ABA Formal Opinion 512</span>, a
+            <p style={{ color: "var(--text-secondary)" }}>
+              Confidentiality has teeth. Under <span style={{ color: "var(--text-body)" }}>ABA Formal Opinion 512</span>, a
               lawyer who puts client matters into a public AI tool takes on duties of competence and
               confidentiality, and usually needs informed client consent first. A clinic would need a signed
-              <span className="text-zinc-500">{" "}business-associate agreement</span>{" "}with the vendor.
+              <span style={{ color: "var(--text-body)" }}>{" "}business-associate agreement</span>{" "}with the vendor.
               Most public tools won&apos;t meet that bar, so your staff use them anyway, and that&apos;s the
               exposure you&apos;ll have to explain.
             </p>
-            <p className="text-zinc-300">
+            <p style={{ color: "var(--text-secondary)" }}>
               It isn&apos;t only law and medicine. Any practice trusted with a client&apos;s financial or personal
               records, from real estate to accounting to financial advisory, carries the same exposure. The cloud
               AI vendors can&apos;t remove that risk for you. Sending your data to their servers is the whole problem.
@@ -110,14 +130,14 @@ export default function LocalOffering() {
       </section>
 
       {/* Pillars */}
-      <section className="border-b border-zinc-900">
+      <section style={sectionBorder}>
         <div className="mx-auto max-w-5xl px-6 py-16">
-          <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">What you get</h2>
+          <h2 style={monoLabel}>What you get</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {pillars.map((p) => (
-              <div key={p.title} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
-                <h3 className="font-display text-lg font-semibold tracking-tight text-zinc-100">{p.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-400">{p.body}</p>
+              <div key={p.title} className="rounded-lg border p-6" style={card}>
+                <h3 className="text-lg font-semibold" style={{ letterSpacing: "-0.01em" }}>{p.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{p.body}</p>
               </div>
             ))}
           </div>
@@ -125,19 +145,19 @@ export default function LocalOffering() {
       </section>
 
       {/* How it works / engagements */}
-      <section id="how" className="border-b border-zinc-900">
+      <section id="how" style={sectionBorder}>
         <div className="mx-auto max-w-5xl px-6 py-16">
-          <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">How it works</h2>
-          <p className="mt-4 max-w-2xl text-zinc-400">
+          <h2 style={monoLabel}>How it works</h2>
+          <p className="mt-4 max-w-2xl" style={{ color: "var(--text-secondary)" }}>
             Three steps, each a fixed-scope engagement. Start with the audit; most practices know within
             an hour whether the install is worth it.
           </p>
           <div id="engagements" className="mt-8 grid gap-5 md:grid-cols-3">
             {steps.map((s) => (
-              <div key={s.n} className="flex flex-col rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
-                <span className="font-mono text-xs text-zinc-600">{s.n}</span>
-                <h3 className="mt-2 font-display text-lg font-semibold tracking-tight text-zinc-100">{s.title}</h3>
-                <p className="mt-3 flex-1 text-sm leading-relaxed text-zinc-400">{s.body}</p>
+              <div key={s.n} className="flex flex-col rounded-lg border p-6" style={card}>
+                <span style={{ ...monoLabel, fontSize: 12, color: "var(--text-faint)" }}>{s.n}</span>
+                <h3 className="mt-2 text-lg font-semibold" style={{ letterSpacing: "-0.01em" }}>{s.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{s.body}</p>
               </div>
             ))}
           </div>
@@ -145,49 +165,49 @@ export default function LocalOffering() {
       </section>
 
       {/* Why us / moat */}
-      <section className="border-b border-zinc-900">
+      <section style={sectionBorder}>
         <div className="mx-auto max-w-5xl px-6 py-16">
-          <h2 className="font-mono text-sm uppercase tracking-widest text-zinc-500">Why this works when others can&apos;t</h2>
-          <div className="mt-6 grid gap-6 md:grid-cols-3 text-sm text-zinc-400">
-            <p><span className="text-zinc-200">Cloud AI vendors can&apos;t.</span>{" "}&quot;Your data never leaves&quot; is architecturally impossible when the model lives on their servers.</p>
-            <p><span className="text-zinc-200">Big consultancies won&apos;t.</span>{" "}A 6-attorney firm or a 3-physician clinic is below their floor. You&apos;re the customer they skip.</p>
-            <p><span className="text-zinc-200">We do both.</span>{" "}The whole stack runs on your hardware, and Sanction proves nothing left. The audit trail is the deliverable, not an afterthought.</p>
+          <h2 style={monoLabel}>Why this works when others can&apos;t</h2>
+          <div className="mt-6 grid gap-6 text-sm md:grid-cols-3" style={{ color: "var(--text-secondary)" }}>
+            <p><span style={{ color: "var(--text-body)", fontWeight: 500 }}>Cloud AI vendors can&apos;t.</span>{" "}&quot;Your data never leaves&quot; is architecturally impossible when the model lives on their servers.</p>
+            <p><span style={{ color: "var(--text-body)", fontWeight: 500 }}>Big consultancies won&apos;t.</span>{" "}A 6-attorney firm or a 3-physician clinic is below their floor. You&apos;re the customer they skip.</p>
+            <p><span style={{ color: "var(--text-body)", fontWeight: 500 }}>We do both.</span>{" "}The whole stack runs on your hardware, and Sanction proves nothing left. The audit trail is the deliverable, not an afterthought.</p>
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="border-b border-zinc-900">
+      <section style={sectionBorder}>
         <div className="mx-auto max-w-5xl px-6 py-20">
-          <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl text-balance">
+          <h2 className="text-balance" style={{ font: "var(--text-h2)", letterSpacing: "-0.02em" }}>
             Find out if private AI fits your practice.
           </h2>
-          <p className="mt-3 max-w-xl text-zinc-400">
+          <p className="mt-3 max-w-xl" style={{ color: "var(--text-secondary)" }}>
             A 20-minute call: what your team would use AI for, and whether a local install clears your
             compliance bar.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-4">
-            <a href={CONTACT} className="rounded-md bg-emerald-500 px-5 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+            <a href={CONTACT} className="sn-btn sn-btn-primary sn-btn-l">
               Book a fit call
             </a>
-            <Link href="/readiness" className="text-sm font-medium text-emerald-400 hover:text-emerald-300">
+            <Link href="/readiness" className="sanction-link text-sm font-medium">
               Or take the 5-minute readiness check →
             </Link>
           </div>
           <div className="mt-8 max-w-md">
-            <p className="mb-2 text-sm text-zinc-500">Or get the one-page overview by email:</p>
-            <LeadCapture source="local-ai" />
+            <p className="mb-2 text-sm" style={{ color: "var(--text-muted)" }}>Or get the one-page overview by email:</p>
+            <LeadCapture source="local-ai" variant="light" />
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="mx-auto max-w-5xl px-6 py-10 text-sm text-zinc-600">
+      <footer className="mx-auto max-w-5xl px-6 py-10 text-sm" style={{ color: "var(--text-faint)" }}>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="font-display font-semibold text-zinc-400">Sanction</p>
+          <p style={{ fontWeight: 600, color: "var(--text-muted)" }}>Sanction</p>
           <div className="flex gap-5">
-            <Link href="/" className="hover:text-zinc-300">Home</Link>
-            <a href={CONTACT} className="hover:text-zinc-300">Contact</a>
+            <Link href="/" className="sanction-link">Home</Link>
+            <a href={CONTACT} className="sanction-link">Contact</a>
           </div>
         </div>
       </footer>
