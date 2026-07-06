@@ -55,8 +55,8 @@ objects: `lib/reportingSummary.ts` `buildPeriodSummary(walletId,{start,end,group
 delegate (existing route tests must stay green). New `app/dashboard/audit/page.tsx`
 (KPIs + per-agent rollup + feed table, `?from=&to=` range, default 7d; feed v1 =
 fixed `limit=50`, cursor pagination is a follow-up) and **cookie-authed**
-`app/dashboard/audit/export/route.ts` (`getViewWallet` → `buildAuditFeed` →
-`toCsv`, `<a download>`). New `Audit` nav item. Tests:
+`app/dashboard/audit/export/route.ts` (`getSessionWallet` → `buildAuditFeed` →
+`toCsv`, `<a download>`; session-only so the public demo view can never export). New `Audit` nav item. Tests:
 `tests/reportingSummary.test.ts` + a `*.db.test.ts` case for the `date_trunc` SQL.
 
 ## PR4 — Evidence replay view `/dashboard/audit/[id]`

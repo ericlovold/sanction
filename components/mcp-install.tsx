@@ -78,7 +78,7 @@ export function McpInstall() {
           <input
             value={walletId}
             onChange={(e) => setWalletId(e.target.value)}
-            placeholder="wal_…"
+            placeholder="from your dashboard URL or wallet settings"
             autoComplete="off"
             spellCheck={false}
             className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600"
