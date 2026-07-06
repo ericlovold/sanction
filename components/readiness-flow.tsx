@@ -237,11 +237,30 @@ function ResultView({ result }: { result: ReadinessResult }) {
       <p className="print-accent sn-mono text-sm print:hidden" style={{ color: "var(--status-approved)" }}>
         Your Agent Authority Map
       </p>
-      <h2 className="print-accent mt-1 text-2xl font-semibold" style={{ letterSpacing: "-0.02em" }}>
+
+      {/* The reframe lands BEFORE the number sinks in — preempt the misread
+          ("I got a bad grade") rather than correct it after. */}
+      <p className="mt-2 text-lg font-semibold" style={{ letterSpacing: "-0.01em" }}>
+        Not a score — a leash length.
+      </p>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+        Your level measures how much authority AI can safely hold in your organization today, given what&apos;s
+        gated. It says nothing about how well you use AI.
+      </p>
+
+      <h2 className="print-accent mt-5 text-2xl font-semibold" style={{ letterSpacing: "-0.02em" }}>
         Level {result.level} — {result.levelName}
       </h2>
 
-      <ol className="mt-4 space-y-1.5">
+      {/* The user's own words, echoed — "the quiz heard me," not "the quiz
+          misjudged me." Drivers derive strictly from actual answers. */}
+      <ul className="mt-3 space-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+        {result.drivers.map((d) => (
+          <li key={d}>· {d}</li>
+        ))}
+      </ul>
+
+      <ol className="mt-5 space-y-1.5">
         {LEVELS.map((l) => (
           <li
             key={l.level}
@@ -266,6 +285,16 @@ function ResultView({ result }: { result: ReadinessResult }) {
           </li>
         ))}
       </ol>
+
+      {/* Close the level story as an upsell, not a verdict. */}
+      <p
+        className="mt-3 rounded-lg border p-4 text-sm"
+        style={{ borderColor: "var(--paper-3)", background: "var(--surface-sunken)", color: "var(--text-body)" }}
+      >
+        A Level {result.level} organization isn&apos;t behind — it&apos;s ungated. The same organization runs
+        safely two levels higher with gates in front of privileged actions. That move starts with the first
+        governed workflow below.
+      </p>
 
       <h3 className="mt-8 text-base font-semibold">Where authority needs a gate</h3>
       <ul className="mt-3 space-y-3">
