@@ -61,6 +61,9 @@ const APPROVALS: { id: ApprovalInstinct; label: string }[] = [
 
 const STEPS = ["Environment", "What AI does", "Data involved", "Approvals", "Your map"] as const
 
+// Same default + override as the homepage's "Talk to us" CTA (app/page.tsx).
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
+
 function Card({
   selected,
   onClick,
@@ -300,7 +303,12 @@ function ResultView({ result }: { result: ReadinessResult }) {
           <Link href="/start" className="font-medium text-emerald-400 hover:text-emerald-300">
             Install the Sanction MCP server →
           </Link>
-          <a href="mailto:eric@getsanction.com?subject=Readiness%20review" className="font-medium text-emerald-400 hover:text-emerald-300">
+          <a
+            href={CALENDLY_URL}
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-emerald-400 hover:text-emerald-300"
+          >
             Book a readiness review →
           </a>
           <button type="button" onClick={() => window.print()} className="font-medium text-zinc-400 hover:text-zinc-200">
