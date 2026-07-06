@@ -166,10 +166,13 @@ export default function LocalOffering() {
             A 20-minute call: what your team would use AI for, and whether a local install clears your
             compliance bar.
           </p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center gap-4">
             <a href={CONTACT} className="rounded-md bg-emerald-500 px-5 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
               Book a fit call
             </a>
+            <Link href="/readiness" className="text-sm font-medium text-emerald-400 hover:text-emerald-300">
+              Or take the 5-minute readiness check →
+            </Link>
           </div>
           <div className="mt-8 max-w-md">
             <p className="mb-2 text-sm text-zinc-500">Or get the one-page overview by email:</p>
