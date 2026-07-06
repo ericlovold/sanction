@@ -94,6 +94,42 @@ describe("scoreReadiness — posture and pack", () => {
   })
 })
 
+describe("scoreReadiness — drivers echo actual answers, never canned copy", () => {
+  it("a spend-only user never sees a sensitive-data driver", () => {
+    const r = scoreReadiness({ environment: "dev", activities: ["spend"], data: ["public"], approvals: [] })
+    expect(r.drivers.some((d) => d.includes("spends money"))).toBe(true)
+    expect(r.drivers.some((d) => d.includes("client") || d.includes("health") || d.includes("privileged"))).toBe(false)
+  })
+
+  it("a sensitive-data user sees their data named, in their words", () => {
+    const r = scoreReadiness({ environment: "law", activities: ["tools"], data: ["client", "privileged"], approvals: [] })
+    expect(r.drivers.some((d) => d.includes("client-confidential data") && d.includes("legally privileged material"))).toBe(true)
+    expect(r.drivers.some((d) => d.includes("spends money"))).toBe(false)
+  })
+
+  it("unsure usage is echoed as the shadow driver", () => {
+    const r = scoreReadiness({ environment: "other", activities: ["unsure"], data: ["internal"], approvals: [] })
+    expect(r.drivers[0]).toContain("nobody can list")
+  })
+
+  it("drafting-only gets the nothing-acts-yet echo, never an empty list", () => {
+    const r = scoreReadiness({ environment: "other", activities: ["drafting"], data: ["public"], approvals: [] })
+    expect(r.drivers).toHaveLength(1)
+    expect(r.drivers[0]).toContain("only drafts")
+  })
+
+  it("drivers cap at 4 even when everything is selected", () => {
+    const r = scoreReadiness({
+      environment: "law",
+      activities: ["tools", "external_send", "credentials", "spend", "write_systems", "unsure"],
+      data: ["client", "financial", "phi", "privileged", "secrets"],
+      approvals: [],
+    })
+    expect(r.drivers.length).toBeLessThanOrEqual(4)
+    expect(r.drivers.every((d) => d.startsWith("You told us"))).toBe(true)
+  })
+})
+
 describe("LEVELS ladder", () => {
   it("has six levels, 0 through 5", () => {
     expect(LEVELS).toHaveLength(6)

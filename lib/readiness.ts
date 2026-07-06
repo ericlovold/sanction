@@ -40,6 +40,11 @@ export type Risk = { title: string; detail: string; weight: number }
 export type ReadinessResult = {
   level: 0 | 1 | 2
   levelName: string
+  // Echoes of the user's OWN answers — "you told us …" — so the level reads
+  // as heard, not judged. MUST derive from actual selections, never from
+  // canned per-level copy: a user who picked "spends money" seeing a
+  // "sensitive data" driver is the same trust break one layer down.
+  drivers: string[]
   risks: Risk[] // top 3, highest weight first
   firstWorkflow: string
   posture: { auto: string[]; escalate: string[]; deny: string[]; evidence: string[] }
@@ -80,6 +85,22 @@ export function scoreReadiness(input: ReadinessInput): ReadinessResult {
   // current state caps at 2. Levels 3–5 are the ladder ahead.
   const level: 0 | 1 | 2 =
     acts.has("unsure") || acts.size === 0 ? 0 : ACTING.some((a) => acts.has(a)) ? 2 : 1
+
+  // ── Drivers: the user's own answers, echoed back. Each line exists only
+  // if the matching option was actually selected.
+  const drivers: string[] = []
+  if (acts.has("unsure")) drivers.push("You told us nobody can list which AI tools are in use.")
+  if (acts.has("credentials")) drivers.push("You told us AI can access credentials.")
+  if (acts.has("external_send")) drivers.push("You told us AI sends email or messages that leave the organization.")
+  if (acts.has("spend")) drivers.push("You told us AI spends money or provisions resources.")
+  if (acts.has("write_systems")) drivers.push("You told us AI writes to your systems.")
+  if (acts.has("tools") && drivers.length < 3) drivers.push("You told us AI uses tools inside your workflows.")
+  const sensitiveNamed = SENSITIVE.filter((d) => data.has(d) && d !== "secrets").map((d) => DATA_LABEL[d])
+  if (sensitiveNamed.length > 0 && drivers.length < 4)
+    drivers.push(`You told us it can reach ${sensitiveNamed.join(", ")}.`)
+  else if (data.has("secrets") && !acts.has("credentials") && drivers.length < 4)
+    drivers.push("You told us it can reach credentials and secrets.")
+  if (drivers.length === 0) drivers.push("You told us AI only drafts and retrieves today — nothing acts yet.")
 
   // ── Risk map: activity × data, weighted; environment bumps what its
   // regulator actually cares about.
@@ -204,7 +225,17 @@ export function scoreReadiness(input: ReadinessInput): ReadinessResult {
           detail: "Point your AI tooling at Sanction's gateway and policy engine — budgets, approvals, and an audit trail without running anything yourself.",
         }
 
-  return { level, levelName: LEVELS[level].name, risks: topRisks, firstWorkflow, posture, packId, packName, fit }
+  return {
+    level,
+    levelName: LEVELS[level].name,
+    drivers: drivers.slice(0, 4),
+    risks: topRisks,
+    firstWorkflow,
+    posture,
+    packId,
+    packName,
+    fit,
+  }
 }
 
 const FIRST_WORKFLOW: Record<string, string> = {
