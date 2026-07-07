@@ -1,0 +1,228 @@
+import type { Metadata } from "next"
+import Link from "next/link"
+import { db } from "@/lib/db"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { NoWallet } from "@/components/no-wallet"
+import { getViewWallet } from "@/lib/session"
+import { windowStart } from "@/lib/outcomes"
+
+export const dynamic = "force-dynamic"
+
+export const metadata: Metadata = {
+  title: "Sanction — Outcomes",
+  description: "Cost per outcome across every pool — spend accountable to results, not just budgets.",
+}
+
+// The CFO read (CPO-1): a budget says what an agent MAY spend; an outcome says
+// what the spend WAS FOR. This page divides one by the other, per pool, against
+// the ceiling that throttles the channel when it stops earning its cost.
+
+function dollars(n: number) {
+  return `$${n.toFixed(2)}`
+}
+
+type PoolRow = {
+  id: string
+  name: string
+  isSelf: boolean
+  kind: string | null
+  windowDays: number
+  outcomes: number
+  spendUsd: number
+  cpoUsd: number | null
+  ceilingUsd: number | null
+  minOutcomes: number
+  frozen: boolean
+}
+
+async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date | null }, isSelf: boolean): Promise<PoolRow> {
+  const policy = await db.policy.findUnique({
+    where: { walletId: wallet.id },
+    select: {
+      outcomeKind: true,
+      costPerOutcomeCeilingUsd: true,
+      costPerOutcomeWindowDays: true,
+      costPerOutcomeMinOutcomes: true,
+    },
+  })
+  const windowDays = policy?.costPerOutcomeWindowDays ?? 30
+  const since = windowStart(windowDays)
+  // Observed kind fallback: pools without a configured ceiling still report on
+  // whatever outcome kind they actually receive, so the page is useful pre-policy.
+  let kind = policy?.outcomeKind ?? null
+  if (!kind) {
+    const latest = await db.outcomeEvent.findFirst({
+      where: { walletId: wallet.id },
+      orderBy: { occurredAt: "desc" },
+      select: { kind: true },
+    })
+    kind = latest?.kind ?? null
+  }
+
+  const agents = await db.agent.findMany({ where: { walletId: wallet.id }, select: { id: true } })
+  const [outcomes, spend] = await Promise.all([
+    kind
+      ? db.outcomeEvent.count({ where: { walletId: wallet.id, kind, occurredAt: { gte: since } } })
+      : Promise.resolve(0),
+    agents.length > 0
+      ? db.authorizationRequest.aggregate({
+          where: { agentId: { in: agents.map((a) => a.id) }, status: "approved", createdAt: { gte: since } },
+          _sum: { amountUsd: true },
+        })
+      : Promise.resolve({ _sum: { amountUsd: null } }),
+  ])
+  const spendUsd = spend._sum.amountUsd ?? 0
+
+  return {
+    id: wallet.id,
+    name: wallet.name,
+    isSelf,
+    kind,
+    windowDays,
+    outcomes,
+    spendUsd,
+    cpoUsd: outcomes > 0 ? spendUsd / outcomes : null,
+    ceilingUsd: policy?.costPerOutcomeCeilingUsd == null ? null : policy.costPerOutcomeCeilingUsd / 100,
+    minOutcomes: policy?.costPerOutcomeMinOutcomes ?? 5,
+    frozen: wallet.frozenAt !== null,
+  }
+}
+
+function StatusPill({ row }: { row: PoolRow }) {
+  if (row.frozen) return <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400">FROZEN</span>
+  if (row.ceilingUsd === null)
+    return <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">no ceiling</span>
+  if (row.outcomes < row.minOutcomes)
+    return <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">cold start · {row.outcomes}/{row.minOutcomes}</span>
+  if (row.cpoUsd !== null && row.cpoUsd > row.ceilingUsd)
+    return <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">THROTTLED — over ceiling</span>
+  return <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">earning its cost</span>
+}
+
+function CpoBar({ row }: { row: PoolRow }) {
+  if (row.ceilingUsd === null || row.cpoUsd === null) return null
+  const p = Math.min(100, Math.round((row.cpoUsd / row.ceilingUsd) * 100))
+  const over = row.cpoUsd > row.ceilingUsd
+  return (
+    <div className="mt-2">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+        <div className={`h-full rounded-full ${over ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${p}%` }} />
+      </div>
+      <p className="mt-1 font-mono text-[11px] text-zinc-500">
+        {dollars(row.cpoUsd)} per {row.kind} · ceiling {dollars(row.ceilingUsd)}
+      </p>
+    </div>
+  )
+}
+
+export default async function OutcomesPage() {
+  const view = await getViewWallet()
+  if (!view) return <NoWallet />
+
+  const [self, children] = await Promise.all([
+    db.wallet.findUnique({ where: { id: view.id }, select: { id: true, name: true, frozenAt: true } }),
+    db.wallet.findMany({ where: { parentId: view.id }, select: { id: true, name: true, frozenAt: true }, orderBy: { name: "asc" } }),
+  ])
+  if (!self) return <NoWallet />
+
+  const rows = await Promise.all([poolOutcomeRow(self, true), ...children.map((c) => poolOutcomeRow(c, false))])
+  const reporting = rows.filter((r) => r.kind !== null)
+  const totalOutcomes = reporting.reduce((s, r) => s + r.outcomes, 0)
+  const totalSpend = rows.reduce((s, r) => s + r.spendUsd, 0)
+  const blendedCpo = totalOutcomes > 0 ? totalSpend / totalOutcomes : null
+
+  const recent = await db.outcomeEvent.findMany({
+    where: { walletId: { in: rows.map((r) => r.id) } },
+    orderBy: { occurredAt: "desc" },
+    take: 25,
+    select: { id: true, walletId: true, kind: true, valueUsd: true, playLabel: true, occurredAt: true },
+  })
+  const nameOf = new Map(rows.map((r) => [r.id, r.name]))
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
+      <div>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-zinc-100">Outcomes</h1>
+        <p className="mt-1 text-sm text-zinc-400">
+          Spend accountable to results. A pool over its cost-per-outcome ceiling auto-throttles: every further
+          dollar waits for a human in <Link href="/dashboard/approvals" className="text-zinc-200 underline decoration-zinc-700 underline-offset-2 hover:decoration-zinc-400">Approvals</Link>.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-500">Outcomes · window</CardTitle></CardHeader>
+          <CardContent><p className="font-mono text-2xl text-zinc-100">{totalOutcomes.toLocaleString()}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-500">Spend · window</CardTitle></CardHeader>
+          <CardContent><p className="font-mono text-2xl text-zinc-100">{dollars(totalSpend)}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-500">Blended cost / outcome</CardTitle></CardHeader>
+          <CardContent><p className="font-mono text-2xl text-zinc-100">{blendedCpo === null ? "—" : dollars(blendedCpo)}</p></CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm text-zinc-300">By pool</CardTitle></CardHeader>
+        <CardContent className="space-y-5">
+          {rows.map((row) => (
+            <div key={row.id} className="border-b border-zinc-800/60 pb-4 last:border-0 last:pb-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-sm text-zinc-200">{row.name}</span>
+                  {row.isSelf && <span className="ml-2 text-[11px] text-zinc-600">this wallet</span>}
+                </div>
+                <StatusPill row={row} />
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-zinc-500">
+                <span>{row.outcomes.toLocaleString()} {row.kind ?? "outcomes"} / {row.windowDays}d</span>
+                <span>{dollars(row.spendUsd)} spend</span>
+                {row.cpoUsd !== null && <span className="text-zinc-300">{dollars(row.cpoUsd)} each</span>}
+              </div>
+              <CpoBar row={row} />
+            </div>
+          ))}
+          {rows.length === 0 && <EmptyState title="No pools" hint="Create pools to see per-channel cost per outcome." />}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm text-zinc-300">Recent outcomes</CardTitle></CardHeader>
+        <CardContent>
+          {recent.length === 0 ? (
+            <EmptyState
+              title="No outcomes reported yet"
+              hint="Report them from your systems: POST /api/v1/outcomes with an agent key, or the sanction_log_outcome MCP tool. Idempotent via dedupe_key."
+            />
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-600">
+                  <th className="pb-2 pr-4 font-medium">When</th>
+                  <th className="pb-2 pr-4 font-medium">Pool</th>
+                  <th className="pb-2 pr-4 font-medium">Kind</th>
+                  <th className="pb-2 pr-4 font-medium">Play</th>
+                  <th className="pb-2 font-medium">Value</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-xs text-zinc-400">
+                {recent.map((e) => (
+                  <tr key={e.id} className="border-b border-zinc-900 last:border-0">
+                    <td className="py-2 pr-4">{e.occurredAt.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+                    <td className="py-2 pr-4 text-zinc-300">{nameOf.get(e.walletId) ?? e.walletId}</td>
+                    <td className="py-2 pr-4">{e.kind}</td>
+                    <td className="py-2 pr-4">{e.playLabel ?? "—"}</td>
+                    <td className="py-2">{e.valueUsd == null ? "—" : dollars(e.valueUsd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
