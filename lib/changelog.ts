@@ -15,6 +15,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-07",
+    title: "sanction-mcp 0.4.0 — outcomes from any MCP host",
+    version: "0.4.0",
+    tags: ["mcp", "outcomes", "release"],
+    body: "The MCP server learned to report results, not just ask permission. `sanction_log_outcome` records a confirmed business outcome — an enrollment, a booking, a signed engagement — from whatever MCP host your agent runs in, with `dedupe_key` idempotency so a retried tool call never double-counts. That closes the loop for cost-per-outcome governance without a single custom integration: the same agent that asks `sanction_authorize` before spending now attests what the spend produced. `npx sanction-mcp` as always; eight tools total.",
+  },
+  {
+    date: "2026-07-07",
+    title: "Spend answers to outcomes — ceilings, freeze, reallocation",
+    tags: ["outcomes", "governance", "freeze", "budgets"],
+    body: "A budget says what an agent *may* spend. An outcome says what the spend *was for*. Now Sanction governs on the ratio. Your systems attest results (`POST /v1/outcomes` — an enrollment, a booking; idempotent via `dedupe_key`, Sanction never invents them), and a wallet with a `cost_per_outcome` ceiling **escalates every further charge** once its windowed cost-per-outcome would cross the line — never denies, the channel just stops spending silently and starts asking a human. A cold-start guard keeps small samples ungoverned until there's enough signal. Around it, the two controls a CFO actually reaches for: **wallet freeze** — one call pauses a wallet and its entire subtree across every surface (spend, tools, provisioning, credentials, the gateway), deleting nothing, and unfreeze resumes where the fleet stopped — and **budget reallocation**, which moves cap between sibling pools atomically, refuses to overdraw, and leaves a revision trail plus an audit row. The dashboard's new **Outcomes** page reads it all back: cost per outcome per pool against its ceiling, with the engine's own status semantics — frozen, cold start, throttled, or earning its cost.",
+  },
+  {
     date: "2026-07-06",
     title: "Sanction Local's runtime went air-gapped",
     tags: ["local", "airgap", "audit"],

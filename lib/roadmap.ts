@@ -8,10 +8,11 @@
 // is what's shipped/shipping; "Next" leads by one release; "Later" is the arc.
 // The arc reads: the engine, approvals→grants, seats, standards (AuthZEN/AARP),
 // evidence+replay, capability governance, simulation, policy packs, console parity,
-// gateway fail-closed metering, and the Local runtime are shipped (see the
+// gateway fail-closed metering, the Local runtime, and outcome governance
+// (cost-per-outcome ceilings, freeze, reallocation) are shipped (see the
 // changelog) → now, Local install package + ecosystem distribution → next,
-// sequential simulation + drop-in adapters + reallocation → later, cryptographic
-// audit + enterprise trust.
+// sequential simulation + drop-in adapters → later, cryptographic audit +
+// enterprise trust.
 
 export type RoadmapItem = { title: string; note: string }
 
@@ -24,7 +25,6 @@ export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapI
   next: [
     { title: "Sequential simulation", note: "Today's what-if holds recorded state constant; next it replays the week in order — an early simulated denial frees budget for the request that came after, exactly as it would have lived." },
     { title: "Framework adapters", note: "Drop-in hooks for LangChain, CrewAI, Vercel AI SDK, and LiteLLM — not just docs, but the adapter code that routes every tool call and model request through Sanction before it executes." },
-    { title: "Budget reallocation", note: "Move unused budget across the account tree to where it's needed — leftover tokens become working capital, and the reallocation shows up in the audit." },
   ],
   later: [
     { title: "Tamper-evident audit exports", note: "Hash-chained, exportable decision history — governance as cryptographic evidence." },
