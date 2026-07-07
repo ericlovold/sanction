@@ -45,3 +45,6 @@ next-env.d.ts
 
 # audit skill reports (findings stay local — see .claude/skills/audit/SKILL.md)
 /audit/
+
+# cross-agent-tool mirror of .claude/skills (generated; AGENTS.md-flavored wording)
+/.agents/
