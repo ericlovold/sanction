@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
-import { windowStart } from "@/lib/outcomes"
+import { walletWindowOutcomes, walletWindowSpendUsd, windowStart } from "@/lib/outcomes"
 
 export const dynamic = "force-dynamic"
 
@@ -36,7 +36,9 @@ type PoolRow = {
   frozen: boolean
 }
 
-async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date | null }, isSelf: boolean): Promise<PoolRow> {
+// ancestorFrozen: KILL-1 walks ancestors — a frozen parent stops every child
+// pool, so the pill must reflect the walk, not just the pool's own flag.
+async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date | null }, isSelf: boolean, ancestorFrozen = false): Promise<PoolRow> {
   const policy = await db.policy.findUnique({
     where: { walletId: wallet.id },
     select: {
@@ -60,19 +62,12 @@ async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date
     kind = latest?.kind ?? null
   }
 
-  const agents = await db.agent.findMany({ where: { walletId: wallet.id }, select: { id: true } })
-  const [outcomes, spend] = await Promise.all([
-    kind
-      ? db.outcomeEvent.count({ where: { walletId: wallet.id, kind, occurredAt: { gte: since } } })
-      : Promise.resolve(0),
-    agents.length > 0
-      ? db.authorizationRequest.aggregate({
-          where: { agentId: { in: agents.map((a) => a.id) }, status: "approved", createdAt: { gte: since } },
-          _sum: { amountUsd: true },
-        })
-      : Promise.resolve({ _sum: { amountUsd: null } }),
+  // Same reads the ceiling rule governs on (lib/outcomes) — the page's numbers
+  // and the engine's can't drift.
+  const [outcomes, spendUsd] = await Promise.all([
+    kind ? walletWindowOutcomes(db, wallet.id, kind, since) : Promise.resolve(0),
+    walletWindowSpendUsd(db, wallet.id, since),
   ])
-  const spendUsd = spend._sum.amountUsd ?? 0
 
   return {
     id: wallet.id,
@@ -85,7 +80,7 @@ async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date
     cpoUsd: outcomes > 0 ? spendUsd / outcomes : null,
     ceilingUsd: policy?.costPerOutcomeCeilingUsd == null ? null : policy.costPerOutcomeCeilingUsd / 100,
     minOutcomes: policy?.costPerOutcomeMinOutcomes ?? 5,
-    frozen: wallet.frozenAt !== null,
+    frozen: wallet.frozenAt !== null || ancestorFrozen,
   }
 }
 
@@ -126,7 +121,8 @@ export default async function OutcomesPage() {
   ])
   if (!self) return <NoWallet />
 
-  const rows = await Promise.all([poolOutcomeRow(self, true), ...children.map((c) => poolOutcomeRow(c, false))])
+  const selfFrozen = self.frozenAt !== null
+  const rows = await Promise.all([poolOutcomeRow(self, true), ...children.map((c) => poolOutcomeRow(c, false, selfFrozen))])
   const reporting = rows.filter((r) => r.kind !== null)
   const totalOutcomes = reporting.reduce((s, r) => s + r.outcomes, 0)
   const totalSpend = rows.reduce((s, r) => s + r.spendUsd, 0)
