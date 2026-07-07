@@ -124,6 +124,11 @@ homegrown too: capture a mid-arc thought/idea/question into `docs/BACKLOG.md`
 (dated, public-repo-safe phrasing) without derailing the current work; the
 backlog drains through `/zoomout`. Kept verbatim for clean upstream diffs;
 repo-specific guidance belongs here, not in the skill files.
+`audit` is homegrown too (adapted 2026-07-07 from the "AI Code Sanity Check"
+audit-prompt suite): `/audit [topics…]` runs read-only best-practice
+investigations — 29 topics, 0–5 maturity score + amateur/AI-built signal
+each — writing evidence-backed reports to the gitignored `audit/` directory;
+a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
 

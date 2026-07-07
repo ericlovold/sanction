@@ -19,3 +19,5 @@ not in these files.
 | ruthless-editor | Cutting pass on all prose; every sentence earns its place |
 | memory-hygiene | What deserves persisting, dated; recalled facts re-verified before use |
 | zoomout | Homegrown (not from the pack): rebuild the map from live state between work arcs — resync, re-read README/roadmap/changelog/traceability, surface drift, rank next best actions |
+| queue | Homegrown: capture a mid-arc thought into `docs/BACKLOG.md` (dated, public-repo-safe) without derailing the current work; drains through `/zoomout` |
+| audit | Homegrown, adapted 2026-07-07 from the "AI Code Sanity Check" audit-prompt suite README (shared by Eric; topic prompts re-authored here, driver scripts replaced by subagent orchestration in SKILL.md). 29 read-only best-practice investigations, 0–5 maturity + amateur/AI-built signal per topic, reports to gitignored `audit/` |
