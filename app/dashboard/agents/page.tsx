@@ -14,16 +14,34 @@ export const metadata: Metadata = {
   description: "Manage agent identities, capability keys, and live authorization posture.",
 }
 
-async function getAgents(walletId: string) {
+async function walletScopeIds(rootWalletId: string, scope: "wallet" | "subtree"): Promise<string[]> {
+  if (scope === "wallet") return [rootWalletId]
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    WITH RECURSIVE subtree AS (
+      SELECT id, "parentId" FROM "Wallet" WHERE id = ${rootWalletId}
+      UNION ALL
+      SELECT w.id, w."parentId"
+      FROM "Wallet" w JOIN subtree s ON w."parentId" = s.id
+    )
+    SELECT id FROM subtree
+  `
+  return rows.map((r) => r.id)
+}
+
+async function getAgents(walletId: string, scope: "wallet" | "subtree") {
   const monthStart = new Date()
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
+  const walletIds = await walletScopeIds(walletId, scope)
+  const wallets = await db.wallet.findMany({ where: { id: { in: walletIds } }, select: { id: true, name: true } })
+  const walletById = new Map(wallets.map((w) => [w.id, w.name]))
 
   const rows = await db.agent.findMany({
-    where: { walletId },
+    where: { walletId: { in: walletIds } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      walletId: true,
       name: true,
       holder: true,
       expiresAt: true,
@@ -43,13 +61,13 @@ async function getAgents(walletId: string) {
   const [pending, activeGrants, decisions, modelCounts, lastLogs] = await Promise.all([
     db.pendingApproval.groupBy({
       by: ["agentId"],
-      where: { walletId, agentId: { in: agentIds }, status: "pending" },
+      where: { walletId: { in: walletIds }, agentId: { in: agentIds }, status: "pending" },
       _count: true,
     }),
     db.grant.groupBy({
       by: ["agentId"],
       where: {
-        walletId,
+        walletId: { in: walletIds },
         agentId: { in: agentIds },
         status: "active",
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
@@ -113,6 +131,8 @@ async function getAgents(walletId: string) {
     const act = activityByAgent.get(a.id)
     return {
       id: a.id,
+      walletId: a.walletId,
+      walletName: walletById.get(a.walletId) ?? "unknown wallet",
       name: a.name,
       holder: a.holder,
       expiresAt: a.expiresAt ? a.expiresAt.toISOString() : null,
@@ -137,22 +157,68 @@ async function getAgents(walletId: string) {
   })
 }
 
-export default async function AgentsPage() {
+export default async function AgentsPage({
+  searchParams,
+}: {
+  searchParams?: { scope?: string; state?: string }
+}) {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  const agents = await getAgents(view.id)
+  const params = searchParams ?? {}
+  const scope: "wallet" | "subtree" = params.scope === "subtree" ? "subtree" : "wallet"
+  const stateFilter = params.state === "inactive" || params.state === "expiring" || params.state === "expired" ? params.state : "all"
+  const agents = await getAgents(view.id, scope)
+  const now = new Date()
+  const expiringSoon = agents.filter(
+    (a) => a.expiresAt && new Date(a.expiresAt) > now && new Date(a.expiresAt).getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000,
+  ).length
+  const inactiveAgents = agents.filter((a) => !a.isActive).length
+  const expiredAgents = agents.filter((a) => a.expiresAt && new Date(a.expiresAt) <= now).length
+  const filteredAgents = agents.filter((a) => {
+    if (stateFilter === "inactive") return !a.isActive
+    if (stateFilter === "expiring") {
+      if (!a.expiresAt) return false
+      const t = new Date(a.expiresAt).getTime()
+      return t > now.getTime() && t - now.getTime() <= 7 * 24 * 60 * 60 * 1000
+    }
+    if (stateFilter === "expired") return !!a.expiresAt && new Date(a.expiresAt) <= now
+    return true
+  })
   const activeAgents = agents.filter((a) => a.isActive).length
   const activeGrants = agents.reduce((sum, a) => sum + a.activeGrants, 0)
   const pendingApprovals = agents.reduce((sum, a) => sum + a.pendingApprovals, 0)
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
-      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Agents</h1>
+      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Seats (Agents)</h1>
       <p className="-mt-4 text-sm text-zinc-500">
-        Every agent this wallet governs — its key, its budgets, and its overrides. The key is the identity; everything
-        the agent does is checked and logged against it.
+        Each seat is an agent identity with its own key, limits, and audit trail. The key is the runtime identity; seat
+        holder and expiry are operator controls.
       </p>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Link
+          href={`/dashboard/agents?scope=wallet${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`}
+          className={`rounded border px-2 py-1 ${scope === "wallet" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+        >
+          Current wallet
+        </Link>
+        <Link
+          href={`/dashboard/agents?scope=subtree${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`}
+          className={`rounded border px-2 py-1 ${scope === "subtree" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+        >
+          Hierarchy (wallet + pools)
+        </Link>
+        {(["all", "inactive", "expiring", "expired"] as const).map((state) => (
+          <Link
+            key={state}
+            href={`/dashboard/agents?scope=${scope}${state === "all" ? "" : `&state=${state}`}`}
+            className={`rounded border px-2 py-1 ${stateFilter === state ? "border-zinc-700 bg-zinc-800 text-zinc-100" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+          >
+            {state}
+          </Link>
+        ))}
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-zinc-800 bg-zinc-900">
@@ -179,6 +245,23 @@ export default async function AgentsPage() {
             <p className="font-mono text-2xl font-semibold">{pendingApprovals}</p>
           </CardContent>
         </Card>
+        <Card className="border-zinc-800 bg-zinc-900">
+          <CardHeader className="px-4 pt-4 pb-1">
+            <CardTitle className="text-xs font-normal text-zinc-500">Expiring in 7d</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <p className="font-mono text-2xl font-semibold">{expiringSoon}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-zinc-800 bg-zinc-900">
+          <CardHeader className="px-4 pt-4 pb-1">
+            <CardTitle className="text-xs font-normal text-zinc-500">Inactive / expired</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <p className="font-mono text-2xl font-semibold">{inactiveAgents + expiredAgents}</p>
+            <p className="text-xs text-zinc-600">{inactiveAgents} inactive · {expiredAgents} expired</p>
+          </CardContent>
+        </Card>
       </div>
 
       {view.isSession ? (
@@ -191,7 +274,7 @@ export default async function AgentsPage() {
         </p>
       )}
 
-      <ApiKeysTable agents={agents} editable={view.isSession} />
+      <ApiKeysTable agents={filteredAgents} editable={view.isSession} />
     </div>
   )
 }

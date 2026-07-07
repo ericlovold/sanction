@@ -22,7 +22,27 @@ export default async function PolicyPage() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  const wallet = await db.wallet.findUnique({ where: { id: view.id }, include: { policy: true } })
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+  const [wallet, walletChildren] = await Promise.all([
+    db.wallet.findUnique({ where: { id: view.id }, include: { policy: true } }),
+    db.wallet.count({ where: { parentId: view.id } }),
+  ])
+  const agentIds = (
+    await db.agent.findMany({
+      where: { walletId: view.id },
+      select: { id: true },
+    })
+  ).map((a) => a.id)
+  const [tokenMonth, pendingApprovals, escalatedMonth] = await Promise.all([
+    db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: monthStart } }, _sum: { costUsd: true } }),
+    db.pendingApproval.count({ where: { walletId: view.id, status: "pending" } }),
+    db.authorizationRequest.count({
+      where: { agentId: { in: agentIds }, status: "escalated", createdAt: { gte: monthStart } },
+    }),
+  ])
+  const capabilityRules = Array.isArray(wallet?.policy?.capabilityRules) ? wallet.policy.capabilityRules.length : 0
 
   return (
     <div className="min-h-screen max-w-4xl mx-auto space-y-6 p-6">
@@ -33,6 +53,40 @@ export default async function PolicyPage() {
           and every change is a replayable revision.
         </p>
       </div>
+
+      {wallet?.policy && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="px-4 py-4">
+              <p className="text-xs text-zinc-500">Tool posture</p>
+              <p className="mt-1 text-sm text-zinc-300">
+                {wallet.policy.blockedTools.length} blocked · {wallet.policy.escalateTools.length} escalated
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="px-4 py-4">
+              <p className="text-xs text-zinc-500">Capability rules</p>
+              <p className="mt-1 text-sm text-zinc-300">{capabilityRules} active rule{capabilityRules === 1 ? "" : "s"}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="px-4 py-4">
+              <p className="text-xs text-zinc-500">Token cost month</p>
+              <p className="mt-1 font-mono text-sm text-zinc-300">${(tokenMonth._sum.costUsd ?? 0).toFixed(2)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="px-4 py-4">
+              <p className="text-xs text-zinc-500">Approval pressure</p>
+              <p className="mt-1 text-sm text-zinc-300">{pendingApprovals} pending · {escalatedMonth} escalated</p>
+              <p className="mt-1 text-[11px] text-zinc-600">
+                Scope: current wallet{walletChildren > 0 ? ` (+${walletChildren} child pools managed in Pools)` : ""}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <PackPicker editable={view.isSession} />
 

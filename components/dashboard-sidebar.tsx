@@ -27,6 +27,8 @@ const ICON = {
   outcomes: "M20 6 9 17l-5-5M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
   policy: "M9 12l2 2 4-4M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z",
+  credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
+  tokens: "M4 7h16v10H4zM8 7V5h8v2M9 12h6",
   audit: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M9 13h6M9 17h6M9 9h1",
 }
 
@@ -35,11 +37,13 @@ const ICON = {
 // keeps Approvals first and always on-screen.
 const items: Item[] = [
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
+  { href: "/dashboard/agents", label: "Seats", icon: <Icon d={ICON.agents} /> },
+  { href: "/dashboard/credentials", label: "Credentials", icon: <Icon d={ICON.credentials} /> },
+  { href: "/dashboard/tokens", label: "Execution", icon: <Icon d={ICON.tokens} /> },
   { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
   { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
   { href: "/dashboard/outcomes", label: "Outcomes", icon: <Icon d={ICON.outcomes} /> },
   { href: "/dashboard/audit", label: "Audit", icon: <Icon d={ICON.audit} /> },
-  { href: "/dashboard/agents", label: "Agents", icon: <Icon d={ICON.agents} /> },
   { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
 ]

@@ -13,6 +13,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     shortcuts: [
       { name: "Approvals", url: "/dashboard/approvals", description: "Resolve pending agent requests" },
+      { name: "Seats", url: "/dashboard/agents", description: "Manage agent seats and key lifecycle" },
+      { name: "Execution", url: "/dashboard/tokens", description: "Observe and revoke execution tokens" },
       { name: "Spend", url: "/dashboard/spend", description: "Budgets and burn" },
     ],
     display: "standalone",
