@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# audit skill reports (findings stay local — see .claude/skills/audit/SKILL.md)
+/audit/
