@@ -81,6 +81,12 @@ export default async function ApprovalsPage() {
     createdAt: r.createdAt.toISOString(),
     expiresAt: r.expiresAt?.toISOString() ?? null,
   }))
+  const now = new Date()
+  const nowMs = now.getTime()
+  const expiringSoon = pending.filter((p) => p.expiresAt && new Date(p.expiresAt).getTime() - nowMs <= 15 * 60 * 1000).length
+  const oldestPendingMinutes = pending.length
+    ? Math.max(...pending.map((p) => Math.round((nowMs - new Date(p.createdAt).getTime()) / 60000)))
+    : 0
 
   // Runs after listPendingApprovals on purpose: that read settles expired
   // escalations, and the resolved list below should include them.
@@ -135,6 +141,15 @@ export default async function ApprovalsPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{webhooks.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="px-4 pt-4 pb-1">
+            <CardTitle className="text-xs font-normal text-zinc-500">Expiring in 15m</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <p className={`font-mono text-2xl font-semibold ${expiringSoon > 0 ? "text-amber-300" : ""}`}>{expiringSoon}</p>
+            <p className="text-xs text-zinc-600">oldest pending {oldestPendingMinutes}m</p>
           </CardContent>
         </Card>
       </div>

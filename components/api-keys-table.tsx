@@ -20,6 +20,8 @@ export type KeyActivity = {
 
 export type ConsoleAgent = {
   id: string
+  walletId: string
+  walletName: string
   name: string
   holder: string | null
   expiresAt: string | null
@@ -109,6 +111,7 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
   const [limits, limitsFormAction, savingLimits] = useActionState(updateLimitsAction, limitsInit)
   const [open, setOpen] = useState(false)
   const [connectOpen, setConnectOpen] = useState(false)
+  const [handoffOpen, setHandoffOpen] = useState(false)
   const justRotated = rotate.ok && rotate.agentId === agent.id && rotate.newKey
   const overrides = hasOverrides(agent)
   const act = agent.activity
@@ -132,6 +135,9 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
             <span className="inline-flex items-center gap-1 font-mono">
               <KeyRound className="size-3" />
               {agent.apiKeyPrefix}••••••••
+            </span>
+            <span className="rounded border border-zinc-800 bg-zinc-950/60 px-1.5 py-0.5 text-[10px] text-zinc-500">
+              {agent.walletName}
             </span>
             <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
             <span>last used {rel(agent.lastUsedAt)}</span>
@@ -207,13 +213,29 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
         </button>
         {editable && (
           <>
-          <form action={rotateAction}>
+          <form action={rotateAction} className="flex items-center gap-2">
             <input type="hidden" name="agent_id" value={agent.id} />
+            <input type="hidden" name="change_holder" value={handoffOpen ? "true" : "false"} />
+            {handoffOpen && (
+              <input
+                name="holder"
+                maxLength={120}
+                placeholder={agent.holder ?? "new holder"}
+                className="w-36 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+              />
+            )}
             <button type="submit" disabled={rotating} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100 disabled:opacity-50">
               <RotateCw className="size-3" />
-              {rotating ? "Rotating…" : "Rotate key"}
+              {rotating ? "Rotating…" : handoffOpen ? "Rotate + handoff" : "Rotate key"}
             </button>
           </form>
+          <button
+            type="button"
+            onClick={() => setHandoffOpen((o) => !o)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100"
+          >
+            {handoffOpen ? "Cancel handoff" : "Handoff on rotate"}
+          </button>
           <form action={setAgentActiveAction}>
             <input type="hidden" name="agent_id" value={agent.id} />
             <input type="hidden" name="active" value={agent.isActive ? "false" : "true"} />
@@ -224,7 +246,7 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
           </form>
           <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
             <SlidersHorizontal className="size-3" />
-            {open ? "Hide limits" : "Edit limits"}
+            {open ? "Hide seat policy" : "Seat policy"}
           </button>
           </>
         )}
