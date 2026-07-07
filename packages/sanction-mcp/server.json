@@ -8,13 +8,13 @@
     "url": "https://github.com/ericlovold/sanction",
     "source": "github"
   },
-  "version": "0.3.1",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "sanction-mcp",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
