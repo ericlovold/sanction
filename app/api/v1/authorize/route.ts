@@ -14,6 +14,8 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import { createSpendPendingApproval } from "@/lib/approvals"
 import { consumeSpendGrant } from "@/lib/grants"
+import { cpoContext } from "@/lib/outcomes"
+import { freezeStateFromChain, frozenNote } from "@/lib/freeze"
 import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thresholds"
 import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "grant_id cannot be used with simulate=true" }, { status: 400 })
   }
 
+
   const policy = agent.wallet.policy
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
   // UX-3: a hard budget denial is appealable — attach the same signed
@@ -92,6 +95,14 @@ export async function POST(req: NextRequest) {
   const amountCents = Math.round(amount_usd * 100)
 
   const ancestorChain = await walletAncestorChain(db, agent.walletId)
+
+  // KILL-1: a frozen wallet (or ancestor) is a terminal deny before any other
+  // gate — the owner pulled the one-control stop; nothing spends until unfrozen.
+  // Freeze state rides the chain fetch above: zero extra queries.
+  const freeze = freezeStateFromChain(ancestorChain, agent.walletId)
+  if (freeze.frozen) {
+    return NextResponse.json(deniedResponse("WALLET_FROZEN", frozenNote(freeze), agent.name, amount_usd, merchant), { status: 403 })
+  }
 
   // Optional execution context: if the agent presents its exec JWT, this call is
   // additionally capped by that execution's hard budget (enforced in the lock).
@@ -216,7 +227,7 @@ export async function POST(req: NextRequest) {
   // check existing ancestor counters only when the engine would approve. That
   // preserves live precedence: policy denies/escalations win before subtree caps.
   if (simulate) {
-    const [dailySpend, monthlySpend] = await Promise.all([
+    const [dailySpend, monthlySpend, cpo] = await Promise.all([
       db.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
         _sum: { amountUsd: true },
@@ -225,6 +236,7 @@ export async function POST(req: NextRequest) {
         where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
         _sum: { amountUsd: true },
       }),
+      cpoContext(db, agent.walletId, policy),
     ])
 
     let exec: SpendContext["exec"]
@@ -235,7 +247,7 @@ export async function POST(req: NextRequest) {
     }
 
     const decision = evaluate(
-      { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
+      { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec, cpo },
       [...SPEND_STATELESS, ...SPEND_STATEFUL],
     )
     const status = decision.effect === "allow" ? "approved" : decision.effect === "escalate" ? "escalated" : "denied"
@@ -262,7 +274,7 @@ export async function POST(req: NextRequest) {
       // and execution-budget gates are stateful, so they run here (not in the
       // stateless pre-check) — and before the ladder, so a sub-floor charge can
       // never bypass a hard budget.
-      const [dailySpend, monthlySpend] = await Promise.all([
+      const [dailySpend, monthlySpend, cpo] = await Promise.all([
         tx.authorizationRequest.aggregate({
           where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
           _sum: { amountUsd: true },
@@ -271,6 +283,9 @@ export async function POST(req: NextRequest) {
           where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
           _sum: { amountUsd: true },
         }),
+        // CPO-1: windowed spend + outcomes for the ceiling, read under the same
+        // lock as the budget state so the throttle can't race its own approvals.
+        cpoContext(tx, agent.walletId, policy),
       ])
       let exec: SpendContext["exec"]
       if (execTokenId) {
@@ -279,7 +294,7 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec }
+      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec, cpo }
       const decision = evaluate(ctxFull, SPEND_STATEFUL)
       // EVID-1: persist the revision in force plus the exact context evaluated,
       // so this decision can be replayed and proven later.
@@ -289,8 +304,12 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
       }
       if (decision.effect === "escalate") {
-        // No decisionNote - the response derives ESCALATION_REQUIRED from status.
-        const escalated = await tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "escalated" } })
+        // Ladder escalations persist no decisionNote (the response derives
+        // ESCALATION_REQUIRED from status). A CPO throttle persists its note so
+        // replay derives the distinct COST_PER_OUTCOME_CEILING code.
+        const escalated = await tx.authorizationRequest.create({
+          data: { ...base, ...evidence, status: "escalated", decisionNote: decision.code === "COST_PER_OUTCOME_CEILING" ? decision.reason : undefined },
+        })
         await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
         return escalated
       }

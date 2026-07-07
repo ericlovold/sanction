@@ -1374,6 +1374,126 @@ export const spec = {
         },
       },
     },
+    "/outcomes": {
+      post: {
+        operationId: "recordOutcome",
+        summary: "Record a business outcome (CPO-1)",
+        description:
+          "Report a confirmed business result (an enrollment, booking, signed engagement) against this wallet. Sanction computes cost-per-outcome over a rolling window; when the wallet policy sets a cost_per_outcome ceiling, spend throttles to human-gated once the ceiling is crossed. Use dedupe_key so retries never double-count.",
+        security: [{ AgentApiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["kind"],
+                properties: {
+                  kind: { type: "string", description: "Outcome kind, lowercase — e.g. 'enrollment'. Must match policy outcome_kind for ceiling governance." },
+                  value_usd: { type: "number", description: "Optional value of the outcome (reporting only)" },
+                  play: { type: "string", description: "Optional campaign/play label" },
+                  dedupe_key: { type: "string", description: "Idempotency key unique per outcome (e.g. CRM record id)" },
+                  occurred_at: { type: "string", format: "date-time" },
+                  metadata: { type: "object" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Outcome recorded" },
+          "200": { description: "Duplicate dedupe_key — original outcome returned, not double-counted" },
+          "401": { description: "Invalid API key" },
+        },
+      },
+      get: {
+        operationId: "getOutcomeSummary",
+        summary: "Windowed cost-per-outcome summary",
+        description: "Owner-only: outcomes, windowed spend, cost per outcome, and ceiling comparison for a wallet.",
+        security: [{ ManagementKey: [] }],
+        parameters: [
+          { name: "wallet_id", in: "query", required: true, schema: { type: "string" } },
+          { name: "kind", in: "query", required: true, schema: { type: "string" } },
+          { name: "window_days", in: "query", schema: { type: "integer", default: 30 } },
+        ],
+        responses: {
+          "200": { description: "Summary with outcomes, window_spend_usd, cost_per_outcome_usd, ceiling_usd, over_ceiling" },
+          "401": { description: "Invalid management key" },
+        },
+      },
+    },
+    "/wallets/freeze": {
+      post: {
+        operationId: "freezeWallet",
+        summary: "Freeze a wallet (kill-switch)",
+        description:
+          "Owner-only: pause every data-plane action for this wallet AND its entire subtree — spend, tools, provisioning, capabilities, execution tokens, token logging, and the LLM gateway all deny with WALLET_FROZEN until unfrozen. Nothing is deleted; unfreezing resumes exactly where the fleet stopped.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id"],
+                properties: { wallet_id: { type: "string" }, reason: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: { "200": { description: "Wallet frozen" }, "401": { description: "Invalid management key" } },
+      },
+    },
+    "/wallets/unfreeze": {
+      post: {
+        operationId: "unfreezeWallet",
+        summary: "Unfreeze a wallet",
+        description: "Owner-only: lift this wallet's freeze. A frozen ancestor still blocks the subtree.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object", required: ["wallet_id"], properties: { wallet_id: { type: "string" } } },
+            },
+          },
+        },
+        responses: { "200": { description: "Wallet unfrozen" }, "401": { description: "Invalid management key" } },
+      },
+    },
+    "/wallets/reallocate": {
+      post: {
+        operationId: "reallocateBudget",
+        summary: "Move budget between pools",
+        description:
+          "Owner-only: move subtree daily cap between two pools in your wallet subtree — the hook a learning layer or a human uses to shift budget toward the efficient channel. Both cap changes are policy-revisioned; the move is recorded as one auditable reallocation event.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "from_wallet_id", "to_wallet_id", "amount_usd"],
+                properties: {
+                  wallet_id: { type: "string", description: "Your wallet (authorization root)" },
+                  from_wallet_id: { type: "string" },
+                  to_wallet_id: { type: "string" },
+                  amount_usd: { type: "number" },
+                  reason: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Budget moved; response carries both pools' new caps and the reallocation id" },
+          "401": { description: "Invalid management key" },
+          "403": { description: "A pool is outside your wallet subtree" },
+          "422": { description: "Source pool has no cap or insufficient cap" },
+        },
+      },
+    },
     "/tokens": {
       post: {
         operationId: "logTokenUsage",

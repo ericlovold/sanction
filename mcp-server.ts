@@ -221,6 +221,27 @@ server.tool(
   }
 )
 
+// Tool: Record a business outcome (CPO-1)
+server.tool(
+  "sanction_log_outcome",
+  "Record a business outcome (an enrollment, booking, signed engagement, conversion) against this wallet. Outcomes are what the wallet's spend answers to: Sanction computes cost-per-outcome over a rolling window and, when the wallet has a cost_per_outcome ceiling configured, throttles further spend to human-gated once the ceiling is crossed. Call this when your system confirms a real outcome — never speculatively. Use dedupe_key (e.g. your CRM record id) so retries never double-count.",
+  {
+    kind: z.string().describe("Outcome kind in your operating vocabulary, lowercase — e.g. 'enrollment', 'booking', 'signed-engagement'. Must match the policy's outcome_kind for ceiling governance."),
+    value_usd: z.number().nonnegative().optional().describe("Optional dollar value of the outcome (e.g. expected LTV or contract value) — reporting only, not governance"),
+    play: z.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
+    dedupe_key: z.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted."),
+  },
+  async ({ kind, value_usd, play, dedupe_key }) => {
+    const result = await callSanction("/outcomes", "POST", { kind, value_usd, play, dedupe_key })
+    if (result.error) {
+      return { content: [{ type: "text" as const, text: `Outcome error: ${result.error}` }], isError: true }
+    }
+    return {
+      content: [{ type: "text" as const, text: `Outcome recorded: ${kind}${dedupe_key ? ` (${result.deduped ? "deduped" : "new"})` : ""}` }],
+    }
+  }
+)
+
 // Tool: Request scoped execution JWT
 server.tool(
   "sanction_request_execution",

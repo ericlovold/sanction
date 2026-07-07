@@ -8,6 +8,7 @@ import { hashApiKey } from "../lib/apiKey"
 // gateway.test.ts; here we prove the route glue with a mocked upstream fetch.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
+    wallet: { findUnique: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn() },
   },
 }))
@@ -52,6 +53,7 @@ function req(provider: string, path: string, opts: { key?: string | null; body?:
 const params = (provider: string, path: string) => ({ params: Promise.resolve({ provider, path: path.split("/") }) })
 
 beforeEach(() => {
+  dbMock.wallet.findUnique.mockResolvedValue({ id: "w_root", parentId: null, frozenAt: null, frozenReason: null }) // KILL-1: routes now read freeze state
   vi.clearAllMocks()
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: false, spent: 1, budget: 10 } as never)

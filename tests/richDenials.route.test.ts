@@ -9,6 +9,7 @@ import { hashApiKey } from "../lib/apiKey"
 // wire, and the appeal round-trip from a hard denial into a real approval.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
+    wallet: { findUnique: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
     executionToken: { findUnique: vi.fn() },
@@ -115,6 +116,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  dbMock.wallet.findUnique.mockResolvedValue({ id: "w_root", parentId: null, frozenAt: null, frozenReason: null }) // KILL-1: routes now read freeze state
   vi.clearAllMocks()
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue({})
