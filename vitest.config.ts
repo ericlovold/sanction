@@ -27,10 +27,10 @@ export default defineConfig({
       // Ratchet floor — set just below current so coverage can't silently
       // regress. Raise as coverage grows; never lower.
       thresholds: {
-        statements: 80,
-        lines: 80,
-        functions: 85,
-        branches: 80,
+        statements: 88,
+        lines: 88,
+        functions: 92,
+        branches: 81,
       },
     },
   },
