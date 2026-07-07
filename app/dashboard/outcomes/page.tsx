@@ -36,7 +36,9 @@ type PoolRow = {
   frozen: boolean
 }
 
-async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date | null }, isSelf: boolean): Promise<PoolRow> {
+// ancestorFrozen: KILL-1 walks ancestors — a frozen parent stops every child
+// pool, so the pill must reflect the walk, not just the pool's own flag.
+async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date | null }, isSelf: boolean, ancestorFrozen = false): Promise<PoolRow> {
   const policy = await db.policy.findUnique({
     where: { walletId: wallet.id },
     select: {
@@ -85,7 +87,7 @@ async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date
     cpoUsd: outcomes > 0 ? spendUsd / outcomes : null,
     ceilingUsd: policy?.costPerOutcomeCeilingUsd == null ? null : policy.costPerOutcomeCeilingUsd / 100,
     minOutcomes: policy?.costPerOutcomeMinOutcomes ?? 5,
-    frozen: wallet.frozenAt !== null,
+    frozen: wallet.frozenAt !== null || ancestorFrozen,
   }
 }
 
@@ -126,7 +128,8 @@ export default async function OutcomesPage() {
   ])
   if (!self) return <NoWallet />
 
-  const rows = await Promise.all([poolOutcomeRow(self, true), ...children.map((c) => poolOutcomeRow(c, false))])
+  const selfFrozen = self.frozenAt !== null
+  const rows = await Promise.all([poolOutcomeRow(self, true), ...children.map((c) => poolOutcomeRow(c, false, selfFrozen))])
   const reporting = rows.filter((r) => r.kind !== null)
   const totalOutcomes = reporting.reduce((s, r) => s + r.outcomes, 0)
   const totalSpend = rows.reduce((s, r) => s + r.spendUsd, 0)
