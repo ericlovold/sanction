@@ -1,8 +1,12 @@
 name: Publish MCP
 
-# Manual, one-click publish of packages/sanction-mcp to npm. Uses an automation
-# token (repo secret NPM_TOKEN) so there is no interactive 2FA/OTP prompt — token
-# auth bypasses it. To ship: bump the version in packages/sanction-mcp/{package,server}.json,
+# Manual, one-click publish of packages/sanction-mcp to npm AND the official
+# MCP registry. npm uses an automation token (repo secret NPM_TOKEN) so there is
+# no interactive 2FA/OTP prompt; the registry uses GitHub OIDC (id-token: write)
+# so no stored credential exists at all. The npm step is idempotent — if the
+# version is already on npm it skips, so a re-run can push a missed registry
+# publish without a version bump. To ship: bump the version in
+# packages/sanction-mcp/{package,server}.json (and mcp-server.ts serverInfo),
 # push, then run this workflow from the Actions tab.
 on:
   workflow_dispatch:
@@ -10,6 +14,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC auth to the MCP registry (io.github.* namespace)
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,8 +27,22 @@ jobs:
       - run: npm ci
       - name: Build MCP bundle
         run: npm run build:mcp
-      - name: Publish to npm
-        run: npm publish
+      - name: Publish to npm (skips if version already published)
         working-directory: packages/sanction-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "sanction-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "sanction-mcp@$VERSION already on npm — skipping npm publish"
+          else
+            npm publish
+          fi
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Authenticate to MCP Registry (OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish to MCP Registry
+        working-directory: packages/sanction-mcp
+        run: "$GITHUB_WORKSPACE/mcp-publisher" publish
