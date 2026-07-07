@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
-import { windowStart } from "@/lib/outcomes"
+import { walletWindowOutcomes, walletWindowSpendUsd, windowStart } from "@/lib/outcomes"
 
 export const dynamic = "force-dynamic"
 
@@ -62,19 +62,12 @@ async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date
     kind = latest?.kind ?? null
   }
 
-  const agents = await db.agent.findMany({ where: { walletId: wallet.id }, select: { id: true } })
-  const [outcomes, spend] = await Promise.all([
-    kind
-      ? db.outcomeEvent.count({ where: { walletId: wallet.id, kind, occurredAt: { gte: since } } })
-      : Promise.resolve(0),
-    agents.length > 0
-      ? db.authorizationRequest.aggregate({
-          where: { agentId: { in: agents.map((a) => a.id) }, status: "approved", createdAt: { gte: since } },
-          _sum: { amountUsd: true },
-        })
-      : Promise.resolve({ _sum: { amountUsd: null } }),
+  // Same reads the ceiling rule governs on (lib/outcomes) — the page's numbers
+  // and the engine's can't drift.
+  const [outcomes, spendUsd] = await Promise.all([
+    kind ? walletWindowOutcomes(db, wallet.id, kind, since) : Promise.resolve(0),
+    walletWindowSpendUsd(db, wallet.id, since),
   ])
-  const spendUsd = spend._sum.amountUsd ?? 0
 
   return {
     id: wallet.id,
