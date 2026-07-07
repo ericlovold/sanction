@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
 import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
@@ -62,6 +63,13 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
 
   const agent = await authAgent(req)
   if (!agent) return NextResponse.json({ error: "Missing or invalid x-sanction-key" }, { status: 401, headers: noStore })
+
+  // KILL-1: a frozen wallet (or ancestor) pauses the gateway too — metered LLM
+  // calls are spend.
+  const freeze = await walletFreezeState(db, agent.walletId)
+  if (freeze.frozen) {
+    return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403, headers: noStore })
+  }
 
   // Enforce the daily token budget before the call: if exhausted, don't spend.
   const { exhausted, spent, budget } = await isBudgetExhausted(agent)

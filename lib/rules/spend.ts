@@ -24,6 +24,14 @@ export type SpendContext = {
   escalateOverCents: number
   // Execution-token state (live route only; undefined when the agent presented no exec JWT).
   exec?: { valid: boolean; spentUsd: number; budgetUsd: number }
+  // Cost-per-outcome ceiling state (CPO-1; live route only). Undefined when the
+  // wallet has no ceiling configured — the rule is then not applicable.
+  cpo?: {
+    ceilingCents: number
+    windowSpendUsd: number // approved wallet spend in the window
+    windowOutcomes: number // outcomes of the watched kind in the window
+    minOutcomes: number    // cold-start guard: below this sample, don't govern
+  }
   // Escalation obligation parameters (live route only; from the wallet policy).
   escalationTimeoutMins?: number
   escalationTimeoutAction?: "approve" | "deny"
@@ -108,6 +116,35 @@ export const executionBudgetRule: Rule<SpendContext> = {
   },
 }
 
+// Cost-per-outcome ceiling (CPO-1) — the throttle that makes a channel answer
+// to its result, not just its budget. Escalates (never denies): a channel over
+// its CAC line stops spending silently and starts asking a human. Runs BEFORE
+// the ladder on purpose — a throttled channel has no auto-approve lane, so even
+// sub-floor charges are gated while the ceiling is breached. The note string is
+// the decisionCode contract; keep in sync with lib/decisions.ts.
+export const COST_PER_OUTCOME_NOTE = "Cost per outcome over ceiling"
+
+export const costPerOutcomeRule: Rule<SpendContext> = {
+  id: "cost_per_outcome",
+  run(c) {
+    if (!c.cpo) return allow("cost_per_outcome") // no ceiling configured
+    if (c.cpo.windowOutcomes < c.cpo.minOutcomes) return allow("cost_per_outcome") // cold start: not enough sample to govern
+    // Would THIS charge push windowed cost-per-outcome over the ceiling?
+    // cents math mirrors the budget rules: sum dollars, then round once.
+    const projectedSpendCents = Math.round((c.cpo.windowSpendUsd + c.amountUsd) * 100)
+    if (projectedSpendCents > c.cpo.ceilingCents * c.cpo.windowOutcomes) {
+      return {
+        effect: "escalate",
+        ruleId: "cost_per_outcome",
+        code: "COST_PER_OUTCOME_CEILING",
+        reason: COST_PER_OUTCOME_NOTE,
+        obligations: humanApproval(c),
+      }
+    }
+    return allow("cost_per_outcome")
+  },
+}
+
 // The spend ladder terminal: floor wins over escalation; the auto-approve floor
 // is a silent approve that never escalates even when over the escalate line.
 export const ladderRule: Rule<SpendContext> = {
@@ -129,5 +166,7 @@ export const SPEND_LADDER: Rule<SpendContext>[] = [categoryRule, perTransactionR
 // Live route: stateless gates run before the advisory lock…
 export const SPEND_STATELESS: Rule<SpendContext>[] = [categoryRule, perTransactionRule]
 
-// …and the stateful gates + ladder run inside it, against budget state read under the lock.
-export const SPEND_STATEFUL: Rule<SpendContext>[] = [dailyBudgetRule, monthlyBudgetRule, executionBudgetRule, ladderRule]
+// …and the stateful gates + ladder run inside it, against budget state read under
+// the lock. cost_per_outcome sits before the ladder so a breached ceiling gates
+// even sub-floor charges (see CPO-1 note above).
+export const SPEND_STATEFUL: Rule<SpendContext>[] = [dailyBudgetRule, monthlyBudgetRule, executionBudgetRule, costPerOutcomeRule, ladderRule]

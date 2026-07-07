@@ -24,6 +24,8 @@ export type DecisionCode =
   | "MONTHLY_BUDGET_EXCEEDED"
   | "SUBTREE_CAP_EXCEEDED"
   | "EXEC_BUDGET_EXCEEDED"
+  | "COST_PER_OUTCOME_CEILING"
+  | "WALLET_FROZEN"
   | "GRANT_NOT_FOUND"
   | "GRANT_ALREADY_USED"
   | "GRANT_EXPIRED"
@@ -58,6 +60,10 @@ export const REMEDIATION: Record<DecisionCode, string> = {
     "This wallet tree's daily spend cap is exhausted. Retry after the daily reset or ask the owner to raise the parent cap.",
   EXEC_BUDGET_EXCEEDED:
     "This execution's hard spend cap is reached. Request a new execution token with a higher budget, or finish within the cap.",
+  COST_PER_OUTCOME_CEILING:
+    "This wallet's cost per outcome is over its ceiling — the channel is throttled to human-gated spend. Wait for approval, improve the channel's efficiency, or ask the owner to raise the ceiling.",
+  WALLET_FROZEN:
+    "This wallet (or a parent wallet) is frozen — all agent actions are paused. Ask the owner to unfreeze it.",
   GRANT_NOT_FOUND: "Request a fresh approval. This grant does not exist for the current agent.",
   GRANT_ALREADY_USED: "Request a fresh approval. This grant has already been consumed.",
   GRANT_EXPIRED: "Request a fresh approval. This grant has expired.",
@@ -173,7 +179,9 @@ export function deriveReplayCode<T extends string>(
 /** Map a persisted decision to a stable code. `undefined` for an approval. */
 export function decisionCode(status: string, note: string | null): DecisionCode | undefined {
   if (status === "approved") return undefined
-  if (status === "escalated") return "ESCALATION_REQUIRED"
+  // A CPO throttle is an escalation with its own stable code, so agents can
+  // distinguish "over the auto-approve line" from "the channel is throttled".
+  if (status === "escalated") return note === "Cost per outcome over ceiling" ? "COST_PER_OUTCOME_CEILING" : "ESCALATION_REQUIRED"
   // denied
   if (!note) return "POLICY_DENIED"
   if (note.startsWith("Escalation timed out")) return "ESCALATION_TIMED_OUT"
@@ -187,5 +195,6 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note === "Monthly spend budget exceeded") return "MONTHLY_BUDGET_EXCEEDED"
   if (note === "Subtree daily spend cap exceeded") return "SUBTREE_CAP_EXCEEDED"
   if (note === "Execution budget exceeded") return "EXEC_BUDGET_EXCEEDED"
+  if (note === "Wallet is frozen" || note.startsWith("Parent wallet is frozen")) return "WALLET_FROZEN"
   return "POLICY_DENIED"
 }

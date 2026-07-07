@@ -7,6 +7,10 @@ export type CascadeTx = Pick<typeof db, "wallet" | "$executeRaw" | "$queryRaw">
 export type WalletBudgetNode = {
   id: string
   parentId: string | null
+  // KILL-1: freeze state rides the ancestor walk so routes that already fetch
+  // the chain get the kill-switch check with zero extra queries.
+  frozenAt?: Date | null
+  frozenReason?: string | null
   policy: {
     perTransactionMaxUsd: number
     subtreeDailyCapUsd: number | null
@@ -51,6 +55,8 @@ export async function walletAncestorChain(tx: CascadeTx, walletId: string): Prom
       select: {
         id: true,
         parentId: true,
+        frozenAt: true,
+        frozenReason: true,
         policy: { select: { perTransactionMaxUsd: true, subtreeDailyCapUsd: true } },
       },
     })

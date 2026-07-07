@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
+import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { issueExecutionJWT } from "@/lib/jwt"
 import { withTenant } from "@/lib/rls"
 
@@ -15,6 +16,12 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const { agent, error } = await authenticateAgent(req)
   if (!agent) return NextResponse.json({ error }, { status: 401 })
+
+  // KILL-1: a frozen wallet (or ancestor) pauses every data-plane action.
+  const freeze = await walletFreezeState(db, agent.walletId)
+  if (freeze.frozen) {
+    return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403 })
+  }
 
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
