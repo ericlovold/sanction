@@ -341,18 +341,6 @@ function ResultView({ result }: { result: ReadinessResult }) {
         policy pack — applied in one call, previewable against real history before you commit.
       </p>
 
-      {/* On screen: the product fit. In print: dropped — the deliverable
-          stands on its own; branding is one footer line. */}
-      <div className="print:hidden">
-        <h3 className="mt-8 text-base font-semibold">Where Sanction fits</h3>
-        <div className="mt-3 rounded-lg border p-4" style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)" }}>
-          <p className="text-sm font-medium">{result.fit.primary}</p>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            {result.fit.detail}
-          </p>
-        </div>
-      </div>
-
       <h3 className="mt-8 text-base font-semibold">Before you give AI more authority, ask</h3>
       <ul className="mt-3 space-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
         <li>· Who is acting — a person, a shared account, or an agent?</li>
