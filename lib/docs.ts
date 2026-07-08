@@ -52,6 +52,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Point LangChain's provider classes at the Sanction gateway to meter and cap every call, and add a pre-spend authorization check before your agent acts.",
   },
+  "agent-fleets": {
+    file: "AGENT-FLEETS.md",
+    title: "Sanction for agent fleets",
+    description:
+      "Govern a fleet of spending agents: channels as delegated pools, seats as agent keys, budget envelopes with escalation and kill-switch, chargeback rollups, and the cost-per-outcome throttle pattern.",
+  },
   bedrock: {
     file: "BEDROCK.md",
     title: "Sanction + AWS Bedrock Agents",

@@ -110,6 +110,7 @@ const deeper = [
   { title: "LangChain guide", desc: "Meter and cap LangChain calls; authorize before spend.", href: "/docs/langchain" },
   { title: "CrewAI guide", desc: "Give the crew an authorize tool it must clear to spend.", href: "/docs/crewai" },
   { title: "AWS Bedrock Agents guide", desc: "Action Group setup: schema subset, forwarder Lambda, first governed decision.", href: "/docs/bedrock" },
+  { title: "Agent fleets guide", desc: "Channels as pools, seats as keys, envelopes with escalation — and the cost-per-outcome throttle pattern.", href: "/docs/agent-fleets" },
   { title: "Multi-tenant Integration Runbook", desc: "Provision per tenant, govern budgets, rotate keys.", href: "/docs/multi-tenant" },
   { title: "Full API reference", desc: "OpenAPI 3.0 spec — every endpoint, Bedrock-compatible.", href: "/api/openapi.json" },
 ]

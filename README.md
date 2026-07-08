@@ -75,6 +75,7 @@ Guides: [Quickstart](docs/QUICKSTART.md) ·
 [LangChain](docs/LANGCHAIN.md) · [CrewAI](docs/CREWAI.md) ·
 [Vercel AI SDK](docs/VERCEL-AI-SDK.md) ·
 [Bedrock Agents](docs/BEDROCK.md) ·
+[Agent fleets](docs/AGENT-FLEETS.md) ·
 [AuthZEN PDP](docs/AUTHZEN.md) ·
 [Multi-tenant runbook](docs/INTEGRATION.md) ·
 [Notifications](docs/NOTIFICATIONS.md)
