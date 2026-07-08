@@ -44,6 +44,16 @@ model Wallet {
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  // Acquisition attribution (additive): first-touch channel captured at signup,
+  // so the funnel can tie source channel → wallet → first governed decision.
+  // Written once at creation from the acquisition cookie (lib/acquisition.ts);
+  // analytics-grade, never authoritative for anything.
+  acqSource   String? // utm_source or ?src= (e.g. "mcp", "docs", "hn")
+  acqMedium   String? // utm_medium
+  acqCampaign String? // utm_campaign
+  acqReferrer String? // referrer host at first touch
+  acqLanding  String? // first path seen (e.g. "/docs/bedrock")
+
   agents           Agent[]
   policy           Policy?
   credentials      CredentialVault[]
@@ -57,6 +67,7 @@ model Wallet {
 
   @@index([parentId])
   @@index([userId])
+  @@index([acqSource])
 }
 
 // ── Better Auth (human identity) ────────────────────────────────────────────
