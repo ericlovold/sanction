@@ -11,6 +11,22 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Agent-fleet parity packaging (from a prospect's platform
+      concept where Sanction is the embedded cost governor; specifics in the
+      working conversation). Enforcement is ~there; the drop-in gaps, ranked:
+      (1) integration guide "Sanction for agent fleets" — channel→pool,
+      fleet-agent→agent key, envelope→policy mapping, and the outcome-ceiling
+      pattern (external learning layer computes cost-per-outcome, throttles
+      via the management API: lower caps / pause agent); (2) optional
+      metadata/tags on /authorize, stored on the transaction and rolled up in
+      reporting/CSV, so spend attributes to channel/play/campaign natively;
+      (3) fleet kill-switch — one action pauses all agents in a subtree;
+      (4) marketing-fleet policy pack in the PACK-1 catalog (envelope +
+      escalation + kill-switch preset); (5) monthly token budgets (today
+      token caps are daily-only; spend caps have monthly) — pairs with the
+      queued pooled-token-cap entry; (6) roadmap, not now: a native
+      cost-per-outcome ratio primitive (Sanction learns outcomes, enforces
+      ratio ceilings itself). (feature set, from prospect concept)
 - [ ] 2026-07-08 — Pooled department token cap (from the internal-E2E
       walkthrough): wallet-policy dailyTokenBudgetUsd acts as a per-agent
       default in the gateway (lib/gateway.ts tokenBudgetUsd/isBudgetExhausted
