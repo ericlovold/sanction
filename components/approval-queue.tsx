@@ -138,19 +138,19 @@ function ApprovalRow({
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+    <div className="rounded-md border border-border bg-card p-4">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+          <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
             {labelActionType(a.actionType)}
           </span>
-          <span className="min-w-0 truncate text-sm font-medium text-zinc-200">{approvalTitle(a)}</span>
+          <span className="min-w-0 truncate text-sm font-medium text-foreground">{approvalTitle(a)}</span>
         </div>
-        <p className="mt-1 text-xs text-zinc-600">
+        <p className="mt-1 font-mono text-xs text-muted-foreground">
           {a.agentName} · {a.reason ?? "Needs approval"} · {new Date(a.createdAt).toLocaleString()}
         </p>
-        {details && <p className="mt-1 text-xs text-zinc-500">{details}</p>}
-        <p className="mt-2 text-xs text-emerald-200/90">{consequence(a)}</p>
+        {details && <p className="mt-1 text-xs text-muted-foreground">{details}</p>}
+        <p className="mt-2 text-xs text-muted-foreground">{consequence(a)}</p>
       </div>
 
       {editable ? (
@@ -162,7 +162,7 @@ function ApprovalRow({
             onResolve(a.id)
             formAction(fd)
           }}
-          className="mt-4 flex flex-col gap-3 border-t border-zinc-800 pt-3"
+          className="mt-4 flex flex-col gap-3 border-t border-border pt-3"
         >
           <input type="hidden" name="approval_id" value={a.id} />
           {noteOpen ? (
@@ -170,7 +170,7 @@ function ApprovalRow({
               name="note"
               autoFocus
               placeholder="Approval note"
-              className="min-h-11 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-zinc-600"
+              className="min-h-11 rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring"
             />
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -179,13 +179,13 @@ function ApprovalRow({
                 <button
                   type="button"
                   onClick={() => setNoteOpen(true)}
-                  className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <Plus className="size-3" />
                   Add note
                 </button>
               ) : null}
-              {state.message && !state.ok ? <span className="text-xs text-red-400">{state.message}</span> : null}
+              {state.message && !state.ok ? <span className="text-xs text-destructive">{state.message}</span> : null}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -193,7 +193,7 @@ function ApprovalRow({
                 name="decision"
                 value="reject"
                 disabled={pending}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-300 transition-colors hover:border-red-500/40 hover:text-red-400 disabled:opacity-50"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:opacity-50"
               >
                 <X className="size-4" />
                 Reject
@@ -204,7 +204,7 @@ function ApprovalRow({
                   name="decision"
                   value="approve"
                   disabled={pending}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-emerald-400 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-300 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Check className="size-4" />
                   {pending ? "..." : confirmLabel(a)}
@@ -214,7 +214,7 @@ function ApprovalRow({
                   type="button"
                   onClick={arm}
                   disabled={pending}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-emerald-500/80 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Check className="size-4" />
                   Approve
@@ -226,7 +226,7 @@ function ApprovalRow({
       ) : (
         <a
           href="/login"
-          className="mt-4 inline-flex min-h-11 items-center rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
+          className="mt-4 inline-flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           Log in to manage
         </a>
@@ -244,9 +244,9 @@ export function ApprovalQueue({ pending, editable }: { pending: PendingApproval[
 
   if (visible.length === 0) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-10 text-center">
-        <p className="text-sm text-zinc-400">Nothing waiting</p>
-        <p className="mt-1 text-xs text-zinc-600">
+      <div className="rounded-md border border-border bg-card p-10 text-center">
+        <p className="text-sm text-muted-foreground">Nothing waiting</p>
+        <p className="mt-1 font-mono text-xs text-muted-foreground">
           When an agent&apos;s request crosses your policy&apos;s escalation line it lands here, and the agent
           waits on your decision. Add a webhook below to get pinged the moment that happens.
         </p>

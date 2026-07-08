@@ -58,9 +58,9 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
 }
 
 const statusClasses: Record<string, string> = {
-  approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  denied: "bg-red-500/15 text-red-400 border-red-500/20",
-  expired: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20",
+  approved: "border-emerald-600/30 bg-emerald-500/[0.07] text-emerald-700 dark:border-emerald-500/25 dark:text-emerald-400",
+  denied: "border-red-600/30 bg-red-500/[0.07] text-red-700 dark:border-red-500/25 dark:text-red-400",
+  expired: "border-border bg-muted text-muted-foreground",
 }
 
 export default async function ApprovalsPage() {
@@ -111,62 +111,62 @@ export default async function ApprovalsPage() {
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
       <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Authorization inbox</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Authorization inbox</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Requests that crossed your escalation line, paused and waiting on you. Approving one issues a single-use grant
           the agent redeems on retry.
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Pending</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Pending</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold ${pending.length > 0 ? "text-amber-300" : ""}`}>{pending.length}</p>
+            <p className={`font-mono text-2xl font-semibold tabular-nums ${pending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{pending.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Recently resolved</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Recently resolved</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{resolved.length}</p>
+            <p className="font-mono text-2xl font-semibold tabular-nums">{resolved.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Notification routes</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Notification routes</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{webhooks.length}</p>
+            <p className="font-mono text-2xl font-semibold tabular-nums">{webhooks.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Expiring in 15m</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 15m</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold ${expiringSoon > 0 ? "text-amber-300" : ""}`}>{expiringSoon}</p>
-            <p className="text-xs text-zinc-600">oldest pending {oldestPendingMinutes}m</p>
+            <p className={`font-mono text-2xl font-semibold tabular-nums ${expiringSoon > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{expiringSoon}</p>
+            <p className="text-xs text-muted-foreground">oldest pending {oldestPendingMinutes}m</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-medium text-zinc-300">Pending</h2>
+        <h2 className="text-sm font-medium text-foreground">Pending</h2>
         {pending.length > 0 && (
-          <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20">{pending.length}</Badge>
+          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{pending.length}</Badge>
         )}
       </div>
       <ApprovalQueue pending={pending} editable={view.isSession} />
 
-      <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">Resolved — issued authority</CardTitle></CardHeader>
+      <Card className="bg-card border-border">
+        <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
         <CardContent className="px-4 pb-4">
           {resolved.length === 0 && (
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-muted-foreground">
               Decisions land here with the grant they issued — the audit trail of every approval.
             </p>
           )}
@@ -174,17 +174,17 @@ export default async function ApprovalsPage() {
             {resolved.map((r) => (
               <div key={r.id} className="flex items-center justify-between text-sm">
                 <div className="min-w-0">
-                  <p className="truncate text-zinc-300">
-                    {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-zinc-600">· {r.agent.name}</span>
+                  <p className="truncate text-foreground">
+                    {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
                   </p>
-                  <p className="text-[11px] text-zinc-600">
+                  <p className="text-[11px] text-muted-foreground">
                     {actionLabel(r.actionType)} · {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : ""}
                   </p>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-2">
                   {r.grants[0] ? (
                     <span
-                      className="rounded border border-emerald-500/20 bg-emerald-500/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-emerald-300"
+                      className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary"
                       title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
                     >
                       grant {r.grants[0].consumedAt ? "consumed" : r.grants[0].status}
