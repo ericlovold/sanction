@@ -24,9 +24,18 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
   const agentId = String(form.get("agent_id") ?? "")
   const owned = await ownedAgent(agentId)
   if (!owned) return { ok: false, error: "Not authorized." }
+  const holderRaw = String(form.get("holder") ?? "").trim()
+  const changeHolder = String(form.get("change_holder") ?? "") === "true"
 
   const key = generateApiKey()
-  await db.agent.update({ where: { id: agentId }, data: { apiKeyHash: key.hash, apiKeyPrefix: key.prefix } })
+  await db.agent.update({
+    where: { id: agentId },
+    data: {
+      apiKeyHash: key.hash,
+      apiKeyPrefix: key.prefix,
+      ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
+    },
+  })
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/keys")
   return { ok: true, error: "", agentId, newKey: key.raw }

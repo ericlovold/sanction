@@ -53,7 +53,7 @@ Around the engine:
   usage is metered and budget-capped with zero per-call instrumentation.
 
 Every security claim above maps to enforcing code and a regression test in
-[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 600+ tests behind an 80%
+[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 700+ tests behind an 88%
 coverage gate, including concurrency and Postgres row-level-security suites.
 
 ---

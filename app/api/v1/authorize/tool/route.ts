@@ -3,6 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
+import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { decideTool, TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
 import { decisionEvidence } from "@/lib/evidence"
 import { createToolPendingApproval } from "@/lib/approvals"
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest) {
   if (!agent) {
     log.warn("auth failed", { error })
     return NextResponse.json({ error }, { status: 401 })
+  }
+
+  // KILL-1: a frozen wallet (or ancestor) pauses every data-plane action.
+  const freeze = await walletFreezeState(db, agent.walletId)
+  if (freeze.frozen) {
+    return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403 })
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null))

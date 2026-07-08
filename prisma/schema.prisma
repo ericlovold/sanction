@@ -54,6 +54,13 @@ model Wallet {
   acqReferrer String? // referrer host at first touch
   acqLanding  String? // first path seen (e.g. "/docs/bedrock")
 
+  // Kill-switch: a frozen wallet (or any frozen ancestor) denies every data-plane
+  // action — spend, tool, provision, capability, exec, tokens, gateway — with
+  // WALLET_FROZEN until unfrozen. Freezing is the owner's one-control stop; it
+  // never deletes state, so unfreezing resumes exactly where the fleet stopped.
+  frozenAt     DateTime?
+  frozenReason String?
+
   agents           Agent[]
   policy           Policy?
   credentials      CredentialVault[]
@@ -64,10 +71,56 @@ model Wallet {
   budgetCounters   WalletBudgetCounter[]
   pendingApprovals PendingApproval[]
   grants           Grant[]
+  outcomes         OutcomeEvent[]
+  reallocationsFrom BudgetReallocation[] @relation("ReallocFrom")
+  reallocationsTo   BudgetReallocation[] @relation("ReallocTo")
 
   @@index([parentId])
   @@index([userId])
   @@index([acqSource])
+}
+
+// A business result the wallet's spend is accountable to — an enrollment, a
+// booked visit, a signed engagement. Reported by the operator's own systems
+// (webhook/API/MCP); Sanction never invents outcomes. Spend ÷ outcomes over a
+// window is the cost-per-outcome the Policy ceiling governs: the difference
+// between "capped spend" and "spend accountable to a result" (CAC, CPA, …).
+model OutcomeEvent {
+  id         String   @id @default(cuid())
+  walletId   String
+  agentId    String?  // optional: the agent whose play produced it, when known
+  kind       String   // operator vocabulary: "enrollment", "booking", ...
+  valueUsd   Float?   // optional value of the outcome (LTV math stays upstream)
+  playLabel  String?  // optional campaign/play tag for reporting
+  dedupeKey  String?  // client-supplied; makes reporting idempotent per wallet
+  metadataJson Json?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, dedupeKey])
+  @@index([walletId, kind, occurredAt])
+}
+
+// One budget move between two sibling pools — the audit answer to "who moved
+// the money, when, and why". The cap changes themselves also land as
+// PolicyRevision snapshots; this row ties the pair together as a single event.
+model BudgetReallocation {
+  id           String   @id @default(cuid())
+  fromWalletId String
+  toWalletId   String
+  amountCents  Int
+  budget       String   @default("subtree_daily_cap") // which cap moved
+  reason       String?
+  actor        String   // "api" | "dashboard"
+  createdAt    DateTime @default(now())
+
+  fromWallet Wallet @relation("ReallocFrom", fields: [fromWalletId], references: [id], onDelete: Cascade)
+  toWallet   Wallet @relation("ReallocTo", fields: [toWalletId], references: [id], onDelete: Cascade)
+
+  @@index([fromWalletId, createdAt])
+  @@index([toWalletId, createdAt])
 }
 
 // ── Better Auth (human identity) ────────────────────────────────────────────
@@ -251,6 +304,17 @@ model Policy {
   // namespaced ids (skill:install:*, plugin:*, api:github.com/*) and
   // prefix-glob matching. Empty = allow all (governance is opt-in, like tools).
   capabilityRules Json @default("[]")
+
+  // Cost-per-outcome ceiling (CPO-1): governs spend ÷ outcomes (CAC/CPA-class
+  // metrics), not just absolute spend. When the wallet's windowed cost per
+  // `outcomeKind` outcome would cross the ceiling, further spend ESCALATES —
+  // the channel auto-throttles to human-gated, it is never silently cut off.
+  // Deliberate: the throttle gates even sub-floor charges (a throttled channel
+  // has no silent lane). Null ceiling = off. minOutcomes guards cold starts.
+  outcomeKind               String? // which outcome the ceiling watches, e.g. "enrollment"
+  costPerOutcomeCeilingUsd  Int?    // cents; null = no ceiling
+  costPerOutcomeWindowDays  Int @default(30)
+  costPerOutcomeMinOutcomes Int @default(5)
 
   // Escalation deadlock guard (UX-2): an escalated request that no human resolves
   // within escalationTimeoutMins is settled to the fallback terminal state on the

@@ -31054,7 +31054,7 @@ async function callSanction(path, method, body, bearerToken) {
 }
 var server = new McpServer({
   name: "sanction",
-  version: "0.3.1",
+  version: "0.4.0",
   description: "Sanction \u2014 pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)"
 });
 server.tool(
@@ -31150,6 +31150,25 @@ server.tool(
     }
     return {
       content: [{ type: "text", text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` }]
+    };
+  }
+);
+server.tool(
+  "sanction_log_outcome",
+  "Record a business outcome (an enrollment, booking, signed engagement, conversion) against this wallet. Outcomes are what the wallet's spend answers to: Sanction computes cost-per-outcome over a rolling window and, when the wallet has a cost_per_outcome ceiling configured, throttles further spend to human-gated once the ceiling is crossed. Call this when your system confirms a real outcome \u2014 never speculatively. Use dedupe_key (e.g. your CRM record id) so retries never double-count.",
+  {
+    kind: external_exports.string().describe("Outcome kind in your operating vocabulary, lowercase \u2014 e.g. 'enrollment', 'booking', 'signed-engagement'. Must match the policy's outcome_kind for ceiling governance."),
+    value_usd: external_exports.number().nonnegative().optional().describe("Optional dollar value of the outcome (e.g. expected LTV or contract value) \u2014 reporting only, not governance"),
+    play: external_exports.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
+    dedupe_key: external_exports.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted.")
+  },
+  async ({ kind, value_usd, play, dedupe_key }) => {
+    const result = await callSanction("/outcomes", "POST", { kind, value_usd, play, dedupe_key });
+    if (result.error) {
+      return { content: [{ type: "text", text: `Outcome error: ${result.error}` }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: `Outcome recorded: ${kind}${dedupe_key ? ` (${result.deduped ? "deduped" : "new"})` : ""}` }]
     };
   }
 );
