@@ -32,6 +32,16 @@ conversation, not here.
       § Business Context) — the entry upgrades from "evaluate the critique"
       to "close the storefront/intent gap"; still open: how (lane vs.
       reframe) and the services-vs-product end-state call.
+      · 2026-07-08 evidence check (grep of app/ copy): the homepage already
+      leads with the internal message ("Autonomy for your agents. Authority
+      for your team.") — the external anchoring is concentrated in a few
+      named-scenario artifacts (docs use-case card "Multi-tenant platforms /
+      running agents for many customers", the multi-tenant runbook's framing,
+      the license buyer list), while no equivalently concrete internal-org
+      scenario is named anywhere (0 hits: department, cost center, budget
+      owner, finance-as-buyer). Scope is a targeted patch — add the internal
+      scenario at the same concreteness, rebalance those artifacts — not a
+      reframe. Validate with 2–3 fresh readers before anything bigger.
 - [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
       scope by draining this backlog through /zoomout at sprint start.
       (commitment, from Eric)
