@@ -272,3 +272,30 @@ describe("authorize — execution-token binding (SEC-5)", () => {
     expect(["denied", "escalated"]).toContain(body.status)
   })
 })
+
+describe("authorize — attribution tags", () => {
+  it("persists tags into detailsJson on an approved spend", async () => {
+    const tags = { channel: "paid-media", play: "d2c-search" }
+    const res = await authorize(req({ ...SPEND, tags }))
+    expect(res.status).toBe(200)
+    const created = dbMock.authorizationRequest.create.mock.calls.at(-1)?.[0].data
+    expect(created.detailsJson).toEqual({ tags })
+  })
+
+  it("leaves detailsJson unset when no tags are sent", async () => {
+    const res = await authorize(req(SPEND))
+    expect(res.status).toBe(200)
+    const created = dbMock.authorizationRequest.create.mock.calls.at(-1)?.[0].data
+    expect(created.detailsJson).toBeUndefined()
+  })
+
+  it("400 on more than 8 tags", async () => {
+    const tags = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`k${i}`, "v"]))
+    expect((await authorize(req({ ...SPEND, tags }))).status).toBe(400)
+  })
+
+  it("400 on non-string tag values and oversized values", async () => {
+    expect((await authorize(req({ ...SPEND, tags: { n: 42 } }))).status).toBe(400)
+    expect((await authorize(req({ ...SPEND, tags: { k: "x".repeat(81) } }))).status).toBe(400)
+  })
+})

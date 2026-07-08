@@ -63,6 +63,9 @@ export async function buildAuditFeed(
         category: a.category,
         status: a.status,
         reason: a.decisionNote ?? undefined,
+        // Attribution tags ride detailsJson on spend rows (provision rows use
+        // it for their own shape and simply won't have a tags key).
+        tags: (a.detailsJson as { tags?: Record<string, string> } | null)?.tags,
       })),
       tokens.map((t): AuditEvent => ({
         type: "token.logged",

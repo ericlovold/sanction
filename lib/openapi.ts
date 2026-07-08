@@ -40,6 +40,13 @@ export const spec = {
           merchant: { type: "string", description: "Vendor or service name" },
           category: { type: "string", description: "Spend category (e.g. software, services, research, infrastructure)" },
           description: { type: "string", description: "Optional description of what this spend is for" },
+          tags: {
+            type: "object",
+            additionalProperties: { type: "string", maxLength: 80 },
+            maxProperties: 8,
+            description:
+              "Optional attribution tags (≤8; e.g. {\"channel\":\"paid-media\",\"play\":\"d2c-search\"}). Stored on the decision and surfaced in the audit feed/CSV for rollups. Never read by policy rules.",
+          },
           grant_id: {
             type: "string",
             description: "Short-lived approval grant returned from GET /authorize/{request_id}. Retry the exact approved request with this field to consume the grant.",

@@ -48,12 +48,13 @@ export function rangeUtc(from: string, to: string): { start: Date; end: Date } {
 export const CSV_COLUMNS = [
   "at", "type", "id", "agent_id", "agent_name", "action", "amount_usd", "merchant",
   "category", "status", "reason", "model", "cost_usd", "tokens_in", "tokens_out",
-  "task_label", "credential_label",
+  "task_label", "credential_label", "tags",
 ] as const
 
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return ""
-  let s = String(v)
+  // Structured cells (attribution tags) serialize as JSON, not "[object Object]".
+  let s = typeof v === "object" ? JSON.stringify(v) : String(v)
   // Formula/DDE injection guard (CWE-1236): merchant/category/task_label are
   // agent-supplied and this file opens in Excel/Sheets. A leading formula
   // trigger gets a single-quote prefix, rendering it inert text.
