@@ -11,6 +11,17 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Positioning review (external feedback; full text in the
+      working conversation): the storefront (home, /why, /architecture, docs,
+      license) consistently frames Sanction as a runtime authorization plane
+      for production/embedded agents — a developer/platform buyer — while the
+      internal-usage story (govern your own org's AI spend by team/department,
+      budgets and chargeback for yourself, finance as a buyer) is nearly
+      absent, even though the primitives (nested wallets, gateway metering,
+      budget cascades, roll-up) already support it. Evaluate: add an
+      internal-spend-governance lane vs. reposition. Founder not yet sold on
+      the critique — needs a deliberate decision, not a drive-by rewrite.
+      (feedback, via Eric)
 - [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
       scope by draining this backlog through /zoomout at sprint start.
       (commitment, from Eric)
