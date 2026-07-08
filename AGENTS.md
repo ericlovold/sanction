@@ -124,6 +124,9 @@ homegrown too: capture a mid-arc thought/idea/question into `docs/BACKLOG.md`
 (dated, public-repo-safe phrasing) without derailing the current work; the
 backlog drains through `/zoomout`. Kept verbatim for clean upstream diffs;
 repo-specific guidance belongs here, not in the skill files.
+`voice-fence` is homegrown too: the AI coaches structure and strategy on
+anything a human will read as Eric's own words, but never drafts them —
+public, linkable, universal phrasing (no repo specifics).
 `audit` is homegrown too (adapted 2026-07-07 from the "AI Code Sanity Check"
 audit-prompt suite): `/audit [topics…]` runs read-only best-practice
 investigations — 29 topics, 0–5 maturity score + amateur/AI-built signal
