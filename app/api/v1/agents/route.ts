@@ -19,6 +19,7 @@ const patchSchema = z.object({
   wallet_id: z.string(),
   agent_id: z.string(),
   daily_token_budget_usd: budget,
+  monthly_token_budget_usd: budget,
   daily_spend_budget_usd: budget,
   per_transaction_max_usd: budget,
   escalate_over_usd: budget,
@@ -110,6 +111,7 @@ export async function PATCH(req: NextRequest) {
   const toCents = (n: number | null | undefined) => (n === null ? null : n === undefined ? undefined : Math.round(n * 100))
   const data = {
     dailyTokenBudgetUsd: toCents(overrides.daily_token_budget_usd),
+    monthlyTokenBudgetUsd: toCents(overrides.monthly_token_budget_usd),
     dailySpendBudgetUsd: toCents(overrides.daily_spend_budget_usd),
     perTransactionMaxUsd: toCents(overrides.per_transaction_max_usd),
     escalateOverUsd: toCents(overrides.escalate_over_usd),
@@ -163,6 +165,7 @@ export async function PATCH(req: NextRequest) {
     clearance,
     overrides: {
       daily_token_budget_usd: updated.dailyTokenBudgetUsd === null ? null : updated.dailyTokenBudgetUsd / 100,
+      monthly_token_budget_usd: updated.monthlyTokenBudgetUsd === null ? null : updated.monthlyTokenBudgetUsd / 100,
       daily_spend_budget_usd: updated.dailySpendBudgetUsd === null ? null : updated.dailySpendBudgetUsd / 100,
       per_transaction_max_usd: updated.perTransactionMaxUsd === null ? null : updated.perTransactionMaxUsd / 100,
       escalate_over_usd: updated.escalateOverUsd === null ? null : updated.escalateOverUsd / 100,

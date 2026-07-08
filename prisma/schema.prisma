@@ -246,10 +246,11 @@ model Agent {
   expiresAt DateTime?
 
   // Per-agent budget overrides (cents). Null = inherit the wallet policy.
-  dailyTokenBudgetUsd  Int?
-  dailySpendBudgetUsd  Int?
-  perTransactionMaxUsd Int?
-  escalateOverUsd      Int?
+  dailyTokenBudgetUsd   Int?
+  monthlyTokenBudgetUsd Int?
+  dailySpendBudgetUsd   Int?
+  perTransactionMaxUsd  Int?
+  escalateOverUsd       Int?
 
   wallet          Wallet                 @relation(fields: [walletId], references: [id])
   tokenLogs       TokenLog[]
@@ -275,7 +276,13 @@ model Policy {
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
   monthlySpendBudgetUsd Int?               // optional monthly spend cap; null = no monthly limit
+  monthlyTokenBudgetUsd Int?               // optional per-seat monthly token cap (agent override wins); null = daily only
   subtreeDailyCapUsd   Int?                // optional subtree cap; null = no tree-wide cap
+  // Pooled channel/department token cap: today's token cost summed across every
+  // seat in this wallet's subtree may not exceed this. Enforced at the gateway
+  // pre-call, like the per-seat budget — the internal-governance hard stop
+  // ("Engineering ≤ $N/day in tokens as a department"). Null = off.
+  subtreeDailyTokenCapUsd Int?
   perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
   autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor
   escalateOverUsd      Int @default(2500)  // $25  — escalate above this (must be < perTransactionMaxUsd)

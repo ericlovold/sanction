@@ -14,6 +14,8 @@ export type WalletBudgetNode = {
   policy: {
     perTransactionMaxUsd: number
     subtreeDailyCapUsd: number | null
+    // Pooled token cap rides the same walk (gateway pre-call wall).
+    subtreeDailyTokenCapUsd?: number | null
   } | null
 }
 
@@ -57,7 +59,7 @@ export async function walletAncestorChain(tx: CascadeTx, walletId: string): Prom
         parentId: true,
         frozenAt: true,
         frozenReason: true,
-        policy: { select: { perTransactionMaxUsd: true, subtreeDailyCapUsd: true } },
+        policy: { select: { perTransactionMaxUsd: true, subtreeDailyCapUsd: true, subtreeDailyTokenCapUsd: true } },
       },
     })
     if (!wallet) break

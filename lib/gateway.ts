@@ -1,4 +1,6 @@
 import { db } from "./db"
+import { walletAncestorChain } from "./cascadeBudget"
+import { walletSubtreeIds } from "./poolAccess"
 
 // LLM gateway: agents point their provider client at /api/gateway/<provider>/…
 // and authenticate with their Sanction agent key (x-sanction-key header). We
@@ -97,9 +99,28 @@ export function dayStart(): Date {
 
 type GatewayAgent = {
   id: string
+  walletId: string
   isActive: boolean
   dailyTokenBudgetUsd: number | null
-  wallet: { policy: { dailyTokenBudgetUsd: number } | null }
+  monthlyTokenBudgetUsd?: number | null
+  wallet: { policy: { dailyTokenBudgetUsd: number; monthlyTokenBudgetUsd?: number | null } | null }
+}
+
+export type TokenBudgetVerdict = {
+  exhausted: boolean
+  spent: number
+  budget: number | null
+  /** Which line tripped (present when exhausted; daily when legacy callers omit it). */
+  horizon?: "daily" | "monthly" | "subtree-daily"
+  /** The pool whose subtree cap tripped (subtree-daily only). */
+  capWalletId?: string
+}
+
+function monthStart(d = new Date()): Date {
+  const out = new Date(d)
+  out.setDate(1)
+  out.setHours(0, 0, 0, 0)
+  return out
 }
 
 /** Effective daily token budget in dollars, or null if no policy (no enforcement). */
@@ -108,13 +129,59 @@ export function tokenBudgetUsd(agent: GatewayAgent): number | null {
   return cents == null ? null : cents / 100
 }
 
-/** True if the agent has already spent its daily token budget. */
-export async function isBudgetExhausted(agent: GatewayAgent): Promise<{ exhausted: boolean; spent: number; budget: number | null }> {
-  const budget = tokenBudgetUsd(agent)
-  if (budget == null) return { exhausted: false, spent: 0, budget: null }
-  const agg = await db.tokenLog.aggregate({ where: { agentId: agent.id, createdAt: { gte: dayStart() } }, _sum: { costUsd: true } })
-  const spent = agg._sum.costUsd ?? 0
-  return { exhausted: spent >= budget, spent, budget }
+/** Effective monthly token budget in dollars — opt-in, so null unless set. */
+export function monthlyTokenBudgetUsd(agent: GatewayAgent): number | null {
+  const cents = agent.monthlyTokenBudgetUsd ?? agent.wallet.policy?.monthlyTokenBudgetUsd
+  return cents == null ? null : cents / 100
+}
+
+async function agentSpentSince(agentId: string, since: Date): Promise<number> {
+  const agg = await db.tokenLog.aggregate({ where: { agentId, createdAt: { gte: since } }, _sum: { costUsd: true } })
+  return agg._sum.costUsd ?? 0
+}
+
+/** Pre-call token budget wall, three horizons checked cheapest-first:
+ *  1. the seat's daily budget (agent override ?? wallet policy default)
+ *  2. the seat's monthly budget (opt-in, agent override ?? wallet policy)
+ *  3. pooled subtree daily caps up the wallet tree — today's token cost summed
+ *     across every seat under any ancestor that sets subtreeDailyTokenCapUsd.
+ *     This is the department-level hard stop: individual seats can all be
+ *     under their own limits and the channel still cannot exceed its pool.
+ *  Ancestor work only runs when a monthly/subtree line can exist, so the
+ *  common single-wallet case stays two queries. */
+export async function isBudgetExhausted(agent: GatewayAgent): Promise<TokenBudgetVerdict> {
+  const daily = tokenBudgetUsd(agent)
+  let spentToday = 0
+  if (daily != null) {
+    spentToday = await agentSpentSince(agent.id, dayStart())
+    if (spentToday >= daily) return { exhausted: true, spent: spentToday, budget: daily, horizon: "daily" }
+  }
+
+  const monthly = monthlyTokenBudgetUsd(agent)
+  if (monthly != null) {
+    const spentMonth = await agentSpentSince(agent.id, monthStart())
+    if (spentMonth >= monthly) return { exhausted: true, spent: spentMonth, budget: monthly, horizon: "monthly" }
+  }
+
+  // Pooled subtree caps: walk the ancestor chain; for each pool with a token
+  // cap, sum today's token cost across every seat in that pool's subtree.
+  const chain = await walletAncestorChain(db, agent.walletId)
+  for (const node of chain) {
+    const capCents = node.policy?.subtreeDailyTokenCapUsd
+    if (capCents == null) continue
+    const cap = capCents / 100
+    const subtree = await walletSubtreeIds(db, node.id)
+    const agg = await db.tokenLog.aggregate({
+      where: { agent: { walletId: { in: subtree } }, createdAt: { gte: dayStart() } },
+      _sum: { costUsd: true },
+    })
+    const subtreeSpent = agg._sum.costUsd ?? 0
+    if (subtreeSpent >= cap) {
+      return { exhausted: true, spent: subtreeSpent, budget: cap, horizon: "subtree-daily", capWalletId: node.id }
+    }
+  }
+
+  return { exhausted: false, spent: spentToday, budget: daily }
 }
 
 type StreamData = {
