@@ -5,7 +5,7 @@ export const spec = {
     title: "Sanction Agent Governance API",
     version: "1.0.0",
     description:
-      "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration.",
+      "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration. Terminology: an agent is a seat — a governed identity you hand to whoever holds it (named holder, auto-expiry, key rotation that keeps history). The API keeps the agent noun; product surfaces say seat.",
     contact: { name: "Sanction", url: "https://getsanction.com" },
   },
   servers: [{ url: "https://getsanction.com/api/v1", description: "Production" }],
@@ -1606,7 +1606,7 @@ export const spec = {
       },
       get: {
         operationId: "listAgents",
-        summary: "List a wallet's agents",
+        summary: "List a wallet's agents (seats)",
         security: [{ ManagementKey: [] }],
         parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
         responses: {
