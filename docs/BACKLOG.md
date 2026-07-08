@@ -11,6 +11,17 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
+      scope by draining this backlog through /zoomout at sprint start.
+      (commitment, from Eric)
+- [ ] 2026-07-08 — "Sanctuary" track: a mission-driven companion project under
+      the Sanction umbrella — Moral Intention Analyst (MIA), an ethics/intent
+      analysis agent built with an external collaborator (engaged and keen;
+      partnership specifics live in the working conversation). Eric to help
+      drive traffic to it as Sanction's mission arm. Needs an arc: scope what
+      MIA is, where it lives (this repo? sibling?), and what "Sanctuary"
+      means as a product surface. (idea + collaboration, from Eric)
+
 - [ ] 2026-07-05 — Console/API parity: surface the API-only capabilities in the
       operator console — simulate + pack picker on the policy page, a capability
       rule editor (CAP-1 deferred it), an audit/reporting page with CSV export
