@@ -50,38 +50,41 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Sanction "gallery light" — warm paper + ink, pine primary, emerald signal.
+     Ported from the marketing brand (app/brand.css) so the console reads on-brand,
+     not generic shadcn. Neutrals carry a faint warm cast (hue ~95/110), not pure gray. */
+  --background: oklch(0.986 0.004 95); /* paper-0 #fbfaf6 */
+  --foreground: oklch(0.19 0.012 110); /* ink-1 #16180f */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.19 0.012 110);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.19 0.012 110);
+  --primary: oklch(0.36 0.055 165); /* pine-8 #124a3a */
+  --primary-foreground: oklch(0.97 0.006 95);
+  --secondary: oklch(0.955 0.006 95); /* paper-1 */
+  --secondary-foreground: oklch(0.32 0.012 110);
+  --muted: oklch(0.955 0.006 95);
+  --muted-foreground: oklch(0.5 0.012 110); /* ink-3 #757a6c */
+  --accent: oklch(0.925 0.03 165); /* pine-tint #e4efe8 */
+  --accent-foreground: oklch(0.36 0.055 165);
+  --destructive: oklch(0.5 0.15 30); /* brick #a2402c */
+  --border: oklch(0.19 0.012 110 / 12%);
+  --input: oklch(0.19 0.012 110 / 15%);
+  --ring: oklch(0.7 0.14 163); /* emerald focus */
+  --chart-1: oklch(0.36 0.055 165); /* pine */
+  --chart-2: oklch(0.7 0.14 163);   /* emerald */
+  --chart-3: oklch(0.62 0.1 85);    /* ochre */
+  --chart-4: oklch(0.5 0.012 110);  /* ink-3 */
+  --chart-5: oklch(0.68 0.02 95);   /* ink-4 */
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.955 0.006 95); /* paper-1 */
+  --sidebar-foreground: oklch(0.19 0.012 110);
+  --sidebar-primary: oklch(0.36 0.055 165); /* pine */
+  --sidebar-primary-foreground: oklch(0.97 0.006 95);
+  --sidebar-accent: oklch(0.925 0.03 165); /* pine-tint */
+  --sidebar-accent-foreground: oklch(0.36 0.055 165);
+  --sidebar-border: oklch(0.19 0.012 110 / 10%);
+  --sidebar-ring: oklch(0.7 0.14 163);
 }
 
 .dark {

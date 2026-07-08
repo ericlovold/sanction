@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 // Console shell sidebar. Active state is derived from the path, so pages no longer
 // pass an `active` prop. AccountControl is rendered server-side and passed in via
@@ -59,13 +60,15 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
       href={item.href}
       onClick={onNavigate}
       className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-        active ? "bg-zinc-800/80 text-zinc-100" : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground"
       }`}
     >
-      <span className={active ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"}>{item.icon}</span>
+      <span className={active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}>{item.icon}</span>
       <span className="flex-1">{item.label}</span>
       {showBadge && (
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">{pending}</span>
+        <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">{pending}</span>
       )}
     </Link>
   )
@@ -89,14 +92,14 @@ export function DashboardSidebar({
   return (
     <>
       {/* Desktop: persistent left rail */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-zinc-900 bg-zinc-950 px-3 py-5 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 md:flex">
         <div className="px-2">
-          <Link href="/" className="font-display text-lg font-semibold tracking-tight text-zinc-100 hover:text-zinc-300">
+          <Link href="/" className="font-display text-lg font-semibold tracking-tight text-foreground hover:text-primary">
             Sanction
           </Link>
-          <p className="mt-0.5 truncate text-xs text-zinc-600">
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {view.name}
-            {!view.isSession && <span className="ml-1.5 rounded border border-zinc-800 px-1 py-px text-[10px] text-zinc-500">demo</span>}
+            {!view.isSession && <span className="ml-1.5 rounded border border-border px-1 py-px text-[10px] text-muted-foreground">demo</span>}
           </p>
         </div>
         <nav className="mt-6 flex flex-1 flex-col gap-1">
@@ -104,14 +107,20 @@ export function DashboardSidebar({
             <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
           ))}
         </nav>
-        <div className="border-t border-zinc-900 px-2 pt-3">{account}</div>
+        <div className="flex items-center justify-between border-t border-sidebar-border px-2 pt-3">
+          {account}
+          <ThemeToggle collapsed />
+        </div>
       </aside>
 
       {/* Mobile: top bar with a horizontally scrollable nav */}
-      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-zinc-900 bg-zinc-950/95 px-4 py-3 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-sidebar-border bg-sidebar/95 px-4 py-3 backdrop-blur md:hidden">
         <div className="flex items-center justify-between">
-          <Link href="/" className="font-display text-base font-semibold tracking-tight text-zinc-100">Sanction</Link>
-          {account}
+          <Link href="/" className="font-display text-base font-semibold tracking-tight text-foreground">Sanction</Link>
+          <div className="flex items-center gap-1">
+            <ThemeToggle collapsed />
+            {account}
+          </div>
         </div>
         <nav className="-mx-1 flex gap-1 overflow-x-auto">
           {visible.map((it) => (
