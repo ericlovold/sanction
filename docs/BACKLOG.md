@@ -11,6 +11,13 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Consulting/services discoverability: the services page lives
+      at /about ("Work with Eric") but its only entry point is a footer link
+      labeled "Consulting" — external reviewers concluded the services offer
+      didn't exist (one report cites /consulting as a 404, likely from typing
+      the label as a URL). If services becomes a real lane: give it a proper
+      /consulting route (or redirect), align label and destination, and
+      surface it above the footer. (fix, surfaced by external field scan)
 - [ ] 2026-07-08 — Positioning review (external feedback; full text in the
       working conversation): the storefront (home, /why, /architecture, docs,
       license) consistently frames Sanction as a runtime authorization plane
