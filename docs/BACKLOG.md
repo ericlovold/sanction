@@ -11,6 +11,23 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Pooled department token cap (from the internal-E2E
+      walkthrough): wallet-policy dailyTokenBudgetUsd acts as a per-agent
+      default in the gateway (lib/gateway.ts tokenBudgetUsd/isBudgetExhausted
+      aggregate per agent), and the subtree cascade only counts /authorize
+      dollars — so "Engineering may not exceed $N/day in tokens as a
+      department" is visible (pools page) but not enforceable. For the
+      confirmed internal-governance use case this is the flagship hard-cap.
+      Likely shape: count token costs into WalletBudgetCounter (or a sibling
+      counter) and have the gateway check the ancestor chain like /authorize
+      does. (gap, from architecture walkthrough)
+- [ ] 2026-07-08 — Org-level console visibility across the subtree (extends
+      the 07-05 console/API parity entry): the root owner's Approvals and
+      Audit pages are scoped to the root wallet only (getViewWallet → one
+      wallet), so departmental escalations and audit trails are visible only
+      to each pool owner; GET /api/v1/wallets/tree has the rollup but no
+      console surface. Add subtree scope to approvals/audit (read-only for
+      the org owner) + a tree view. (gap, from architecture walkthrough)
 - [ ] 2026-07-08 — Install event instrumentation (P1, from distribution
       review): track the funnel per channel — MCP deeplink clicks, config
       copies, OAuth starts, doc CTA clicks, and first governed call by
