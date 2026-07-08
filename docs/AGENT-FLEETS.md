@@ -25,10 +25,10 @@
 | Model/token budget | LLM **gateway** — hard 402 per seat at `daily_token_budget_usd` |
 | "Notify at 80%" | `budget.threshold` / `budget.exhausted` events → email (default), Slack, webhooks — routable per channel |
 | Over-cap request | **Escalation** → pending approval → single-use grant on retry |
-| Kill-switch | `PATCH /agents { active: false }` per seat; loop a pool's seats to pause a channel |
+| Kill-switch | `POST /wallets/freeze` — one control stops a wallet **and its whole subtree** on every data plane (`WALLET_FROZEN`); unfreeze resumes exactly where the fleet stopped. Per-seat: `PATCH /agents { active: false }` |
 | Contractor auto-shutoff | `expires_at` on the seat — the key fails closed past that instant |
 | Chargeback / channel rollup | `GET /wallets/tree` (subtree rollup), `GET /wallets/stats`, audit export (CSV) |
-| Cost-per-outcome ceiling (CAC-style) | The **learning-layer pattern** below — enforced through Sanction, computed by you |
+| Cost-per-outcome ceiling (CAC-style) | **Native (CPO-1):** report outcomes to `POST /outcomes`, set the ceiling on the pool's policy — when marginal cost-per-outcome would cross it, further spend escalates |
 
 ## 1. Provision the fleet (scriptable, ~20 lines)
 
@@ -98,35 +98,56 @@ right humans live (Dashboard → Approvals → Notification routes, or
 Email to each pool's budget owner is on by default — zero config. Details in
 [Notifications](NOTIFICATIONS.md).
 
-## 4. The learning-layer pattern: cost-per-outcome ceilings
+## 4. Cost-per-outcome ceilings — native (CPO-1)
 
-Sanction enforces dollars; *outcomes* (enrollments, bookings, conversions)
-live in your platform. A CAC-style ceiling is a control loop between the two:
+Sanction enforces dollars *accountable to results*. Your platform reports the
+outcomes — an enrollment, a booked visit, a signed engagement — and Sanction
+governs the ratio; it never invents outcomes.
 
-1. **Your learning layer computes the ratio** — channel spend (from
-   `GET /wallets/stats` or your own attribution) ÷ outcomes (yours).
-2. **When the ratio crosses the ceiling, throttle through the management API**
-   — the fleet's aggression is a set of Sanction knobs:
+**Report outcomes** as they happen (seat key; also available as the
+`sanction_log_outcome` tool from any MCP host):
 
 ```bash
-# Soften: lower the seat's budgets and escalation line — spend keeps flowing,
-# but bigger actions now stop and ask a human first
-curl -s -X PATCH $API/agents -H "x-mgmt-key: $POOL_MGMT_KEY" -H "content-type: application/json" \
-  -d '{"wallet_id":"'$POOL_ID'","agent_id":"'$SEAT_ID'","daily_spend_budget_usd":1500,"escalate_over_usd":50}'
-
-# Hard stop: pause the seat (kill-switch); flip back with active: true
-curl -s -X PATCH $API/agents -H "x-mgmt-key: $POOL_MGMT_KEY" -H "content-type: application/json" \
-  -d '{"wallet_id":"'$POOL_ID'","agent_id":"'$SEAT_ID'","active":false}'
+curl -s -X POST $API/outcomes -H "x-api-key: $SEAT_KEY" -H "content-type: application/json" \
+  -d '{"kind":"enrollment","value_usd":2400,"play":"d2c-search","dedupe_key":"member-8123"}'
 ```
 
-3. **To pause a whole channel**, list its seats (`GET /agents?wallet_id=…`)
-   and flip each `active: false` — a three-line loop your kill-switch button
-   calls.
+`dedupe_key` makes reporting idempotent — retries never double-count.
 
-Because throttling is policy mutation, not code deployment, your learning
-layer can move money between channels in seconds — and every throttle action
-is itself auditable. "Auto-throttled at the CAC ceiling" is this loop running
-on a schedule.
+**Set the ceiling** on the channel's policy:
+
+```bash
+curl -s -X PATCH $API/wallets/policy -H "x-mgmt-key: $POOL_MGMT_KEY" -H "content-type: application/json" \
+  -d '{"wallet_id":"'$POOL_ID'","outcome_kind":"enrollment","cost_per_outcome_ceiling_usd":300,
+       "cost_per_outcome_window_days":30,"cost_per_outcome_min_outcomes":5}'
+```
+
+From then on `/authorize` computes windowed spend ÷ outcomes under the same
+lock as the budget checks: when a spend would push marginal cost-per-outcome
+over the ceiling, it **escalates** — a human decides whether to keep buying at
+that price, so there's no silent lane past the ceiling and no silent stop
+either. `min_outcomes` guards cold starts. The Outcomes dashboard page shows
+cost per outcome, per pool, against the ceiling — live.
+
+**Custom throttle logic on top** (optional): anything your learning layer
+wants beyond the built-in ceiling — time-of-day aggression, reallocating
+budget between channels (`POST /wallets/reallocate` moves cap between sibling
+pools atomically, with an audit row), or softening a specific seat — is
+management-API mutation, auditable like everything else:
+
+```bash
+curl -s -X PATCH $API/agents -H "x-mgmt-key: $POOL_MGMT_KEY" -H "content-type: application/json" \
+  -d '{"wallet_id":"'$POOL_ID'","agent_id":"'$SEAT_ID'","daily_spend_budget_usd":1500,"escalate_over_usd":50}'
+```
+
+**The kill-switch** is one call, not a loop — freeze stops the wallet and its
+entire subtree on every data plane (spend, tools, tokens, gateway, exec) and
+unfreeze resumes with nothing lost:
+
+```bash
+curl -s -X POST $API/wallets/freeze -H "x-mgmt-key: $ROOT_MGMT_KEY" -H "content-type: application/json" \
+  -d '{"wallet_id":"'$POOL_ID'","reason":"CAC breach — pausing paid while we review"}'
+```
 
 ## 5. What finance sees
 
@@ -144,10 +165,9 @@ on a schedule.
   caps are on the roadmap; per-seat daily caps + threshold alerts cover the
   gap in practice. Money caps have all three horizons (per-action, daily,
   monthly) plus the subtree cascade.
-- **Cost-per-outcome is a pattern, not a primitive.** Sanction doesn't ingest
-  outcome events (yet) — the ratio lives in your learning layer, the
-  enforcement in Sanction.
-- **Channel pause is a loop over seats**, not a single pool-level flag.
+- **One outcome kind per pool's ceiling.** A pool's CPO ceiling watches a
+  single `outcome_kind`; report multiple kinds freely, but govern one ratio
+  per pool (nest pools if you need more).
 
 ## Reference
 

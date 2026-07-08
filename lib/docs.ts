@@ -56,7 +56,7 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     file: "AGENT-FLEETS.md",
     title: "Sanction for agent fleets",
     description:
-      "Govern a fleet of spending agents: channels as delegated pools, seats as agent keys, budget envelopes with escalation and kill-switch, chargeback rollups, and the cost-per-outcome throttle pattern.",
+      "Govern a fleet of spending agents: channels as delegated pools, seats as agent keys, budget envelopes with escalation, native cost-per-outcome ceilings, the freeze kill-switch, and chargeback rollups.",
   },
   bedrock: {
     file: "BEDROCK.md",
