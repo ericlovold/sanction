@@ -22,7 +22,7 @@
 | A seat (one agent instance, tool, or person) | **Agent key** (`pxy_…`), optionally with `holder` + `expires_at` |
 | Spend envelope (monthly / daily / per-action caps) | Pool **policy**: `monthly_spend_budget_usd`, `daily_spend_budget_usd`, `per_transaction_max_usd` |
 | Org-wide ceiling a channel can't break | `subtree_daily_cap_usd` — cascades: a seat's spend reserves against every ancestor atomically |
-| Model/token budget | LLM **gateway** — hard 402 per seat at `daily_token_budget_usd` |
+| Model/token budget | LLM **gateway** — hard 402 at the seat's daily or monthly token budget, or the pool's `subtree_daily_token_cap_usd` (the whole channel stops even when every seat is individually under) |
 | "Notify at 80%" | `budget.threshold` / `budget.exhausted` events → email (default), Slack, webhooks — routable per channel |
 | Over-cap request | **Escalation** → pending approval → single-use grant on retry |
 | Kill-switch | `POST /wallets/freeze` — one control stops a wallet **and its whole subtree** on every data plane (`WALLET_FROZEN`); unfreeze resumes exactly where the fleet stopped. Per-seat: `PATCH /agents { active: false }` |
@@ -42,15 +42,22 @@ API=https://getsanction.com/api/v1
 curl -s -X POST $API/wallets -H "x-mgmt-key: $ROOT_MGMT_KEY" -H "content-type: application/json" \
   -d '{"name":"paid-media","owner_email":"growth-lead@yourco.com","parent_id":"'$ROOT_WALLET_ID'"}'
 
-# The channel's envelope — monthly + daily + per-action + escalation line
+# The channel's envelope — monthly + daily + per-action + escalation line,
+# plus the pooled token cap (whole-channel daily token hard stop)
 curl -s -X PATCH $API/wallets/policy -H "x-mgmt-key: $POOL_MGMT_KEY" -H "content-type: application/json" \
   -d '{"wallet_id":"'$POOL_ID'","monthly_spend_budget_usd":120000,"daily_spend_budget_usd":5000,
-       "per_transaction_max_usd":500,"escalate_over_usd":250,"subtree_daily_cap_usd":6000}'
+       "per_transaction_max_usd":500,"escalate_over_usd":250,"subtree_daily_cap_usd":6000,
+       "subtree_daily_token_cap_usd":500,"monthly_token_budget_usd":500}'
 
 # A seat in the channel — returns its pxy_ key once
 curl -s -X POST $API/agents -H "x-mgmt-key: $POOL_MGMT_KEY" -H "content-type: application/json" \
   -d '{"wallet_id":"'$POOL_ID'","name":"paid-media-search","holder":"search-campaign-agent"}'
 ```
+
+Or install the whole envelope in one call: the **fleet-channel-envelope**
+policy pack (`POST /policy/packs/fleet-channel-envelope/apply`) ships this
+shape with the outcome-ceiling knobs pre-wired — preview it against your last
+30 days first (`…/preview`).
 
 The pool's `owner_email` is a real delegation: that budget owner signs in and
 gets their own dashboard — envelopes, approvals queue, keys, audit — scoped to
@@ -79,10 +86,11 @@ The decision resolves against the seat's limits, the pool's envelope, **and
 every ancestor's subtree cap in one atomic evaluation** — a channel cannot
 overspend even when every seat is individually under its own limit.
 
-**Attribution convention:** make `category` carry your rollup key
-(`channel:play` works well, as above). It's indexed through transactions,
-audit events, and the CSV export — that's what lets finance tie every dollar
-back to the play that spent it.
+**Attribution:** pass `tags` on the authorize call —
+`"tags": {"channel": "paid-media", "play": "d2c-search"}` (≤8, never read by
+policy rules). They persist on the decision and come back on audit-feed events
+and as a CSV column, so finance ties every dollar to the play that spent it.
+`category` stays the policy-relevant field (allow/block lists key on it).
 
 ## 3. Route the budget signals
 
@@ -161,13 +169,12 @@ curl -s -X POST $API/wallets/freeze -H "x-mgmt-key: $ROOT_MGMT_KEY" -H "content-
 
 ## Honest edges (today)
 
-- **Token caps are per-seat and daily.** Monthly and pooled-per-channel token
-  caps are on the roadmap; per-seat daily caps + threshold alerts cover the
-  gap in practice. Money caps have all three horizons (per-action, daily,
-  monthly) plus the subtree cascade.
 - **One outcome kind per pool's ceiling.** A pool's CPO ceiling watches a
   single `outcome_kind`; report multiple kinds freely, but govern one ratio
   per pool (nest pools if you need more).
+- **Pooled token caps are daily.** Money envelopes have per-action, daily,
+  and monthly horizons; token budgets have daily + monthly per seat but the
+  pooled subtree cap is daily-only.
 
 ## Reference
 

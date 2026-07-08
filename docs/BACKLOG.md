@@ -11,32 +11,6 @@ conversation, not here.
 
 ## Open
 
-- [ ] 2026-07-08 — Agent-fleet parity packaging (from a prospect's platform
-      concept where Sanction is the embedded cost governor; specifics in the
-      working conversation). Enforcement is ~there; the drop-in gaps, ranked:
-      (1) integration guide "Sanction for agent fleets" — channel→pool,
-      fleet-agent→agent key, envelope→policy mapping, and the outcome-ceiling
-      pattern (external learning layer computes cost-per-outcome, throttles
-      via the management API: lower caps / pause agent); (2) optional
-      metadata/tags on /authorize, stored on the transaction and rolled up in
-      reporting/CSV, so spend attributes to channel/play/campaign natively;
-      (3) fleet kill-switch — one action pauses all agents in a subtree;
-      (4) marketing-fleet policy pack in the PACK-1 catalog (envelope +
-      escalation + kill-switch preset); (5) monthly token budgets (today
-      token caps are daily-only; spend caps have monthly) — pairs with the
-      queued pooled-token-cap entry; (6) roadmap, not now: a native
-      cost-per-outcome ratio primitive (Sanction learns outcomes, enforces
-      ratio ceilings itself). (feature set, from prospect concept)
-- [ ] 2026-07-08 — Pooled department token cap (from the internal-E2E
-      walkthrough): wallet-policy dailyTokenBudgetUsd acts as a per-agent
-      default in the gateway (lib/gateway.ts tokenBudgetUsd/isBudgetExhausted
-      aggregate per agent), and the subtree cascade only counts /authorize
-      dollars — so "Engineering may not exceed $N/day in tokens as a
-      department" is visible (pools page) but not enforceable. For the
-      confirmed internal-governance use case this is the flagship hard-cap.
-      Likely shape: count token costs into WalletBudgetCounter (or a sibling
-      counter) and have the gateway check the ancestor chain like /authorize
-      does. (gap, from architecture walkthrough)
 - [ ] 2026-07-08 — Org-level console visibility across the subtree (extends
       the 07-05 console/API parity entry): the root owner's Approvals and
       Audit pages are scoped to the root wallet only (getViewWallet → one
@@ -154,6 +128,42 @@ conversation, not here.
       revisit if the competitive picture changes.
 
 ## Closed
+
+- [x] 2026-07-08 — Agent-fleet parity packaging (from a prospect's platform
+      concept where Sanction is the embedded cost governor; specifics in the
+      working conversation). Enforcement is ~there; the drop-in gaps, ranked:
+      (1) integration guide "Sanction for agent fleets" — channel→pool,
+      fleet-agent→agent key, envelope→policy mapping, and the outcome-ceiling
+      pattern (external learning layer computes cost-per-outcome, throttles
+      via the management API: lower caps / pause agent); (2) optional
+      metadata/tags on /authorize, stored on the transaction and rolled up in
+      reporting/CSV, so spend attributes to channel/play/campaign natively;
+      (3) fleet kill-switch — one action pauses all agents in a subtree;
+      (4) marketing-fleet policy pack in the PACK-1 catalog (envelope +
+      escalation + kill-switch preset); (5) monthly token budgets (today
+      token caps are daily-only; spend caps have monthly) — pairs with the
+      queued pooled-token-cap entry; (6) roadmap, not now: a native
+      cost-per-outcome ratio primitive (Sanction learns outcomes, enforces
+      ratio ceilings itself). (feature set, from prospect concept)
+      · 2026-07-08, same day: **all six closed.** (1) docs/AGENT-FLEETS.md shipped
+      then revised to native primitives; (2) tags on /authorize shipped;
+      (3) landed on main independently as wallet freeze (KILL-1, ancestor
+      walk); (4) fleet-channel-envelope pack shipped; (5) monthly + pooled
+      token caps shipped; (6) landed on main independently as CPO-1
+      (outcome ingestion + ceilings). Fleet parity is now fully native.
+- [x] 2026-07-08 — Pooled department token cap (from the internal-E2E
+      walkthrough): wallet-policy dailyTokenBudgetUsd acts as a per-agent
+      default in the gateway (lib/gateway.ts tokenBudgetUsd/isBudgetExhausted
+      aggregate per agent), and the subtree cascade only counts /authorize
+      dollars — so "Engineering may not exceed $N/day in tokens as a
+      department" is visible (pools page) but not enforceable. For the
+      confirmed internal-governance use case this is the flagship hard-cap.
+      Likely shape: count token costs into WalletBudgetCounter (or a sibling
+      counter) and have the gateway check the ancestor chain like /authorize
+      does. (gap, from architecture walkthrough)
+      · 2026-07-08, same day: **shipped** — subtreeDailyTokenCapUsd on policy,
+      enforced pre-call at the gateway via the ancestor walk (402 names the
+      horizon + pool); plus per-seat monthly token budgets. 8 unit tests.
 
 - [x] 2026-07-05 — Policy packs: installable starters. **Promoted** → PACK-1,
       pack catalog + 30-day simulation preview + one-call apply.

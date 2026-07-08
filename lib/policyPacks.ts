@@ -181,6 +181,43 @@ export const POLICY_PACKS: PolicyPack[] = [
     },
   },
   {
+    id: "fleet-channel-envelope",
+    name: "Fleet channel envelope",
+    tagline: "The pool policy for one spending channel of an agent fleet — monthly envelope, pooled token cap, escalation line, outcome-ceiling ready.",
+    audience:
+      "Ops running a fleet where channels (paid media, content, outbound) are delegated pools and every seat spends. Apply to the channel pool, not the root; set outcome_kind + a ceiling once you report outcomes.",
+    maturity: "governance",
+    channel: "agency",
+    useCases: ["agent fleets", "channel budgets", "department chargeback"],
+    policy: {
+      auto_approve_under_usd: 50,
+      escalate_over_usd: 250,
+      per_transaction_max_usd: 1_000,
+      daily_spend_budget_usd: 4_000,
+      monthly_spend_budget_usd: 120_000,
+      subtree_daily_cap_usd: 5_000,
+      daily_token_budget_usd: 25,
+      monthly_token_budget_usd: 500,
+      subtree_daily_token_cap_usd: 500,
+      blocked_categories: ["gambling", "adult", "weapons", "crypto"],
+      allowed_tools: [],
+      blocked_tools: ["payments:*", "secrets:export*"],
+      escalate_tools: ["provision:*"],
+      capability_rules: [
+        { pattern: "skill:install:*", effect: "escalate" },
+        { pattern: "plugin:add:*", effect: "escalate" },
+      ],
+      escalation_timeout_mins: 240,
+      escalation_timeout_action: "deny",
+      // CPO-1 knobs ship pre-wired but off: fill outcome_kind + ceiling when
+      // the operator starts reporting outcomes (POST /outcomes).
+      outcome_kind: null,
+      cost_per_outcome_ceiling_usd: null,
+      cost_per_outcome_window_days: 30,
+      cost_per_outcome_min_outcomes: 5,
+    },
+  },
+  {
     id: "agency-client-safe-launch",
     name: "Client-safe launch",
     tagline: "A launch policy an AI agency can hand to a client: visible spend, approval for risky work, evidence after.",
