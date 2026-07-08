@@ -11,6 +11,20 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Install event instrumentation (P1, from distribution
+      review): track the funnel per channel — MCP deeplink clicks, config
+      copies, OAuth starts, doc CTA clicks, and first governed call by
+      channel. Define the funnel event schema first; acquisition capture
+      (utm/src → wallet, shipped same day) is the upstream half. Success
+      metric across all channels: time-to-first-governed-decision < 10 min.
+      (idea, from distribution review)
+- [ ] 2026-07-08 — Install center UX (P1, from distribution review): one
+      "Choose your channel" page — MCP / Bedrock / Vercel AI SDK / LangChain —
+      with estimated setup time and a first-success checklist per channel.
+      Additive inside the existing PWA/dashboard shell, then promote to the
+      default discovery entrypoint. Follow-up: A/B MCP-first vs
+      channel-picker-first onboarding; ICE-score the experiment backlog and
+      set per-channel success thresholds. (idea, from distribution review)
 - [ ] 2026-07-08 — Consulting/services discoverability: the services page lives
       at /about ("Work with Eric") but its only entry point is a footer link
       labeled "Consulting" — external reviewers concluded the services offer
