@@ -1,0 +1,13 @@
+{
+  "name": "sanction-example-vercel-ai-sdk",
+  "private": true,
+  "type": "module",
+  "description": "Minimal runnable example: Vercel AI SDK metered through Sanction's gateway, plus a pre-spend authorize call.",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.0",
+    "ai": "^5.0.0"
+  }
+}

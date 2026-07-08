@@ -19,6 +19,10 @@ You need a Sanction **agent key** (`pxy_…`) — one per tenant. See the
 [Integration Runbook](INTEGRATION.md) to provision them. In these examples
 `AGENT_KEY` is that `pxy_…` key.
 
+> **Runnable version:** [`examples/vercel-ai-sdk/`](../examples/vercel-ai-sdk/)
+> runs the metered call + a real authorize decision end to end in ~2 minutes
+> (`examples/setup.sh` provisions the wallet for you).
+
 ---
 
 ## OpenAI
