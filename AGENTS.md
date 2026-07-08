@@ -152,6 +152,12 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 - Owner: Eric Lovold (solo founder). Primary agent client: AIIA Brain (Mac Mini agent; its integration lives outside this repo in `~/aiia-brain`).
 - Distribution: MCP (npm), AWS Bedrock Action Groups, direct REST API, LLM gateway.
 - Model: it's free, or it's an agreement. Free covers individuals (no card, personal + production use); anything beyond that is a negotiated enterprise agreement, not a tier sheet. Confirmed 2026-07-04.
+- Primary intended use case (confirmed by Eric 2026-07-08): governing an
+  org's **own internal** AI usage and spend — teams/departments as wallets,
+  budgets, chargeback, hard enforcement — not only platforms embedding
+  Sanction in shipped products. The current storefront under-expresses this
+  (it reads embedded/production-agent first); closing that gap is queued in
+  `docs/BACKLOG.md`. Weigh copy and docs changes against this intent.
 
 ## Design Direction
 

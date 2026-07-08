@@ -26,9 +26,12 @@ conversation, not here.
       budgets and chargeback for yourself, finance as a buyer) is nearly
       absent, even though the primitives (nested wallets, gateway metering,
       budget cascades, roll-up) already support it. Evaluate: add an
-      internal-spend-governance lane vs. reposition. Founder not yet sold on
-      the critique — needs a deliberate decision, not a drive-by rewrite.
-      (feedback, via Eric)
+      internal-spend-governance lane vs. reposition. (feedback, via Eric)
+      · 2026-07-08, same day: Eric confirmed internal spend governance was
+      the intended primary use case all along (now recorded in AGENTS.md
+      § Business Context) — the entry upgrades from "evaluate the critique"
+      to "close the storefront/intent gap"; still open: how (lane vs.
+      reframe) and the services-vs-product end-state call.
 - [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
       scope by draining this backlog through /zoomout at sprint start.
       (commitment, from Eric)
