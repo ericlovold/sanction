@@ -1,7 +1,5 @@
 import type { Metadata } from "next"
 import { db } from "@/lib/db"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { NoWallet } from "@/components/no-wallet"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
 import { WebhookSettings } from "@/components/webhook-settings"
@@ -58,8 +56,8 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
 }
 
 const statusClasses: Record<string, string> = {
-  approved: "border-emerald-600/30 bg-emerald-500/[0.07] text-emerald-700 dark:border-emerald-500/25 dark:text-emerald-400",
-  denied: "border-red-600/30 bg-red-500/[0.07] text-red-700 dark:border-red-500/25 dark:text-red-400",
+  approved: "border-signal/25 bg-signal/10 text-signal",
+  denied: "border-destructive/25 bg-destructive/10 text-destructive",
   expired: "border-border bg-muted text-muted-foreground",
 }
 
@@ -118,85 +116,66 @@ export default async function ApprovalsPage() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold tabular-nums ${pending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{pending.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Recently resolved</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold tabular-nums">{resolved.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Notification routes</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold tabular-nums">{webhooks.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 15m</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold tabular-nums ${expiringSoon > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{expiringSoon}</p>
-            <p className="text-xs text-muted-foreground">oldest pending {oldestPendingMinutes}m</p>
-          </CardContent>
-        </Card>
+      {/* KPI register: one bordered strip divided by hairlines — not floating cards */}
+      <div className="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-md border border-border bg-card sm:grid-cols-4">
+        <div className="px-4 py-4">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Pending</p>
+          <p className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${pending.length > 0 ? "text-ochre" : "text-foreground"}`}>{pending.length}</p>
+        </div>
+        <div className="px-4 py-4">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Recently resolved</p>
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-foreground">{resolved.length}</p>
+        </div>
+        <div className="px-4 py-4">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Notification routes</p>
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-foreground">{webhooks.length}</p>
+        </div>
+        <div className="px-4 py-4">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Expiring in 15m</p>
+          <p className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${expiringSoon > 0 ? "text-ochre" : "text-foreground"}`}>{expiringSoon}</p>
+          <p className="mt-1 font-mono text-[11px] text-muted-foreground">oldest pending {oldestPendingMinutes}m</p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <h2 className="text-sm font-medium text-foreground">Pending</h2>
-        {pending.length > 0 && (
-          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{pending.length}</Badge>
-        )}
+      <div className="flex items-center gap-2.5 border-b border-border pb-2">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground">Pending</h2>
+        {pending.length > 0 && <span className="font-mono text-[11px] font-semibold text-ochre">{pending.length}</span>}
       </div>
       <ApprovalQueue pending={pending} editable={view.isSession} />
 
-      <Card className="bg-card border-border">
-        <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          {resolved.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Decisions land here with the grant they issued — the audit trail of every approval.
-            </p>
-          )}
-          <div className="space-y-2">
-            {resolved.map((r) => (
-              <div key={r.id} className="flex items-center justify-between text-sm">
-                <div className="min-w-0">
-                  <p className="truncate text-foreground">
-                    {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {actionLabel(r.actionType)} · {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : ""}
-                  </p>
-                </div>
-                <div className="ml-3 flex shrink-0 items-center gap-2">
-                  {r.grants[0] ? (
-                    <span
-                      className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary"
-                      title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
-                    >
-                      grant {r.grants[0].consumedAt ? "consumed" : r.grants[0].status}
-                    </span>
-                  ) : null}
-                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>
-                </div>
-              </div>
-            ))}
+      <div className="border-b border-border pb-2">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground">Resolved — issued authority</h2>
+      </div>
+      <div className="overflow-hidden rounded-md border border-border bg-card">
+        {resolved.length === 0 && (
+          <p className="px-4 py-4 text-sm text-muted-foreground">
+            Decisions land here with the grant they issued — the audit trail of every approval.
+          </p>
+        )}
+        {resolved.map((r) => (
+          <div key={r.id} className="flex items-center justify-between border-t border-border/60 px-4 py-3 text-sm first:border-t-0">
+            <div className="min-w-0">
+              <p className="truncate text-foreground">
+                {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
+              </p>
+              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                {actionLabel(r.actionType)} · {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : ""}
+              </p>
+            </div>
+            <div className="ml-3 flex shrink-0 items-center gap-2">
+              {r.grants[0] ? (
+                <span
+                  className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary"
+                  title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
+                >
+                  grant {r.grants[0].consumedAt ? "consumed" : r.grants[0].status}
+                </span>
+              ) : null}
+              <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
 
       <WebhookSettings webhooks={webhooks} editable={view.isSession} />
     </div>

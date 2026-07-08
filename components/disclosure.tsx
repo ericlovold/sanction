@@ -5,12 +5,12 @@ import type { ReactNode } from "react"
 // lives one click away instead of stacked on screen.
 export function Disclosure({ summary, children, defaultOpen = false }: { summary: string; children: ReactNode; defaultOpen?: boolean }) {
   return (
-    <details open={defaultOpen} className="group rounded-md border border-zinc-800 bg-zinc-950/40">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200 [&::-webkit-details-marker]:hidden">
+    <details open={defaultOpen} className="group rounded-md border border-border bg-muted/40">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
         <span>{summary}</span>
-        <span className="text-zinc-600 transition-transform group-open:rotate-90">&rsaquo;</span>
+        <span className="text-muted-foreground transition-transform group-open:rotate-90">&rsaquo;</span>
       </summary>
-      <div className="border-t border-zinc-800 p-3">{children}</div>
+      <div className="border-t border-border p-3">{children}</div>
     </details>
   )
 }

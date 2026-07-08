@@ -14,10 +14,10 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-zinc-900">
+      <header className="border-b border-border">
         <nav className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
           <Link href="/" className="font-display font-semibold tracking-tight">Sanction</Link>
-          <Link href="/login" className="text-sm text-zinc-400 hover:text-zinc-100">Sign in another way →</Link>
+          <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">Sign in another way →</Link>
         </nav>
       </header>
 
@@ -27,9 +27,9 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
           {token ? (
             <VerifyMagicLink token={token} />
           ) : (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-muted-foreground">
               This link is missing its token. Request a new one from the{" "}
-              <Link href="/login" className="text-emerald-400 hover:text-emerald-300">sign-in page</Link>.
+              <Link href="/login" className="text-signal hover:text-signal">sign-in page</Link>.
             </p>
           )}
         </div>

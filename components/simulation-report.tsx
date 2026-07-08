@@ -8,8 +8,8 @@ import type { SimulationReport } from "@/app/dashboard/policy/actions"
 // information, not an error.
 
 const effectColor: Record<string, string> = {
-  allow: "text-emerald-400",
-  escalate: "text-amber-400",
+  allow: "text-signal",
+  escalate: "text-ochre",
   deny: "text-red-400",
 }
 
@@ -42,8 +42,8 @@ export function humanField(name: string): string {
 
 function Tally({ label, t }: { label: string; t: { allow: number; escalate: number; deny: number } }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-zinc-600">{label}</p>
+    <div className="rounded-md border border-border bg-muted/40 p-3">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <div className="mt-2 flex gap-4 font-mono text-sm">
         <span className={effectColor.allow}>{t.allow} allow</span>
         <span className={effectColor.escalate}>{t.escalate} esc</span>
@@ -67,25 +67,25 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
       : `${counts.changed} of ${counts.simulated} replayed decision${counts.simulated === 1 ? "" : "s"} would change under this policy. Review the rows below before you save.`
 
   return (
-    <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+    <div className="space-y-3 rounded-md border border-border bg-muted/40 p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-medium text-zinc-200">{title}</h3>
-        <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-500" title="Your real past decisions, replayed under the policy shown — nothing is saved.">
+        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+        <span className="rounded border border-input px-1.5 py-0.5 text-[10px] text-foreground0" title="Your real past decisions, replayed under the policy shown — nothing is saved.">
           {STATE_LABEL[report.state] ?? report.state}
         </span>
       </div>
 
       {/* What am I looking at? */}
-      <p className="text-xs leading-relaxed text-zinc-500">
+      <p className="text-xs leading-relaxed text-foreground0">
         Your recent decisions replayed under the policy shown, so you can see what would change before you commit.
         Read-only — nothing is saved.
       </p>
 
       {!hasActivity ? (
         // Guiding empty state — what's missing AND what to do about it.
-        <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-3">
-          <p className="text-xs text-zinc-300">No agent activity in this window yet, so there&rsquo;s nothing to replay.</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-3">
+          <p className="text-xs text-foreground">No agent activity in this window yet, so there&rsquo;s nothing to replay.</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-foreground0">
             Simulation compares a candidate policy against your real past decisions. Once your agents start making
             requests, come back to test changes safely before saving. Have older activity? Widen the date range.
           </p>
@@ -93,7 +93,7 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
       ) : (
         <>
           {/* Is this good or bad? */}
-          <p className={`text-xs font-medium ${counts.changed === 0 ? "text-emerald-400" : "text-amber-400"}`}>{verdict}</p>
+          <p className={`text-xs font-medium ${counts.changed === 0 ? "text-signal" : "text-ochre"}`}>{verdict}</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Tally label="Recorded (was)" t={totals.was} />
@@ -101,22 +101,22 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-zinc-600">Approved spend</p>
-              <p className="mt-2 font-mono text-sm text-zinc-100">
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Approved spend</p>
+              <p className="mt-2 font-mono text-sm text-foreground">
                 ${approved_spend_usd.was.toFixed(2)} → ${approved_spend_usd.would.toFixed(2)}
-                <span className={`ml-2 text-xs ${spendDelta > 0 ? "text-red-400" : spendDelta < 0 ? "text-emerald-400" : "text-zinc-500"}`}>
+                <span className={`ml-2 text-xs ${spendDelta > 0 ? "text-red-400" : spendDelta < 0 ? "text-signal" : "text-foreground0"}`}>
                   {spendDelta > 0 ? "+" : ""}${spendDelta.toFixed(2)}
                 </span>
               </p>
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-zinc-600">Coverage</p>
-              <p className="mt-2 font-mono text-xs text-zinc-400">
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Coverage</p>
+              <p className="mt-2 font-mono text-xs text-muted-foreground">
                 {counts.simulated}/{counts.considered} simulated · {counts.changed} changed
               </p>
               {(counts.out_of_scope > 0 || counts.unreplayable > 0) && (
-                <p className="mt-1 font-mono text-[11px] text-zinc-600">
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
                   {counts.out_of_scope} out of scope · {counts.unreplayable} unreplayable
                 </p>
               )}
@@ -127,7 +127,7 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wide text-zinc-600">
+                  <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     <th className="pb-1 pr-3 font-normal">When</th>
                     <th className="pb-1 pr-3 font-normal">Agent</th>
                     <th className="pb-1 pr-3 font-normal">Action</th>
@@ -135,19 +135,19 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
                     <th className="pb-1 font-normal">Would</th>
                   </tr>
                 </thead>
-                <tbody className="font-mono text-zinc-400">
+                <tbody className="font-mono text-muted-foreground">
                   {changes.map((c) => {
                     const row = c as {
                       id: string; at: string; agent?: string; action?: string; merchant?: string
                       was: { effect: string }; would: { effect: string }
                     }
                     return (
-                      <tr key={row.id} className="border-t border-zinc-900">
-                        <td className="py-1 pr-3 whitespace-nowrap text-zinc-500">{row.at.slice(0, 10)}</td>
-                        <td className="py-1 pr-3 text-zinc-300">{row.agent ?? "—"}</td>
-                        <td className="py-1 pr-3 text-zinc-400">{row.merchant ?? row.action ?? "—"}</td>
-                        <td className={`py-1 pr-3 ${effectColor[row.was.effect] ?? "text-zinc-400"}`}>{row.was.effect}</td>
-                        <td className={`py-1 ${effectColor[row.would.effect] ?? "text-zinc-400"}`}>{row.would.effect}</td>
+                      <tr key={row.id} className="border-t border-border">
+                        <td className="py-1 pr-3 whitespace-nowrap text-foreground0">{row.at.slice(0, 10)}</td>
+                        <td className="py-1 pr-3 text-foreground">{row.agent ?? "—"}</td>
+                        <td className="py-1 pr-3 text-muted-foreground">{row.merchant ?? row.action ?? "—"}</td>
+                        <td className={`py-1 pr-3 ${effectColor[row.was.effect] ?? "text-muted-foreground"}`}>{row.was.effect}</td>
+                        <td className={`py-1 ${effectColor[row.would.effect] ?? "text-muted-foreground"}`}>{row.would.effect}</td>
                       </tr>
                     )
                   })}
@@ -161,20 +161,20 @@ export function SimulationReport({ report, title }: { report: SimulationReport; 
       {/* Informational, NOT a warning: which of the editor's settings this kind
           of simulation doesn't touch, in plain language + human labels. */}
       {ignored && ignored.length > 0 && (
-        <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
-          <p className="text-[11px] leading-relaxed text-zinc-400">
-            <span className="font-medium text-zinc-300">These settings don&rsquo;t affect this result.</span> A spend
+        <div className="rounded-md border border-border bg-card px-3 py-2.5">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">These settings don&rsquo;t affect this result.</span> A spend
             simulation replays each past decision against your spend budgets and categories. The settings below govern
             other things — tools, token metering, escalation timeouts, and sub-wallet caps — which are enforced live on
             new requests, not replayed here. Expected, not an error.
           </p>
-          <p className="mt-1.5 text-[11px] text-zinc-600">
-            Unaffected: <span className="text-zinc-500">{ignored.map(humanField).join(" · ")}</span>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Unaffected: <span className="text-foreground0">{ignored.map(humanField).join(" · ")}</span>
           </p>
         </div>
       )}
       {truncated && (
-        <p className="text-[11px] text-amber-400/80">
+        <p className="text-[11px] text-ochre/80">
           {noteTruncated ?? "Only the most recent decisions were simulated — narrow the date range for a complete picture."}
         </p>
       )}

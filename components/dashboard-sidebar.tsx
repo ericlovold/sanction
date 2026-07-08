@@ -68,7 +68,7 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
       <span className={active ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"}>{item.icon}</span>
       <span className="flex-1">{item.label}</span>
       {showBadge && (
-        <span className="rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[oklch(0.82_0.11_85)]">{pending}</span>
+        <span className="rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ochre">{pending}</span>
       )}
     </Link>
   )
@@ -109,8 +109,8 @@ export function DashboardSidebar({
           ))}
         </nav>
         <div className="flex items-center justify-between border-t border-sidebar-border px-3 py-3">
-          <span className="flex items-center gap-1.5 font-display text-[8.5px] uppercase tracking-[0.1em] text-[oklch(0.78_0.11_85)]">
-            <span className="size-1.5 rounded-full bg-[oklch(0.78_0.11_85)]" /> Signed ledger
+          <span className="flex items-center gap-1.5 font-display text-[8.5px] uppercase tracking-[0.1em] text-ochre">
+            <span className="size-1.5 rounded-full bg-ochre" /> Signed ledger
           </span>
           <div className="flex items-center gap-1 text-sidebar-foreground">{account}<ThemeToggle collapsed /></div>
         </div>

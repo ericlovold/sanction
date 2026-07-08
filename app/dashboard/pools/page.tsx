@@ -75,9 +75,9 @@ const emptyBucket = (): PoolBucket => ({
 const statusMeta: Record<PoolStatus, { label: string; badge: string; bar: string; text: string }> = {
   cap_missing: {
     label: "uncapped",
-    badge: "border-amber-500/20 bg-amber-500/15 text-amber-400",
-    bar: "bg-amber-500",
-    text: "text-amber-300",
+    badge: "border-ochre/25 bg-ochre/10 text-ochre",
+    bar: "bg-ochre",
+    text: "text-ochre",
   },
   over_cap: {
     label: "over cap",
@@ -87,29 +87,29 @@ const statusMeta: Record<PoolStatus, { label: string; badge: string; bar: string
   },
   hot: {
     label: "hot",
-    badge: "border-amber-500/20 bg-amber-500/15 text-amber-400",
-    bar: "bg-amber-500",
-    text: "text-amber-300",
+    badge: "border-ochre/25 bg-ochre/10 text-ochre",
+    bar: "bg-ochre",
+    text: "text-ochre",
   },
   warm: {
     label: "warm",
-    badge: "border-zinc-700 bg-zinc-800 text-zinc-300",
-    bar: "bg-zinc-500",
-    text: "text-zinc-300",
+    badge: "border-input bg-muted text-foreground",
+    bar: "bg-muted-foreground",
+    text: "text-foreground",
   },
   clear: {
     label: "clear",
-    badge: "border-emerald-500/20 bg-emerald-500/15 text-emerald-400",
-    bar: "bg-emerald-500",
-    text: "text-emerald-300",
+    badge: "border-signal/25 bg-signal/10 text-signal",
+    bar: "bg-signal",
+    text: "text-signal",
   },
 }
 
 const moveToneClass = {
-  emerald: "border-emerald-500/20 bg-emerald-500/[0.04]",
-  amber: "border-amber-500/20 bg-amber-500/[0.04]",
+  emerald: "border-signal/25 bg-signal/[0.04]",
+  amber: "border-ochre/25 bg-ochre/[0.04]",
   red: "border-red-500/20 bg-red-500/[0.04]",
-  zinc: "border-zinc-800 bg-zinc-950/40",
+  zinc: "border-border bg-muted/40",
 }
 
 function dollars(n: number) {
@@ -364,17 +364,17 @@ function CapMeter({ pool }: { pool: PoolRow }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-xs text-zinc-500">Effective cap</span>
-        <span className="font-mono text-xs text-zinc-500">
+        <span className="text-xs text-foreground0">Effective cap</span>
+        <span className="font-mono text-xs text-foreground0">
           <span className={meta.text}>{dollars(pool.spendTodayUsd)}</span>
           {pool.capUsd !== null ? ` / ${dollars(pool.capUsd)}` : " / uncapped"}
         </span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
         <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${width}%` }} />
       </div>
       {pace.onPace !== null && pool.status !== "over_cap" && (
-        <p className={`mt-1.5 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-zinc-600"}`}>
+        <p className={`mt-1.5 text-[11px] ${pace.willExhaust ? "text-ochre" : "text-muted-foreground"}`}>
           on pace for {dollars(pace.onPace)} today
           {pace.exhaustAt && ` · cap hit ~${pace.exhaustAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
         </p>
@@ -391,16 +391,16 @@ function PoolLedgerRow({ pool, rootId }: { pool: PoolRow; rootId: string }) {
       ? `inherits ${capLabel(pool.inheritedCapUsd)}`
       : "no hard cap"
   return (
-    <div className="grid gap-3 border-t border-zinc-800 py-4 first:border-t-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,1fr)_minmax(220px,1fr)] lg:items-center">
+    <div className="grid gap-3 border-t border-border py-4 first:border-t-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,1fr)_minmax(220px,1fr)] lg:items-center">
       <div className="min-w-0" style={{ paddingLeft: `${Math.min(pool.depth, 4) * 16}px` }}>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-medium text-zinc-200">{pool.name}</p>
-          <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+          <p className="truncate text-sm font-medium text-foreground">{pool.name}</p>
+          <span className="rounded border border-input px-1.5 py-0.5 text-[10px] font-medium text-foreground0">
             {pool.id === rootId ? "root" : pool.depth === 1 ? "delegated" : "nested"}
           </span>
           <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${meta.badge}`}>{meta.label}</span>
         </div>
-        <p className="mt-1 text-xs text-zinc-600">
+        <p className="mt-1 text-xs text-muted-foreground">
           {pool.activeAgentCount}/{pool.agentCount} agents active
           {pool.childCount > 0 ? ` · ${pool.childCount} child pool${pool.childCount > 1 ? "s" : ""}` : ""}
           {` · ${capSourceText}`}
@@ -411,20 +411,20 @@ function PoolLedgerRow({ pool, rootId }: { pool: PoolRow; rootId: string }) {
 
       <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 lg:grid-cols-2">
         <div>
-          <p className="text-zinc-600">Delegated</p>
-          <p className="mt-1 font-mono text-zinc-300">{dollars(pool.delegatedDailyUsd)}</p>
+          <p className="text-muted-foreground">Delegated</p>
+          <p className="mt-1 font-mono text-foreground">{dollars(pool.delegatedDailyUsd)}</p>
         </div>
         <div>
-          <p className="text-zinc-600">Tokens</p>
-          <p className="mt-1 font-mono text-zinc-300">{dollars(pool.tokenTodayUsd)}</p>
+          <p className="text-muted-foreground">Tokens</p>
+          <p className="mt-1 font-mono text-foreground">{dollars(pool.tokenTodayUsd)}</p>
         </div>
         <div>
-          <p className="text-zinc-600">Grants</p>
-          <p className="mt-1 font-mono text-zinc-300">{pool.activeGrantCount} · {dollars(pool.activeGrantUsd)}</p>
+          <p className="text-muted-foreground">Grants</p>
+          <p className="mt-1 font-mono text-foreground">{pool.activeGrantCount} · {dollars(pool.activeGrantUsd)}</p>
         </div>
         <div>
-          <p className="text-zinc-600">Approvals</p>
-          <p className="mt-1 font-mono text-zinc-300">{pool.pendingApprovals}</p>
+          <p className="text-muted-foreground">Approvals</p>
+          <p className="mt-1 font-mono text-foreground">{pool.pendingApprovals}</p>
         </div>
       </div>
     </div>
@@ -462,8 +462,8 @@ export default async function PoolsPage() {
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Budget pools &amp; allocation</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Budget pools &amp; allocation</h1>
+        <p className="mt-1 text-sm text-foreground0">
           Delegated budgets — child wallets whose spend rolls up here, with hard caps you set or split from the parent.
         </p>
       </div>
@@ -475,9 +475,9 @@ export default async function PoolsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="flex items-center gap-2 text-xs font-normal text-zinc-500">
+            <CardTitle className="flex items-center gap-2 text-xs font-normal text-foreground0">
               <WalletCards className="h-3.5 w-3.5" />
               Root pool cap
             </CardTitle>
@@ -486,47 +486,47 @@ export default async function PoolsPage() {
             <p className="break-words font-mono text-2xl font-semibold leading-tight">{capLabel(rootPool?.capUsd ?? null)}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="flex items-center gap-2 text-xs font-normal text-zinc-500">
+            <CardTitle className="flex items-center gap-2 text-xs font-normal text-foreground0">
               <GitBranch className="h-3.5 w-3.5" />
               Agent authority
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{dollars(rootPool?.delegatedDailyUsd ?? 0)}</p>
-            <p className="mt-1 text-xs text-zinc-600">{dollars(totalTokenBudget)} token budget</p>
+            <p className="mt-1 text-xs text-muted-foreground">{dollars(totalTokenBudget)} token budget</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="flex items-center gap-2 text-xs font-normal text-zinc-500">
+            <CardTitle className="flex items-center gap-2 text-xs font-normal text-foreground0">
               <ShieldCheck className="h-3.5 w-3.5" />
               Spend today
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{dollars(rootPool?.spendTodayUsd ?? 0)}</p>
-            <p className="mt-1 text-xs text-zinc-600">{pressure === null ? "no cap pressure" : `${pct(pressure)} of cap`}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{pressure === null ? "no cap pressure" : `${pct(pressure)} of cap`}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="flex items-center gap-2 text-xs font-normal text-zinc-500">
+            <CardTitle className="flex items-center gap-2 text-xs font-normal text-foreground0">
               <Route className="h-3.5 w-3.5" />
               Strategy
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="break-words text-base font-semibold leading-snug text-zinc-100">{currentStrategy}</p>
-            <p className="mt-1 text-xs text-zinc-600">{moves.length} allocation signal{moves.length === 1 ? "" : "s"}</p>
+            <p className="break-words text-base font-semibold leading-snug text-foreground">{currentStrategy}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{moves.length} allocation signal{moves.length === 1 ? "" : "s"}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="border-border bg-card">
         <CardHeader className="px-5 pt-5 pb-2">
-          <CardTitle className="text-sm font-medium text-zinc-300">Authority controls</CardTitle>
+          <CardTitle className="text-sm font-medium text-foreground">Authority controls</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           {view.isSession ? (
@@ -550,12 +550,12 @@ export default async function PoolsPage() {
           ) : (
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
               {["Create delegated pool", "Apply allocation", "Set pool cap", "Move agent"].map((label) => (
-                <div key={label} className="rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
-                  <p className="text-sm font-medium text-zinc-300">{label}</p>
-                  <p className="mt-1 text-xs text-zinc-600">Log in to edit authority.</p>
+                <div key={label} className="rounded-md border border-border bg-muted/40 p-4">
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Log in to edit authority.</p>
                 </div>
               ))}
-              <Link href="/login" className="inline-flex w-fit rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 lg:col-span-2 xl:col-span-4">
+              <Link href="/login" className="inline-flex w-fit rounded-md bg-signal px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 lg:col-span-2 xl:col-span-4">
                 Log in
               </Link>
             </div>
@@ -564,12 +564,12 @@ export default async function PoolsPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-5 pt-5 pb-2">
             <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-sm font-medium text-zinc-300">Authority pools</CardTitle>
+              <CardTitle className="text-sm font-medium text-foreground">Authority pools</CardTitle>
               {pools.truncated && (
-                <span className="flex items-center gap-1 text-xs text-amber-400">
+                <span className="flex items-center gap-1 text-xs text-ochre">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   truncated
                 </span>
@@ -591,16 +591,16 @@ export default async function PoolsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-5 pt-5 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-300">Smart allocation preview</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Smart allocation preview</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 px-5 pb-5">
             {moves.map((move) => (
               <div key={move.id} className={`rounded-md border px-3 py-3 ${moveToneClass[move.tone]}`}>
-                <p className="text-sm font-medium text-zinc-200">{move.title}</p>
-                <p className="mt-1 text-xs text-zinc-500">{move.detail}</p>
-                <p className="mt-2 text-xs text-zinc-400">{move.impact}</p>
+                <p className="text-sm font-medium text-foreground">{move.title}</p>
+                <p className="mt-1 text-xs text-foreground0">{move.detail}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{move.impact}</p>
               </div>
             ))}
           </CardContent>
@@ -608,9 +608,9 @@ export default async function PoolsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-300">Model allocation · this month</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Model allocation · this month</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {pools.modelCosts.length === 0 && (
@@ -626,11 +626,11 @@ export default async function PoolsPage() {
                 return (
                   <div key={model.model}>
                     <div className="flex items-center justify-between gap-3">
-                      <p className="truncate font-mono text-xs text-zinc-300">{model.model}</p>
-                      <span className="shrink-0 font-mono text-xs text-zinc-500">{dollars(cost)} · {pct(share)}</span>
+                      <p className="truncate font-mono text-xs text-foreground">{model.model}</p>
+                      <span className="shrink-0 font-mono text-xs text-foreground0">{dollars(cost)} · {pct(share)}</span>
                     </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.round(share * 100)}%` }} />
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-signal" style={{ width: `${Math.round(share * 100)}%` }} />
                     </div>
                   </div>
                 )
@@ -639,31 +639,31 @@ export default async function PoolsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-300">Current envelope</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Current envelope</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-xs text-zinc-600">Active grant exposure</p>
-                <p className="mt-1 font-mono text-lg text-zinc-200">{dollars(rootPool?.activeGrantUsd ?? 0)}</p>
-                <p className="text-xs text-zinc-600">{rootPool?.activeGrantCount ?? 0} active grants</p>
+                <p className="text-xs text-muted-foreground">Active grant exposure</p>
+                <p className="mt-1 font-mono text-lg text-foreground">{dollars(rootPool?.activeGrantUsd ?? 0)}</p>
+                <p className="text-xs text-muted-foreground">{rootPool?.activeGrantCount ?? 0} active grants</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-600">Month approved spend</p>
-                <p className="mt-1 font-mono text-lg text-zinc-200">{dollars(rootPool?.spendMonthUsd ?? 0)}</p>
-                <p className="text-xs text-zinc-600">{dollars(rootPool?.tokenTodayUsd ?? 0)} tokens today</p>
+                <p className="text-xs text-muted-foreground">Month approved spend</p>
+                <p className="mt-1 font-mono text-lg text-foreground">{dollars(rootPool?.spendMonthUsd ?? 0)}</p>
+                <p className="text-xs text-muted-foreground">{dollars(rootPool?.tokenTodayUsd ?? 0)} tokens today</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-600">Pending approvals</p>
-                <p className="mt-1 font-mono text-lg text-zinc-200">{rootPool?.pendingApprovals ?? 0}</p>
-                <Link href="/dashboard/approvals" className="text-xs text-emerald-400 hover:text-emerald-300">Open inbox</Link>
+                <p className="text-xs text-muted-foreground">Pending approvals</p>
+                <p className="mt-1 font-mono text-lg text-foreground">{rootPool?.pendingApprovals ?? 0}</p>
+                <Link href="/dashboard/approvals" className="text-xs text-signal hover:text-signal">Open inbox</Link>
               </div>
               <div>
-                <p className="text-xs text-zinc-600">Denied this month</p>
-                <p className="mt-1 font-mono text-lg text-zinc-200">{rootPool?.deniedMonth ?? 0}</p>
-                <Link href="/dashboard/spend" className="text-xs text-emerald-400 hover:text-emerald-300">Open spend</Link>
+                <p className="text-xs text-muted-foreground">Denied this month</p>
+                <p className="mt-1 font-mono text-lg text-foreground">{rootPool?.deniedMonth ?? 0}</p>
+                <Link href="/dashboard/spend" className="text-xs text-signal hover:text-signal">Open spend</Link>
               </div>
             </div>
           </CardContent>

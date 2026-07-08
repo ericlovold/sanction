@@ -129,7 +129,7 @@ function Copy({ value, onCopy }: { value: string; onCopy?: () => void }) {
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
-      className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+      className="shrink-0 rounded border border-input px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
     >
       {done ? "copied" : "copy"}
     </button>
@@ -138,14 +138,14 @@ function Copy({ value, onCopy }: { value: string; onCopy?: () => void }) {
 
 function Toggle<T extends string>({ options, value, onChange }: { options: readonly T[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="flex gap-1 rounded-md border border-zinc-800 bg-zinc-950 p-0.5">
+    <div className="flex gap-1 rounded-md border border-border bg-card p-0.5">
       {options.map((o) => (
         <button
           key={o}
           type="button"
           onClick={() => onChange(o)}
           className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-            o === value ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+            o === value ? "bg-muted text-foreground" : "text-foreground0 hover:text-foreground"
           }`}
         >
           {o}
@@ -163,25 +163,25 @@ export function ConnectApp({ agentKey, showWatch = true }: { agentKey: string; s
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-muted-foreground">
         Point your existing SDK at Sanction. You keep your provider key — Sanction just meters and caps every call, across providers, on one key.
       </p>
       <div className="flex flex-wrap gap-2">
         <Toggle options={PROVIDERS} value={provider} onChange={setProvider} />
         <Toggle options={LANGS} value={lang} onChange={setLang} />
       </div>
-      <div className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5">
-        <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-300">{install}</code>
+      <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{install}</code>
         <Copy value={install} />
       </div>
       <div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] uppercase tracking-wide text-zinc-500">
+          <span className="text-[11px] uppercase tracking-wide text-foreground0">
             {provider} · {lang}
           </span>
           <Copy value={code} onCopy={() => track("snippet_copied", { provider, lang })} />
         </div>
-        <pre className="mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+        <pre className="mt-1 overflow-x-auto rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-foreground">
           <code>{code}</code>
         </pre>
       </div>

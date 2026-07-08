@@ -155,6 +155,24 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Design Direction
 
-- Dark theme, zinc/slate palette. Minimal, serious, enterprise-appropriate — not playful.
+- **"Secure instrument"** (approved by Eric 2026-07-08): light mode is the
+  default — a deep-pine control rail (stays dark in both themes) framing a
+  crisp, hairline-ruled near-white workpaper. Dark mode is retained behind
+  the sidebar toggle. Audience is a CFO/governance buyer: trust through
+  restraint and precision, never decoration.
+- The language: bordered registers divided by hairlines (no floating
+  shadowed cards), tabular-nums monospace for money and counts, minimal
+  radius, spaced-caps eyebrow section headers, uppercase action chips.
+- Color discipline: **pine** (`primary`) is the single structural accent and
+  the action color; **ochre** (`ochre`) is the warm secondary — attention
+  counts, escalation, the "Signed ledger" trust marker; **emerald**
+  (`signal`) marks live/approved states ONLY and is never a button fill;
+  **brick** (`destructive`) for denial.
+- Product surfaces (dashboard, /start, /login) use semantic tokens from
+  `app/globals.css` exclusively — no hardcoded `zinc-*`/`amber-*`/
+  `emerald-*` utilities. Rejected looks (do not reintroduce): warm
+  beige/oatmeal canvases, soft-mint bubbles, candy-green buttons, big
+  radii — they read as consumer marketing. Marketing/docs pages
+  (`/`, `/why`, `/docs`, …) remain hardcoded-dark pending their own pass.
 - Data-dense dashboard — operators want numbers, not marketing copy.
 - Brand: Sanction = authorized + constrained. Trust through limits.

@@ -20,7 +20,7 @@ function Copy({ value }: { value: string }) {
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
-      className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+      className="shrink-0 rounded border border-input px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
     >
       {done ? "copied" : "copy"}
     </button>
@@ -31,11 +31,11 @@ function Field({ label, value, hint }: { label: string; value: string; hint?: st
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</span>
-        {hint && <span className="text-[10px] text-amber-400/80">{hint}</span>}
+        <span className="text-[11px] uppercase tracking-wide text-foreground0">{label}</span>
+        {hint && <span className="text-[10px] text-ochre/80">{hint}</span>}
       </div>
-      <div className="mt-1 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5">
-        <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-200">{value}</code>
+      <div className="mt-1 flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{value}</code>
         <Copy value={value} />
       </div>
     </div>
@@ -65,7 +65,7 @@ export function CreateWallet() {
   -d '{"action":"purchase","amount_usd":5,"merchant":"OpenAI","category":"software"}'`
     return (
       <div className="space-y-5">
-        <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="rounded-md border border-ochre/25 bg-ochre/10 px-4 py-3 text-sm text-ochre">
           Save these now — the keys are shown once and never again.
         </div>
         <Field label="Agent key (x-api-key — for authorize, tokens)" value={state.agentKey} />
@@ -81,34 +81,34 @@ export function CreateWallet() {
 
         <Disclosure summary="Prefer raw HTTP? Copy the curl">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wide text-zinc-500">authorize — one call</span>
+            <span className="text-[11px] uppercase tracking-wide text-foreground0">authorize — one call</span>
             <Copy value={tryCurl} />
           </div>
-          <pre className="mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+          <pre className="mt-1 overflow-x-auto rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-foreground">
             <code>{tryCurl}</code>
           </pre>
         </Disclosure>
 
         <Disclosure summary="Use it from an MCP host (Claude Desktop, agent runtimes)">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wide text-zinc-500">MCP config</span>
+            <span className="text-[11px] uppercase tracking-wide text-foreground0">MCP config</span>
             <Copy value={mcp} />
           </div>
-          <pre className="mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+          <pre className="mt-1 overflow-x-auto rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-foreground">
             <code>{mcp}</code>
           </pre>
-          <p className="mt-2 text-xs text-zinc-500">
-            Set budgets &amp; categories via <code className="font-mono text-zinc-400">PATCH /api/v1/wallets/policy</code> with your management key.
+          <p className="mt-2 text-xs text-foreground0">
+            Set budgets &amp; categories via <code className="font-mono text-muted-foreground">PATCH /api/v1/wallets/policy</code> with your management key.
           </p>
         </Disclosure>
 
         <div className="flex items-center gap-3 pt-1">
-          <Link href="/dashboard" className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+          <Link href="/dashboard" className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
             Open my dashboard →
           </Link>
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">Back to home</Link>
+          <Link href="/" className="text-sm text-foreground0 hover:text-foreground">Back to home</Link>
         </div>
-        <p className="text-[11px] text-zinc-600">
+        <p className="text-[11px] text-muted-foreground">
           You&apos;re signed in on this device. To return later, go to <span className="font-mono">/login</span> and paste your management key.
         </p>
       </div>
@@ -118,34 +118,34 @@ export function CreateWallet() {
   return (
     <form action={formAction} className="space-y-4">
       <label className="block">
-        <span className="text-[11px] uppercase tracking-wide text-zinc-500">Workspace name</span>
+        <span className="text-[11px] uppercase tracking-wide text-foreground0">Workspace name</span>
         <input
           name="name"
           required
           maxLength={64}
           placeholder="Acme Agents"
-          className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+          className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
         />
       </label>
       <label className="block">
-        <span className="text-[11px] uppercase tracking-wide text-zinc-500">Email</span>
+        <span className="text-[11px] uppercase tracking-wide text-foreground0">Email</span>
         <input
           name="email"
           type="email"
           required
           placeholder="you@company.com"
-          className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+          className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
         />
       </label>
       {!state.ok && state.error && <p className="text-sm text-red-400">{state.error}</p>}
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+        className="w-full rounded-md bg-signal px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
         {pending ? "Creating…" : "Create wallet — free"}
       </button>
-      <p className="text-center text-[11px] text-zinc-600">No card required. You&apos;ll get an agent key and a management key.</p>
+      <p className="text-center text-[11px] text-muted-foreground">No card required. You&apos;ll get an agent key and a management key.</p>
     </form>
   )
 }

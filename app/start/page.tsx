@@ -14,16 +14,16 @@ export const dynamic = "force-dynamic"
 export default function StartPage() {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-zinc-900">
+      <header className="border-b border-border">
         <nav className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
           <Link href="/" className="font-display font-semibold tracking-tight">Sanction</Link>
-          <Link href="/dashboard/spend" className="text-sm text-zinc-400 hover:text-zinc-100">See it live →</Link>
+          <Link href="/dashboard/spend" className="text-sm text-muted-foreground hover:text-foreground">See it live →</Link>
         </nav>
       </header>
 
       <main className="mx-auto max-w-md px-6 py-14">
         <h1 className="font-display text-3xl font-semibold tracking-tight">Create your wallet</h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           A wallet holds your policy; agents get scoped keys. Sign up in one click —
           then your agent asks Sanction before it spends.
         </p>
@@ -32,22 +32,22 @@ export default function StartPage() {
           <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
         </div>
 
-        <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide text-zinc-600">
-          <span className="h-px flex-1 bg-zinc-900" />
+        <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <span className="h-px flex-1 bg-card" />
           or with email
-          <span className="h-px flex-1 bg-zinc-900" />
+          <span className="h-px flex-1 bg-card" />
         </div>
 
         <CreateWallet />
 
-        <div className="my-10 flex items-center gap-3 text-[11px] uppercase tracking-wide text-zinc-600">
-          <span className="h-px flex-1 bg-zinc-900" />
+        <div className="my-10 flex items-center gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <span className="h-px flex-1 bg-card" />
           then connect your agent
-          <span className="h-px flex-1 bg-zinc-900" />
+          <span className="h-px flex-1 bg-card" />
         </div>
 
         <h2 className="font-display text-lg font-semibold tracking-tight">Add Sanction to your stack</h2>
-        <p className="mt-1 text-sm text-zinc-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           One click puts the Sanction tools in front of your agent — it asks before it spends, and every decision is
           logged. Paste the agent key and wallet id from the step above.
         </p>

@@ -49,9 +49,9 @@ export function GatewayWatch({ agentKey }: { agentKey: string }) {
   if (last) {
     const tokens = (last.tokensIn + last.tokensOut).toLocaleString()
     return (
-      <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-2 text-xs">
-        <span className="font-semibold text-emerald-300">✓ First call received</span>
-        <span className="text-zinc-400">
+      <div className="flex items-center gap-2 rounded-md border border-signal/25 bg-signal/10 px-3 py-2 text-xs">
+        <span className="font-semibold text-signal">✓ First call received</span>
+        <span className="text-muted-foreground">
           {last.model} · {tokens} tokens · ${last.costUsd.toFixed(4)} metered
         </span>
       </div>
@@ -59,8 +59,8 @@ export function GatewayWatch({ agentKey }: { agentKey: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-1 text-xs text-zinc-500">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500" />
+    <div className="flex items-center gap-2 px-1 text-xs text-foreground0">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground" />
       Watching for your first call through the gateway…
     </div>
   )

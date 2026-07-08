@@ -193,7 +193,7 @@ function ApprovalRow({
                 name="decision"
                 value="reject"
                 disabled={pending}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:opacity-50"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-sm border border-border px-4 text-xs font-medium uppercase tracking-[0.08em] text-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:opacity-50"
               >
                 <X className="size-4" />
                 Reject
@@ -204,7 +204,7 @@ function ApprovalRow({
                   name="decision"
                   value="approve"
                   disabled={pending}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-sm bg-primary px-4 text-xs font-semibold uppercase tracking-[0.08em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Check className="size-4" />
                   {pending ? "..." : confirmLabel(a)}
@@ -214,7 +214,7 @@ function ApprovalRow({
                   type="button"
                   onClick={arm}
                   disabled={pending}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-sm bg-primary px-4 text-xs font-semibold uppercase tracking-[0.08em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Check className="size-4" />
                   Approve

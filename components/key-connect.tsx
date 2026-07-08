@@ -18,7 +18,7 @@ function Copy({ value }: { value: string }) {
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
-      className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+      className="shrink-0 rounded border border-input px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
     >
       {done ? "copied" : "copy"}
     </button>
@@ -55,21 +55,21 @@ export function KeyConnect({ agentKey, hasRealKey }: { agentKey: string; hasReal
   const [surface, setSurface] = useState<Surface>("Gateway / SDK")
 
   return (
-    <div className="mt-3 space-y-3 rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
+    <div className="mt-3 space-y-3 rounded-md border border-border bg-muted/40 p-3">
       {!hasRealKey && (
-        <p className="text-[11px] text-zinc-500">
-          Keys are shown once. Drop your saved <code className="font-mono text-zinc-400">pxy_</code> value in where you see{" "}
-          <code className="font-mono text-zinc-400">pxy_YOUR_KEY</code> — lost it? Rotate above to mint a fresh one.
+        <p className="text-[11px] text-foreground0">
+          Keys are shown once. Drop your saved <code className="font-mono text-muted-foreground">pxy_</code> value in where you see{" "}
+          <code className="font-mono text-muted-foreground">pxy_YOUR_KEY</code> — lost it? Rotate above to mint a fresh one.
         </p>
       )}
-      <div className="flex flex-wrap gap-1 rounded-md border border-zinc-800 bg-zinc-950 p-0.5">
+      <div className="flex flex-wrap gap-1 rounded-md border border-border bg-card p-0.5">
         {SURFACES.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => setSurface(s)}
             className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-              s === surface ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+              s === surface ? "bg-muted text-foreground" : "text-foreground0 hover:text-foreground"
             }`}
           >
             {s}
@@ -81,15 +81,15 @@ export function KeyConnect({ agentKey, hasRealKey }: { agentKey: string; hasReal
 
       {surface === "Claude (MCP)" && (
         <div className="space-y-2">
-          <p className="text-xs text-zinc-400">
-            Add this to <code className="font-mono text-zinc-300">claude_desktop_config.json</code> (or your Claude Code MCP
-            config). Claude picks up the <code className="font-mono text-zinc-300">sanction</code> tools — authorize, wallet
+          <p className="text-xs text-muted-foreground">
+            Add this to <code className="font-mono text-foreground">claude_desktop_config.json</code> (or your Claude Code MCP
+            config). Claude picks up the <code className="font-mono text-foreground">sanction</code> tools — authorize, wallet
             status, credential injection — on restart.
           </p>
           <div className="flex items-center justify-end">
             <Copy value={mcpConfig(agentKey)} />
           </div>
-          <pre className="overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+          <pre className="overflow-x-auto rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-foreground">
             <code>{mcpConfig(agentKey)}</code>
           </pre>
         </div>
@@ -97,14 +97,14 @@ export function KeyConnect({ agentKey, hasRealKey }: { agentKey: string; hasReal
 
       {surface === "Spend authorize" && (
         <div className="space-y-2">
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-muted-foreground">
             Call this before the agent spends money. Sanction returns approve / escalate / deny against this key&apos;s policy
             and logs it. Under threshold auto-approves; over it escalates to you.
           </p>
           <div className="flex items-center justify-end">
             <Copy value={authorizeCurl(agentKey)} />
           </div>
-          <pre className="overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300">
+          <pre className="overflow-x-auto rounded-md border border-border bg-card p-3 text-[11px] leading-relaxed text-foreground">
             <code>{authorizeCurl(agentKey)}</code>
           </pre>
         </div>
