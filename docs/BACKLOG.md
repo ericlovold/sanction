@@ -42,6 +42,12 @@ conversation, not here.
       owner, finance-as-buyer). Scope is a targeted patch — add the internal
       scenario at the same concreteness, rebalance those artifacts — not a
       reframe. Validate with 2–3 fresh readers before anything bigger.
+      · 2026-07-08, later: independent buyer signal (a real prospect,
+      details in the working conversation) — the pitch was understood
+      immediately and carried forward on the buyer's side. Comprehension is
+      not the problem; the remaining work is specificity vocabulary
+      (department / cost center / budget owner / finance) in the concrete-
+      scenario layer. Fresh-reader validation: half-satisfied by this signal.
 - [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
       scope by draining this backlog through /zoomout at sprint start.
       (commitment, from Eric)
