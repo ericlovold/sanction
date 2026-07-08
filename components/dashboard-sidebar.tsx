@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 // Console shell sidebar. Active state is derived from the path, so pages no longer
 // pass an `active` prop. AccountControl is rendered server-side and passed in via
@@ -58,14 +59,16 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-        active ? "bg-zinc-800/80 text-zinc-100" : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+      className={`group flex items-center gap-3 border-l-2 py-2 pl-3 pr-3 text-sm transition-colors ${
+        active
+          ? "border-sidebar-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+          : "border-transparent text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
       }`}
     >
-      <span className={active ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"}>{item.icon}</span>
+      <span className={active ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"}>{item.icon}</span>
       <span className="flex-1">{item.label}</span>
       {showBadge && (
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">{pending}</span>
+        <span className="rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[oklch(0.82_0.11_85)]">{pending}</span>
       )}
     </Link>
   )
@@ -88,30 +91,39 @@ export function DashboardSidebar({
   const visible = hasPools ? items : items.filter((it) => it.href !== "/dashboard/pools")
   return (
     <>
-      {/* Desktop: persistent left rail */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-zinc-900 bg-zinc-950 px-3 py-5 md:flex">
-        <div className="px-2">
-          <Link href="/" className="font-display text-lg font-semibold tracking-tight text-zinc-100 hover:text-zinc-300">
-            Sanction
+      {/* Desktop: the deep-pine control rail framing the light workpaper */}
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-0 text-sidebar-foreground md:flex">
+        <div className="border-b border-sidebar-border px-4 py-4">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_var(--sidebar-primary)]" />
+            <span className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground">Sanction</span>
           </Link>
-          <p className="mt-0.5 truncate text-xs text-zinc-600">
+          <p className="mt-2 truncate font-mono text-[11px] text-sidebar-foreground/45">
             {view.name}
-            {!view.isSession && <span className="ml-1.5 rounded border border-zinc-800 px-1 py-px text-[10px] text-zinc-500">demo</span>}
+            {!view.isSession && <span className="ml-1.5 rounded-sm border border-sidebar-border px-1 py-px text-[9px]">demo</span>}
           </p>
         </div>
-        <nav className="mt-6 flex flex-1 flex-col gap-1">
+        <nav className="flex flex-1 flex-col py-2">
           {visible.map((it) => (
             <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
           ))}
         </nav>
-        <div className="border-t border-zinc-900 px-2 pt-3">{account}</div>
+        <div className="flex items-center justify-between border-t border-sidebar-border px-3 py-3">
+          <span className="flex items-center gap-1.5 font-display text-[8.5px] uppercase tracking-[0.1em] text-[oklch(0.78_0.11_85)]">
+            <span className="size-1.5 rounded-full bg-[oklch(0.78_0.11_85)]" /> Signed ledger
+          </span>
+          <div className="flex items-center gap-1 text-sidebar-foreground">{account}<ThemeToggle collapsed /></div>
+        </div>
       </aside>
 
       {/* Mobile: top bar with a horizontally scrollable nav */}
-      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-zinc-900 bg-zinc-950/95 px-4 py-3 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground backdrop-blur md:hidden">
         <div className="flex items-center justify-between">
-          <Link href="/" className="font-display text-base font-semibold tracking-tight text-zinc-100">Sanction</Link>
-          {account}
+          <Link href="/" className="flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-sidebar-primary" />
+            <span className="font-display text-[13px] font-semibold uppercase tracking-[0.16em]">Sanction</span>
+          </Link>
+          <div className="flex items-center gap-1">{account}<ThemeToggle collapsed /></div>
         </div>
         <nav className="-mx-1 flex gap-1 overflow-x-auto">
           {visible.map((it) => (
