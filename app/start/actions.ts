@@ -1,11 +1,13 @@
 "use server"
 
 import { z } from "zod"
-import { headers } from "next/headers"
+import { track } from "@vercel/analytics/server"
+import { cookies, headers } from "next/headers"
 import { db } from "@/lib/db"
 import { generateManagementKey, generateApiKey } from "@/lib/apiKey"
 import { setSession } from "@/lib/session"
 import { rateLimit, ipFromHeaders } from "@/lib/rateLimit"
+import { ACQ_COOKIE, parseAcquisitionCookie } from "@/lib/acquisition"
 
 const schema = z.object({
   name: z.string().trim().min(1).max(64),
@@ -31,6 +33,10 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
   const existing = await db.wallet.findUnique({ where: { ownerEmail: email } })
   if (existing) return { ok: false, error: "A wallet already exists for that email." }
 
+  // First-touch attribution, captured by the proxy into a cookie on the
+  // visitor's first request. Analytics-grade; absent for direct visits.
+  const acq = parseAcquisitionCookie((await cookies()).get(ACQ_COOKIE)?.value)
+
   const mgmt = generateManagementKey()
   const wallet = await db.wallet.create({
     data: {
@@ -38,6 +44,11 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
       ownerEmail: email,
       mgmtKeyHash: mgmt.hash,
       mgmtKeyPrefix: mgmt.prefix,
+      acqSource: acq?.source,
+      acqMedium: acq?.medium,
+      acqCampaign: acq?.campaign,
+      acqReferrer: acq?.referrer,
+      acqLanding: acq?.landing,
       policy: { create: {} },
     },
   })
@@ -47,6 +58,11 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
   await db.agent.create({
     data: { walletId: wallet.id, name: agentName, apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
   })
+
+  // Server-side twin of the client `track("wallet_created")` — immune to ad
+  // blockers and script failures, so the signup count in Vercel Analytics
+  // stays trustworthy even when the browser event doesn't fire.
+  void track("wallet_created", { source: "web", channel: acq?.source ?? "direct" }).catch(() => {})
 
   // Log them in immediately so the dashboard is one click away.
   await setSession(mgmt.raw)

@@ -19,6 +19,14 @@ python3 examples/gemini_agent.py
 You'll see real Gemini calls logged as token usage, then three spend attempts:
 `$8` approved, `$45` escalated (waits for a human), `$5` crypto denied.
 
+## Framework examples
+
+Same two first-successes (metered call + authorize decision), one per framework —
+each runs in ~2 minutes after `source <(bash examples/setup.sh)`:
+
+- [`vercel-ai-sdk/`](vercel-ai-sdk/) — Vercel AI SDK (Node), gateway + authorize
+- [`langchain/`](langchain/) — LangChain (Python), gateway + authorize
+
 ## Approving the escalation
 
 `setup.sh` prints your `wallet_id` and `management_key`. While the agent waits:

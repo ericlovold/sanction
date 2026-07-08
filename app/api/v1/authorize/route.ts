@@ -36,6 +36,14 @@ const schema = z.object({
   category: z.string(),
   description: z.string().optional(),
   grant_id: z.string().optional(),
+  // Attribution tags (e.g. {channel: "paid-media", play: "d2c-search"}): stored
+  // on the decision and surfaced in the audit feed/CSV so spend rolls up by
+  // whatever dimensions the operator reports on. Inert to the decision itself —
+  // rules never read tags (determinism: same request + policy ⇒ same outcome).
+  tags: z
+    .record(z.string().trim().min(1).max(40), z.string().trim().min(1).max(80))
+    .refine((t) => Object.keys(t).length <= 8, { message: "At most 8 tags" })
+    .optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -56,7 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { action, amount_usd, merchant, category, description, grant_id } = parsed.data
+  const { action, amount_usd, merchant, category, description, grant_id, tags } = parsed.data
   if (simulate && grant_id) {
     return NextResponse.json({ error: "grant_id cannot be used with simulate=true" }, { status: 400 })
   }
@@ -91,7 +99,18 @@ export async function POST(req: NextRequest) {
     if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
   }
 
-  const base = { agentId: agent.id, action, amountUsd: amount_usd, merchant, category, description, idempotencyKey }
+  // Spend rows keep detailsJson free (provision writes its own shape in its own
+  // route), so attribution tags ride there without a schema change.
+  const base = {
+    agentId: agent.id,
+    action,
+    amountUsd: amount_usd,
+    merchant,
+    category,
+    description,
+    idempotencyKey,
+    detailsJson: tags ? { tags } : undefined,
+  }
   const amountCents = Math.round(amount_usd * 100)
 
   const ancestorChain = await walletAncestorChain(db, agent.walletId)

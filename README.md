@@ -67,13 +67,15 @@ agents wherever they run:
 - **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
 - **TypeScript SDK** — `@sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
-- **AWS Bedrock Action Group** — enterprise agent orchestration
+- **AWS Bedrock Action Group** — enterprise agent orchestration ([setup guide](docs/BEDROCK.md))
 - **LLM gateway** — cross-provider metering with no code changes
 
 Guides: [Quickstart](docs/QUICKSTART.md) ·
 [Starter kit](docs/STARTER-KIT.md) ·
 [LangChain](docs/LANGCHAIN.md) · [CrewAI](docs/CREWAI.md) ·
 [Vercel AI SDK](docs/VERCEL-AI-SDK.md) ·
+[Bedrock Agents](docs/BEDROCK.md) ·
+[Agent fleets](docs/AGENT-FLEETS.md) ·
 [AuthZEN PDP](docs/AUTHZEN.md) ·
 [Multi-tenant runbook](docs/INTEGRATION.md) ·
 [Notifications](docs/NOTIFICATIONS.md)

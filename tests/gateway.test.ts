@@ -101,14 +101,14 @@ describe("tokenBudgetUsd — per-agent override > wallet policy > none", () => {
   const wallet = (cents: number | null) => ({ wallet: { policy: cents == null ? null : { dailyTokenBudgetUsd: cents } } })
 
   it("uses the per-agent override (cents→dollars)", () => {
-    expect(tokenBudgetUsd({ id: "a", isActive: true, dailyTokenBudgetUsd: 5000, ...wallet(10000) })).toBe(50)
+    expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: 5000, ...wallet(10000) })).toBe(50)
   })
 
   it("falls back to the wallet policy when no override", () => {
-    expect(tokenBudgetUsd({ id: "a", isActive: true, dailyTokenBudgetUsd: null, ...wallet(10000) })).toBe(100)
+    expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: null, ...wallet(10000) })).toBe(100)
   })
 
   it("is null (no enforcement) when neither is set", () => {
-    expect(tokenBudgetUsd({ id: "a", isActive: true, dailyTokenBudgetUsd: null, ...wallet(null) })).toBeNull()
+    expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: null, ...wallet(null) })).toBeNull()
   })
 })

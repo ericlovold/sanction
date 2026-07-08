@@ -11,6 +11,75 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-08 — Org-level console visibility across the subtree (extends
+      the 07-05 console/API parity entry): the root owner's Approvals and
+      Audit pages are scoped to the root wallet only (getViewWallet → one
+      wallet), so departmental escalations and audit trails are visible only
+      to each pool owner; GET /api/v1/wallets/tree has the rollup but no
+      console surface. Add subtree scope to approvals/audit (read-only for
+      the org owner) + a tree view. (gap, from architecture walkthrough)
+- [ ] 2026-07-08 — Install event instrumentation (P1, from distribution
+      review): track the funnel per channel — MCP deeplink clicks, config
+      copies, OAuth starts, doc CTA clicks, and first governed call by
+      channel. Define the funnel event schema first; acquisition capture
+      (utm/src → wallet, shipped same day) is the upstream half. Success
+      metric across all channels: time-to-first-governed-decision < 10 min.
+      (idea, from distribution review)
+- [ ] 2026-07-08 — Install center UX (P1, from distribution review): one
+      "Choose your channel" page — MCP / Bedrock / Vercel AI SDK / LangChain —
+      with estimated setup time and a first-success checklist per channel.
+      Additive inside the existing PWA/dashboard shell, then promote to the
+      default discovery entrypoint. Follow-up: A/B MCP-first vs
+      channel-picker-first onboarding; ICE-score the experiment backlog and
+      set per-channel success thresholds. (idea, from distribution review)
+- [ ] 2026-07-08 — Consulting/services discoverability: the services page lives
+      at /about ("Work with Eric") but its only entry point is a footer link
+      labeled "Consulting" — external reviewers concluded the services offer
+      didn't exist (one report cites /consulting as a 404, likely from typing
+      the label as a URL). If services becomes a real lane: give it a proper
+      /consulting route (or redirect), align label and destination, and
+      surface it above the footer. (fix, surfaced by external field scan)
+- [ ] 2026-07-08 — Positioning review (external feedback; full text in the
+      working conversation): the storefront (home, /why, /architecture, docs,
+      license) consistently frames Sanction as a runtime authorization plane
+      for production/embedded agents — a developer/platform buyer — while the
+      internal-usage story (govern your own org's AI spend by team/department,
+      budgets and chargeback for yourself, finance as a buyer) is nearly
+      absent, even though the primitives (nested wallets, gateway metering,
+      budget cascades, roll-up) already support it. Evaluate: add an
+      internal-spend-governance lane vs. reposition. (feedback, via Eric)
+      · 2026-07-08, same day: Eric confirmed internal spend governance was
+      the intended primary use case all along (now recorded in AGENTS.md
+      § Business Context) — the entry upgrades from "evaluate the critique"
+      to "close the storefront/intent gap"; still open: how (lane vs.
+      reframe) and the services-vs-product end-state call.
+      · 2026-07-08 evidence check (grep of app/ copy): the homepage already
+      leads with the internal message ("Autonomy for your agents. Authority
+      for your team.") — the external anchoring is concentrated in a few
+      named-scenario artifacts (docs use-case card "Multi-tenant platforms /
+      running agents for many customers", the multi-tenant runbook's framing,
+      the license buyer list), while no equivalently concrete internal-org
+      scenario is named anywhere (0 hits: department, cost center, budget
+      owner, finance-as-buyer). Scope is a targeted patch — add the internal
+      scenario at the same concreteness, rebalance those artifacts — not a
+      reframe. Validate with 2–3 fresh readers before anything bigger.
+      · 2026-07-08, later: independent buyer signal (a real prospect,
+      details in the working conversation) — the pitch was understood
+      immediately and carried forward on the buyer's side. Comprehension is
+      not the problem; the remaining work is specificity vocabulary
+      (department / cost center / budget owner / finance) in the concrete-
+      scenario layer. Fresh-reader validation: half-satisfied by this signal.
+- [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
+      scope by draining this backlog through /zoomout at sprint start.
+      (commitment, from Eric)
+- [ ] 2026-07-08 — "Sanctuary" track: a mission-driven companion project under
+      the Sanction umbrella — Moral Intention Analyst (MIA), an ethics/intent
+      analysis agent built with an external collaborator (engaged and keen;
+      partnership specifics live in the working conversation). Eric to help
+      drive traffic to it as Sanction's mission arm. Needs an arc: scope what
+      MIA is, where it lives (this repo? sibling?), and what "Sanctuary"
+      means as a product surface. (idea + collaboration, from Eric)
+
 - [ ] 2026-07-05 — Console/API parity: surface the API-only capabilities in the
       operator console — simulate + pack picker on the policy page, a capability
       rule editor (CAP-1 deferred it), an audit/reporting page with CSV export
@@ -59,6 +128,42 @@ conversation, not here.
       revisit if the competitive picture changes.
 
 ## Closed
+
+- [x] 2026-07-08 — Agent-fleet parity packaging (from a prospect's platform
+      concept where Sanction is the embedded cost governor; specifics in the
+      working conversation). Enforcement is ~there; the drop-in gaps, ranked:
+      (1) integration guide "Sanction for agent fleets" — channel→pool,
+      fleet-agent→agent key, envelope→policy mapping, and the outcome-ceiling
+      pattern (external learning layer computes cost-per-outcome, throttles
+      via the management API: lower caps / pause agent); (2) optional
+      metadata/tags on /authorize, stored on the transaction and rolled up in
+      reporting/CSV, so spend attributes to channel/play/campaign natively;
+      (3) fleet kill-switch — one action pauses all agents in a subtree;
+      (4) marketing-fleet policy pack in the PACK-1 catalog (envelope +
+      escalation + kill-switch preset); (5) monthly token budgets (today
+      token caps are daily-only; spend caps have monthly) — pairs with the
+      queued pooled-token-cap entry; (6) roadmap, not now: a native
+      cost-per-outcome ratio primitive (Sanction learns outcomes, enforces
+      ratio ceilings itself). (feature set, from prospect concept)
+      · 2026-07-08, same day: **all six closed.** (1) docs/AGENT-FLEETS.md shipped
+      then revised to native primitives; (2) tags on /authorize shipped;
+      (3) landed on main independently as wallet freeze (KILL-1, ancestor
+      walk); (4) fleet-channel-envelope pack shipped; (5) monthly + pooled
+      token caps shipped; (6) landed on main independently as CPO-1
+      (outcome ingestion + ceilings). Fleet parity is now fully native.
+- [x] 2026-07-08 — Pooled department token cap (from the internal-E2E
+      walkthrough): wallet-policy dailyTokenBudgetUsd acts as a per-agent
+      default in the gateway (lib/gateway.ts tokenBudgetUsd/isBudgetExhausted
+      aggregate per agent), and the subtree cascade only counts /authorize
+      dollars — so "Engineering may not exceed $N/day in tokens as a
+      department" is visible (pools page) but not enforceable. For the
+      confirmed internal-governance use case this is the flagship hard-cap.
+      Likely shape: count token costs into WalletBudgetCounter (or a sibling
+      counter) and have the gateway check the ancestor chain like /authorize
+      does. (gap, from architecture walkthrough)
+      · 2026-07-08, same day: **shipped** — subtreeDailyTokenCapUsd on policy,
+      enforced pre-call at the gateway via the ancestor walk (402 names the
+      horizon + pool); plus per-seat monthly token budgets. 8 unit tests.
 
 - [x] 2026-07-05 — Policy packs: installable starters. **Promoted** → PACK-1,
       pack catalog + 30-day simulation preview + one-call apply.

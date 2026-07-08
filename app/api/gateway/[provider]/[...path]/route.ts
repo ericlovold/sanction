@@ -71,11 +71,28 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
     return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403, headers: noStore })
   }
 
-  // Enforce the daily token budget before the call: if exhausted, don't spend.
-  const { exhausted, spent, budget } = await isBudgetExhausted(agent)
+  // Token budget wall before the call: seat daily, seat monthly, then pooled
+  // subtree caps up the wallet tree — if any line is spent, don't call out.
+  const { exhausted, spent, budget, horizon, capWalletId } = await isBudgetExhausted(agent)
   if (exhausted) {
+    const which = horizon ?? "daily"
+    const label =
+      which === "subtree-daily"
+        ? "Pool daily token cap exhausted"
+        : which === "monthly"
+          ? "Monthly token budget exhausted"
+          : "Daily token budget exhausted"
     return NextResponse.json(
-      { error: "Daily token budget exhausted", daily_limit_usd: budget, daily_spent_usd: spent },
+      {
+        error: label,
+        horizon: which,
+        limit_usd: budget,
+        spent_usd: spent,
+        // Back-compat fields for existing integrations (daily wall shape).
+        daily_limit_usd: which === "daily" ? budget : undefined,
+        daily_spent_usd: which === "daily" ? spent : undefined,
+        cap_wallet_id: capWalletId,
+      },
       { status: 402, headers: noStore },
     )
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { track } from "@vercel/analytics/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateManagementKey } from "@/lib/apiKey"
@@ -66,6 +67,10 @@ export async function POST(req: NextRequest) {
     }
     throw e
   }
+
+  // Server-side signup event: API signups never fired the browser
+  // wallet_created event, so this is the only counter that sees them.
+  void track("wallet_created", { source: parent_id ? "api:sub-account" : "api" }).catch(() => {})
 
   return NextResponse.json({
     id: wallet.id,

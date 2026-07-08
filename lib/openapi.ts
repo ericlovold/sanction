@@ -40,6 +40,13 @@ export const spec = {
           merchant: { type: "string", description: "Vendor or service name" },
           category: { type: "string", description: "Spend category (e.g. software, services, research, infrastructure)" },
           description: { type: "string", description: "Optional description of what this spend is for" },
+          tags: {
+            type: "object",
+            additionalProperties: { type: "string", maxLength: 80 },
+            maxProperties: 8,
+            description:
+              "Optional attribution tags (≤8; e.g. {\"channel\":\"paid-media\",\"play\":\"d2c-search\"}). Stored on the decision and surfaced in the audit feed/CSV for rollups. Never read by policy rules.",
+          },
           grant_id: {
             type: "string",
             description: "Short-lived approval grant returned from GET /authorize/{request_id}. Retry the exact approved request with this field to consume the grant.",
@@ -414,6 +421,7 @@ export const spec = {
           wallet_id: { type: "string" },
           agent_id: { type: "string" },
           daily_token_budget_usd: { type: "number", minimum: 0, nullable: true },
+          monthly_token_budget_usd: { type: "number", minimum: 0, nullable: true, description: "Optional per-seat monthly token cap (dollars). Null clears (inherit / daily-only)." },
           daily_spend_budget_usd: { type: "number", minimum: 0, nullable: true },
           per_transaction_max_usd: { type: "number", minimum: 0, nullable: true },
           escalate_over_usd: { type: "number", minimum: 0, nullable: true },
@@ -444,9 +452,11 @@ export const spec = {
         description: "Wallet spend policy. Amounts in dollars.",
         properties: {
           daily_token_budget_usd: { type: "number" },
+          monthly_token_budget_usd: { type: "number", nullable: true, description: "Optional per-seat monthly token cap (dollars). Null = daily budget only." },
           daily_spend_budget_usd: { type: "number" },
           monthly_spend_budget_usd: { type: "number", nullable: true, description: "Optional monthly spend cap (dollars). Null disables the monthly limit." },
           subtree_daily_cap_usd: { type: "number", nullable: true, description: "Optional tree-wide daily cap for this wallet and all descendants. Null disables subtree cap enforcement." },
+          subtree_daily_token_cap_usd: { type: "number", nullable: true, description: "Optional pooled daily token cap: today's token cost across every seat in this wallet's subtree may not exceed this (gateway enforces pre-call). Null disables." },
           per_transaction_max_usd: { type: "number" },
           auto_approve_under_usd: { type: "number", description: "At or under this, auto-approve and never escalate (floor wins over escalation)." },
           escalate_over_usd: { type: "number", description: "Over this (and over the auto-approve floor), escalate to a human." },
@@ -463,9 +473,11 @@ export const spec = {
         properties: {
           wallet_id: { type: "string" },
           daily_token_budget_usd: { type: "number", minimum: 0 },
+          monthly_token_budget_usd: { type: "number", minimum: 0, nullable: true },
           daily_spend_budget_usd: { type: "number", minimum: 0 },
           monthly_spend_budget_usd: { type: "number", minimum: 0, nullable: true, description: "Optional monthly spend cap (dollars). Null disables the monthly limit." },
           subtree_daily_cap_usd: { type: "number", minimum: 0, nullable: true },
+          subtree_daily_token_cap_usd: { type: "number", minimum: 0, nullable: true },
           per_transaction_max_usd: { type: "number", minimum: 0 },
           auto_approve_under_usd: { type: "number", minimum: 0 },
           escalate_over_usd: { type: "number", minimum: 0 },

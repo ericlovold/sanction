@@ -44,6 +44,16 @@ model Wallet {
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  // Acquisition attribution (additive): first-touch channel captured at signup,
+  // so the funnel can tie source channel → wallet → first governed decision.
+  // Written once at creation from the acquisition cookie (lib/acquisition.ts);
+  // analytics-grade, never authoritative for anything.
+  acqSource   String? // utm_source or ?src= (e.g. "mcp", "docs", "hn")
+  acqMedium   String? // utm_medium
+  acqCampaign String? // utm_campaign
+  acqReferrer String? // referrer host at first touch
+  acqLanding  String? // first path seen (e.g. "/docs/bedrock")
+
   // Kill-switch: a frozen wallet (or any frozen ancestor) denies every data-plane
   // action — spend, tool, provision, capability, exec, tokens, gateway — with
   // WALLET_FROZEN until unfrozen. Freezing is the owner's one-control stop; it
@@ -67,6 +77,7 @@ model Wallet {
 
   @@index([parentId])
   @@index([userId])
+  @@index([acqSource])
 }
 
 // A business result the wallet's spend is accountable to — an enrollment, a
@@ -235,10 +246,11 @@ model Agent {
   expiresAt DateTime?
 
   // Per-agent budget overrides (cents). Null = inherit the wallet policy.
-  dailyTokenBudgetUsd  Int?
-  dailySpendBudgetUsd  Int?
-  perTransactionMaxUsd Int?
-  escalateOverUsd      Int?
+  dailyTokenBudgetUsd   Int?
+  monthlyTokenBudgetUsd Int?
+  dailySpendBudgetUsd   Int?
+  perTransactionMaxUsd  Int?
+  escalateOverUsd       Int?
 
   wallet          Wallet                 @relation(fields: [walletId], references: [id])
   tokenLogs       TokenLog[]
@@ -264,7 +276,13 @@ model Policy {
   dailyTokenBudgetUsd  Int @default(1000)  // $10
   dailySpendBudgetUsd  Int @default(5000)  // $50
   monthlySpendBudgetUsd Int?               // optional monthly spend cap; null = no monthly limit
+  monthlyTokenBudgetUsd Int?               // optional per-seat monthly token cap (agent override wins); null = daily only
   subtreeDailyCapUsd   Int?                // optional subtree cap; null = no tree-wide cap
+  // Pooled channel/department token cap: today's token cost summed across every
+  // seat in this wallet's subtree may not exceed this. Enforced at the gateway
+  // pre-call, like the per-seat budget — the internal-governance hard stop
+  // ("Engineering ≤ $N/day in tokens as a department"). Null = off.
+  subtreeDailyTokenCapUsd Int?
   perTransactionMaxUsd Int @default(5000)  // $50  — hard cap (deny over)
   autoApproveUnderUsd  Int @default(1000)  // $10  — silent auto-approve floor
   escalateOverUsd      Int @default(2500)  // $25  — escalate above this (must be < perTransactionMaxUsd)

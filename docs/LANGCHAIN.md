@@ -6,6 +6,10 @@
 
 > **Prerequisites:** a Sanction wallet and agent key (`pxy_…`). See the [Quickstart](./quickstart.md).
 
+> **Runnable version:** [`examples/langchain/`](../examples/langchain/) runs the
+> metered call + a real authorize decision end to end in ~2 minutes
+> (`examples/setup.sh` provisions the wallet for you).
+
 ---
 
 ## 1. Install
