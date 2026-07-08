@@ -1,6 +1,7 @@
 "use server"
 
 import { z } from "zod"
+import { track } from "@vercel/analytics/server"
 import { cookies, headers } from "next/headers"
 import { db } from "@/lib/db"
 import { generateManagementKey, generateApiKey } from "@/lib/apiKey"
@@ -57,6 +58,11 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
   await db.agent.create({
     data: { walletId: wallet.id, name: agentName, apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
   })
+
+  // Server-side twin of the client `track("wallet_created")` — immune to ad
+  // blockers and script failures, so the signup count in Vercel Analytics
+  // stays trustworthy even when the browser event doesn't fire.
+  void track("wallet_created", { source: "web", channel: acq?.source ?? "direct" }).catch(() => {})
 
   // Log them in immediately so the dashboard is one click away.
   await setSession(mgmt.raw)
