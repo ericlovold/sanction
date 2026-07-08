@@ -56,7 +56,8 @@ named in the discovery doc but not yet a first-class entity.
 |---------|--------|-----------------------|----------------|
 | **Wallet** | Shipped | `Wallet` | Budget container **and** the account-tree node (`parentId` self-relation). The ownership root. |
 | **User** | Shipped | `User` (Better Auth) | Human identity from Google/GitHub sign-in; owns one or more Wallets. |
-| **Agent** | Shipped | `Agent` | Runtime identity under a Wallet. Optional per-agent budget overrides. |
+| **Agent** | Shipped | `Agent` | Runtime identity under a Wallet. Optional per-agent budget overrides. Product-facing name: **Seat** (next row). |
+| **Seat** | Derived | `Agent.holder` / `Agent.expiresAt` + `AgentClearance` + rotation | The product contract over `Agent` (SEATS-1): an occupiable identity you hand to whoever holds it — named holder, contractor auto-expiry (the key fails closed past the date), rotation that moves the holder while history/budgets/clearance stay with the seat, batch creation from one template. Dashboards and the PWA say **Seat**; the schema and API paths keep the `Agent` noun. |
 | **Agent Key (`pxy_`)** | Shipped | `Agent.apiKeyHash` / `apiKeyPrefix` | Runtime credential; presented as `x-api-key`. SHA-256 hashed at rest. |
 | **Management Key (`sk_`)** | Shipped | `Wallet.mgmtKeyHash` / `mgmtKeyPrefix` | Administrative credential; gates the management plane. Shown once at creation; rotated via `MagicLink`. |
 | **Policy** | Shipped | `Policy` (one per Wallet) | The rules: spend ladder, tool/resource allow-block-escalate lists, escalation timeout + fallback action. |
