@@ -11,9 +11,11 @@ type Last = { model: string; tokensIn: number; tokensOut: number; costUsd: numbe
 const INTERVAL_MS = 5000
 const MAX_ATTEMPTS = 60
 
-export function GatewayWatch({ agentKey }: { agentKey: string }) {
+// "light" renders with brand.css tokens — only use inside a `.sanction`-scoped page.
+export function GatewayWatch({ agentKey, variant = "dark" }: { agentKey: string; variant?: "dark" | "light" }) {
   const [last, setLast] = useState<Last | null>(null)
   const attempts = useRef(0)
+  const light = variant === "light"
 
   useEffect(() => {
     let active = true
@@ -49,9 +51,14 @@ export function GatewayWatch({ agentKey }: { agentKey: string }) {
   if (last) {
     const tokens = (last.tokensIn + last.tokensOut).toLocaleString()
     return (
-      <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-2 text-xs">
-        <span className="font-semibold text-emerald-300">✓ First call received</span>
-        <span className="text-zinc-400">
+      <div
+        className={light ? "flex items-center gap-2 rounded-md border px-3 py-2 text-xs" : "flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-2 text-xs"}
+        style={light ? { borderColor: "var(--status-approved)", background: "var(--status-approved-bg)" } : undefined}
+      >
+        <span className={light ? "font-semibold" : "font-semibold text-emerald-300"} style={light ? { color: "var(--status-approved)" } : undefined}>
+          ✓ First call received
+        </span>
+        <span className={light ? undefined : "text-zinc-400"} style={light ? { color: "var(--text-secondary)" } : undefined}>
           {last.model} · {tokens} tokens · ${last.costUsd.toFixed(4)} metered
         </span>
       </div>
@@ -59,8 +66,8 @@ export function GatewayWatch({ agentKey }: { agentKey: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-1 text-xs text-zinc-500">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500" />
+    <div className={light ? "flex items-center gap-2 px-1 text-xs" : "flex items-center gap-2 px-1 text-xs text-zinc-500"} style={light ? { color: "var(--text-muted)" } : undefined}>
+      <span className={light ? "h-1.5 w-1.5 animate-pulse rounded-full" : "h-1.5 w-1.5 animate-pulse rounded-full bg-zinc-500"} style={light ? { background: "var(--text-muted)" } : undefined} />
       Watching for your first call through the gateway…
     </div>
   )
