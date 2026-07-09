@@ -76,16 +76,26 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Idempotency-Key is REQUIRED here: the binding token is not yet single-use
+  // (jti tracking is the deeper fix), so the key is the replay guard. Without
+  // it, a token replayed within its TTL would open duplicate escalations —
+  // multiple PendingApprovals and grants from one denial. The
+  // agentId_idempotencyKey unique constraint collapses retries to one request.
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
-  if (idempotencyKey) {
-    // Replay reports the request's REAL state — a retry after the owner
-    // decided must not claim "pending".
-    const existing = await db.authorizationRequest.findUnique({
-      where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
-    })
-    if (existing) {
-      return respond(req, taskResponse(existing.id, aarpTaskStatus(existing.status, existing.decisionNote), publicOrigin(req)), 200)
-    }
+  if (!idempotencyKey) {
+    return respond(
+      req,
+      { error: "An Idempotency-Key header is required on access-request submissions (dedupes retries of the same denial)" },
+      400,
+    )
+  }
+  // Replay reports the request's REAL state — a retry after the owner decided
+  // must not claim "pending".
+  const existing = await db.authorizationRequest.findUnique({
+    where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
+  })
+  if (existing) {
+    return respond(req, taskResponse(existing.id, aarpTaskStatus(existing.status, existing.decisionNote), publicOrigin(req)), 200)
   }
 
   const sarc = verified.sarc

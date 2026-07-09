@@ -87,6 +87,15 @@ export type DecideInput = {
   monthlyBudgetCents?: number | null
   autoApproveUnderCents: number
   escalateOverCents: number
+  // Cost-per-outcome ceiling state (CPO-1). Omit when the wallet has no ceiling
+  // configured — the rule is then not applicable. Passing this keeps the shared
+  // ladder (AuthZEN PDP) in lockstep with the native /authorize CPO throttle.
+  cpo?: {
+    ceilingCents: number
+    windowSpendUsd: number
+    windowOutcomes: number
+    minOutcomes: number
+  }
 }
 
 /**
@@ -114,6 +123,7 @@ export function decidePolicy(i: DecideInput): PolicyDecision {
       monthlyBudgetCents: i.monthlyBudgetCents ?? null,
       autoApproveUnderCents: i.autoApproveUnderCents,
       escalateOverCents: i.escalateOverCents,
+      cpo: i.cpo,
     },
     SPEND_LADDER,
   )
@@ -148,6 +158,7 @@ export function decideProvisionPolicy(i: ProvisionDecideInput): PolicyDecision {
       monthlyBudgetCents: i.monthlyBudgetCents ?? null,
       autoApproveUnderCents: i.autoApproveUnderCents,
       escalateOverCents: i.escalateOverCents,
+      cpo: i.cpo,
       resource: i.resource,
       blockedResources: i.blockedResources,
       allowedResources: i.allowedResources,

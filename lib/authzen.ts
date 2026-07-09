@@ -7,6 +7,8 @@ import { decideTool, TOOL_REMEDIATION } from "@/lib/toolDecisions"
 import { CAPABILITY_REMEDIATION, decideCapability, parseCapabilityRules } from "@/lib/capability"
 import { consumeSpendGrant, consumeProvisionGrant, consumeToolGrant, consumeCapabilityGrant, type GrantConsumeResult } from "@/lib/grants"
 import { APPEALABLE_DENIALS } from "@/lib/evidence"
+import { cpoContext } from "@/lib/outcomes"
+import { freezeStateFromChain, frozenNote } from "@/lib/freeze"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
@@ -139,6 +141,11 @@ type PolicyShape = {
   allowedResources: string[]
   escalateResources: string[]
   capabilityRules?: unknown
+  // CPO-1 ceiling config — read into cpoContext for the spend/provision throttle.
+  outcomeKind: string | null
+  costPerOutcomeCeilingUsd: number | null
+  costPerOutcomeWindowDays: number
+  costPerOutcomeMinOutcomes: number
 }
 
 export type AuthZenAgent = {
@@ -176,7 +183,9 @@ function stringProp(props: Record<string, unknown>, key: string): string | undef
 }
 
 // Live budget state, read exactly like the ?simulate=true paths: the agent's
-// approved daily/monthly totals plus the ancestor chain for cascading caps.
+// approved daily/monthly totals, plus the cost-per-outcome window so the PDP
+// throttles a breached ceiling identically to /authorize. The ancestor chain
+// is fetched once by the caller (it also carries freeze state) and passed in.
 async function readSpendState(agent: AuthZenAgent) {
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
@@ -184,7 +193,7 @@ async function readSpendState(agent: AuthZenAgent) {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const [daily, monthly, ancestorChain] = await Promise.all([
+  const [daily, monthly, cpo] = await Promise.all([
     db.authorizationRequest.aggregate({
       where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
       _sum: { amountUsd: true },
@@ -193,12 +202,14 @@ async function readSpendState(agent: AuthZenAgent) {
       where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
       _sum: { amountUsd: true },
     }),
-    walletAncestorChain(db, agent.walletId),
+    // undefined unless the wallet configures a ceiling — same read the native
+    // route and its simulate path use, so the two surfaces cannot drift.
+    agent.wallet.policy ? cpoContext(db, agent.walletId, agent.wallet.policy) : Promise.resolve(undefined),
   ])
   return {
     dailySpentUsd: daily._sum.amountUsd ?? 0,
     monthlySpentUsd: monthly._sum.amountUsd ?? 0,
-    ancestorChain,
+    cpo,
   }
 }
 
@@ -223,6 +234,16 @@ export async function evaluateAuthZen(
       `subject.id '${r.subject.id}' is not the authenticated agent`,
       AUTHZEN_REMEDIATION.SUBJECT_MISMATCH,
     )
+  }
+
+  // KILL-1: a frozen wallet (or any frozen ancestor) is a terminal deny on
+  // every data-plane surface — before the approval redeem write and before the
+  // policy ladder, exactly as the native /authorize route enforces it. The
+  // chain is fetched once here and reused by readSpendState (spend/provision).
+  const ancestorChain = await walletAncestorChain(db, agent.walletId)
+  const freeze = freezeStateFromChain(ancestorChain, agent.walletId)
+  if (freeze.frozen) {
+    return deny("WALLET_FROZEN", frozenNote(freeze), REMEDIATION.WALLET_FROZEN)
   }
 
   // AARP re-evaluation: context.approval redeems the grant. Runs before the
@@ -285,7 +306,7 @@ export async function evaluateAuthZen(
         perTxnMaxCents: effectivePerTransactionMaxCents(
           agent.perTransactionMaxUsd,
           policy.perTransactionMaxUsd,
-          state.ancestorChain,
+          ancestorChain,
         ),
         dailySpentUsd: state.dailySpentUsd,
         dailyBudgetCents: agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd,
@@ -293,8 +314,9 @@ export async function evaluateAuthZen(
         monthlyBudgetCents: policy.monthlySpendBudgetUsd,
         autoApproveUnderCents: policy.autoApproveUnderUsd,
         escalateOverCents: agent.escalateOverUsd ?? policy.escalateOverUsd,
+        cpo: state.cpo,
       })
-      return settleSpendDecision(agent, r, decision, amountUsd, state.ancestorChain, "spend", opts.origin)
+      return settleSpendDecision(agent, r, decision, amountUsd, ancestorChain, "spend", opts.origin)
     }
 
     case "provision": {
@@ -323,7 +345,7 @@ export async function evaluateAuthZen(
         perTxnMaxCents: effectivePerTransactionMaxCents(
           agent.perTransactionMaxUsd,
           policy.perTransactionMaxUsd,
-          state.ancestorChain,
+          ancestorChain,
         ),
         dailySpentUsd: state.dailySpentUsd,
         dailyBudgetCents: agent.dailySpendBudgetUsd ?? policy.dailySpendBudgetUsd,
@@ -331,12 +353,13 @@ export async function evaluateAuthZen(
         monthlyBudgetCents: policy.monthlySpendBudgetUsd,
         autoApproveUnderCents: policy.autoApproveUnderUsd,
         escalateOverCents: agent.escalateOverUsd ?? policy.escalateOverUsd,
+        cpo: state.cpo,
         resource: r.resource.id,
         blockedResources: policy.blockedResources,
         allowedResources: policy.allowedResources,
         escalateResources: policy.escalateResources,
       })
-      return settleSpendDecision(agent, r, decision, amountUsd, state.ancestorChain, "provision", opts.origin)
+      return settleSpendDecision(agent, r, decision, amountUsd, ancestorChain, "provision", opts.origin)
     }
 
     default:

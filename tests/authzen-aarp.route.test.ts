@@ -86,9 +86,12 @@ const AGENT = {
 const subject = { type: "agent", id: AID }
 const escalatedTool = { subject, action: { name: "invoke" }, resource: { type: "tool", id: "github.merge_pr" } }
 
-function req(path: string, body: unknown, opts: { key?: string | null; method?: string } = {}) {
+function req(path: string, body: unknown, opts: { key?: string | null; method?: string; idem?: string | null } = {}) {
   const headers: Record<string, string> = { "content-type": "application/json" }
   if (opts.key !== null) headers["x-api-key"] = opts.key ?? KEY
+  // access-request submissions require an Idempotency-Key (replay guard). Default
+  // one on for the open-escalation tests; pass idem:null to assert its absence.
+  if (path.endsWith("/access-request") && opts.idem !== null) headers["idempotency-key"] = opts.idem ?? "idem-default"
   return new NextRequest(`https://test.local${path}`, {
     method: opts.method ?? "POST",
     headers,
@@ -176,6 +179,16 @@ describe("POST /access/v1/access-request", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "escalated", kind: "tool" }) }),
     )
     expect(dbMock.pendingApproval.create).toHaveBeenCalled()
+  })
+
+  it("requires an Idempotency-Key (replay guard on the not-yet-single-use token)", async () => {
+    const offer = await obtainOffer()
+    const res = await openAccessRequest(
+      req("/api/access/v1/access-request", { ...escalatedTool, denial: { binding_token: offer.binding_token } }, { idem: null }),
+    )
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain("Idempotency-Key")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 
   it("rejects a tampered token with the profile's problem type", async () => {

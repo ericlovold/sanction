@@ -104,9 +104,12 @@ function spendReq(amount_usd: number) {
 }
 
 function jsonReq(path: string, body: unknown) {
+  const headers: Record<string, string> = { "content-type": "application/json", "x-api-key": KEY }
+  // access-request requires an Idempotency-Key (replay guard).
+  if (path.endsWith("/access-request")) headers["idempotency-key"] = "idem-rich-1"
   return new NextRequest(`https://test.local${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": KEY },
+    headers,
     body: JSON.stringify(body),
   })
 }

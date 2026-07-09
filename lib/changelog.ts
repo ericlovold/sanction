@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-09",
+    title: "v0.5.0 — one engine, every surface: AuthZEN + MCP reach parity",
+    version: "0.5.0",
+    tags: ["authzen", "mcp", "governance", "release"],
+    body: "The guarantee Sanction sells — same request, same policy, same state, same decision — now holds *across surfaces*, not just on `/authorize`. The AuthZEN PDP and the MCP tools were built earlier and had quietly fallen behind the native path as new controls landed; this release closes the gap. A **frozen wallet** now denies on the AuthZEN evaluation *and* on grant redemption, exactly as every native route does — no spending through the one-control stop. **Cost-per-outcome ceilings** are enforced on the PDP too, so a spec-conformant enforcement point can't keep buying through a throttled channel. **Token budgets** — the seat's monthly line and the pooled per-department daily cap, not just the daily — are enforced when usage is logged via `/tokens` or MCP, closing a path that drained caps it didn't check. On the MCP side, escalations are no longer a dead end: a new `sanction_check_authorization` tool polls a pending approval for its one-use grant, and config or freeze failures surface their real cause instead of a generic denial. Access-request submissions now require an idempotency key so one approval can't be replayed into many. A cross-surface parity test suite pins it all so the surfaces can't drift again.",
+  },
+  {
     date: "2026-07-07",
     title: "sanction-mcp 0.4.0 — outcomes from any MCP host",
     version: "0.4.0",
