@@ -1,32 +1,43 @@
-// Sanction dashboard service worker — makes the installed PWA feel installed.
+// Sanction dashboard service worker.
 //
-// Strategy, by request type (GET only; actions/POST never touch the SW):
-//   /_next/static/*, /icons/*, fonts  → cache-first (immutable, hashed)
-//   dashboard navigations             → network-first with cache fallback,
-//                                       so a cold/offline launch still paints
-//                                       the last-known page instead of a
-//                                       browser error. Approvals stays
-//                                       network-first too: decisions must
-//                                       never render from stale cache first.
-// Bump VERSION to invalidate everything on deploy.
-const VERSION = "v1"
+// Scope, deliberately narrow: cache-first ONLY for immutable, content-hashed
+// build assets (JS/CSS chunks, icons, fonts). Their URLs change every build,
+// so a cached copy is never stale and a new build always fetches fresh hashes.
+//
+// Everything else — HTML navigations, RSC payloads, API calls — is left to the
+// browser (network). We do NOT cache authenticated dashboard HTML.
+//
+// Why (incident, 2026-07-09): the previous version network-first-cached
+// dashboard HTML and, on a slow/flaky network, served a STALE page from an
+// earlier deploy. That HTML referenced old hashed JS chunks the new deploy no
+// longer serves → the chunks 404 → React never hydrates → every link and button
+// on the page is dead. It read as "the dashboard is frozen," most visibly on
+// mobile (flaky radio triggers the cache fallback far more than desktop wifi).
+// Caching an app that is authenticated + always-dynamic buys ~nothing offline
+// and risks exactly this. So: assets only, navigations always hit the network.
+//
+// Bump VERSION on any change here to purge every prior cache on activate.
+const VERSION = "v2"
 const STATIC_CACHE = `sanction-static-${VERSION}`
-const PAGE_CACHE = `sanction-pages-${VERSION}`
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
+  // Take over immediately so a fix like this reaches users on the next load,
+  // not after every tab is closed.
   self.skipWaiting()
-  event.waitUntil(caches.open(PAGE_CACHE).then((c) => c.addAll(["/dashboard/approvals"]).catch(() => {})))
 })
 
 self.addEventListener("activate", (event) => {
+  // Delete every cache that isn't this version — including the old page cache
+  // that held the stale, dead-chunk HTML.
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => !k.endsWith(VERSION)).map((k) => caches.delete(k))).then(() => self.clients.claim()),
-    ),
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => !k.endsWith(VERSION)).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
   )
 })
 
-function isStaticAsset(url) {
+function isImmutableAsset(url) {
   return (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
@@ -42,41 +53,18 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
 
-  if (isStaticAsset(url)) {
-    event.respondWith(
-      caches.open(STATIC_CACHE).then(async (cache) => {
-        const hit = await cache.match(req)
-        if (hit) return hit
-        const res = await fetch(req)
-        if (res.ok) cache.put(req, res.clone())
-        return res
-      }),
-    )
-    return
-  }
+  // Only immutable, hashed assets are cached. Navigations, RSC, and API
+  // requests are intentionally NOT intercepted — the browser fetches them fresh,
+  // so the page and its chunk references always match the live deploy.
+  if (!isImmutableAsset(url)) return
 
-  // A navigation to /login means the session is over or changing — purge the
-  // cached dashboard pages so a shared device can never replay the previous
-  // account's screens offline.
-  if (req.mode === "navigate" && url.pathname === "/login") {
-    event.waitUntil(caches.delete(PAGE_CACHE))
-    return
-  }
-
-  // Dashboard page navigations: network-first, cached copy as the offline/
-  // slow-network fallback. Never cache non-dashboard routes (marketing pages
-  // change per deploy and auth routes must stay live).
-  if (req.mode === "navigate" && url.pathname.startsWith("/dashboard")) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) caches.open(PAGE_CACHE).then((c) => c.put(req, res.clone())).catch(() => {})
-          return res
-        })
-        .catch(async () => {
-          const cached = await caches.match(req)
-          return cached ?? caches.match("/dashboard/approvals")
-        }),
-    )
-  }
+  event.respondWith(
+    caches.open(STATIC_CACHE).then(async (cache) => {
+      const hit = await cache.match(req)
+      if (hit) return hit
+      const res = await fetch(req)
+      if (res.ok) cache.put(req, res.clone())
+      return res
+    }),
+  )
 })
