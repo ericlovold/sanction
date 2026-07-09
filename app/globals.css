@@ -90,14 +90,17 @@
 }
 
 .dark {
+  /* The dev pages' "beautiful black": near-black canvas, emerald the accent —
+     scoped here so docs/architecture/why/changelog keep their identity while
+     :root stays the dashboard's light workpaper. */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.77 0.15 163); /* emerald-400 — links + CTAs on black */
+  --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
