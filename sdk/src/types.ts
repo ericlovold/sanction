@@ -80,6 +80,30 @@ export interface Decision {
   decidedLocally?: boolean
 }
 
+export interface ToolAuthorizeInput {
+  /** The tool/action about to run, e.g. "github.create_deployment", "shell.exec". */
+  tool: string
+  /** The server/integration it belongs to, e.g. "github" — advisory context. */
+  server?: string
+  /** The arguments the tool would run with — surfaced to the owner on escalation. */
+  input?: unknown
+  /** Redeem a grant minted when the owner approved a prior escalation of this tool. */
+  grantId?: string
+  /** Dedupes retries server-side; the same key returns the original decision. */
+  idempotencyKey?: string
+}
+
+/** A tool authorization decision. Shares the spend Decision's machine contract
+ *  (status/code/requestId) minus the money fields, so adapters branch the same way. */
+export interface ToolDecision {
+  authorized: boolean
+  status: DecisionStatus
+  requestId: string
+  reason?: string
+  code?: DecisionCode
+  remediation?: string
+}
+
 export interface LogTokensInput {
   model: string
   tokensIn: number

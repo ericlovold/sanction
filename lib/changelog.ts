@@ -16,9 +16,9 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-09",
-    title: "Audit exports you can prove weren't touched",
-    tags: ["audit", "evidence", "compliance"],
-    body: "Your decision history was always readable. Now it's *provable*. `GET /v1/audit/export` returns a signed, hash-chained snapshot of every governed decision in a range: each decision commits to a canonical serialization of itself and the hash before it, so altering one number, dropping a row, or reordering the log breaks the chain from that point on — and the chain head is HMAC-signed with Sanction's key. Hand the export to a regulator, an auditor, or the customer whose budget it governs, and they run `POST /v1/audit/verify` (or any conforming verifier — it's self-contained, no database needed) to confirm nothing was changed after signing. A `valid: false` doesn't just flag tampering, it names the first broken link. Honest scope: this makes the *exported evidence* tamper-evident; write-time notarization to catch across-time edits is the next step.",
+    title: "What-if, replayed in order",
+    tags: ["simulation", "policy", "evidence"],
+    body: "The retro-simulation could already tell you which of last week's decisions a candidate policy would flip — but it held budget counters constant, so it couldn't model the knock-on: a policy that denies an early charge *frees that budget* for the request that came after. Now it can. `POST /v1/policy/simulate` takes `mode: \"sequential\"` — it replays the window in chronological order, threading each agent's approved spend forward (daily and monthly counters reset at the UTC boundaries), so a would-denial no longer counts against the requests that follow it. The default stays `as_recorded` (each decision replays with the budget it actually saw); `sequential` shows the week as it *would have lived* under the new policy. Same read-only honesty envelope — nothing persisted, debited, or escalated — and the response says which mode ran and that subtree/pool caps aren't threaded yet.",
   },
   {
     date: "2026-07-09",

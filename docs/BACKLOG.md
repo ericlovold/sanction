@@ -11,19 +11,22 @@ conversation, not here.
 
 ## Open
 
-- [ ] 2026-07-09 — AUDIT-2: write-time chain anchors (strengthen AUDIT-1 across
-      time). AUDIT-1 makes the *exported* evidence tamper-evident — a verifier
-      proves no row changed after signing. It does NOT catch a privileged
-      DB-level rewrite of a decision *before* the export is taken. The fix is a
-      separate, decoupled `AuditAnchor` table + `POST /v1/audit/anchor` that
-      seals the current chain head (root hash + count + range + signature +
-      timestamp) on demand or on a schedule; a later export is then cross-checked
-      against prior anchors, so any retroactive edit shows up as a head that no
-      longer matches a sealed anchor. Deliberately its own isolated write — never
-      touches the hot decision transaction (the 18 AuthorizationRequest.create
-      sites), which is why AUDIT-1 shipped as read-time first. Optional external
-      notarization (S3 Object Lock / RFC-3161 TSA) is a further tier. (follow-up,
-      from the AUDIT-1 build)
+- [ ] 2026-07-09 — Sequential simulation follow-ons (SIM-2 shipped: mode=sequential
+      threads per-agent daily/monthly approved spend forward). Next: (1) thread
+      SUBTREE/pool caps too — the sequential note flags they're held constant, so
+      a pooled cap can't yet free budget across siblings in replay; (2) a dashboard
+      toggle on the policy simulation preview (as-recorded vs sequential) so
+      operators see the cascade without curling; (3) provision-ladder overlay in
+      simulation (still out_of_scope). (feature, from roadmap Next)
+- [ ] 2026-07-09 — Framework adapters, follow-on packages (roadmap Next; the
+      TS foundation shipped: SDK authorizeTool + SanctionMiddleware +
+      sanctionTool for Vercel AI SDK). Remaining, each its own shippable unit:
+      (1) Python package — LiteLLM callback + a sanctioned-tool decorator for
+      LangChain/LangGraph (recipes already in docs/FRAMEWORK-ADAPTERS.md);
+      (2) CrewAI authorize-tool; (3) a runnable examples/ agent per adapter;
+      (4) once gateway vault-injected keys land, drop the "provider keys in
+      runtime" caveat from the adapter checklist. (feature, from roadmap Next)
+
 - [ ] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
       sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —
       move grant redemption out of evaluateAuthZen into the route shell so a

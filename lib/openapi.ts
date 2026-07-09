@@ -1197,7 +1197,7 @@ export const spec = {
         operationId: "simulatePolicy",
         summary: "Replay stored decisions under a candidate policy",
         description:
-          "SIM-1 (retro-simulation): POST a partial candidate policy (dollars, same shape as the policy update) and a range up to 92 days (defaults to the last 7); every stored decision in the window re-runs through the pure ladders with the candidate overlaid on its recorded context, and the response reports what flips — totals by effect, approved-spend delta, and the changed decisions with before/after codes. Read + compute only: nothing is persisted, debited, or escalated. state=as_recorded — budget counters are held as the engine saw them, so cascade effects are not modeled. Owner-only.",
+          "Retro-simulation: POST a partial candidate policy (dollars, same shape as the policy update) and a range up to 92 days (defaults to the last 7); every stored decision in the window re-runs through the pure ladders with the candidate overlaid on its recorded context, and the response reports what flips — totals by effect, approved-spend delta, and the changed decisions with before/after codes. Read + compute only: nothing is persisted, debited, or escalated. mode=as_recorded (SIM-1, default) holds budget counters as the engine saw them; mode=sequential (SIM-2) replays in chronological order threading each agent's approved spend forward, so an early would-denial frees budget for a later request. Owner-only.",
         security: [{ ManagementKey: [] }],
         requestBody: {
           required: true,
@@ -1210,6 +1210,7 @@ export const spec = {
                   wallet_id: { type: "string" },
                   from: { type: "string", format: "date" },
                   to: { type: "string", format: "date" },
+                  mode: { type: "string", enum: ["as_recorded", "sequential"], description: "as_recorded (default, SIM-1): each decision replays with its recorded budget state. sequential (SIM-2): replays in chronological order threading each agent's approved spend forward, so an early would-denial frees budget for a later request." },
                   policy: { $ref: "#/components/schemas/SimulatePolicyCandidate" },
                 },
               },
@@ -1227,7 +1228,7 @@ export const spec = {
                     wallet_id: { type: "string" },
                     from: { type: "string", format: "date" },
                     to: { type: "string", format: "date" },
-                    state: { type: "string", enum: ["as_recorded"], description: "Honesty envelope: counters held as the engine saw them; cascade effects not modeled." },
+                    state: { type: "string", enum: ["as_recorded", "sequential"], description: "Honesty envelope. as_recorded: counters held as the engine saw them, cascade not modeled. sequential: approved spend threaded forward in time (daily/monthly reset at UTC boundaries); subtree/pool caps not yet threaded." },
                     note: { type: "string" },
                     applied_fields: { type: "array", items: { type: "string" } },
                     ignored_fields: { type: "array", items: { type: "string" }, description: "Provided candidate fields the simulation cannot honor." },
