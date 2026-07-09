@@ -28,7 +28,7 @@ export default function Changelog() {
       <main className="max-w-3xl mx-auto px-6 py-14">
         <p className="text-sm font-medium text-emerald-400">Changelog</p>
         <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">What&apos;s new</h1>
-        <p className="mt-3 text-lg text-zinc-400">
+        <p className="mt-3 text-lg text-muted-foreground">
           Every product and version update, in the open. Want something specific?{" "}
           <Link href="/roadmap" className="text-emerald-400 hover:text-emerald-300">
             See the roadmap and vote →
@@ -36,22 +36,22 @@ export default function Changelog() {
         </p>
 
         {/* Subscribe */}
-        <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
-          <p className="text-sm font-medium text-zinc-200">Get updates as they ship</p>
-          <p className="mb-3 mt-1 text-sm text-zinc-500">No spam, unsubscribe anytime.</p>
+        <div className="mt-8 rounded-lg border border-border bg-muted/50 p-5">
+          <p className="text-sm font-medium text-foreground">Get updates as they ship</p>
+          <p className="mb-3 mt-1 text-sm text-muted-foreground">No spam, unsubscribe anytime.</p>
           <LeadCapture source="changelog" />
         </div>
 
         {/* Entries */}
         <div className="mt-12 space-y-12">
           {CHANGELOG.map((e) => (
-            <article key={e.date + e.title} className="border-t border-zinc-900 pt-8">
+            <article key={e.date + e.title} className="border-t border-border pt-8">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <time className="text-zinc-500" dateTime={e.date}>
+                <time className="text-muted-foreground" dateTime={e.date}>
                   {fmt(e.date)}
                 </time>
                 {e.version && (
-                  <span className="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">{e.version}</span>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">{e.version}</span>
                 )}
                 {e.tags?.map((t) => (
                   <span key={t} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400/90">
@@ -59,7 +59,7 @@ export default function Changelog() {
                   </span>
                 ))}
               </div>
-              <h2 className="mt-2 font-display text-xl font-semibold tracking-tight text-zinc-100">{e.title}</h2>
+              <h2 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">{e.title}</h2>
               <div className="mt-1 text-[15px]">
                 <Markdown source={e.body} />
               </div>

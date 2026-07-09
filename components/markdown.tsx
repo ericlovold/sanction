@@ -26,29 +26,32 @@ function rewriteHref(href?: string): string | undefined {
   return href
 }
 
+// Colors speak the workpaper token vocabulary (globals.css :root — ink on
+// light canvas, pine links). Code blocks stay deliberately dark: the one
+// deep slab on the workpaper, matching the pine-rail aesthetic.
 const components: Components = {
-  h1: ({ children }) => <h1 className="mt-2 mb-4 font-display text-3xl font-semibold tracking-tight text-zinc-100">{children}</h1>,
-  h2: ({ children }) => <h2 className="mt-10 mb-3 border-t border-zinc-900 pt-8 font-display text-2xl font-semibold tracking-tight text-zinc-100">{children}</h2>,
-  h3: ({ children }) => <h3 className="mt-6 mb-2 font-display text-lg font-semibold tracking-tight text-zinc-100">{children}</h3>,
-  h4: ({ children }) => <h4 className="mt-4 mb-2 font-semibold text-zinc-200">{children}</h4>,
-  p: ({ children }) => <p className="my-4 leading-relaxed text-zinc-400">{children}</p>,
+  h1: ({ children }) => <h1 className="mt-2 mb-4 font-display text-3xl font-semibold tracking-tight text-foreground">{children}</h1>,
+  h2: ({ children }) => <h2 className="mt-10 mb-3 border-t border-border pt-8 font-display text-2xl font-semibold tracking-tight text-foreground">{children}</h2>,
+  h3: ({ children }) => <h3 className="mt-6 mb-2 font-display text-lg font-semibold tracking-tight text-foreground">{children}</h3>,
+  h4: ({ children }) => <h4 className="mt-4 mb-2 font-semibold text-foreground">{children}</h4>,
+  p: ({ children }) => <p className="my-4 leading-relaxed text-muted-foreground">{children}</p>,
   a: ({ href, children }) => (
-    <a href={rewriteHref(href)} className="text-emerald-400 underline-offset-2 hover:text-emerald-300 hover:underline">{children}</a>
+    <a href={rewriteHref(href)} className="text-primary underline-offset-2 hover:underline">{children}</a>
   ),
-  ul: ({ children }) => <ul className="my-4 list-disc space-y-1.5 pl-6 text-zinc-400">{children}</ul>,
-  ol: ({ children }) => <ol className="my-4 list-decimal space-y-1.5 pl-6 text-zinc-400">{children}</ol>,
+  ul: ({ children }) => <ul className="my-4 list-disc space-y-1.5 pl-6 text-muted-foreground">{children}</ul>,
+  ol: ({ children }) => <ol className="my-4 list-decimal space-y-1.5 pl-6 text-muted-foreground">{children}</ol>,
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-  strong: ({ children }) => <strong className="font-semibold text-zinc-200">{children}</strong>,
+  strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
   blockquote: ({ children }) => (
-    <blockquote className="my-4 border-l-2 border-emerald-500/40 bg-emerald-500/[0.04] py-1 pl-4 text-zinc-400">{children}</blockquote>
+    <blockquote className="my-4 border-l-2 border-primary/40 bg-primary/5 py-1 pl-4 text-foreground/80">{children}</blockquote>
   ),
-  hr: () => <hr className="my-8 border-zinc-900" />,
+  hr: () => <hr className="my-8 border-border" />,
   code: ({ className, children }) => {
     const text = String(children)
     const isBlock = /\n/.test(text) || (className?.includes("language-") ?? false)
     if (isBlock) return <code className="font-mono">{children}</code>
-    return <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[0.85em] text-emerald-300">{children}</code>
+    return <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-primary">{children}</code>
   },
   pre: ({ children }) => (
     <pre className="my-4 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-4 text-[12.5px] leading-relaxed text-zinc-300">{children}</pre>
@@ -58,9 +61,9 @@ const components: Components = {
       <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),
-  thead: ({ children }) => <thead className="border-b border-zinc-800 text-left text-zinc-300">{children}</thead>,
+  thead: ({ children }) => <thead className="border-b border-border text-left text-foreground">{children}</thead>,
   th: ({ children }) => <th className="px-3 py-2 font-semibold">{children}</th>,
-  td: ({ children }) => <td className="border-b border-zinc-900 px-3 py-2 align-top text-zinc-400">{children}</td>,
+  td: ({ children }) => <td className="border-b border-border px-3 py-2 align-top text-muted-foreground">{children}</td>,
 }
 
 export function Markdown({ source }: { source: string }) {

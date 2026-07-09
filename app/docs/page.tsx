@@ -131,7 +131,7 @@ export default function Docs() {
       <main className="max-w-3xl mx-auto px-6 py-14">
         <p className="text-sm font-medium text-emerald-400">Docs</p>
         <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Get started</h1>
-        <p className="mt-3 text-lg text-zinc-400">
+        <p className="mt-3 text-lg text-muted-foreground">
           Govern your agents&apos; token spend — across every provider, user, and system. Here&apos;s the fastest path
           from zero to a metered, capped, audited agent.
         </p>
@@ -139,14 +139,14 @@ export default function Docs() {
         {/* Quickstart */}
         <section className="mt-12 space-y-8">
           {steps.map((s) => (
-            <div key={s.n} className="border-t border-zinc-900 pt-8">
+            <div key={s.n} className="border-t border-border pt-8">
               <div className="flex items-baseline gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-semibold text-emerald-400">
                   {s.n}
                 </span>
                 <h2 className="font-display text-xl font-semibold tracking-tight">{s.title}</h2>
               </div>
-              <p className="mt-2 pl-9 text-zinc-400">{s.desc}</p>
+              <p className="mt-2 pl-9 text-muted-foreground">{s.desc}</p>
               <div className="pl-9">
                 {s.code && <Code>{s.code}</Code>}
                 {s.cta && (
@@ -162,13 +162,13 @@ export default function Docs() {
         {/* Common workflows */}
         <section className="mt-16">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Common workflows</h2>
-          <p className="mt-2 text-zinc-400">Patterns teams reach for first.</p>
+          <p className="mt-2 text-muted-foreground">Patterns teams reach for first.</p>
           <div className="mt-6 space-y-5">
             {workflows.map((w) => (
-              <div key={w.title} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
+              <div key={w.title} className="rounded-lg border border-border bg-muted/50 p-5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-400/90">{w.tag}</p>
                 <h3 className="mt-1 font-display text-lg font-semibold tracking-tight">{w.title}</h3>
-                <p className="mt-2 text-sm text-zinc-400">{w.body}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{w.body}</p>
                 {w.code && <Code>{w.code}</Code>}
                 <a href={w.link.href} className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
                   {w.link.label} →
@@ -181,12 +181,12 @@ export default function Docs() {
         {/* Concepts — the model, not just the APIs */}
         <section className="mt-16">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Concepts</h2>
-          <p className="mt-2 text-zinc-400">The model behind the endpoints — read these once and every API makes sense.</p>
+          <p className="mt-2 text-muted-foreground">The model behind the endpoints — read these once and every API makes sense.</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {concepts.map((d) => (
-              <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
-                <p className="font-medium text-zinc-100">{d.title}</p>
-                <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>
+              <a key={d.title} href={d.href} className="rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:border-foreground/30">
+                <p className="font-medium text-foreground">{d.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{d.desc}</p>
               </a>
             ))}
           </div>
@@ -195,12 +195,12 @@ export default function Docs() {
         {/* Ecosystem distribution */}
         <section className="mt-16">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Ecosystem distribution</h2>
-          <p className="mt-2 text-zinc-400">Where Sanction fits into the tools agents already use.</p>
+          <p className="mt-2 text-muted-foreground">Where Sanction fits into the tools agents already use.</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {ecosystem.map((d) => (
-              <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
-                <p className="font-medium text-zinc-100">{d.title}</p>
-                <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>
+              <a key={d.title} href={d.href} className="rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:border-foreground/30">
+                <p className="font-medium text-foreground">{d.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{d.desc}</p>
               </a>
             ))}
           </div>
@@ -209,12 +209,12 @@ export default function Docs() {
         {/* Licensing */}
         <section className="mt-16">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Licensing</h2>
-          <p className="mt-2 text-zinc-400">Free for your own agents. Commercial license when your product embeds or resells governance.</p>
+          <p className="mt-2 text-muted-foreground">Free for your own agents. Commercial license when your product embeds or resells governance.</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {licensing.map((d) => (
-              <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
-                <p className="font-medium text-zinc-100">{d.title}</p>
-                <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>
+              <a key={d.title} href={d.href} className="rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:border-foreground/30">
+                <p className="font-medium text-foreground">{d.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{d.desc}</p>
               </a>
             ))}
           </div>
@@ -225,9 +225,9 @@ export default function Docs() {
           <h2 className="font-display text-2xl font-semibold tracking-tight">Go deeper</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {deeper.map((d) => (
-              <a key={d.title} href={d.href} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700">
-                <p className="font-medium text-zinc-100">{d.title}</p>
-                <p className="mt-1 text-xs text-zinc-500">{d.desc}</p>
+              <a key={d.title} href={d.href} className="rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:border-foreground/30">
+                <p className="font-medium text-foreground">{d.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{d.desc}</p>
               </a>
             ))}
           </div>
@@ -236,8 +236,8 @@ export default function Docs() {
         {/* CTA */}
         <section className="mt-16 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-6 text-center">
           <h2 className="font-display text-xl font-semibold tracking-tight">Ready to govern your agents?</h2>
-          <p className="mt-2 text-sm text-zinc-400">Free to start. No card required. Two keys and you&apos;re live.</p>
-          <Link href="/start" className="mt-4 inline-block rounded-md bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400">
+          <p className="mt-2 text-sm text-muted-foreground">Free to start. No card required. Two keys and you&apos;re live.</p>
+          <Link href="/start" className="mt-4 inline-block rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
             Start free →
           </Link>
         </section>
