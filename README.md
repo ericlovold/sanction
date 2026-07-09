@@ -48,6 +48,11 @@ Around the engine:
   `GET /reporting/summary` spans any period with day buckets and per-seat
   rollups; wallet stats project burn pace and exhaustion ETAs; a weekly
   digest lands in Slack every Monday.
+- **Tamper-evident exports.** `GET /audit/export` hands you a signed,
+  hash-chained snapshot of your governed decisions: altering, dropping, or
+  reordering any row breaks the chain, and the head is HMAC-signed by Sanction.
+  A regulator or the governed customer runs `POST /audit/verify` — self-contained,
+  no database — to prove nothing changed after signing, down to the first broken link.
 - **LLM gateway.** Point your model SDK's base URL at
   `https://getsanction.com/api/gateway/<provider>` with `x-sanction-key` —
   usage is metered and budget-capped with zero per-call instrumentation.
@@ -100,6 +105,8 @@ POST  /credentials/inject       — Inject a decrypted credential (Bearer JWT)
 GET   /audit-events             — Unified audit feed (decisions, tokens, secret access; ?format=csv)
 GET   /reporting/summary        — Any range ≤92 days: totals, day buckets, per-agent
 GET   /reporting/daily-summary  — One-day rollup
+GET   /audit/export             — Signed, hash-chained decision export (owner; ?download=1)
+POST  /audit/verify             — Verify a tamper-evident export (recompute chain + signature)
 
 # AuthZEN PDP + AARP (agent key; base https://getsanction.com/api — spec-canonical paths)
 POST  /access/v1/evaluation     — OpenID AuthZEN 1.0 evaluation (decision-only)
