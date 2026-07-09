@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-09",
+    title: "What-if, replayed in order",
+    tags: ["simulation", "policy", "evidence"],
+    body: "The retro-simulation could already tell you which of last week's decisions a candidate policy would flip — but it held budget counters constant, so it couldn't model the knock-on: a policy that denies an early charge *frees that budget* for the request that came after. Now it can. `POST /v1/policy/simulate` takes `mode: \"sequential\"` — it replays the window in chronological order, threading each agent's approved spend forward (daily and monthly counters reset at the UTC boundaries), so a would-denial no longer counts against the requests that follow it. The default stays `as_recorded` (each decision replays with the budget it actually saw); `sequential` shows the week as it *would have lived* under the new policy. Same read-only honesty envelope — nothing persisted, debited, or escalated — and the response says which mode ran and that subtree/pool caps aren't threaded yet.",
+  },
+  {
+    date: "2026-07-09",
     title: "v0.5.0 — one engine, every surface: AuthZEN + MCP reach parity",
     version: "0.5.0",
     tags: ["authzen", "mcp", "governance", "release"],

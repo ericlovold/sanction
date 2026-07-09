@@ -17,6 +17,10 @@ const bodySchema = z.object({
   wallet_id: z.string().min(1),
   from: z.string().optional(),
   to: z.string().optional(),
+  // as_recorded (default): each decision replays with its recorded budget state.
+  // sequential (SIM-2): replays in order, threading approved spend forward so an
+  // early denial frees budget downstream.
+  mode: z.enum(["as_recorded", "sequential"]).optional(),
   policy: policyInputSchema,
 })
 
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "invalid range" }, { status: 400 })
   }
 
-  const report = await runSimulation(walletId, policy, start, end)
+  const report = await runSimulation(walletId, policy, start, end, parsed.data.mode ?? "as_recorded")
   return NextResponse.json(
     { wallet_id: walletId, from, to, ...report },
     { headers: { "Cache-Control": "no-store" } },

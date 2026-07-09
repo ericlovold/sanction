@@ -11,6 +11,13 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-09 — Sequential simulation follow-ons (SIM-2 shipped: mode=sequential
+      threads per-agent daily/monthly approved spend forward). Next: (1) thread
+      SUBTREE/pool caps too — the sequential note flags they're held constant, so
+      a pooled cap can't yet free budget across siblings in replay; (2) a dashboard
+      toggle on the policy simulation preview (as-recorded vs sequential) so
+      operators see the cascade without curling; (3) provision-ladder overlay in
+      simulation (still out_of_scope). (feature, from roadmap Next)
 - [ ] 2026-07-09 — Framework adapters, follow-on packages (roadmap Next; the
       TS foundation shipped: SDK authorizeTool + SanctionMiddleware +
       sanctionTool for Vercel AI SDK). Remaining, each its own shippable unit:

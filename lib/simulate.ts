@@ -44,7 +44,12 @@ export const SIMULATABLE_LADDERS: ReadonlySet<EvidenceLadder> = new Set(["spend"
 // Overlay the candidate's applicable fields onto a stored context. The single
 // cast at each function head is the JSON boundary — stored evidence contexts
 // arrive untyped; from there on the ladder's own context type holds.
-function overlaySpend(ctx: Record<string, unknown>, p: PolicyInput): SpendContext {
+// Threaded budget state (SIM-2 sequential): replaces the recorded running
+// totals with the simulated-so-far spend, so an early would-denial frees budget
+// for a later request. Undefined = as-recorded (SIM-1), counters left as saved.
+export type BudgetState = { dailySpentUsd: number; monthlySpentUsd: number }
+
+function overlaySpend(ctx: Record<string, unknown>, p: PolicyInput, budget?: BudgetState): SpendContext {
   const o = { ...ctx } as SpendContext
   if (p.per_transaction_max_usd !== undefined) o.perTxnMaxCents = toCents(p.per_transaction_max_usd)
   if (p.daily_spend_budget_usd !== undefined) o.dailyBudgetCents = toCents(p.daily_spend_budget_usd)
@@ -55,6 +60,11 @@ function overlaySpend(ctx: Record<string, unknown>, p: PolicyInput): SpendContex
   if (p.escalate_over_usd !== undefined) o.escalateOverCents = toCents(p.escalate_over_usd)
   if (p.allowed_categories !== undefined) o.allowedCategories = p.allowed_categories
   if (p.blocked_categories !== undefined) o.blockedCategories = p.blocked_categories
+  // Sequential: override the recorded running totals with the threaded ones.
+  if (budget) {
+    o.dailySpentUsd = budget.dailySpentUsd
+    o.monthlySpentUsd = budget.monthlySpentUsd
+  }
   return o
 }
 
@@ -72,11 +82,11 @@ export type SimResult = { was: SimOutcome; would: SimOutcome; changed: boolean }
  * stored ENGINE outcome (an escalation a human later approved still compares
  * engine-vs-engine). Returns null for ladders the simulation can't honor.
  */
-export function simulateEvidence(e: DecisionEvidence, p: PolicyInput): SimResult | null {
+export function simulateEvidence(e: DecisionEvidence, p: PolicyInput, budget?: BudgetState): SimResult | null {
   if (!SIMULATABLE_LADDERS.has(e.ladder)) return null
   const d =
     e.ladder === "spend"
-      ? evaluate(overlaySpend(e.ctx, p), [...LADDERS.spend])
+      ? evaluate(overlaySpend(e.ctx, p, budget), [...LADDERS.spend])
       : evaluate(overlayCapability(e.ctx, p), [...LADDERS.capability])
   const was: SimOutcome = { effect: e.effect, code: e.code, rule_id: e.rule_id }
   const would: SimOutcome = { effect: d.effect, code: d.code, rule_id: d.ruleId }
