@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-09",
+    title: "The PDP grows armor — AuthZEN hardening sprint 2",
+    tags: ["authzen", "security", "hardening"],
+    body: "Five deeper findings from the AuthZEN code review, closed. **Binding tokens are now single-use**: every requestable denial carries a jti that's consumed atomically with the escalation it opens — replay the same denial under a fresh idempotency key and you get a problem+json refusal, not a second approval (honest retries still replay safely; they're checked first). **Batch requests pre-validate every item** before anything evaluates, so a malformed sibling can no longer burn a grant redemption into a 400 it didn't cause. **Timeout-approvals mint a real grant** (`issuedBy: policy_timeout`) — an AARP poller now receives something redeemable instead of an approved-with-nothing dead loop. **All four AuthZEN endpoints rate-limit per agent** with `Retry-After` (the 50-item batch amplifies, so it gets the tighter window). And an explicit empty batch returns empty, not a surprise default-tuple evaluation. Fourteen new tests pin it all.",
+  },
+  {
+    date: "2026-07-09",
     title: "What-if, replayed in order",
     tags: ["simulation", "policy", "evidence"],
     body: "The retro-simulation could already tell you which of last week's decisions a candidate policy would flip — but it held budget counters constant, so it couldn't model the knock-on: a policy that denies an early charge *frees that budget* for the request that came after. Now it can. `POST /v1/policy/simulate` takes `mode: \"sequential\"` — it replays the window in chronological order, threading each agent's approved spend forward (daily and monthly counters reset at the UTC boundaries), so a would-denial no longer counts against the requests that follow it. The default stays `as_recorded` (each decision replays with the budget it actually saw); `sequential` shows the week as it *would have lived* under the new policy. Same read-only honesty envelope — nothing persisted, debited, or escalated — and the response says which mode ran and that subtree/pool caps aren't threaded yet.",

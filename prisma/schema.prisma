@@ -17,6 +17,19 @@ model RateLimit {
   @@index([windowEnd])
 }
 
+// AARP binding tokens are single-use: the token's jti is consumed atomically
+// with the escalation it opens, so a replayed denial token cannot open a
+// second approval. Rows are prunable once expiresAt passes (the token itself
+// is dead by then); submission does the pruning opportunistically.
+model ConsumedBindingToken {
+  jti       String   @id
+  agentId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 model Wallet {
   id         String   @id @default(cuid())
   name       String
