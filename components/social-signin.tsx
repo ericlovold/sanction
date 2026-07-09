@@ -50,20 +50,21 @@ export function SocialSignIn({ callbackURL = "/dashboard", apple = false }: { ca
   }
 
   const base =
-    "flex w-full items-center justify-center gap-2.5 rounded-md border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+    "flex w-full items-center justify-center gap-2.5 rounded-md border border-[color:var(--paper-3)] px-4 py-2.5 text-sm font-medium transition-colors hover:border-[color:var(--ink-4)] disabled:opacity-60"
+  const baseStyle = { background: "var(--surface-card)", color: "var(--text-body)" }
 
   return (
     <div className="space-y-2.5">
-      <button type="button" onClick={() => go("google")} disabled={loading !== null} className={base}>
+      <button type="button" onClick={() => go("google")} disabled={loading !== null} className={base} style={baseStyle}>
         <GoogleMark />
         {loading === "google" ? "Redirecting…" : "Continue with Google"}
       </button>
-      <button type="button" onClick={() => go("github")} disabled={loading !== null} className={base}>
+      <button type="button" onClick={() => go("github")} disabled={loading !== null} className={base} style={baseStyle}>
         <GitHubMark />
         {loading === "github" ? "Redirecting…" : "Continue with GitHub"}
       </button>
       {apple && (
-        <button type="button" onClick={() => go("apple")} disabled={loading !== null} className={base}>
+        <button type="button" onClick={() => go("apple")} disabled={loading !== null} className={base} style={baseStyle}>
           <AppleMark />
           {loading === "apple" ? "Redirecting…" : "Continue with Apple"}
         </button>
