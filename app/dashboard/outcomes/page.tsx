@@ -87,9 +87,9 @@ async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date
 function StatusPill({ row }: { row: PoolRow }) {
   if (row.frozen) return <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400">FROZEN</span>
   if (row.ceilingUsd === null)
-    return <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">no ceiling</span>
+    return <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">no ceiling</span>
   if (row.outcomes < row.minOutcomes)
-    return <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">cold start · {row.outcomes}/{row.minOutcomes}</span>
+    return <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">cold start · {row.outcomes}/{row.minOutcomes}</span>
   if (row.cpoUsd !== null && row.cpoUsd > row.ceilingUsd)
     return <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">THROTTLED — over ceiling</span>
   return <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">earning its cost</span>
@@ -101,10 +101,10 @@ function CpoBar({ row }: { row: PoolRow }) {
   const over = row.cpoUsd > row.ceilingUsd
   return (
     <div className="mt-2">
-      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
         <div className={`h-full rounded-full ${over ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${p}%` }} />
       </div>
-      <p className="mt-1 font-mono text-[11px] text-zinc-500">
+      <p className="mt-1 font-mono text-[11px] text-muted-foreground">
         {dollars(row.cpoUsd)} per {row.kind} · ceiling {dollars(row.ceilingUsd)}
       </p>
     </div>
@@ -139,44 +139,44 @@ export default async function OutcomesPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-10">
       <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-zinc-100">Outcomes</h1>
-        <p className="mt-1 text-sm text-zinc-400">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">Outcomes</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Spend accountable to results. A pool over its cost-per-outcome ceiling auto-throttles: every further
-          dollar waits for a human in <Link href="/dashboard/approvals" className="text-zinc-200 underline decoration-zinc-700 underline-offset-2 hover:decoration-zinc-400">Approvals</Link>.
+          dollar waits for a human in <Link href="/dashboard/approvals" className="text-foreground underline decoration-muted-foreground underline-offset-2 hover:decoration-muted-foreground">Approvals</Link>.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-500">Outcomes · window</CardTitle></CardHeader>
-          <CardContent><p className="font-mono text-2xl text-zinc-100">{totalOutcomes.toLocaleString()}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Outcomes · window</CardTitle></CardHeader>
+          <CardContent><p className="font-mono text-2xl text-foreground">{totalOutcomes.toLocaleString()}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-500">Spend · window</CardTitle></CardHeader>
-          <CardContent><p className="font-mono text-2xl text-zinc-100">{dollars(totalSpend)}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Spend · window</CardTitle></CardHeader>
+          <CardContent><p className="font-mono text-2xl text-foreground">{dollars(totalSpend)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-500">Blended cost / outcome</CardTitle></CardHeader>
-          <CardContent><p className="font-mono text-2xl text-zinc-100">{blendedCpo === null ? "—" : dollars(blendedCpo)}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Blended cost / outcome</CardTitle></CardHeader>
+          <CardContent><p className="font-mono text-2xl text-foreground">{blendedCpo === null ? "—" : dollars(blendedCpo)}</p></CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-sm text-zinc-300">By pool</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm text-muted-foreground">By pool</CardTitle></CardHeader>
         <CardContent className="space-y-5">
           {rows.map((row) => (
-            <div key={row.id} className="border-b border-zinc-800/60 pb-4 last:border-0 last:pb-0">
+            <div key={row.id} className="border-b border-border/60 pb-4 last:border-0 last:pb-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="text-sm text-zinc-200">{row.name}</span>
-                  {row.isSelf && <span className="ml-2 text-[11px] text-zinc-600">this wallet</span>}
+                  <span className="text-sm text-foreground">{row.name}</span>
+                  {row.isSelf && <span className="ml-2 text-[11px] text-muted-foreground">this wallet</span>}
                 </div>
                 <StatusPill row={row} />
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-zinc-500">
+              <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-muted-foreground">
                 <span>{row.outcomes.toLocaleString()} {row.kind ?? "outcomes"} / {row.windowDays}d</span>
                 <span>{dollars(row.spendUsd)} spend</span>
-                {row.cpoUsd !== null && <span className="text-zinc-300">{dollars(row.cpoUsd)} each</span>}
+                {row.cpoUsd !== null && <span className="text-muted-foreground">{dollars(row.cpoUsd)} each</span>}
               </div>
               <CpoBar row={row} />
             </div>
@@ -186,7 +186,7 @@ export default async function OutcomesPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-sm text-zinc-300">Recent outcomes</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm text-muted-foreground">Recent outcomes</CardTitle></CardHeader>
         <CardContent>
           {recent.length === 0 ? (
             <EmptyState
@@ -196,7 +196,7 @@ export default async function OutcomesPage() {
           ) : (
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-600">
+                <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">When</th>
                   <th className="pb-2 pr-4 font-medium">Pool</th>
                   <th className="pb-2 pr-4 font-medium">Kind</th>
@@ -204,11 +204,11 @@ export default async function OutcomesPage() {
                   <th className="pb-2 font-medium">Value</th>
                 </tr>
               </thead>
-              <tbody className="font-mono text-xs text-zinc-400">
+              <tbody className="font-mono text-xs text-muted-foreground">
                 {recent.map((e) => (
-                  <tr key={e.id} className="border-b border-zinc-900 last:border-0">
+                  <tr key={e.id} className="border-b border-border last:border-0">
                     <td className="py-2 pr-4">{e.occurredAt.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
-                    <td className="py-2 pr-4 text-zinc-300">{nameOf.get(e.walletId) ?? e.walletId}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{nameOf.get(e.walletId) ?? e.walletId}</td>
                     <td className="py-2 pr-4">{e.kind}</td>
                     <td className="py-2 pr-4">{e.playLabel ?? "—"}</td>
                     <td className="py-2">{e.valueUsd == null ? "—" : dollars(e.valueUsd)}</td>

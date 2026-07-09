@@ -39,18 +39,18 @@ function BudgetBar({ label, actual, budget, format }: { label: string; actual: n
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <span className="text-sm text-zinc-300">{label}</span>
-        <span className="font-mono text-xs text-zinc-500">
-          <span className={tone.text}>{format(actual)}</span> / {format(budget)} <span className="text-zinc-600">· {p}%</span>
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          <span className={tone.text}>{format(actual)}</span> / {format(budget)} <span className="text-muted-foreground">· {p}%</span>
         </span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div className={`h-full rounded-full ${tone.bar} transition-all`} style={{ width: `${Math.min(100, p)}%` }} />
       </div>
       {p >= 100 ? (
         <p className="mt-1 text-[11px] text-red-400">Budget exhausted — new requests are being denied.</p>
       ) : pace.onPace !== null ? (
-        <p className={`mt-1 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-zinc-600"}`}>
+        <p className={`mt-1 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-muted-foreground"}`}>
           on pace for {format(pace.onPace)} today
           {pace.exhaustAt && ` · budget hit ~${pace.exhaustAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
         </p>
@@ -161,16 +161,16 @@ export default async function SpendPage() {
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
       <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Spend &amp; token usage</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Spend &amp; token usage</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Where the money goes — token burn and purchases against their budgets, by agent, model, and task.
         </p>
       </div>
 
       {/* Budget vs. actual — today */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader className="px-5 pt-5 pb-1">
-          <CardTitle className="text-sm font-medium text-zinc-300">Today against budget</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Today against budget</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5 pt-3 grid gap-5 sm:grid-cols-2">
           <BudgetBar label="Token cost" actual={s.tokDay._sum.costUsd ?? 0} budget={tokenBudget} format={cost} />
@@ -186,33 +186,33 @@ export default async function SpendPage() {
           { label: "Denied (month)", value: `${s.mix.denied ?? 0}`, sub: "blocked by policy" },
           { label: "Escalated (month)", value: `${s.mix.escalated ?? 0}`, sub: "awaiting a human" },
         ].map((k) => (
-          <Card key={k.label} className="bg-zinc-900 border-zinc-800">
+          <Card key={k.label} className="bg-card border-border">
             <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-zinc-500">{k.label}</CardTitle>
+              <CardTitle className="text-xs font-normal text-muted-foreground">{k.label}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
               <p className="font-mono text-2xl font-semibold">{k.value}</p>
-              <p className="mt-1 text-xs text-zinc-600">{k.sub}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{k.sub}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Trend */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader className="px-5 pt-5 pb-2">
-          <CardTitle className="text-sm font-medium text-zinc-300">Token cost · last 14 days</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Token cost · last 14 days</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <div className="flex h-32 items-end gap-1.5">
             {s.days.map((d, i) => (
               <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="text-[9px] font-mono text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity">{cost(d.cost)}</span>
+                <span className="text-[9px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{cost(d.cost)}</span>
                 <div
                   className="w-full rounded-sm bg-emerald-500/70 group-hover:bg-emerald-400 transition-colors"
                   style={{ height: `${Math.max(2, (d.cost / s.trendMax) * 100)}%` }}
                 />
-                <span className="text-[9px] font-mono text-zinc-600">{d.label}</span>
+                <span className="text-[9px] font-mono text-muted-foreground">{d.label}</span>
               </div>
             ))}
           </div>
@@ -221,8 +221,8 @@ export default async function SpendPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* By model */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">By model · this month</CardTitle></CardHeader>
+        <Card className="bg-card border-border">
+          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">By model · this month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
             {s.byModel.length === 0 && (
               <EmptyState
@@ -234,10 +234,10 @@ export default async function SpendPage() {
               {s.byModel.map((m) => (
                 <div key={m.model} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-xs text-zinc-300">{m.model}</p>
-                    <p className="text-[11px] text-zinc-600">{m._count._all} calls · {((m._sum.tokensIn ?? 0) + (m._sum.tokensOut ?? 0)).toLocaleString()} tok</p>
+                    <p className="truncate font-mono text-xs text-muted-foreground">{m.model}</p>
+                    <p className="text-[11px] text-muted-foreground">{m._count._all} calls · {((m._sum.tokensIn ?? 0) + (m._sum.tokensOut ?? 0)).toLocaleString()} tok</p>
                   </div>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-zinc-400">{cost(m._sum.costUsd ?? 0)}</span>
+                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{cost(m._sum.costUsd ?? 0)}</span>
                 </div>
               ))}
             </div>
@@ -245,8 +245,8 @@ export default async function SpendPage() {
         </Card>
 
         {/* By agent */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">By agent · this month</CardTitle></CardHeader>
+        <Card className="bg-card border-border">
+          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">By agent · this month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
             {s.agentList.length === 0 && (
               <EmptyState
@@ -258,7 +258,7 @@ export default async function SpendPage() {
               {s.agentList.map((a) => (
                 <div key={a.name} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 truncate text-zinc-300">
+                    <p className="flex items-center gap-1.5 truncate text-muted-foreground">
                       {a.name}
                       {a.override && (
                         <span title={a.override} className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1 py-0.5 text-[9px] font-medium text-emerald-400">
@@ -266,15 +266,15 @@ export default async function SpendPage() {
                         </span>
                       )}
                     </p>
-                    <p className="text-[11px] text-zinc-600">
+                    <p className="text-[11px] text-muted-foreground">
                       {a.tokens.toLocaleString()} tok · {a.approved} appr
                       {a.denied > 0 && <span className="text-red-400/70"> · {a.denied} deny</span>}
                       {a.escalated > 0 && <span className="text-amber-400/70"> · {a.escalated} esc</span>}
                     </p>
                   </div>
                   <div className="ml-3 shrink-0 text-right">
-                    <p className="font-mono text-xs text-zinc-400">{cost(a.tokenCost)}</p>
-                    {a.spend > 0 && <p className="text-[11px] text-zinc-600">+{dollars(a.spend)} spend</p>}
+                    <p className="font-mono text-xs text-muted-foreground">{cost(a.tokenCost)}</p>
+                    {a.spend > 0 && <p className="text-[11px] text-muted-foreground">+{dollars(a.spend)} spend</p>}
                   </div>
                 </div>
               ))}
@@ -283,8 +283,8 @@ export default async function SpendPage() {
         </Card>
 
         {/* By task */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">By task · this month</CardTitle></CardHeader>
+        <Card className="bg-card border-border">
+          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">By task · this month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
             {s.byTask.length === 0 && (
               <EmptyState
@@ -295,8 +295,8 @@ export default async function SpendPage() {
             <div className="space-y-2">
               {s.byTask.map((t) => (
                 <div key={t.taskLabel ?? "unlabeled"} className="flex items-center justify-between text-sm">
-                  <p className="truncate text-zinc-300">{t.taskLabel ?? "unlabeled"}</p>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-zinc-400">{cost(t._sum.costUsd ?? 0)} <span className="text-zinc-600">· {t._count._all}</span></span>
+                  <p className="truncate text-muted-foreground">{t.taskLabel ?? "unlabeled"}</p>
+                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{cost(t._sum.costUsd ?? 0)} <span className="text-muted-foreground">· {t._count._all}</span></span>
                 </div>
               ))}
             </div>
@@ -304,15 +304,15 @@ export default async function SpendPage() {
         </Card>
 
         {/* By category (spend) */}
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-zinc-300">Approved spend by category · month</CardTitle></CardHeader>
+        <Card className="bg-card border-border">
+          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Approved spend by category · month</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
-            {s.byCategory.length === 0 && <p className="text-sm text-zinc-600">No approved spend yet</p>}
+            {s.byCategory.length === 0 && <p className="text-sm text-muted-foreground">No approved spend yet</p>}
             <div className="space-y-2">
               {s.byCategory.map((c) => (
                 <div key={c.category} className="flex items-center justify-between text-sm">
-                  <p className="truncate text-zinc-300">{c.category}</p>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-zinc-400">{dollars(c._sum.amountUsd ?? 0)} <span className="text-zinc-600">· {c._count}</span></span>
+                  <p className="truncate text-muted-foreground">{c.category}</p>
+                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{dollars(c._sum.amountUsd ?? 0)} <span className="text-muted-foreground">· {c._count}</span></span>
                 </div>
               ))}
             </div>
@@ -321,12 +321,12 @@ export default async function SpendPage() {
       </div>
 
       {/* Policy authoring lives on its own page now. */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="flex items-center justify-between px-5 py-4">
-          <span className="text-sm text-zinc-400">
+          <span className="text-sm text-muted-foreground">
             {s.policy ? "Budgets, categories, tools, capability rules, and escalation." : "No policy configured yet."}
           </span>
-          <Link href="/dashboard/policy" className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800">
+          <Link href="/dashboard/policy" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
             Manage policy →
           </Link>
         </CardContent>
