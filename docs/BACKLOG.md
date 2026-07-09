@@ -18,6 +18,14 @@ conversation, not here.
       toggle on the policy simulation preview (as-recorded vs sequential) so
       operators see the cascade without curling; (3) provision-ladder overlay in
       simulation (still out_of_scope). (feature, from roadmap Next)
+- [ ] 2026-07-09 — Framework adapters, follow-on packages (roadmap Next; the
+      TS foundation shipped: SDK authorizeTool + SanctionMiddleware +
+      sanctionTool for Vercel AI SDK). Remaining, each its own shippable unit:
+      (1) Python package — LiteLLM callback + a sanctioned-tool decorator for
+      LangChain/LangGraph (recipes already in docs/FRAMEWORK-ADAPTERS.md);
+      (2) CrewAI authorize-tool; (3) a runnable examples/ agent per adapter;
+      (4) once gateway vault-injected keys land, drop the "provider keys in
+      runtime" caveat from the adapter checklist. (feature, from roadmap Next)
 
 - [ ] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
       sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —

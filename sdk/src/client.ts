@@ -11,6 +11,8 @@ import type {
   InjectedCredential,
   LogTokensInput,
   PolicyInput,
+  ToolAuthorizeInput,
+  ToolDecision,
   WalletStats,
 } from "./types"
 
@@ -199,6 +201,46 @@ export class SanctionClient {
     return synced
   }
 
+  /**
+   * Ask Sanction whether a tool/action may run — the pre-action gate for agent
+   * frameworks (MCP tools, shell, deploys, sends). Call BEFORE executing the
+   * tool; run it only on `approved`. A `denied`/`escalated` decision is returned
+   * (not thrown) so the agent branches and replans. Unlike spend, tool decisions
+   * carry no local-offline fallback — a tool gate that can't reach Sanction
+   * fails closed (denied) so an ungoverned tool never runs.
+   */
+  async authorizeTool(input: ToolAuthorizeInput): Promise<ToolDecision> {
+    let raw: { ok: boolean; status: number; body: unknown }
+    try {
+      raw = await requestRaw({
+        baseUrl: this.baseUrl,
+        fetch: this.fetch,
+        method: "POST",
+        path: "/authorize/tool",
+        timeoutMs: this.networkTimeoutMs,
+        headers: this.authHeaders(input.idempotencyKey ? { "idempotency-key": input.idempotencyKey } : undefined),
+        body: { tool: input.tool, server: input.server, input: input.input, grant_id: input.grantId },
+      })
+    } catch {
+      // Unreachable: fail closed — an ungoverned tool must not run.
+      return { authorized: false, status: "denied", requestId: "", code: "POLICY_DENIED", reason: "Sanction unreachable; tool gate failing closed" }
+    }
+
+    const b = raw.body as Record<string, unknown> | undefined
+    if (b && typeof b.status === "string") return toToolDecision(b)
+
+    // 5xx with no decision body → also fail closed.
+    if (raw.status >= 500) {
+      return { authorized: false, status: "denied", requestId: "", code: "POLICY_DENIED", reason: `Sanction error (${raw.status}); tool gate failing closed` }
+    }
+
+    // 401/400/etc — a real caller error, surface it.
+    throw new SanctionError(
+      (b?.error as string) ?? `Tool authorization failed (${raw.status})`,
+      { status: raw.status, code: b?.code as string | undefined, body: raw.body },
+    )
+  }
+
   /** Record an LLM inference's cost for budget tracking + audit. Fire-and-forget friendly. */
   async logTokens(input: LogTokensInput): Promise<void> {
     await request<void>({
@@ -316,5 +358,20 @@ function toDecision(b: Record<string, unknown>): Decision {
     agent: b.agent as string,
     amountUsd: b.amount_usd as number,
     merchant: b.merchant as string,
+  }
+}
+
+function toToolDecision(b: Record<string, unknown>): ToolDecision {
+  // The tool route says "allowed" for an approved invocation; normalize to
+  // "approved" so adapters branch on one status vocabulary across surfaces.
+  const raw = b.status as string
+  const status = (raw === "allowed" ? "approved" : raw) as ToolDecision["status"]
+  return {
+    authorized: Boolean(b.authorized),
+    status,
+    requestId: (b.request_id as string) ?? "",
+    reason: b.reason as string | undefined,
+    code: b.code as ToolDecision["code"] | undefined,
+    remediation: b.remediation as string | undefined,
   }
 }

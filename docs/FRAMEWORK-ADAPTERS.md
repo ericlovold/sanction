@@ -1,46 +1,63 @@
 # Framework adapters
 
-These recipes are the adapter contracts we want ecosystem packages to preserve.
-They keep Sanction outside the framework's identity system and inside the
+Sanction stays outside the framework's identity system and inside the
 pre-action path: the framework asks, Sanction decides, the agent acts only on an
-approved decision or redeemed grant.
+approved decision or redeemed grant. The TypeScript adapters below **ship in
+`@sanction/sdk`**; the Python recipes are copy-in until their packages land.
 
-## TypeScript: `SanctionMiddleware`
+## TypeScript: `SanctionMiddleware` (ships)
 
-Use this shape for LangChain.js, LangGraph, Mastra, Vercel AI SDK tool wrappers,
-or any custom agent runtime:
+Framework-agnostic — use it with LangChain.js, LangGraph, Mastra, or any custom
+agent runtime. It authorizes first and runs the tool only on approval:
 
 ```ts
-import { SanctionClient } from "@sanction/sdk"
+import { SanctionClient, SanctionMiddleware, SanctionToolBlocked } from "@sanction/sdk"
 
-type ToolCall = {
-  server: string
-  tool: string
-  input?: unknown
-  run: () => Promise<unknown>
-}
+const client = new SanctionClient(process.env.SANCTION_AGENT_KEY!)
+const runTool = SanctionMiddleware(client)
 
-export function SanctionMiddleware(client: SanctionClient) {
-  return async function runTool(call: ToolCall) {
-    const decision = await client.authorizeTool({
-      server: call.server,
-      tool: call.tool,
-      input: call.input,
-    })
-
-    if (decision.status === "approved") return call.run()
-    if (decision.status === "escalated") {
-      throw new Error(`Sanction escalation required: ${decision.requestId}`)
-    }
-    throw new Error(`Sanction denied ${call.tool}: ${decision.code ?? decision.reason}`)
+try {
+  const result = await runTool({
+    server: "github",
+    tool: "create_pr",
+    input: { title, body },
+    run: () => octokit.pulls.create({ ... }), // runs ONLY if approved
+  })
+} catch (e) {
+  if (e instanceof SanctionToolBlocked) {
+    // e.status: "escalated" (poll e.requestId for the grant) | "denied" (replan)
   }
 }
 ```
 
-The concrete package still needs SDK support for `authorizeTool`; until then,
-call `POST /api/v1/authorize/tool` directly with the agent key. The important
-adapter invariant is stable: tool execution is behind the decision, not beside
-it in a log.
+Prefer branching on the decision instead of catching? Use `authorizeToolCall`,
+which returns `{ decision, run }` without throwing.
+
+The invariant: `client.authorizeTool` fails **closed** — if Sanction is
+unreachable it returns `denied`, so an ungoverned tool never runs.
+
+## TypeScript: Vercel AI SDK (`sanctionTool`, ships)
+
+Wrap an AI SDK tool so its `execute` is gated — the model can pick the tool, but
+it only runs on an approved decision:
+
+```ts
+import { tool } from "ai"
+import { z } from "zod"
+import { SanctionClient, sanctionTool } from "@sanction/sdk"
+
+const client = new SanctionClient(process.env.SANCTION_AGENT_KEY!)
+
+const deploy = sanctionTool(client, "deploy", tool({
+  description: "Deploy the app to an environment",
+  parameters: z.object({ env: z.string() }),
+  execute: async ({ env }) => shipIt(env),
+}), { server: "ci" })
+// pass `deploy` in your generateText/streamText `tools` map as usual
+```
+
+A non-approved decision throws `SanctionToolBlocked`, which the AI SDK surfaces
+as a tool error the model can see and react to.
 
 ## Python: LangChain / LangGraph callback
 
