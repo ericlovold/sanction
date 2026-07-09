@@ -22,7 +22,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug: stri
   if (!doc) notFound()
 
   return (
-    <div className="min-h-screen">
+    <div className="dark min-h-screen bg-background text-foreground">
       <DocsHeader />
       <main className="max-w-3xl mx-auto px-6 py-12">
         <Link href="/docs" className="text-sm text-muted-foreground hover:text-foreground">← All docs</Link>

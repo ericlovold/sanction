@@ -51,7 +51,7 @@ function packName(id: string) {
 
 export default function CompatibilityPage() {
   return (
-    <div className="min-h-screen">
+    <div className="dark min-h-screen bg-background text-foreground">
       <DocsHeader />
       <main className="mx-auto max-w-5xl px-6 py-14">
         <p className="text-sm font-medium text-emerald-400">Ecosystem</p>

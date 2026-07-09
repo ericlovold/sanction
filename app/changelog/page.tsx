@@ -22,7 +22,7 @@ function fmt(date: string) {
 
 export default function Changelog() {
   return (
-    <div className="min-h-screen">
+    <div className="dark min-h-screen bg-background text-foreground">
       <DocsHeader />
 
       <main className="max-w-3xl mx-auto px-6 py-14">
