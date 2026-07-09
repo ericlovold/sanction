@@ -11,6 +11,19 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-09 — AUDIT-2: write-time chain anchors (strengthen AUDIT-1 across
+      time). AUDIT-1 makes the *exported* evidence tamper-evident — a verifier
+      proves no row changed after signing. It does NOT catch a privileged
+      DB-level rewrite of a decision *before* the export is taken. The fix is a
+      separate, decoupled `AuditAnchor` table + `POST /v1/audit/anchor` that
+      seals the current chain head (root hash + count + range + signature +
+      timestamp) on demand or on a schedule; a later export is then cross-checked
+      against prior anchors, so any retroactive edit shows up as a head that no
+      longer matches a sealed anchor. Deliberately its own isolated write — never
+      touches the hot decision transaction (the 18 AuthorizationRequest.create
+      sites), which is why AUDIT-1 shipped as read-time first. Optional external
+      notarization (S3 Object Lock / RFC-3161 TSA) is a further tier. (follow-up,
+      from the AUDIT-1 build)
 - [ ] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
       sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —
       move grant redemption out of evaluateAuthZen into the route shell so a

@@ -1018,6 +1018,66 @@ export const spec = {
         },
       },
     },
+    "/audit/export": {
+      get: {
+        operationId: "getAuditExport",
+        summary: "Tamper-evident audit export (signed, hash-chained)",
+        description:
+          "AUDIT-1: a signed, hash-chained snapshot of the wallet's governed decisions over a range (defaults to the last 30 days). Each decision commits to a canonical serialization of itself and the previous entry's hash, so altering, dropping, or reordering any decision breaks the chain; the head is HMAC-signed with the platform secret. Verify with POST /audit/verify. Owner-only. `download=1` returns it as a file attachment. This makes the exported evidence tamper-evident — it is not a write-time notary.",
+        security: [{ ManagementKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "from", schema: { type: "string", format: "date" } },
+          { in: "query", name: "to", schema: { type: "string", format: "date" } },
+          { in: "query", name: "download", schema: { type: "string", enum: ["1"] }, description: "Return as a file attachment" },
+        ],
+        responses: {
+          "200": { description: "Signed, hash-chained audit export" },
+          "400": { description: "wallet_id missing or invalid range" },
+          "401": { description: "Management key required" },
+          "503": { description: "Signing not configured" },
+        },
+      },
+    },
+    "/audit/verify": {
+      post: {
+        operationId: "verifyAuditExport",
+        summary: "Verify a tamper-evident audit export",
+        description:
+          "AUDIT-1: POST an export document exactly as GET /audit/export returned it. Sanction recomputes the hash chain from the document's own decisions and re-checks the signature — self-contained, no database read. `valid: false` names the first broken link (`broken_at`) so tampering is located, not just detected. Owner-gated on the wallet named in the document.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object", description: "An export from GET /audit/export" } } },
+        },
+        responses: {
+          "200": {
+            description: "Verification result",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    valid: { type: "boolean" },
+                    signature_valid: { type: "boolean" },
+                    chain_valid: { type: "boolean" },
+                    count: { type: "integer" },
+                    head: { type: "string" },
+                    broken_at: {
+                      type: "object",
+                      properties: { seq: { type: "integer" }, id: { type: "string" }, reason: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Not a Sanction audit export" },
+          "401": { description: "Management key required" },
+          "503": { description: "Signing not configured" },
+        },
+      },
+    },
     "/reporting/summary": {
       get: {
         operationId: "getPeriodSummary",

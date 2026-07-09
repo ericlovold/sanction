@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-09",
+    title: "Audit exports you can prove weren't touched",
+    tags: ["audit", "evidence", "compliance"],
+    body: "Your decision history was always readable. Now it's *provable*. `GET /v1/audit/export` returns a signed, hash-chained snapshot of every governed decision in a range: each decision commits to a canonical serialization of itself and the hash before it, so altering one number, dropping a row, or reordering the log breaks the chain from that point on — and the chain head is HMAC-signed with Sanction's key. Hand the export to a regulator, an auditor, or the customer whose budget it governs, and they run `POST /v1/audit/verify` (or any conforming verifier — it's self-contained, no database needed) to confirm nothing was changed after signing. A `valid: false` doesn't just flag tampering, it names the first broken link. Honest scope: this makes the *exported evidence* tamper-evident; write-time notarization to catch across-time edits is the next step.",
+  },
+  {
+    date: "2026-07-09",
     title: "v0.5.0 — one engine, every surface: AuthZEN + MCP reach parity",
     version: "0.5.0",
     tags: ["authzen", "mcp", "governance", "release"],
