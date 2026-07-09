@@ -41,9 +41,12 @@ export const viewport: Viewport = {
   ],
 }
 
-// Applied before first paint so the theme never flashes: default is light; a stored
-// choice or (first visit) the OS preference wins.
-const themeScript = `(function(){try{var t=localStorage.getItem('sanction-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})()`
+// Applied before first paint so the theme never flashes. Light is the default —
+// the governance console reads as a secure instrument (deep-pine rail, hairline
+// workpaper), so a first visit renders light regardless of OS preference. Dark is
+// opt-in via the toggle and persists in localStorage. (A dark OS no longer forces
+// the console dark; only an explicit stored 'dark' does.)
+const themeScript = `(function(){try{if(localStorage.getItem('sanction-theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})()`
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

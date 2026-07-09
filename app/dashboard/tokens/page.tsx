@@ -29,34 +29,34 @@ export default async function TokensPage() {
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
       <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Execution tokens</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Execution tokens</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Runtime JWT authority per execution. Revoke active tokens when a run is compromised or over-scoped.
         </p>
-        <p className="mt-2 text-xs text-zinc-600">
+        <p className="mt-2 text-xs text-muted-foreground">
           This extends the current token/key management flow; key lifecycle stays in{" "}
-          <Link href="/dashboard/agents" className="text-emerald-400 hover:text-emerald-300">Seats</Link>.
+          <Link href="/dashboard/agents" className="text-emerald-400 hover:text-primary">Seats</Link>.
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="border-zinc-800 bg-zinc-900">
-          <CardHeader className="px-4 pt-4 pb-1"><CardTitle className="text-xs font-normal text-zinc-500">Active</CardTitle></CardHeader>
+        <Card className="border-border bg-card">
+          <CardHeader className="px-4 pt-4 pb-1"><CardTitle className="text-xs font-normal text-muted-foreground">Active</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4"><p className="font-mono text-2xl font-semibold">{active}</p></CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
-          <CardHeader className="px-4 pt-4 pb-1"><CardTitle className="text-xs font-normal text-zinc-500">Revoked</CardTitle></CardHeader>
+        <Card className="border-border bg-card">
+          <CardHeader className="px-4 pt-4 pb-1"><CardTitle className="text-xs font-normal text-muted-foreground">Revoked</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4"><p className="font-mono text-2xl font-semibold">{revoked}</p></CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
-          <CardHeader className="px-4 pt-4 pb-1"><CardTitle className="text-xs font-normal text-zinc-500">Spent authority</CardTitle></CardHeader>
+        <Card className="border-border bg-card">
+          <CardHeader className="px-4 pt-4 pb-1"><CardTitle className="text-xs font-normal text-muted-foreground">Spent authority</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4"><p className="font-mono text-2xl font-semibold">${spent.toFixed(2)}</p></CardContent>
         </Card>
       </div>
 
       <div className="space-y-2">
         {tokens.length === 0 && (
-          <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center text-sm text-zinc-500">
+          <p className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
             No execution tokens issued yet.
           </p>
         )}
@@ -71,14 +71,14 @@ export default async function TokensPage() {
                   ? "expired"
                   : "active"
           return (
-            <Card key={token.id} className="border-zinc-800 bg-zinc-900/50">
+            <Card key={token.id} className="border-border bg-muted">
               <CardContent className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate font-mono text-xs text-zinc-400">{token.id}</p>
-                  <p className="mt-1 text-sm text-zinc-200">
+                  <p className="truncate font-mono text-xs text-muted-foreground">{token.id}</p>
+                  <p className="mt-1 text-sm text-foreground">
                     {token.agent.name} · ${token.spentUsd.toFixed(2)} / ${token.budgetUsd.toFixed(2)} · clearance {token.clearance}
                   </p>
-                  <p className="text-xs text-zinc-600">
+                  <p className="text-xs text-muted-foreground">
                     issued {token.issuedAt.toLocaleString()} · expires {token.expiresAt.toLocaleString()}
                   </p>
                 </div>
@@ -86,10 +86,10 @@ export default async function TokensPage() {
                   <span
                     className={`rounded border px-2 py-0.5 text-[10px] ${
                       status === "active"
-                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-primary"
                         : status === "revoked"
                           ? "border-red-500/20 bg-red-500/10 text-red-300"
-                          : "border-zinc-700 bg-zinc-800 text-zinc-400"
+                          : "border-border bg-muted text-muted-foreground"
                     }`}
                   >
                     {status}

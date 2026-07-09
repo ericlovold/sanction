@@ -7,10 +7,10 @@ export function NoWallet() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="space-y-3 text-center">
-        <p className="text-sm text-zinc-400">No wallet to show.</p>
+        <p className="text-sm text-muted-foreground">No wallet to show.</p>
         <div className="flex items-center justify-center gap-3 text-sm">
-          <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link>
-          <Link href="/start" className="text-zinc-400 hover:text-zinc-200">Create a wallet</Link>
+          <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link>
+          <Link href="/start" className="text-muted-foreground hover:text-foreground">Create a wallet</Link>
         </div>
       </div>
     </div>

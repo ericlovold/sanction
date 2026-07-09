@@ -191,21 +191,21 @@ export default async function AgentsPage({
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
-      <h1 className="font-display text-xl font-semibold tracking-tight text-zinc-100">Seats (Agents)</h1>
-      <p className="-mt-4 text-sm text-zinc-500">
+      <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Seats (Agents)</h1>
+      <p className="-mt-4 text-sm text-muted-foreground">
         Each seat is an agent identity with its own key, limits, and audit trail. The key is the runtime identity; seat
         holder and expiry are operator controls.
       </p>
       <div className="flex flex-wrap gap-2 text-xs">
         <Link
           href={`/dashboard/agents?scope=wallet${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`}
-          className={`rounded border px-2 py-1 ${scope === "wallet" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+          className={`rounded border px-2 py-1 ${scope === "wallet" ? "border-emerald-500/30 bg-emerald-500/10 text-primary" : "border-border text-muted-foreground hover:text-muted-foreground"}`}
         >
           Current wallet
         </Link>
         <Link
           href={`/dashboard/agents?scope=subtree${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`}
-          className={`rounded border px-2 py-1 ${scope === "subtree" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+          className={`rounded border px-2 py-1 ${scope === "subtree" ? "border-emerald-500/30 bg-emerald-500/10 text-primary" : "border-border text-muted-foreground hover:text-muted-foreground"}`}
         >
           Hierarchy (wallet + pools)
         </Link>
@@ -213,7 +213,7 @@ export default async function AgentsPage({
           <Link
             key={state}
             href={`/dashboard/agents?scope=${scope}${state === "all" ? "" : `&state=${state}`}`}
-            className={`rounded border px-2 py-1 ${stateFilter === state ? "border-zinc-700 bg-zinc-800 text-zinc-100" : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+            className={`rounded border px-2 py-1 ${stateFilter === state ? "border-border bg-muted text-foreground" : "border-border text-muted-foreground hover:text-muted-foreground"}`}
           >
             {state}
           </Link>
@@ -221,56 +221,56 @@ export default async function AgentsPage({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Active agents</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Active agents</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{activeAgents}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Active grants</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Active grants</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{activeGrants}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Pending approvals</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Pending approvals</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{pendingApprovals}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Expiring in 7d</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 7d</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{expiringSoon}</p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-zinc-500">Inactive / expired</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Inactive / expired</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{inactiveAgents + expiredAgents}</p>
-            <p className="text-xs text-zinc-600">{inactiveAgents} inactive · {expiredAgents} expired</p>
+            <p className="text-xs text-muted-foreground">{inactiveAgents} inactive · {expiredAgents} expired</p>
           </CardContent>
         </Card>
       </div>
 
       {view.isSession ? (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+        <div className="rounded-lg border border-border bg-muted p-4">
           <AgentCreator />
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">
-          <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Log in</Link> to create and manage agents.
+        <p className="text-sm text-muted-foreground">
+          <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link> to create and manage agents.
         </p>
       )}
 

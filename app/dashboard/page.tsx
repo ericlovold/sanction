@@ -64,8 +64,8 @@ export default async function Dashboard() {
       {view.isSession && !hasActivity && (
         <Card className="border-emerald-500/25 bg-emerald-500/[0.04]">
           <CardContent className="px-5 py-4 text-sm">
-            <p className="font-semibold text-emerald-300">Get started</p>
-            <ol className="mt-2 space-y-1 text-zinc-400">
+            <p className="font-semibold text-primary">Get started</p>
+            <ol className="mt-2 space-y-1 text-muted-foreground">
               <li>1. Create an agent below — you get a key and a one-line test call.</li>
               <li>2. Run it: watch Sanction approve a $5 and escalate a $40.</li>
               <li>3. The decisions land here. Then drop the key into your real agent.</li>
@@ -76,48 +76,48 @@ export default async function Dashboard() {
 
       {/* Operating state */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-zinc-500 font-normal">Pending approvals</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Pending approvals</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className={`text-2xl font-mono font-semibold ${pendingCount > 0 ? "text-amber-300" : ""}`}>{pendingCount}</p>
-            <p className="text-xs text-zinc-600 mt-1">human decisions</p>
+            <p className="text-xs text-muted-foreground mt-1">human decisions</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-zinc-500 font-normal">Active grants</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Active grants</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className={`text-2xl font-mono font-semibold ${activeGrantCount > 0 ? "text-emerald-300" : ""}`}>{activeGrantCount}</p>
-            <p className="text-xs text-zinc-600 mt-1">outstanding authority</p>
+            <p className={`text-2xl font-mono font-semibold ${activeGrantCount > 0 ? "text-primary" : ""}`}>{activeGrantCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">outstanding authority</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-zinc-500 font-normal">Denied today</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Denied today</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className={`text-2xl font-mono font-semibold ${deniedToday > 0 ? "text-red-300" : ""}`}>{deniedToday}</p>
-            <p className="text-xs text-zinc-600 mt-1">blocked actions</p>
+            <p className="text-xs text-muted-foreground mt-1">blocked actions</p>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-zinc-500 font-normal">Active agents</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Active agents</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="text-2xl font-mono font-semibold">{activeAgents}</p>
-            <p className="text-xs text-zinc-600 mt-1">{agents.length} registered</p>
+            <p className="text-xs text-muted-foreground mt-1">{agents.length} registered</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-300">Attention queue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Attention queue</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2">
             {pendingCount === 0 && activeGrantCount === 0 && deniedToday === 0 && (
@@ -135,7 +135,7 @@ export default async function Dashboard() {
             {activeGrantCount > 0 && (
               <Link href="/dashboard/approvals" className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2 text-sm transition-colors hover:border-emerald-500/35">
                 <span className="text-emerald-200">Outstanding grants</span>
-                <span className="font-mono text-xs text-emerald-300">{activeGrantCount}</span>
+                <span className="font-mono text-xs text-primary">{activeGrantCount}</span>
               </Link>
             )}
             {deniedToday > 0 && (
@@ -147,24 +147,24 @@ export default async function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium text-zinc-300">Usage today</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Usage today</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-xs text-zinc-500">Token cost</p>
+                <p className="text-xs text-muted-foreground">Token cost</p>
                 <p className="mt-1 text-xl font-mono font-semibold">{usd(tokenDay._sum.costUsd ?? 0)}</p>
-                <p className="text-xs text-zinc-600 mt-1">{((tokenDay._sum.tokensIn ?? 0) + (tokenDay._sum.tokensOut ?? 0)).toLocaleString()} tokens</p>
+                <p className="text-xs text-muted-foreground mt-1">{((tokenDay._sum.tokensIn ?? 0) + (tokenDay._sum.tokensOut ?? 0)).toLocaleString()} tokens</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500">Approved spend</p>
+                <p className="text-xs text-muted-foreground">Approved spend</p>
                 <p className="mt-1 text-xl font-mono font-semibold">{usd(spendDay._sum.amountUsd ?? 0)}</p>
-                <p className="text-xs text-zinc-600 mt-1">{usd(spendMonth._sum.amountUsd ?? 0)} month</p>
+                <p className="text-xs text-muted-foreground mt-1">{usd(spendMonth._sum.amountUsd ?? 0)} month</p>
               </div>
               <div className="col-span-2">
-                <Link href="/dashboard/spend" className="text-xs text-zinc-500 underline-offset-2 transition-colors hover:text-zinc-300 hover:underline">
+                <Link href="/dashboard/spend" className="text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-muted-foreground hover:underline">
                   Full analytics — spend, tokens, burn →
                 </Link>
               </div>
@@ -175,9 +175,9 @@ export default async function Dashboard() {
       </div>
 
       {/* Agents */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2">
-          <CardTitle className="text-sm font-medium text-zinc-300">Agents</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Agents</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {agents.length === 0 && (
@@ -188,20 +188,20 @@ export default async function Dashboard() {
           )}
           <div className="space-y-2">
             {agents.map((a) => (
-              <Link key={a.id} href="/dashboard/agents" className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-zinc-950/60">
+              <Link key={a.id} href="/dashboard/agents" className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted">
                 <div>
-                  <p className="text-zinc-300">{a.name}</p>
-                  <p className="text-xs text-zinc-600 font-mono">{a.apiKeyPrefix}••••••••</p>
+                  <p className="text-muted-foreground">{a.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{a.apiKeyPrefix}••••••••</p>
                 </div>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${a.isActive ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-zinc-500/15 text-zinc-500 border-zinc-700"}`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${a.isActive ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-muted text-muted-foreground border-border"}`}>
                   {a.isActive ? "active" : "inactive"}
                 </span>
               </Link>
             ))}
           </div>
           {view.isSession && (
-            <div className="mt-4 border-t border-zinc-800 pt-4">
-              <p className="mb-2 text-xs text-zinc-500">Add an agent — get a scoped key + a test call:</p>
+            <div className="mt-4 border-t border-border pt-4">
+              <p className="mb-2 text-xs text-muted-foreground">Add an agent — get a scoped key + a test call:</p>
               <AgentCreator />
             </div>
           )}

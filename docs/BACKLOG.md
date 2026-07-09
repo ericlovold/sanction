@@ -11,6 +11,25 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
+      sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —
+      move grant redemption out of evaluateAuthZen into the route shell so a
+      sibling item's 400 can't burn a consumed grant with no result returned
+      (also fixes the "writes in the decision-only lib" altitude violation);
+      (2) binding-token single-use — add a jti + a consumed-token store so a
+      denial token is truly one-shot (idempotency-key now required as interim);
+      (3) AARP timeout-approve mints no grant → GET returns approved with
+      nothing redeemable and re-eval re-escalates (dead loop); (4) rate-limit
+      the AuthZEN endpoints (lib/rateLimit exists) — the 50-item batch
+      amplifies one request into ~150 DB queries; (5) empty-batch
+      `evaluations: []` runs one default-tuple eval instead of returning empty.
+      (findings, from the AuthZEN code review)
+- [ ] 2026-07-09 — AuthZEN/MCP cleanup cluster (non-correctness, flagged not
+      fixed): dedup getSigningKey (lib/jwt owns it), isUniqueViolation (7
+      copies → lib), and the readSpendState / notification-fanout /
+      entity-schema / route-scaffold duplication across the three routes.
+      (cleanup, from the AuthZEN code review)
+
 - [ ] 2026-07-08 — Org-level console visibility across the subtree (extends
       the 07-05 console/API parity entry): the root owner's Approvals and
       Audit pages are scoped to the root wallet only (getViewWallet → one
