@@ -31052,6 +31052,25 @@ async function callSanction(path, method, body, bearerToken) {
     };
   }
 }
+function renderAuthResult(result, opts) {
+  const authorized = result.authorized === true;
+  const status = typeof result.status === "string" ? result.status : void 0;
+  const code = typeof result.code === "string" ? result.code : void 0;
+  const reason = typeof result.reason === "string" ? result.reason : void 0;
+  const error51 = typeof result.error === "string" ? result.error : void 0;
+  const requestId = typeof result.request_id === "string" ? result.request_id : void 0;
+  let text;
+  if (authorized) {
+    text = `\u2713 ${opts.success}${requestId ? ` (${requestId})` : ""}${result.grant_status === "consumed" ? " \xB7 grant consumed" : ""}`;
+  } else if (!status && (code || error51)) {
+    text = `\u2717 ${code ?? "ERROR"} \u2014 ${reason ?? error51}. Do not ${opts.verb}; this is not a policy denial \u2014 resolve it or stop and notify the owner.`;
+  } else if (status === "escalated") {
+    text = `\u2717 ESCALATED \u2014 ${reason ?? "Awaiting human approval"}. Call sanction_check_authorization with request_id ${requestId ?? "(see the record)"} until it returns a grant_id, then retry this exact request with it.`;
+  } else {
+    text = `\u2717 ${status?.toUpperCase() ?? "DENIED"}${code ? ` (${code})` : ""} \u2014 ${reason ?? error51 ?? "Not authorized"}. Do not ${opts.verb}.`;
+  }
+  return { content: [{ type: "text", text }], isError: !authorized };
+}
 var server = new McpServer({
   name: "sanction",
   version: "0.4.0",
@@ -31071,14 +31090,7 @@ server.tool(
   },
   async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }) => {
     const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt);
-    const authorized = result.authorized === true;
-    return {
-      content: [{
-        type: "text",
-        text: authorized ? `\u2713 Authorized \u2014 ${merchant} $${amount_usd} (${result.request_id})${result.grant_status === "consumed" ? " \xB7 grant consumed" : ""}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval \u2014 once approved, retry this exact request with the grant_id." : "Do not proceed."}`
-      }],
-      isError: !authorized
-    };
+    return renderAuthResult(result, { success: `Authorized \u2014 ${merchant} $${amount_usd}`, verb: "proceed" });
   }
 );
 server.tool(
@@ -31102,14 +31114,10 @@ server.tool(
       { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
       execution_jwt
     );
-    const authorized = result.authorized === true;
-    return {
-      content: [{
-        type: "text",
-        text: authorized ? `\u2713 Authorized \u2014 ${quantity} \xD7 ${line_item} (${resource}) $${amount_usd} (${result.request_id})${result.grant_status === "consumed" ? " \xB7 grant consumed" : ""}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval \u2014 once approved, retry this exact request with the grant_id." : "Do not provision."}`
-      }],
-      isError: !authorized
-    };
+    return renderAuthResult(result, {
+      success: `Authorized \u2014 ${quantity} \xD7 ${line_item} (${resource}) $${amount_usd}`,
+      verb: "provision"
+    });
   }
 );
 server.tool(
@@ -31119,23 +31127,16 @@ server.tool(
     tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
     server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
     arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation"),
-    grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 poll GET /authorize/{request_id} for the grant_id, then retry this exact request with it")
+    grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it")
   },
   async ({ tool, server: srv, arguments: args, grant_id }) => {
     const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id });
-    const authorized = result.authorized === true;
-    return {
-      content: [{
-        type: "text",
-        text: authorized ? `\u2713 Authorized \u2014 ${tool}${result.grant_status === "consumed" ? " (grant consumed)" : ""}` : `\u2717 ${result.status?.toUpperCase() ?? "DENIED"} \u2014 ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval \u2014 poll the authorization record${result.request_id ? ` (request_id ${result.request_id})` : ""} for the grant_id, then retry with it.` : "Do not invoke."}`
-      }],
-      isError: !authorized
-    };
+    return renderAuthResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
   }
 );
 server.tool(
   "sanction_log_tokens",
-  "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption against the wallet's daily budget. If the daily token budget is exceeded, returns a budget error \u2014 the agent should stop making LLM calls and notify the wallet owner. Cost estimates: claude-sonnet-4-6 is $3/M input + $15/M output; gpt-4o is $2.50/M input + $10/M output.",
+  "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption. It is metered against three budget horizons \u2014 the seat's daily budget, the seat's monthly budget, and the pooled per-department daily token cap \u2014 and returns a 402 budget error naming which horizon was hit if any is exceeded; on a budget error the agent should stop making LLM calls and notify the owner. Report the provider's actual billed cost_usd for the call (from the provider's usage/response), not an estimate \u2014 under-reporting silently defeats the budget. Prefer routing calls through the Sanction LLM gateway instead, which meters real usage server-side with no client honesty required.",
   {
     model: external_exports.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
     tokens_in: external_exports.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
@@ -31238,6 +31239,39 @@ server.tool(
         type: "text",
         text: status.text
       }]
+    };
+  }
+);
+server.tool(
+  "sanction_check_authorization",
+  "Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, status stays 'escalated' \u2014 wait and poll again. Once the owner approves, status becomes 'approved' and a one-use grant_id is returned: retry the ORIGINAL authorize call with the identical fields plus that grant_id to complete the action. If denied, do not proceed.",
+  {
+    request_id: external_exports.string().describe("The request_id from an escalated authorize/provision/tool response")
+  },
+  async ({ request_id }) => {
+    const result = await callSanction(`/authorize/${encodeURIComponent(request_id)}`, "GET");
+    const status = typeof result.status === "string" ? result.status : void 0;
+    const grantId = typeof result.grant_id === "string" ? result.grant_id : void 0;
+    if (status === "approved" && grantId) {
+      return {
+        content: [{
+          type: "text",
+          text: `\u2713 APPROVED \u2014 retry your original request with grant_id: ${grantId}`
+        }]
+      };
+    }
+    if (status === "escalated" || status === "pending") {
+      return { content: [{ type: "text", text: "\u23F3 Still awaiting the owner's approval \u2014 poll again shortly." }] };
+    }
+    if (status === "denied") {
+      return {
+        content: [{ type: "text", text: `\u2717 DENIED \u2014 ${typeof result.reason === "string" ? result.reason : "the owner declined"}. Do not proceed.` }],
+        isError: true
+      };
+    }
+    return {
+      content: [{ type: "text", text: `Could not read the authorization: ${typeof result.error === "string" ? result.error : "unknown error"}` }],
+      isError: true
     };
   }
 );

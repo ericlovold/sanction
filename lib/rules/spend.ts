@@ -160,8 +160,11 @@ export const ladderRule: Rule<SpendContext> = {
   },
 }
 
-// The pure ladder (no execution-token gate) — the simulate path + decidePolicy.
-export const SPEND_LADDER: Rule<SpendContext>[] = [categoryRule, perTransactionRule, dailyBudgetRule, monthlyBudgetRule, ladderRule]
+// The pure ladder (no execution-token gate) — the simulate path + decidePolicy
+// (AuthZEN PDP). cost_per_outcome sits before the ladder, same precedence as
+// SPEND_STATEFUL, so the PDP throttles a breached ceiling identically to the
+// live route. No-ops when cpo is absent from the context.
+export const SPEND_LADDER: Rule<SpendContext>[] = [categoryRule, perTransactionRule, dailyBudgetRule, monthlyBudgetRule, costPerOutcomeRule, ladderRule]
 
 // Live route: stateless gates run before the advisory lock…
 export const SPEND_STATELESS: Rule<SpendContext>[] = [categoryRule, perTransactionRule]

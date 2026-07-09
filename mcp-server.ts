@@ -105,6 +105,38 @@ async function callSanction(path: string, method: "GET" | "POST", body?: unknown
   }
 }
 
+// One renderer for every authorize tool, so the escalation/grant loop and error
+// surfacing stay identical across spend/provision/tool (they had drifted).
+//   - success: names the request_id (needed to poll for the grant on escalation)
+//   - escalated: tells the agent to poll via sanction_check_authorization
+//   - a bare { error } body (401 bad key, 400 validation, 403 WALLET_FROZEN with
+//     no status/reason envelope) is surfaced verbatim with its code, NOT masked
+//     as a generic policy denial — the agent must fix config / stop, not replan.
+function renderAuthResult(
+  result: Record<string, unknown>,
+  opts: { success: string; verb: string },
+): { content: { type: "text"; text: string }[]; isError: boolean } {
+  const authorized = result.authorized === true
+  const status = typeof result.status === "string" ? result.status : undefined
+  const code = typeof result.code === "string" ? result.code : undefined
+  const reason = typeof result.reason === "string" ? result.reason : undefined
+  const error = typeof result.error === "string" ? result.error : undefined
+  const requestId = typeof result.request_id === "string" ? result.request_id : undefined
+
+  let text: string
+  if (authorized) {
+    text = `✓ ${opts.success}${requestId ? ` (${requestId})` : ""}${result.grant_status === "consumed" ? " · grant consumed" : ""}`
+  } else if (!status && (code || error)) {
+    // Non-policy failure (auth/validation/frozen): surface the real cause.
+    text = `✗ ${code ?? "ERROR"} — ${reason ?? error}. Do not ${opts.verb}; this is not a policy denial — resolve it or stop and notify the owner.`
+  } else if (status === "escalated") {
+    text = `✗ ESCALATED — ${reason ?? "Awaiting human approval"}. Call sanction_check_authorization with request_id ${requestId ?? "(see the record)"} until it returns a grant_id, then retry this exact request with it.`
+  } else {
+    text = `✗ ${status?.toUpperCase() ?? "DENIED"}${code ? ` (${code})` : ""} — ${reason ?? error ?? "Not authorized"}. Do not ${opts.verb}.`
+  }
+  return { content: [{ type: "text" as const, text }], isError: !authorized }
+}
+
 const server = new McpServer({
   name: "sanction",
   version: "0.4.0",
@@ -126,16 +158,7 @@ server.tool(
   },
   async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }) => {
     const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt)
-    const authorized = result.authorized === true
-    return {
-      content: [{
-        type: "text" as const,
-        text: authorized
-          ? `✓ Authorized — ${merchant} $${amount_usd} (${result.request_id})${result.grant_status === "consumed" ? " · grant consumed" : ""}`
-          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval — once approved, retry this exact request with the grant_id." : "Do not proceed."}`,
-      }],
-      isError: !authorized,
-    }
+    return renderAuthResult(result, { success: `Authorized — ${merchant} $${amount_usd}`, verb: "proceed" })
   }
 )
 
@@ -161,16 +184,10 @@ server.tool(
       { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
       execution_jwt,
     )
-    const authorized = result.authorized === true
-    return {
-      content: [{
-        type: "text" as const,
-        text: authorized
-          ? `✓ Authorized — ${quantity} × ${line_item} (${resource}) $${amount_usd} (${result.request_id})${result.grant_status === "consumed" ? " · grant consumed" : ""}`
-          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? "Awaiting human approval — once approved, retry this exact request with the grant_id." : "Do not provision."}`,
-      }],
-      isError: !authorized,
-    }
+    return renderAuthResult(result, {
+      success: `Authorized — ${quantity} × ${line_item} (${resource}) $${amount_usd}`,
+      verb: "provision",
+    })
   }
 )
 
@@ -182,27 +199,18 @@ server.tool(
     tool: z.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
     server: z.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' — advisory context for the owner"),
     arguments: z.record(z.string(), z.unknown()).optional().describe("The arguments the tool would be called with — surfaced to the owner on escalation"),
-    grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — poll GET /authorize/{request_id} for the grant_id, then retry this exact request with it"),
+    grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it"),
   },
   async ({ tool, server: srv, arguments: args, grant_id }) => {
     const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id })
-    const authorized = result.authorized === true
-    return {
-      content: [{
-        type: "text" as const,
-        text: authorized
-          ? `✓ Authorized — ${tool}${result.grant_status === "consumed" ? " (grant consumed)" : ""}`
-          : `✗ ${result.status?.toUpperCase() ?? "DENIED"} — ${result.reason ?? "Not authorized"}. ${result.status === "escalated" ? `Awaiting human approval — poll the authorization record${result.request_id ? ` (request_id ${result.request_id})` : ""} for the grant_id, then retry with it.` : "Do not invoke."}`,
-      }],
-      isError: !authorized,
-    }
+    return renderAuthResult(result, { success: `Authorized — ${tool}`, verb: "invoke" })
   }
 )
 
 // Tool: Log LLM token usage
 server.tool(
   "sanction_log_tokens",
-  "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption against the wallet's daily budget. If the daily token budget is exceeded, returns a budget error — the agent should stop making LLM calls and notify the wallet owner. Cost estimates: claude-sonnet-4-6 is $3/M input + $15/M output; gpt-4o is $2.50/M input + $10/M output.",
+  "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption. It is metered against three budget horizons — the seat's daily budget, the seat's monthly budget, and the pooled per-department daily token cap — and returns a 402 budget error naming which horizon was hit if any is exceeded; on a budget error the agent should stop making LLM calls and notify the owner. Report the provider's actual billed cost_usd for the call (from the provider's usage/response), not an estimate — under-reporting silently defeats the budget. Prefer routing calls through the Sanction LLM gateway instead, which meters real usage server-side with no client honesty required.",
   {
     model: z.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
     tokens_in: z.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
@@ -313,6 +321,41 @@ server.tool(
         type: "text" as const,
         text: status.text,
       }],
+    }
+  }
+)
+
+// Tool: Poll an escalated authorization for its grant
+server.tool(
+  "sanction_check_authorization",
+  "Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, status stays 'escalated' — wait and poll again. Once the owner approves, status becomes 'approved' and a one-use grant_id is returned: retry the ORIGINAL authorize call with the identical fields plus that grant_id to complete the action. If denied, do not proceed.",
+  {
+    request_id: z.string().describe("The request_id from an escalated authorize/provision/tool response"),
+  },
+  async ({ request_id }) => {
+    const result = await callSanction(`/authorize/${encodeURIComponent(request_id)}`, "GET")
+    const status = typeof result.status === "string" ? result.status : undefined
+    const grantId = typeof result.grant_id === "string" ? result.grant_id : undefined
+    if (status === "approved" && grantId) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: `✓ APPROVED — retry your original request with grant_id: ${grantId}`,
+        }],
+      }
+    }
+    if (status === "escalated" || status === "pending") {
+      return { content: [{ type: "text" as const, text: "⏳ Still awaiting the owner's approval — poll again shortly." }] }
+    }
+    if (status === "denied") {
+      return {
+        content: [{ type: "text" as const, text: `✗ DENIED — ${typeof result.reason === "string" ? result.reason : "the owner declined"}. Do not proceed.` }],
+        isError: true,
+      }
+    }
+    return {
+      content: [{ type: "text" as const, text: `Could not read the authorization: ${typeof result.error === "string" ? result.error : "unknown error"}` }],
+      isError: true,
     }
   }
 )

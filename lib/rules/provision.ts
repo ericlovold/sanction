@@ -9,6 +9,7 @@
 import { allow, type Rule } from "@/lib/evaluation"
 import {
   categoryRule,
+  costPerOutcomeRule,
   dailyBudgetRule,
   executionBudgetRule,
   humanApproval,
@@ -47,8 +48,10 @@ export const resourceRule: Rule<ProvisionContext> = {
   },
 }
 
-// The pure ladder (no execution-token gate) — the simulate path + decideProvisionPolicy.
-export const PROVISION_LADDER: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule, dailyBudgetRule, monthlyBudgetRule, ladderRule]
+// The pure ladder (no execution-token gate) — the simulate path +
+// decideProvisionPolicy (AuthZEN PDP). cost_per_outcome before the ladder for
+// live-route parity; no-ops when cpo is absent.
+export const PROVISION_LADDER: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule, dailyBudgetRule, monthlyBudgetRule, costPerOutcomeRule, ladderRule]
 
 // Live route: stateless gates run before the advisory lock…
 export const PROVISION_STATELESS: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule]
