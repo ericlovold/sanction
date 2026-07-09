@@ -100,21 +100,21 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
 
   const listInput = (name: string, label: string, value: string[], hint: string, danger?: boolean) => (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-wide text-zinc-600">{label}</span>
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
       <input
         name={name}
         disabled={!editable}
         defaultValue={value.join(", ")}
-        className={`mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-600 ${danger ? "text-red-300" : "text-zinc-100"}`}
+        className={`mt-1 w-full rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm outline-none focus:border-border ${danger ? "text-red-300" : "text-foreground"}`}
       />
-      <span className="mt-1 block text-[10px] leading-snug text-zinc-600">{hint}</span>
+      <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">{hint}</span>
     </label>
   )
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card className="bg-card border-border">
       <CardHeader className="px-5 pt-5 pb-2">
-        <CardTitle className="text-sm font-medium text-zinc-300">Policy</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">Policy</CardTitle>
       </CardHeader>
       <CardContent className="px-5 pb-5">
         <form action={formAction} className="space-y-5">
@@ -125,9 +125,9 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
             {dollarFields.map((f) => (
               <label key={f.name} className="block">
-                <span className="text-[11px] uppercase tracking-wide text-zinc-600">{f.label}</span>
-                <div className="mt-1 flex items-center rounded-md border border-zinc-800 bg-zinc-950 focus-within:border-zinc-600">
-                  <span className="pl-2.5 font-mono text-sm text-zinc-600">$</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                <div className="mt-1 flex items-center rounded-md border border-border bg-card focus-within:border-border">
+                  <span className="pl-2.5 font-mono text-sm text-muted-foreground">$</span>
                   <input
                     type="number"
                     name={f.name}
@@ -143,10 +143,10 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                           ? (e) => setEscalate(Number(e.target.value))
                           : undefined
                     }
-                    className="w-full bg-transparent px-2 py-1.5 font-mono text-sm text-zinc-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full bg-transparent px-2 py-1.5 font-mono text-sm text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
-                <span className="mt-1 block text-[10px] leading-snug text-zinc-600">{f.hint}</span>
+                <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">{f.hint}</span>
               </label>
             ))}
           </div>
@@ -161,7 +161,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
           {/* Escalation timeout */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-zinc-600">Escalation timeout (min)</span>
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Escalation timeout (min)</span>
               <input
                 type="number"
                 name="escalation_timeout_mins"
@@ -170,19 +170,19 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                 max="10080"
                 disabled={!editable}
                 defaultValue={policy.escalation_timeout_mins}
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="mt-1 w-full rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm text-foreground outline-none focus:border-border [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              <span className="mt-1 block text-[10px] leading-snug text-zinc-600">
+              <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">
                 How long an escalated request waits for a human before the timeout action applies. 0 = waits forever.
               </span>
             </label>
             <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-zinc-600">On timeout</span>
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">On timeout</span>
               <select
                 name="escalation_timeout_action"
                 disabled={!editable}
                 defaultValue={policy.escalation_timeout_action}
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+                className="mt-1 w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-border"
               >
                 <option value="deny">Deny (fail closed)</option>
                 <option value="approve">Approve</option>
@@ -231,26 +231,26 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
           {/* Capability rules — ordered block → allow-list → escalate */}
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wide text-zinc-600">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                 Capability rules ({rules.length}/{MAX_CAPABILITY_RULES})
               </span>
               {editable && rules.length < MAX_CAPABILITY_RULES && (
                 <button
                   type="button"
                   onClick={() => setRules((rs) => [...rs, { pattern: "", effect: "escalate" }])}
-                  className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300"
+                  className="text-[11px] font-medium text-emerald-400 hover:text-primary"
                 >
                   + Add rule
                 </button>
               )}
             </div>
-            <p className="mt-1 text-[10px] leading-snug text-zinc-600">
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
               Governs what agents may <em>acquire</em> — installing skills, adding plugins, reaching new APIs. Patterns
               prefix-match with <span className="font-mono">*</span>; block wins, then the allow list, then escalate.
             </p>
             <div className="mt-2 space-y-2">
               {rules.length === 0 && (
-                <p className="text-[11px] text-zinc-600">
+                <p className="text-[11px] text-muted-foreground">
                   No capability rules — acquiring skills/plugins/APIs is ungoverned. Add a rule like{" "}
                   <span className="font-mono">skill:install:*</span> → escalate.
                 </p>
@@ -263,13 +263,13 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                     maxLength={MAX_CAPABILITY_PATTERN_LEN}
                     onChange={(e) => setRule(i, { pattern: e.target.value })}
                     placeholder="skill:install:*"
-                    className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-600"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm text-foreground outline-none focus:border-border"
                   />
                   <select
                     value={r.effect}
                     disabled={!editable}
                     onChange={(e) => setRule(i, { effect: e.target.value as CapabilityRule["effect"] })}
-                    className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+                    className="rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-border"
                   >
                     <option value="block">block</option>
                     <option value="allow">allow</option>
@@ -279,7 +279,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                     <button
                       type="button"
                       onClick={() => setRules((rs) => rs.filter((_, j) => j !== i))}
-                      className="shrink-0 rounded-md border border-zinc-800 px-2 py-1.5 text-xs text-zinc-500 hover:text-red-400"
+                      className="shrink-0 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-red-400"
                       aria-label="Remove rule"
                     >
                       ✕
@@ -299,14 +299,14 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                   type="submit"
                   formAction={simAction}
                   disabled={simulating}
-                  className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 disabled:opacity-50"
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border disabled:opacity-50"
                 >
                   {simulating ? "Simulating…" : "Simulate before saving"}
                 </button>
                 <button
                   type="submit"
                   disabled={pending}
-                  className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                  className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
                 >
                   {pending ? "Saving…" : "Save policy"}
                 </button>
@@ -316,8 +316,8 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-zinc-500">Viewing the demo — log in to edit your own policy.</span>
-              <a href="/login" className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800">
+              <span className="text-xs text-muted-foreground">Viewing the demo — log in to edit your own policy.</span>
+              <a href="/login" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
                 Log in
               </a>
             </div>

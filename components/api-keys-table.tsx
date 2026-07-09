@@ -79,7 +79,7 @@ function Copy({ value }: { value: string }) {
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
-      className="inline-flex shrink-0 items-center gap-1 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+      className="inline-flex shrink-0 items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
     >
       <Clipboard className="size-3" />
       {done ? "copied" : "copy"}
@@ -101,9 +101,9 @@ function hasOverrides(agent: ConsoleAgent) {
 
 function statusClass(value: number, tone: "amber" | "emerald" | "red" | "zinc") {
   if (tone === "amber" && value > 0) return "border-amber-500/25 bg-amber-500/10 text-amber-300"
-  if (tone === "emerald" && value > 0) return "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+  if (tone === "emerald" && value > 0) return "border-emerald-500/25 bg-emerald-500/10 text-primary"
   if (tone === "red" && value > 0) return "border-red-500/25 bg-red-500/10 text-red-300"
-  return "border-zinc-800 bg-zinc-950/60 text-zinc-500"
+  return "border-border bg-muted text-muted-foreground"
 }
 
 function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean }) {
@@ -117,26 +117,26 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
   const act = agent.activity
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+    <div className="rounded-lg border border-border bg-muted p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-zinc-100">{agent.name}</p>
+            <p className="font-medium text-foreground">{agent.name}</p>
             <span className={`rounded-full px-2 py-0.5 text-[11px] ${seatState(agent) === "active" ? "bg-emerald-500/10 text-emerald-400" : seatState(agent) === "expired" ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
               {seatState(agent)}
             </span>
             {agent.holder ? (
-              <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] text-zinc-400" title="Seat holder">
+              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground" title="Seat holder">
                 {agent.holder}
               </span>
             ) : null}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1 font-mono">
               <KeyRound className="size-3" />
               {agent.apiKeyPrefix}••••••••
             </span>
-            <span className="rounded border border-zinc-800 bg-zinc-950/60 px-1.5 py-0.5 text-[10px] text-zinc-500">
+            <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {agent.walletName}
             </span>
             <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
@@ -172,42 +172,42 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-zinc-500">
+        <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-muted-foreground">
           <Shield className="size-3" />
           clearance {agent.clearance ?? 1}
         </span>
-        <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 ${overrides ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" : "border-zinc-800 bg-zinc-950/60 text-zinc-500"}`}>
+        <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 ${overrides ? "border-emerald-500/25 bg-emerald-500/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
           <SlidersHorizontal className="size-3" />
           {overrides ? "custom limits" : "inherits wallet policy"}
         </span>
-        <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-zinc-500">
+        <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-muted-foreground">
           <Activity className="size-3" />
           {agent.approvedMonth} approved this month
         </span>
       </div>
 
       {act && act.totalCalls > 0 ? (
-        <p className="mt-2 text-[11px] text-zinc-500">
+        <p className="mt-2 text-[11px] text-muted-foreground">
           seen{" "}
-          {act.topModel && <span className="font-mono text-zinc-400">{act.topModel}</span>}
+          {act.topModel && <span className="font-mono text-muted-foreground">{act.topModel}</span>}
           {act.topModel && " · "}
-          <span className="text-zinc-400">{act.totalCalls.toLocaleString()}</span> call{act.totalCalls === 1 ? "" : "s"}
+          <span className="text-muted-foreground">{act.totalCalls.toLocaleString()}</span> call{act.totalCalls === 1 ? "" : "s"}
           {act.lastTask && (
             <>
-              {" · "}task <span className="text-zinc-400">{act.lastTask}</span>
+              {" · "}task <span className="text-muted-foreground">{act.lastTask}</span>
             </>
           )}
           {act.lastSeen && <> · {rel(act.lastSeen)}</>}
         </p>
       ) : (
-        <p className="mt-2 text-[11px] text-zinc-600">No calls yet — use Connect to wire this key into an agent.</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">No calls yet — use Connect to wire this key into an agent.</p>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => setConnectOpen((o) => !o)}
-          className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100"
+          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           {connectOpen ? "Hide connect" : "Connect"}
         </button>
@@ -221,10 +221,10 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
                 name="holder"
                 maxLength={120}
                 placeholder={agent.holder ?? "new holder"}
-                className="w-36 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+                className="w-36 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
               />
             )}
-            <button type="submit" disabled={rotating} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100 disabled:opacity-50">
+            <button type="submit" disabled={rotating} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50">
               <RotateCw className="size-3" />
               {rotating ? "Rotating…" : handoffOpen ? "Rotate + handoff" : "Rotate key"}
             </button>
@@ -232,19 +232,19 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
           <button
             type="button"
             onClick={() => setHandoffOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             {handoffOpen ? "Cancel handoff" : "Handoff on rotate"}
           </button>
           <form action={setAgentActiveAction}>
             <input type="hidden" name="agent_id" value={agent.id} />
             <input type="hidden" name="active" value={agent.isActive ? "false" : "true"} />
-            <button type="submit" className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
+            <button type="submit" className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
               <Power className="size-3" />
               {agent.isActive ? "Revoke" : "Reactivate"}
             </button>
           </form>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:text-zinc-100">
+          <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
             <SlidersHorizontal className="size-3" />
             {open ? "Hide seat policy" : "Seat policy"}
           </button>
@@ -256,18 +256,18 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
 
       {justRotated && (
         <div className="mt-3 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.05] p-3">
-          <p className="text-xs font-semibold text-emerald-300">New key — copy it now, it&apos;s shown once.</p>
-          <div className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-200">{rotate.newKey}</code>
+          <p className="text-xs font-semibold text-primary">New key — copy it now, it&apos;s shown once.</p>
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+            <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{rotate.newKey}</code>
             <Copy value={rotate.newKey!} />
           </div>
         </div>
       )}
 
       {editable && open && (
-        <form action={limitsFormAction} className="mt-3 space-y-3 rounded-md border border-zinc-800 bg-zinc-950/50 p-3">
+        <form action={limitsFormAction} className="mt-3 space-y-3 rounded-md border border-border bg-muted p-3">
           <input type="hidden" name="agent_id" value={agent.id} />
-          <p className="text-[11px] uppercase tracking-wide text-zinc-500">Per-agent overrides — blank inherits the wallet policy</p>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Per-agent overrides — blank inherits the wallet policy</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {([
               ["daily_token_budget_usd", "Daily tokens $", agent.dailyTokenBudgetUsd],
@@ -275,43 +275,43 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
               ["per_transaction_max_usd", "Per-txn max $", agent.perTransactionMaxUsd],
               ["escalate_over_usd", "Escalate over $", agent.escalateOverUsd],
             ] as const).map(([name, label, val]) => (
-              <label key={name} className="flex flex-col gap-1 text-[11px] text-zinc-500">
+              <label key={name} className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                 {label}
                 <input
                   name={name}
                   defaultValue={dollars(val)}
                   inputMode="decimal"
                   placeholder="inherit"
-                  className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+                  className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
                 />
               </label>
             ))}
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
               Holder — audit only
               <input
                 name="holder"
                 defaultValue={agent.holder ?? ""}
                 maxLength={120}
                 placeholder="unassigned"
-                className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+                className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
               />
             </label>
-            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
               Expires — key fails closed after
               <input
                 name="expires_at"
                 type="date"
                 defaultValue={agent.expiresAt ? agent.expiresAt.slice(0, 10) : ""}
-                className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600"
+                className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
               />
             </label>
           </div>
           <div className="flex items-end justify-between gap-3">
-            <label className="flex flex-col gap-1 text-[11px] text-zinc-500">
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
               Clearance
-              <select name="clearance" defaultValue={agent.clearance ?? 1} className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-600">
+              <select name="clearance" defaultValue={agent.clearance ?? 1} className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
@@ -324,7 +324,7 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
                   saved
                 </span>
               )}
-              <button type="submit" disabled={savingLimits} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50">
+              <button type="submit" disabled={savingLimits} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50">
                 <Clock3 className="size-3" />
                 {savingLimits ? "Saving…" : "Save limits"}
               </button>
@@ -338,7 +338,7 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
 
 export function ApiKeysTable({ agents, editable }: { agents: ConsoleAgent[]; editable: boolean }) {
   if (agents.length === 0) {
-    return <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center text-sm text-zinc-500">No agents registered yet.</p>
+    return <p className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">No agents registered yet.</p>
   }
   return (
     <div className="space-y-3">

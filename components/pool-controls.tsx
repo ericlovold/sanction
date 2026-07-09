@@ -55,7 +55,7 @@ function CopyButton({ value }: { value: string }) {
         setCopied(true)
         setTimeout(() => setCopied(false), 1200)
       }}
-      className="inline-flex items-center gap-1.5 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
+      className="inline-flex items-center gap-1.5 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
     >
       <Clipboard className="h-3 w-3" />
       {copied ? "copied" : "copy"}
@@ -89,16 +89,16 @@ export function PoolControls({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-      <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
+      <div className="space-y-3 rounded-md border border-border bg-muted p-4">
         <div>
-          <h2 className="text-sm font-medium text-zinc-200">Create delegated pool</h2>
-          <p className="mt-1 text-xs text-zinc-600">Adds a child authority pool under this wallet.</p>
+          <h2 className="text-sm font-medium text-foreground">Create delegated pool</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Adds a child authority pool under this wallet.</p>
         </div>
         {createState.ok && createState.managementKey && (
           <div className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.04] p-3">
-            <p className="text-xs font-medium text-emerald-300">{createState.poolName} management key</p>
-            <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5">
-              <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-200">{createState.managementKey}</code>
+            <p className="text-xs font-medium text-primary">{createState.poolName} management key</p>
+            <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+              <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{createState.managementKey}</code>
               <CopyButton value={createState.managementKey} />
             </div>
           </div>
@@ -109,25 +109,25 @@ export function PoolControls({
             required
             maxLength={80}
             placeholder="Engineering AI"
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           />
           <input
             name="owner_email"
             required
             type="email"
             placeholder="owner@company.com"
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           />
           <input
             name="subtree_daily_cap_usd"
             inputMode="decimal"
             placeholder="Daily cap, blank for uncapped"
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           />
           <button
             type="submit"
             disabled={creating}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             {creating ? "Creating..." : "Create pool"}
@@ -136,16 +136,16 @@ export function PoolControls({
         </form>
       </div>
 
-      <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
+      <div className="space-y-3 rounded-md border border-border bg-muted p-4">
         <div>
-          <h2 className="text-sm font-medium text-zinc-200">Apply allocation</h2>
-          <p className="mt-1 text-xs text-zinc-600">Splits a parent cap across direct child pools.</p>
+          <h2 className="text-sm font-medium text-foreground">Apply allocation</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Splits a parent cap across direct child pools.</p>
         </div>
         <form action={allocationAction} className="space-y-2">
           <select
             name="parent_wallet_id"
             required
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           >
             <option value="">Choose parent pool</option>
             {allocatablePools.map((pool) => (
@@ -157,7 +157,7 @@ export function PoolControls({
           <select
             name="strategy"
             defaultValue="headroom"
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           >
             <option value="headroom">Headroom weighted</option>
             <option value="delegated">Delegated authority</option>
@@ -167,7 +167,7 @@ export function PoolControls({
           <button
             type="submit"
             disabled={allocating || allocatablePools.length === 0}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:border-border disabled:opacity-50"
           >
             <SlidersHorizontal className="h-4 w-4" />
             {allocating ? "Allocating..." : "Apply caps"}
@@ -176,17 +176,17 @@ export function PoolControls({
         </form>
       </div>
 
-      <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
+      <div className="space-y-3 rounded-md border border-border bg-muted p-4">
         <div>
-          <h2 className="text-sm font-medium text-zinc-200">Set pool cap</h2>
-          <p className="mt-1 text-xs text-zinc-600">Writes the hard subtree cap for a pool.</p>
+          <h2 className="text-sm font-medium text-foreground">Set pool cap</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Writes the hard subtree cap for a pool.</p>
         </div>
         <form action={updateAction} className="space-y-2">
           <select
             name="wallet_id"
             value={capWalletId}
             onChange={(event) => setCapWalletId(event.target.value)}
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           >
             {pools.map((pool) => (
               <option key={pool.id} value={pool.id}>{pool.name} - {poolSubtext(pool)}</option>
@@ -198,12 +198,12 @@ export function PoolControls({
             inputMode="decimal"
             defaultValue={capText(selectedCapPool)}
             placeholder="Blank clears custom cap"
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           />
           <button
             type="submit"
             disabled={updating}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:border-border disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             {updating ? "Saving..." : "Save cap"}
@@ -212,16 +212,16 @@ export function PoolControls({
         </form>
       </div>
 
-      <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/35 p-4">
+      <div className="space-y-3 rounded-md border border-border bg-muted p-4">
         <div>
-          <h2 className="text-sm font-medium text-zinc-200">Move agent</h2>
-          <p className="mt-1 text-xs text-zinc-600">Delegates an agent into a different authority pool.</p>
+          <h2 className="text-sm font-medium text-foreground">Move agent</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Delegates an agent into a different authority pool.</p>
         </div>
         <form action={moveAction} className="space-y-2">
           <select
             name="agent_id"
             required
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           >
             <option value="">Choose agent</option>
             {agents.map((agent) => {
@@ -236,7 +236,7 @@ export function PoolControls({
           <select
             name="target_wallet_id"
             required
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
           >
             <option value="">Choose target pool</option>
             {pools.map((pool) => (
@@ -246,7 +246,7 @@ export function PoolControls({
           <button
             type="submit"
             disabled={moving || agents.length === 0}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:border-border disabled:opacity-50"
           >
             <ArrowRightLeft className="h-4 w-4" />
             {moving ? "Moving..." : "Move agent"}
