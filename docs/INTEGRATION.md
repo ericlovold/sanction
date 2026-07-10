@@ -2,8 +2,10 @@
 
 > For platforms that provision many agents under one account (one agent per
 > tenant), govern spend from a single place, and meter LLM calls through the
-> gateway. Every endpoint here is in the live spec at
-> `https://getsanction.com/api/openapi.json`.
+> gateway. The same shape governs an org's **own** AI usage — a "tenant" can
+> just as well be a department or cost center: budgets per team, chargeback
+> for finance, one place to enforce. Every endpoint here is in the live spec
+> at `https://getsanction.com/api/openapi.json`.
 
 ---
 
