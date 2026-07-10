@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { authenticateAgent } from "@/lib/auth"
 import { AuthZenBadRequest, authzenRespond as respond, evaluateAuthZen, evaluationRequestSchema, publicOrigin } from "@/lib/authzen"
+import { authzenRateLimit } from "@/lib/authzenRateLimit"
 import { logger } from "@/lib/log"
 
 const log = logger("access/v1/evaluation")
@@ -17,6 +18,9 @@ export async function POST(req: NextRequest) {
     log.warn("auth failed", { error })
     return respond(req, { error }, 401)
   }
+
+  const limited = await authzenRateLimit(req, "authzen-eval", agent.id, 240)
+  if (limited) return limited
 
   const parsed = evaluationRequestSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {

@@ -460,12 +460,19 @@ async function settlePendingApprovalIfExpired(approval: ApprovalRecord) {
   const resolutionNote = `Escalation timed out after ${timeoutMins}m — auto-${requestStatus} by policy`
 
   const result = await db.$transaction(async (tx) => {
-    const client = tx as Pick<typeof db, "pendingApproval" | "authorizationRequest">
+    const client = tx as ApprovalWorkflowClient
     const updated = await client.pendingApproval.updateMany({
       where: { id: approval.id, status: "pending" },
       data: { status: "expired", resolvedAt, resolvedBy: "policy_timeout", resolutionNote },
     })
     if (updated.count === 0) return false
+
+    // A timeout-APPROVE is an approval: mint the same one-use grant a human
+    // decision would, or the "approved" state is unredeemable — AARP pollers
+    // see approved with nothing to present and re-evaluation re-escalates.
+    if (requestStatus === "approved") {
+      await mintTimeoutGrant(client, approval, resolvedAt, resolutionNote)
+    }
 
     if (approval.sourceType === SOURCE_AUTHORIZATION_REQUEST && approval.sourceId) {
       await settleSourceAuthorization(client, approval.sourceId, requestStatus, resolvedAt, resolutionNote)
@@ -476,6 +483,31 @@ async function settlePendingApprovalIfExpired(approval: ApprovalRecord) {
   return result
 }
 
+/** The grant a policy timeout-approve mints — resolveApproval's shape, machine-issued. */
+async function mintTimeoutGrant(
+  client: ApprovalWorkflowClient,
+  approval: Pick<ApprovalRecord, "id" | "walletId" | "agentId" | "actionType" | "subjectJson" | "resourceJson" | "constraintsJson" | "sourceType" | "sourceId">,
+  resolvedAt: Date,
+  justification: string,
+) {
+  await client.grant.create({
+    data: {
+      walletId: approval.walletId,
+      agentId: approval.agentId,
+      actionType: approval.actionType,
+      subjectJson: approval.subjectJson,
+      resourceJson: approval.resourceJson,
+      constraintsJson: approval.constraintsJson,
+      sourceType: approval.sourceType,
+      sourceId: approval.sourceId,
+      issuedBy: "policy_timeout",
+      issuedFromApprovalId: approval.id,
+      justification,
+      expiresAt: grantExpiresAt(approval.constraintsJson, resolvedAt),
+    } as never,
+  })
+}
+
 async function settleTimedOutAuthorization(
   requestId: string,
   status: string,
@@ -484,7 +516,7 @@ async function settleTimedOutAuthorization(
   current: DecisionFields,
 ) {
   return db.$transaction(async (tx) => {
-    const client = tx as Pick<typeof db, "pendingApproval" | "authorizationRequest">
+    const client = tx as ApprovalWorkflowClient
     const res = await client.authorizationRequest.updateMany({
       where: { id: requestId, status: "escalated" },
       data: { status, decidedAt, decisionNote },
@@ -494,10 +526,19 @@ async function settleTimedOutAuthorization(
       return fresh ? { status: fresh.status, decisionNote: fresh.decisionNote, decidedAt: fresh.decidedAt } : current
     }
 
+    // Read the approval BEFORE expiring it — a timeout-approve mints the grant
+    // this approval would have carried (see mintTimeoutGrant). Legacy
+    // escalations with no PendingApproval have nothing to mint from.
+    const approval = await client.pendingApproval.findFirst({
+      where: { sourceType: SOURCE_AUTHORIZATION_REQUEST, sourceId: requestId, status: "pending" },
+    })
     await client.pendingApproval.updateMany({
       where: { sourceType: SOURCE_AUTHORIZATION_REQUEST, sourceId: requestId, status: "pending" },
       data: { status: "expired", resolvedAt: decidedAt, resolvedBy: "policy_timeout", resolutionNote: decisionNote },
     })
+    if (status === "approved" && approval) {
+      await mintTimeoutGrant(client, approval, decidedAt, decisionNote)
+    }
     return { status, decisionNote, decidedAt }
   })
 }

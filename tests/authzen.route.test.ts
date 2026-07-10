@@ -16,6 +16,7 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/authzenRateLimit", () => ({ authzenRateLimit: vi.fn(async () => null) })) // limiter has its own tests
 // Cascade math is proven in cascadeBudget.test.ts; stub the db-touching fns
 // (no ancestors, no subtree caps) and keep the pure helpers real.
 vi.mock("@/lib/cascadeBudget", async (orig) => {

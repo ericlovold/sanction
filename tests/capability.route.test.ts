@@ -18,6 +18,7 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/authzenRateLimit", () => ({ authzenRateLimit: vi.fn(async () => null) })) // limiter has its own tests
 vi.mock("next/server", async (orig) => {
   const mod = await orig<typeof import("next/server")>()
   return { ...mod, after: () => {} }

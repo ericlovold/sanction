@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { AARP_PROBLEM, ACCESS_REQUEST_PATH, aarpProblem, aarpTaskStatus, authzenRespond as respond, publicOrigin } from "@/lib/authzen"
+import { authzenRateLimit } from "@/lib/authzenRateLimit"
 import { settleIfExpired } from "@/lib/approvals"
 import { APPROVE_URL } from "@/lib/webhooks"
 
@@ -15,6 +16,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const { agent, error } = await authenticateAgent(req)
   if (!agent) return respond(req, { error }, 401)
+
+  // Pollers loop by design — generous, but bounded (a 1s hot-poll is a bug).
+  const limited = await authzenRateLimit(req, "authzen-task-poll", agent.id, 120)
+  if (limited) return limited
 
   const row = await db.authorizationRequest.findUnique({
     where: { id },
