@@ -16,9 +16,21 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-09",
+    title: "The decision history signs its name",
+    tags: ["audit", "evidence", "security"],
+    body: "Governed decisions now export as a **signed, hash-chained document**. `GET /v1/audit/export` returns a wallet's decision history over a date range where each entry commits to a canonical serialization of the decision *and* the previous entry's hash — the genesis seed is bound to the wallet — so altering, dropping, or reordering any row breaks the chain from that point forward. The root is HMAC-SHA256-signed with the platform secret. Hand the file to whoever needs proof — a regulator, an auditor, the customer you govern — and they check it with `POST /v1/audit/verify`, which recomputes the chain from the document's own decisions and re-checks the signature: self-contained, no database read, and a `valid: false` names the first broken link instead of just shrugging. All of it is read-time over the existing history — zero writes on the hot decision path. Honest boundary: this makes the *exported* evidence tamper-evident, not a write-time notary; anchoring exports to each other across time is the next slice (AUDIT-2).",
+  },
+  {
+    date: "2026-07-09",
     title: "What-if, replayed in order",
     tags: ["simulation", "policy", "evidence"],
     body: "The retro-simulation could already tell you which of last week's decisions a candidate policy would flip — but it held budget counters constant, so it couldn't model the knock-on: a policy that denies an early charge *frees that budget* for the request that came after. Now it can. `POST /v1/policy/simulate` takes `mode: \"sequential\"` — it replays the window in chronological order, threading each agent's approved spend forward (daily and monthly counters reset at the UTC boundaries), so a would-denial no longer counts against the requests that follow it. The default stays `as_recorded` (each decision replays with the budget it actually saw); `sequential` shows the week as it *would have lived* under the new policy. Same read-only honesty envelope — nothing persisted, debited, or escalated — and the response says which mode ran and that subtree/pool caps aren't threaded yet.",
+  },
+  {
+    date: "2026-07-09",
+    title: "The tool runs behind the decision — framework adapters land in the SDK",
+    tags: ["sdk", "adapters", "integrations"],
+    body: "The TypeScript SDK (in-repo; publishing is next) grew the adapter layer that puts Sanction's tool gate *in front of* execution instead of beside it in a log. `authorizeTool` wraps any \"run this tool\" thunk: approved → run; escalated → wait for the one-use grant; denied → `SanctionToolBlocked` with the machine code and request id, so a denial is a normal planning outcome, not a crash. `SanctionMiddleware` does the same as a wrap-everything layer, and `sanctionTool` binds it natively to Vercel AI SDK tools — the model can *plan* whatever it likes, but the tool only executes behind an approve. The adapters are framework-agnostic on purpose (they take a client and a thunk); LangChain, CrewAI, and LiteLLM bindings ride the same core next, recipes already in the [adapter guide](/docs/framework-adapters).",
   },
   {
     date: "2026-07-09",
