@@ -28,6 +28,12 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     date: "2026-07-09",
+    title: "The tool runs behind the decision — framework adapters land in the SDK",
+    tags: ["sdk", "adapters", "integrations"],
+    body: "The TypeScript SDK (in-repo; publishing is next) grew the adapter layer that puts Sanction's tool gate *in front of* execution instead of beside it in a log. `authorizeTool` wraps any \"run this tool\" thunk: approved → run; escalated → wait for the one-use grant; denied → `SanctionToolBlocked` with the machine code and request id, so a denial is a normal planning outcome, not a crash. `SanctionMiddleware` does the same as a wrap-everything layer, and `sanctionTool` binds it natively to Vercel AI SDK tools — the model can *plan* whatever it likes, but the tool only executes behind an approve. The adapters are framework-agnostic on purpose (they take a client and a thunk); LangChain, CrewAI, and LiteLLM bindings ride the same core next, recipes already in the [adapter guide](/docs/framework-adapters).",
+  },
+  {
+    date: "2026-07-09",
     title: "v0.5.0 — one engine, every surface: AuthZEN + MCP reach parity",
     version: "0.5.0",
     tags: ["authzen", "mcp", "governance", "release"],

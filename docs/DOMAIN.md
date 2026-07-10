@@ -72,7 +72,7 @@ named in the discovery doc but not yet a first-class entity.
 | **Execution Token** | Shipped | `ExecutionToken` | Short-lived (15-min TTL) scoped JWT (`jti` = id). Bounds which credentials an execution may inject and its spend authority. |
 | **Credential Injection** | Shipped | `CredentialInjection` | Immutable audit row: which credential was injected under which execution token, when. Never hard-deleted. |
 | **Webhook** | Shipped | `Webhook` | Owner endpoint notified on approval/escalation/budget events; HMAC-SHA256 signed. |
-| **Audit Event** | Roadmap | *(distributed — see below)* | No unified `AuditEvent` table today. Tamper-evident, hash-chained exports are a **Later** roadmap item. |
+| **Audit Event** | Partial | *(distributed — see below)* | No unified `AuditEvent` table today. The decision stream exports as a signed, hash-chained, tamper-evident document (AUDIT-1: `GET /v1/audit/export`, verified self-contained via `POST /v1/audit/verify`); across-time chain anchors are AUDIT-2 (Later). |
 | **Organization** | Roadmap | *(the Wallet tree fills this role)* | No `Organization` model. Org → tenant → sub-tenant is modeled as a self-nesting `Wallet` hierarchy. |
 
 ---
@@ -156,9 +156,14 @@ different question:
 | What scoped authority was issued for this execution? | `ExecutionToken` |
 | What decision did policy return, and why? | `AuthorizationRequest` (status + note) |
 
-A **unified, hash-chained, tamper-evident export** across these is the *Later*
-roadmap item ("Tamper-evident audit exports"). Until it ships, treat "the audit
-trail" as this set of tables, not one stream.
+The **decision stream is exportable as signed evidence** (AUDIT-1, shipped):
+`GET /v1/audit/export` returns the wallet's `AuthorizationRequest` history as a
+hash-chained, HMAC-signed document, and `POST /v1/audit/verify` re-checks it
+self-contained — altering, dropping, or reordering any row names the first
+broken link. The other tables remain separate streams (a unified export across
+all of them, plus chain anchors *across* exports, is AUDIT-2). Treat "the audit
+trail" as this set of tables, with decisions exportable as tamper-evident
+evidence.
 
 ---
 

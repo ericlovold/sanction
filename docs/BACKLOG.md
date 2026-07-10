@@ -122,11 +122,25 @@ conversation, not here.
       MIA is, where it lives (this repo? sibling?), and what "Sanctuary"
       means as a product surface. (idea + collaboration, from Eric)
 
-- [ ] 2026-07-05 — Console/API parity: surface the API-only capabilities in the
+- [ ] 2026-07-08 — Hardening sprint from external code review (Codex) of the
+      seat-leadership build: P0 — bound the recursive wallet-subtree CTE on
+      the seats page (depth/node cap + truncation notice, mirroring Pools),
+      fix the approvals "expiring in 15m" count to exclude already-expired,
+      return `{ok, message}` from credential/token server actions instead of
+      silent void; P1 — action-level tests for batch seat creation,
+      credential CRUD, token revoke, plus one smoke path across
+      seats→rotate→credential→token; P2 — Bedrock Action Group setup guide,
+      runnable Vercel AI SDK + LangChain minimal examples, channel
+      attribution (utm→wallet) and a "first governed call" KPI. Full
+      checklist with files/test cases lives in the working conversation.
+      (feedback, needs an arc)
+- [x] 2026-07-05 — Console/API parity: surface the API-only capabilities in the
       operator console — simulate + pack picker on the policy page, a capability
       rule editor (CAP-1 deferred it), an audit/reporting page with CSV export
-      and a period picker. Engines + tests already exist; only the UI is
-      missing. Highest-leverage adoption fix. (idea, from product audit)
+      and a period picker. **Shipped** → console-parity PR1–PR3 (#116, #117,
+      #119): full policy editor, pack picker + simulation preview, audit &
+      reporting page with CSV export. Capability rule editor remains deferred
+      with CAP-1. (closed 2026-07-08)
 - [ ] 2026-07-05 — Runtime parity: close "governed in API" vs "governed in the
       runtime." Add sanction_authorize_capability to the MCP server; add
       simulate/packs/evidence/reporting methods to the admin SDK; tool/provision/
@@ -137,7 +151,9 @@ conversation, not here.
       badges ("Sanction-governed MCP", "AuthZEN PDP compatible", "AARP approval
       loop") and MCP-directory listings (official registry, Smithery, Glama,
       mcp.so, PulseMCP, Cursor Directory). Mostly founder BD + small packages.
-      (idea, from distribution review)
+      (idea, from distribution review) · 2026-07-08: promoted — ship exactly
+      ONE adapter first (LiteLLM callback or LangChain middleware), not the
+      full list; the rest follow demand.
 - [ ] 2026-07-05 — Channel policy packs: extend PACK-1's catalog with packs
       shaped to a channel — coding-agent, MCP-tool, contractor-seat,
       gateway-token-budget, payment-agent. Pure data + one catalog entry each.
@@ -145,6 +161,9 @@ conversation, not here.
 - [ ] 2026-07-05 — Hosted remote MCP endpoint: today sanction-mcp is stdio/npx
       only; a hosted remote endpoint with OAuth/API-key onboarding is the
       enterprise on-ramp. Bigger infra scope. (idea, from distribution review)
+      · 2026-07-08: promoted — this is also the Sanction-owned enforcement
+      point (governed traffic must pass through it, not "we hope the agent
+      called authorize"). Decision logic stays in the engine, not the proxy.
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.
