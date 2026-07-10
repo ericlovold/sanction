@@ -11,6 +11,18 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-10 — Opaque dashboard sessions (~half a day; scoped in the
+      2026-07-10 audit consolidation, report in the working conversation):
+      make dashboard session handling legible/auditable rather than opaque.
+      (finding, from the repo audit)
+- [ ] 2026-07-10 — RLS on the decision spine (~2–3 days; scoped in the
+      2026-07-10 audit consolidation): extend Postgres Row-Level Security
+      beyond the credential vault to the authorization/decision tables, so
+      tenant isolation on the spine is enforced by the database, not only by
+      query discipline. Cheap early slice: denormalize `walletId` (+
+      `decisionCode`) onto AuthorizationRequest — gives RLS a native tenant
+      key and removes the agent-join from every tenant-scoped read.
+      (finding, from the repo audit)
 - [ ] 2026-07-09 — Sequential simulation follow-ons (SIM-2 shipped: mode=sequential
       threads per-agent daily/monthly approved spend forward). Next: (1) thread
       SUBTREE/pool caps too — the sequential note flags they're held constant, so
@@ -53,13 +65,20 @@ conversation, not here.
       entity-schema / route-scaffold duplication across the three routes.
       (cleanup, from the AuthZEN code review)
 
-- [ ] 2026-07-08 — Org-level console visibility across the subtree (extends
+- [x] 2026-07-08 — Org-level console visibility across the subtree (extends
       the 07-05 console/API parity entry): the root owner's Approvals and
       Audit pages are scoped to the root wallet only (getViewWallet → one
       wallet), so departmental escalations and audit trails are visible only
       to each pool owner; GET /api/v1/wallets/tree has the rollup but no
       console surface. Add subtree scope to approvals/audit (read-only for
       the org owner) + a tree view. (gap, from architecture walkthrough)
+      · 2026-07-10: **shipped** — Audit page aggregates the whole subtree
+      (KPIs, by-agent, feed) with a Pool column when it spans pools;
+      Approvals gains a read-only "Waiting in your pools" section (each
+      pool's owner still decides); shared bounded-CTE subtree helper
+      (lib/walletSubtree) also backs the pools page. Tree view was already
+      live on /dashboard/pools. Verified by rendering against a seeded
+      two-level org.
 - [ ] 2026-07-08 — Install event instrumentation (P1, from distribution
       review): track the funnel per channel — MCP deeplink clicks, config
       copies, OAuth starts, doc CTA clicks, and first governed call by

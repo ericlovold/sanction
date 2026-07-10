@@ -18,6 +18,7 @@ export type PeriodSummaryDay = {
 export type PeriodSummaryAgent = {
   agent_id: string
   agent_name: string | undefined
+  pool?: string // wallet (pool) name — set only on multi-wallet (subtree) reads
   spend_usd: number
   approved: number
   denied: number
@@ -38,20 +39,28 @@ export type PeriodSummary = {
   by_agent?: PeriodSummaryAgent[]
 }
 
+/** Pass an array of wallet ids (an org subtree) to aggregate across pools —
+ *  per-agent rows then carry the pool name for the org-level rollup. */
 export async function buildPeriodSummary(
-  walletId: string,
+  walletId: string | string[],
   { start, end, groupByAgent = false }: { start: Date; end: Date; groupByAgent?: boolean },
 ): Promise<PeriodSummary> {
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true, name: true } })
+  const multi = Array.isArray(walletId) && walletId.length > 1
+  const walletWhere = Array.isArray(walletId) ? { in: walletId } : walletId
+  const agents = await db.agent.findMany({
+    where: { walletId: walletWhere },
+    select: { id: true, name: true, wallet: { select: { name: true } } },
+  })
   const agentIds = agents.map((a) => a.id)
   const nameOf = new Map(agents.map((a) => [a.id, a.name]))
+  const poolOf = multi ? new Map(agents.map((a) => [a.id, a.wallet.name])) : null
   const inRange = { gte: start, lt: end }
 
   const [approved, decisions, tokenAgg, injections, spendDays, tokenDays, perAgentSpend, perAgentTokens] = await Promise.all([
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: inRange }, _sum: { amountUsd: true } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: { agentId: { in: agentIds }, createdAt: inRange }, _count: { _all: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: inRange }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.credentialInjection.count({ where: { executionToken: { walletId }, injectedAt: inRange } }),
+    db.credentialInjection.count({ where: { executionToken: { walletId: walletWhere }, injectedAt: inRange } }),
     // Day buckets via date_trunc — one round-trip per table, not per day.
     agentIds.length > 0
       ? db.$queryRaw<Array<{ day: Date; spend: number | null; approved: bigint; denied: bigint; escalated: bigint }>>`
@@ -118,7 +127,12 @@ export async function buildPeriodSummary(
       rows.set(t.agentId, row)
     }
     byAgent = [...rows.entries()]
-      .map(([agentId, r]) => ({ agent_id: agentId, agent_name: nameOf.get(agentId), ...r }))
+      .map(([agentId, r]) => ({
+        agent_id: agentId,
+        agent_name: nameOf.get(agentId),
+        ...(poolOf ? { pool: poolOf.get(agentId) } : {}),
+        ...r,
+      }))
       .sort((a, b) => b.spend_usd + b.token_cost_usd - (a.spend_usd + a.token_cost_usd))
   }
 

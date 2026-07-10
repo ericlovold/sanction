@@ -6,6 +6,7 @@ import { getViewWallet } from "@/lib/session"
 import { rangeUtc } from "@/lib/reporting"
 import { buildPeriodSummary } from "@/lib/reportingSummary"
 import { buildAuditFeed, type AuditEvent } from "@/lib/auditFeed"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -77,12 +78,18 @@ export default async function AuditPage({
     rangeError = e instanceof Error ? e.message : "invalid range"
   }
 
+  // Org-level scope: the root owner sees the whole subtree — departmental
+  // pools' decisions, tokens, and secret access included, each event carrying
+  // its pool name. A leaf wallet resolves to just itself (ids.length === 1).
+  const { ids: subtree } = await subtreeWalletIds(view.id)
+  const poolCount = subtree.length
   const [summary, feed] = await Promise.all([
-    buildPeriodSummary(view.id, { start, end, groupByAgent: true }),
-    buildAuditFeed(view.id, { limit: FEED_LIMIT }),
+    buildPeriodSummary(subtree, { start, end, groupByAgent: true }),
+    buildAuditFeed(subtree, { limit: FEED_LIMIT }),
   ])
   const { totals } = summary
   const byAgent = summary.by_agent ?? []
+  const multiPool = poolCount > 1
 
   return (
     <div className="min-h-screen mx-auto max-w-5xl space-y-6 p-6">
@@ -91,6 +98,7 @@ export default async function AuditPage({
           <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Audit</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             The evidence trail. Every decision, token charge, and secret access — already current for when the assessor asks.
+            {multiPool && <> Scoped across your org: this pool and {poolCount - 1} below it.</>}
           </p>
         </div>
         {/* Range control drives the period summary; a plain GET form, no client JS. */}
@@ -170,6 +178,7 @@ export default async function AuditPage({
                 <thead>
                   <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     <th className="pb-2 pr-3 font-normal">Agent</th>
+                    {multiPool && <th className="pb-2 pr-3 font-normal">Pool</th>}
                     <th className="pb-2 pr-3 text-right font-normal">Spend</th>
                     <th className="pb-2 pr-3 text-right font-normal">Approved</th>
                     <th className="pb-2 pr-3 text-right font-normal">Denied</th>
@@ -181,6 +190,7 @@ export default async function AuditPage({
                   {byAgent.map((a) => (
                     <tr key={a.agent_id} className="border-t border-border">
                       <td className="py-1.5 pr-3 font-sans text-foreground">{a.agent_name ?? a.agent_id.slice(0, 8)}</td>
+                      {multiPool && <td className="py-1.5 pr-3 font-sans text-muted-foreground">{a.pool ?? "—"}</td>}
                       <td className="py-1.5 pr-3 text-right">{dollars(a.spend_usd)}</td>
                       <td className="py-1.5 pr-3 text-right text-emerald-400">{a.approved}</td>
                       <td className="py-1.5 pr-3 text-right text-red-400">{a.denied}</td>
@@ -213,6 +223,7 @@ export default async function AuditPage({
                   <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     <th className="pb-2 pr-3 font-normal">When</th>
                     <th className="pb-2 pr-3 font-normal">Agent</th>
+                    {multiPool && <th className="pb-2 pr-3 font-normal">Pool</th>}
                     <th className="pb-2 pr-3 font-normal">Event</th>
                     <th className="pb-2 pr-3 font-normal">Detail</th>
                     <th className="pb-2 text-right font-normal">Value</th>
@@ -227,6 +238,7 @@ export default async function AuditPage({
                           {e.at.slice(0, 16).replace("T", " ")}
                         </td>
                         <td className="py-1.5 pr-3 text-foreground">{e.agent_name ?? String(e.agent_id).slice(0, 8)}</td>
+                        {multiPool && <td className="py-1.5 pr-3 text-muted-foreground">{e.pool ?? "—"}</td>}
                         <td className={`py-1.5 pr-3 font-mono text-xs ${d.tone}`}>{e.type}</td>
                         <td className="py-1.5 pr-3 text-muted-foreground">{d.detail}</td>
                         <td className="py-1.5 text-right font-mono tabular-nums text-foreground">{d.value}</td>

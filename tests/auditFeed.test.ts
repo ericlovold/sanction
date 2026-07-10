@@ -56,3 +56,31 @@ describe("buildAuditFeed", () => {
     expect(dbMock.credentialInjection.findMany).not.toHaveBeenCalled()
   })
 })
+
+describe("buildAuditFeed — org subtree scope", () => {
+  it("accepts an array of wallet ids and stamps each event with its pool", async () => {
+    dbMock.agent.findMany.mockResolvedValue([
+      { id: "agent_1", name: "tenet", wallet: { name: "Engineering" } },
+      { id: "agent_2", name: "sator", wallet: { name: "Marketing" } },
+    ])
+    dbMock.authorizationRequest.findMany.mockResolvedValue([
+      { id: "a1", createdAt: new Date("2026-07-03T10:00:00Z"), agentId: "agent_2", status: "approved", action: "spend", amountUsd: 3, merchant: "m", category: "c", decisionNote: null },
+    ])
+    const feed = await buildAuditFeed(["wallet_root", "wallet_child"], { limit: 50 })
+    expect(dbMock.agent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { walletId: { in: ["wallet_root", "wallet_child"] } } }),
+    )
+    expect(dbMock.credentialInjection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ executionToken: { walletId: { in: ["wallet_root", "wallet_child"] } } }) }),
+    )
+    expect(feed.events[0]).toMatchObject({ agent_name: "sator", pool: "Marketing" })
+  })
+
+  it("a single-element array behaves like a plain wallet id — no pool stamping", async () => {
+    dbMock.authorizationRequest.findMany.mockResolvedValue([
+      { id: "a1", createdAt: new Date("2026-07-03T10:00:00Z"), agentId: "agent_1", status: "approved", action: "spend", amountUsd: 3, merchant: "m", category: "c", decisionNote: null },
+    ])
+    const feed = await buildAuditFeed(["wallet_1"], { limit: 50 })
+    expect(feed.events[0].pool).toBeUndefined()
+  })
+})

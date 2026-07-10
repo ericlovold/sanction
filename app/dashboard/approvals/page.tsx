@@ -7,6 +7,7 @@ import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue
 import { WebhookSettings } from "@/components/webhook-settings"
 import { listPendingApprovals } from "@/lib/approvals"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -88,9 +89,15 @@ export default async function ApprovalsPage() {
     ? Math.max(...pending.map((p) => Math.round((nowMs - new Date(p.createdAt).getTime()) / 60000)))
     : 0
 
+  // Org-level visibility: escalations waiting in the pools BELOW this wallet.
+  // Read-only by design — each pool's own owner decides; the org owner sees
+  // that they're waiting (and where) instead of finding out at the invoice.
+  const { ids: subtreeIds } = await subtreeWalletIds(walletId)
+  const descendantIds = subtreeIds.filter((id) => id !== walletId)
+
   // Runs after listPendingApprovals on purpose: that read settles expired
   // escalations, and the resolved list below should include them.
-  const [resolved, webhooks] = await Promise.all([
+  const [resolved, webhooks, orgPending] = await Promise.all([
     db.pendingApproval.findMany({
       where: { walletId, status: { in: ["approved", "denied", "expired"] } },
       orderBy: { updatedAt: "desc" },
@@ -106,6 +113,17 @@ export default async function ApprovalsPage() {
       select: { id: true, url: true, events: true },
       orderBy: { createdAt: "desc" },
   }),
+    descendantIds.length
+      ? db.pendingApproval.findMany({
+          // Pure read — no settle pass here; expired rows are filtered, not
+          // written, because settling a descendant's escalation is its owner's
+          // page's job.
+          where: { walletId: { in: descendantIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          orderBy: { createdAt: "asc" },
+          take: 50,
+          include: { agent: { select: { name: true } }, wallet: { select: { name: true } } },
+        })
+      : [],
   ])
 
   return (
@@ -161,6 +179,37 @@ export default async function ApprovalsPage() {
         )}
       </div>
       <ApprovalQueue pending={pending} editable={view.isSession} />
+
+      {orgPending.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="px-4 pt-4 pb-2">
+            <CardTitle className="text-sm font-medium text-foreground">Waiting in your pools</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Escalations pending in wallets below this one. Read-only here — each pool&apos;s owner approves in their own inbox.
+            </p>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="space-y-2">
+              {orgPending.map((r) => (
+                <div key={r.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate text-foreground">
+                      {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {actionLabel(r.actionType)} · waiting since {new Date(r.createdAt).toLocaleString()}
+                      {r.expiresAt ? ` · expires ${new Date(r.expiresAt).toLocaleString()}` : ""}
+                    </p>
+                  </div>
+                  <span className="ml-3 shrink-0 rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    {r.wallet.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
