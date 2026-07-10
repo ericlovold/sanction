@@ -1,6 +1,6 @@
 {
   "name": "sanction-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "mcpName": "io.github.ericlovold/sanction",
   "description": "MCP server for Sanction — spend, tool, and provisioning authorization with human-approval grants, token budgets, and an encrypted credential vault for autonomous AI agents.",
   "type": "module",

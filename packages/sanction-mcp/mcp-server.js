@@ -31073,7 +31073,7 @@ function renderAuthResult(result, opts) {
 }
 var server = new McpServer({
   name: "sanction",
-  version: "0.4.0",
+  version: "0.5.0",
   description: "Sanction \u2014 pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)"
 });
 server.tool(
@@ -31132,6 +31132,19 @@ server.tool(
   async ({ tool, server: srv, arguments: args, grant_id }) => {
     const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id });
     return renderAuthResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
+  }
+);
+server.tool(
+  "sanction_authorize_capability",
+  "Call this BEFORE acquiring any new capability \u2014 installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, poll sanction_check_authorization with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
+  {
+    capability: external_exports.string().describe("Namespaced identifier of the capability about to be acquired, e.g. 'skill:install:web-scraper', 'plugin:browser', 'api:github.com/repos'"),
+    arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) \u2014 surfaced to the owner on escalation, not policy-evaluated"),
+    grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact capability. Retry with the identical capability plus this grant_id to consume it.")
+  },
+  async ({ capability, arguments: args, grant_id }) => {
+    const result = await callSanction("/authorize/capability", "POST", { capability, arguments: args, grant_id });
+    return renderAuthResult(result, { success: `Authorized \u2014 ${capability}`, verb: "acquire" });
   }
 );
 server.tool(
