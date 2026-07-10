@@ -14,18 +14,28 @@ export type AuditEvent = {
   at: string
   agent_id: string
   agent_name?: string
+  pool?: string // wallet (pool) name — set only on multi-wallet (subtree) reads
   [k: string]: unknown
 }
 
 export type AuditFeed = { events: AuditEvent[]; next_before: string | null }
 
+/** Pass an array of wallet ids (an org subtree) to read across pools — events
+ *  then carry the pool name so a root owner can tell whose decision it was. */
 export async function buildAuditFeed(
-  walletId: string,
+  walletId: string | string[],
   { type, limit, before }: { type?: string | null; limit: number; before?: Date },
 ): Promise<AuditFeed> {
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true, name: true } })
+  const multi = Array.isArray(walletId) && walletId.length > 1
+  const walletWhere = Array.isArray(walletId) ? { in: walletId } : walletId
+  const agents = await db.agent.findMany({
+    where: { walletId: walletWhere },
+    select: { id: true, name: true, wallet: { select: { name: true } } },
+  })
   const agentIds = agents.map((a) => a.id)
   const nameOf = new Map(agents.map((a) => [a.id, a.name]))
+  const poolOf = multi ? new Map(agents.map((a) => [a.id, a.wallet.name])) : null
+  const pool = (agentId: string) => (poolOf ? { pool: poolOf.get(agentId) } : {})
   const createdAt = before ? { lt: before } : undefined
 
   const wantAuth = !type || type === "authorization"
@@ -41,7 +51,7 @@ export async function buildAuditFeed(
       : [],
     wantInjection
       ? db.credentialInjection.findMany({
-          where: { executionToken: { walletId }, injectedAt: before ? { lt: before } : undefined },
+          where: { executionToken: { walletId: walletWhere }, injectedAt: before ? { lt: before } : undefined },
           orderBy: { injectedAt: "desc" },
           take: limit,
           include: { credential: { select: { label: true } }, executionToken: { select: { agentId: true } } },
@@ -57,6 +67,7 @@ export async function buildAuditFeed(
         at: a.createdAt.toISOString(),
         agent_id: a.agentId,
         agent_name: nameOf.get(a.agentId),
+        ...pool(a.agentId),
         action: a.action,
         amount_usd: a.amountUsd,
         merchant: a.merchant,
@@ -73,6 +84,7 @@ export async function buildAuditFeed(
         at: t.createdAt.toISOString(),
         agent_id: t.agentId,
         agent_name: nameOf.get(t.agentId),
+        ...pool(t.agentId),
         model: t.model,
         cost_usd: t.costUsd,
         tokens_in: t.tokensIn,
@@ -85,6 +97,7 @@ export async function buildAuditFeed(
         at: inj.injectedAt.toISOString(),
         agent_id: inj.executionToken.agentId,
         agent_name: nameOf.get(inj.executionToken.agentId),
+        ...pool(inj.executionToken.agentId),
         credential_label: inj.credential.label,
         execution_token_id: inj.executionTokenId,
       })),

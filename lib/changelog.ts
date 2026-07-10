@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-10",
+    title: "The org owner sees the whole org",
+    tags: ["console", "governance", "pools"],
+    body: "Budgets already cascaded through the wallet tree; now visibility does too. The **Audit page** reads your entire subtree — every department pool's decisions, token burn, and secret access in one trail, each row carrying its pool name, the per-agent rollup spanning the org. The **Approvals inbox** gains *Waiting in your pools*: escalations pending in the wallets below yours, visible the moment they stall — read-only by design, because each pool's owner decides in their own inbox; the org owner's job is knowing they're waiting, not deciding over their head. A leaf wallet sees exactly what it saw before. This is the internal-governance shape made whole: the CFO who set the department budgets can now watch the same tree enforce them.",
+  },
+  {
     date: "2026-07-09",
     title: "The PDP grows armor — AuthZEN hardening sprint 2",
     tags: ["authzen", "security", "hardening"],

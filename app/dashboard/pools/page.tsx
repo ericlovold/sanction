@@ -9,6 +9,7 @@ import { PoolControls } from "@/components/pool-controls"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { dailyPace } from "@/lib/burn"
 
 export const dynamic = "force-dynamic"
@@ -18,8 +19,6 @@ export const metadata: Metadata = {
   description: "Budget pools, delegated authority, and allocation strategy for autonomous work.",
 }
 
-const MAX_DEPTH = 6
-const MAX_NODES = 500
 
 type WalletNode = {
   id: string
@@ -178,21 +177,10 @@ function subtreeIds(rootId: string, childrenOf: Map<string, string[]>, seen = ne
 }
 
 async function loadWalletSubtree(rootId: string): Promise<{ wallets: WalletNode[]; truncated: boolean }> {
-  // One recursive CTE for the subtree ids (depth- and node-bounded), then one
-  // findMany for the rows — replaces a BFS that paid a round-trip per level.
-  const rows = await db.$queryRaw<Array<{ id: string }>>`
-    WITH RECURSIVE subtree AS (
-      SELECT id, "parentId", 1 AS depth FROM "Wallet" WHERE id = ${rootId}
-      UNION ALL
-      SELECT w.id, w."parentId", s.depth + 1
-      FROM "Wallet" w JOIN subtree s ON w."parentId" = s.id
-      WHERE s.depth < ${MAX_DEPTH}
-    )
-    SELECT id FROM subtree LIMIT ${MAX_NODES + 1}
-  `
-  if (rows.length === 0) return { wallets: [], truncated: false }
-  const truncated = rows.length > MAX_NODES
-  const ids = rows.slice(0, MAX_NODES).map((r) => r.id)
+  // Shared bounded CTE (lib/walletSubtree) for the ids, then one findMany for
+  // the rows — the same subtree scope the approvals and audit pages read.
+  const { ids, truncated } = await subtreeWalletIds(rootId)
+  if (ids.length === 0) return { wallets: [], truncated: false }
 
   const nodes = await db.wallet.findMany({
     where: { id: { in: ids } },
