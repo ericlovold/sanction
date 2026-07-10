@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-10",
+    title: "Sanction Local's install package — no-egress pack + assessor download",
+    tags: ["local", "packs", "audit"],
+    body: "The Local roadmap item was \"runtime to install.\" The install half lands here. A new **`no-egress`** policy pack (`channel: local`) allows only exact on-box tools — `local.ollama`, `local.chroma`, `local.embeddings`, `local.memory` — blocks named cloud egress tools, and escalates or blocks new capability. Every deny still persists as an audit row (the no-egress evidence shape). On the console, the Audit page gains **Signed evidence (JSON)**: the same tamper-evident AUDIT-1 document as `GET /v1/audit/export`, cookie-authed so an operator downloads it for the assessor without curling an `sk_` key. Preview the pack against your last 30 days before applying; verify any export with `POST /v1/audit/verify`. Sanction decides and evidences — the runtime must still refuse egress.",
+  },
+  {
+    date: "2026-07-10",
     title: "v0.6.0 — drop-in governance, provable history",
     version: "0.6.0",
     tags: ["release", "sdk", "audit", "authzen", "console"],

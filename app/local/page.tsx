@@ -69,6 +69,7 @@ export default function LocalOffering() {
           </Link>
           <div className="flex items-center gap-5 text-sm">
             <a href="#how" className="sanction-link hidden sm:inline">How it works</a>
+            <a href="#install" className="sanction-link hidden sm:inline">Install package</a>
             <a href="#engagements" className="sanction-link hidden sm:inline">Engagements</a>
             <a href={CONTACT} className="sn-btn sn-btn-primary sn-btn-s">
               Book a fit call
@@ -140,6 +141,41 @@ export default function LocalOffering() {
                 <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{p.body}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Install package — the governance artifacts that ship with Local */}
+      <section id="install" style={sectionBorder}>
+        <div className="mx-auto max-w-5xl px-6 py-16">
+          <h2 style={monoLabel}>The install package</h2>
+          <p className="mt-4 max-w-2xl" style={{ color: "var(--text-secondary)" }}>
+            Two artifacts make Local provable before the hardware arrives: a policy that denies
+            cloud egress, and a signed evidence export your assessor verifies without a walkthrough.
+          </p>
+          <div className="mt-8 grid gap-5 md:grid-cols-2">
+            <div className="rounded-lg border p-6" style={card}>
+              <h3 className="text-lg font-semibold" style={{ letterSpacing: "-0.01em" }}>No-egress policy pack</h3>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Apply <code style={{ color: "var(--text-body)" }}>no-egress</code> from the dashboard
+                or API. Only on-box tools pass; named cloud calls deny and persist as audit rows.
+                Preview it against your last 30 days before you commit.
+              </p>
+              <Link href="/compatibility" className="sanction-link mt-4 inline-block text-sm font-medium">
+                See channel packs →
+              </Link>
+            </div>
+            <div className="rounded-lg border p-6" style={card}>
+              <h3 className="text-lg font-semibold" style={{ letterSpacing: "-0.01em" }}>Assessor evidence export</h3>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                From the Audit console, download a signed, hash-chained JSON of every governed
+                decision. Alter, drop, or reorder a row and the chain breaks at a named link —
+                verifiable self-contained.
+              </p>
+              <Link href="/docs/compatibility" className="sanction-link mt-4 inline-block text-sm font-medium">
+                Compatibility &amp; evidence badges →
+              </Link>
+            </div>
           </div>
         </div>
       </section>
