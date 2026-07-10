@@ -16,9 +16,9 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-09",
-    title: "The decision history signs its name",
-    tags: ["audit", "evidence", "security"],
-    body: "Governed decisions now export as a **signed, hash-chained document**. `GET /v1/audit/export` returns a wallet's decision history over a date range where each entry commits to a canonical serialization of the decision *and* the previous entry's hash — the genesis seed is bound to the wallet — so altering, dropping, or reordering any row breaks the chain from that point forward. The root is HMAC-SHA256-signed with the platform secret. Hand the file to whoever needs proof — a regulator, an auditor, the customer you govern — and they check it with `POST /v1/audit/verify`, which recomputes the chain from the document's own decisions and re-checks the signature: self-contained, no database read, and a `valid: false` names the first broken link instead of just shrugging. All of it is read-time over the existing history — zero writes on the hot decision path. Honest boundary: this makes the *exported* evidence tamper-evident, not a write-time notary; anchoring exports to each other across time is the next slice (AUDIT-2).",
+    title: "The PDP grows armor — AuthZEN hardening sprint 2",
+    tags: ["authzen", "security", "hardening"],
+    body: "Five deeper findings from the AuthZEN code review, closed. **Binding tokens are now single-use**: every requestable denial carries a jti that's consumed atomically with the escalation it opens — replay the same denial under a fresh idempotency key and you get a problem+json refusal, not a second approval (honest retries still replay safely; they're checked first). **Batch requests pre-validate every item** before anything evaluates, so a malformed sibling can no longer burn a grant redemption into a 400 it didn't cause. **Timeout-approvals mint a real grant** (`issuedBy: policy_timeout`) — an AARP poller now receives something redeemable instead of an approved-with-nothing dead loop. **All four AuthZEN endpoints rate-limit per agent** with `Retry-After` (the 50-item batch amplifies, so it gets the tighter window). And an explicit empty batch returns empty, not a surprise default-tuple evaluation. Fourteen new tests pin it all.",
   },
   {
     date: "2026-07-09",

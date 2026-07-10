@@ -14,11 +14,13 @@ const { dbMock } = vi.hoisted(() => ({
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
     executionToken: { findUnique: vi.fn() },
     pendingApproval: { create: vi.fn(), findFirst: vi.fn() },
+    consumedBindingToken: { create: vi.fn(async () => ({})), findUnique: vi.fn(async () => null), deleteMany: vi.fn(async () => ({ count: 0 })) },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/authzenRateLimit", () => ({ authzenRateLimit: vi.fn(async () => null) })) // limiter has its own tests
 vi.mock("next/server", async (orig) => {
   const mod = await orig<typeof import("next/server")>()
   return { ...mod, after: () => {} }

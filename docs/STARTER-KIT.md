@@ -125,7 +125,7 @@ If your runtime speaks MCP, skip the REST and mount the tools:
 ```
 
 That exposes `sanction_authorize`, `sanction_authorize_tool`,
-`sanction_authorize_provision`, `sanction_log_tokens`,
+`sanction_authorize_capability`, `sanction_authorize_provision`, `sanction_log_tokens`,
 `sanction_request_execution`, `sanction_inject_credential`, and
 `sanction_wallet_status`. Then give the agent one standing rule — in its system
 prompt, agent definition, or platform policy:

@@ -27,7 +27,7 @@ conversation, not here.
       (4) once gateway vault-injected keys land, drop the "provider keys in
       runtime" caveat from the adapter checklist. (feature, from roadmap Next)
 
-- [ ] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
+- [x] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
       sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —
       move grant redemption out of evaluateAuthZen into the route shell so a
       sibling item's 400 can't burn a consumed grant with no result returned
@@ -40,6 +40,13 @@ conversation, not here.
       amplifies one request into ~150 DB queries; (5) empty-batch
       `evaluations: []` runs one default-tuple eval instead of returning empty.
       (findings, from the AuthZEN code review)
+      · 2026-07-09, same day: **shipped** (AUTHZEN-HARDEN in TRACEABILITY).
+      (1) landed as pre-validation (`validateAuthZenSemantics` over every
+      batch item before any evaluation) — kills the grant burn without
+      touching the redemption plumbing; the shell-refactor altitude cleanup
+      stays in the cleanup-cluster entry below. (2)–(5) landed as specified
+      (jti + ConsumedBindingToken table, policy_timeout grants, per-agent
+      429s, empty-batch empty).
 - [ ] 2026-07-09 — AuthZEN/MCP cleanup cluster (non-correctness, flagged not
       fixed): dedup getSigningKey (lib/jwt owns it), isUniqueViolation (7
       copies → lib), and the readSpendState / notification-fanout /

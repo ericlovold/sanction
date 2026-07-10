@@ -214,6 +214,24 @@ async function readSpendState(agent: AuthZenAgent) {
 }
 
 /**
+ * Everything evaluateAuthZen can reject as semantically malformed (missing
+ * amount, bad arithmetic, non-string approval id), checked WITHOUT evaluating.
+ * The batch route runs this over every merged item before any evaluation, so
+ * a malformed sibling 400s the whole request BEFORE any grant-consuming write
+ * commits — a consumed grant must never vanish into a 400 it didn't cause.
+ * Throws AuthZenBadRequest; returns nothing.
+ */
+export function validateAuthZenSemantics(r: AuthZenRequest): void {
+  if (r.context && "approval" in r.context) {
+    const approvalId = stringProp(asRecord(r.context.approval), "id")
+    if (!approvalId) throw new AuthZenBadRequest("context.approval requires a string id")
+  }
+  if (r.resource.type === "spend" || r.resource.type === "provision") {
+    canonicalSarc(r) // throws AuthZenBadRequest on missing amount / bad arithmetic
+  }
+}
+
+/**
  * Evaluate one AuthZEN tuple for the authenticated agent. Fresh evaluations
  * are decision-only: reads budget state, never writes. The one deliberate
  * exception is AARP re-evaluation — a request carrying context.approval
@@ -571,6 +589,7 @@ export async function accessRequestOffer(
     .setIssuer("sanction")
     .setAudience([agent.walletId])
     .setSubject(agent.id)
+    .setJti(crypto.randomUUID()) // single-use: consumed on access-request submission
     .setIssuedAt()
     .setExpirationTime(expiresAt)
     .sign(getSigningKey())
@@ -582,10 +601,15 @@ export async function accessRequestOffer(
 }
 
 export type BindingVerification =
-  | { ok: true; sarc: CanonicalSarc; reason?: string }
+  | { ok: true; sarc: CanonicalSarc; reason?: string; jti: string; expiresAt: Date }
   | { ok: false; expired: boolean }
 
-/** Verify a binding token belongs to this agent and extract the signed SARC. */
+/**
+ * Verify a binding token belongs to this agent and extract the signed SARC.
+ * Tokens without a jti fail closed — every token minted since single-use
+ * landed carries one, and the 15-minute TTL bounds the deploy-boundary blast
+ * radius to tokens that would expire anyway.
+ */
 export async function verifyBindingToken(agent: AuthZenAgent, token: string): Promise<BindingVerification> {
   try {
     const { payload } = await jwtVerify(token, getSigningKey(), {
@@ -593,13 +617,15 @@ export async function verifyBindingToken(agent: AuthZenAgent, token: string): Pr
       audience: agent.walletId,
       algorithms: ["HS256"],
     })
-    if (payload.purpose !== BINDING_TOKEN_PURPOSE || payload.sub !== agent.id || !payload.sarc) {
+    if (payload.purpose !== BINDING_TOKEN_PURPOSE || payload.sub !== agent.id || !payload.sarc || !payload.jti || !payload.exp) {
       return { ok: false, expired: false }
     }
     return {
       ok: true,
       sarc: payload.sarc as CanonicalSarc,
       reason: typeof payload.reason === "string" ? payload.reason : undefined,
+      jti: payload.jti,
+      expiresAt: new Date(payload.exp * 1000),
     }
   } catch (e) {
     const expired = typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "ERR_JWT_EXPIRED"

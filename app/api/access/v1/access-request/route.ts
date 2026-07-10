@@ -17,6 +17,7 @@ import {
   type CanonicalSarc,
 } from "@/lib/authzen"
 import { createSpendPendingApproval, createToolPendingApproval, createProvisionPendingApproval, createCapabilityPendingApproval } from "@/lib/approvals"
+import { authzenRateLimit } from "@/lib/authzenRateLimit"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { logger } from "@/lib/log"
@@ -38,6 +39,10 @@ export async function POST(req: NextRequest) {
     log.warn("auth failed", { error })
     return respond(req, { error }, 401)
   }
+
+  // Escalations page a human — the tightest window on the AuthZEN surface.
+  const limited = await authzenRateLimit(req, "authzen-access-request", agent.id, 20)
+  if (limited) return limited
 
   const parsed = accessRequestSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {
@@ -76,11 +81,11 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Idempotency-Key is REQUIRED here: the binding token is not yet single-use
-  // (jti tracking is the deeper fix), so the key is the replay guard. Without
-  // it, a token replayed within its TTL would open duplicate escalations —
-  // multiple PendingApprovals and grants from one denial. The
-  // agentId_idempotencyKey unique constraint collapses retries to one request.
+  // Two replay guards, layered: the Idempotency-Key collapses RETRIES of the
+  // same submission to one request (checked first, so a retry never trips the
+  // reuse check), and the binding token's jti is single-use — consumed
+  // atomically with the escalation it opens — so the same denial REPLAYED
+  // under a fresh key cannot open a second approval.
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
   if (!idempotencyKey) {
     return respond(
@@ -103,6 +108,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const escalated = await db.$transaction(async (tx) => {
+      // Single-use: consuming the jti rides the same transaction as the
+      // escalation it opens — either both commit or neither. A replayed token
+      // fails the unique insert and the whole create rolls back.
+      await tx.consumedBindingToken.create({
+        data: { jti: verified.jti, agentId: agent.id, expiresAt: verified.expiresAt },
+      })
       if (sarc.t === "tool") {
         const row = await tx.authorizationRequest.create({
           data: {
@@ -252,14 +263,25 @@ export async function POST(req: NextRequest) {
       ]),
     )
 
+    // The jti table only grows by consumed tokens; expired rows are dead
+    // weight (the token itself no longer verifies) — prune opportunistically.
+    after(() => db.consumedBindingToken.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {}))
+
     return respond(req, taskResponse(escalated.id, "pending", publicOrigin(req)), 201)
   } catch (e: unknown) {
-    if (idempotencyKey && isUniqueViolation(e)) {
+    if (isUniqueViolation(e)) {
+      // Same-key race or retry: the idempotent replay wins over the reuse check.
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
       if (existing) {
         return respond(req, taskResponse(existing.id, aarpTaskStatus(existing.status, existing.decisionNote), publicOrigin(req)), 200)
+      }
+      // No replay to return → the unique that fired was the jti: this denial
+      // was already redeemed under a different key. One denial, one escalation.
+      const consumed = await db.consumedBindingToken.findUnique({ where: { jti: verified.jti } })
+      if (consumed) {
+        return aarpProblem(req, AARP_PROBLEM.invalid_denial_binding, "The binding token has already been used — re-evaluate to obtain a fresh denial", 400)
       }
     }
     throw e

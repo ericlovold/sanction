@@ -14,6 +14,7 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/authzenRateLimit", () => ({ authzenRateLimit: vi.fn(async () => null) })) // limiter has its own tests
 vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
   return { ...mod, walletAncestorChain: vi.fn(async () => []), cascadeDailyWouldExceed: vi.fn(async () => false) }

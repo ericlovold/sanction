@@ -700,7 +700,7 @@ export const spec = {
         type: "object",
         required: ["subject", "action", "resource", "denial"],
         description:
-          "AuthZEN Access Request and Approval Profile (draft) submission: the denied subject/action/resource plus the binding_token from the requestable denial's context.access_request. Opens a real Sanction escalation in the owner's approval inbox.",
+          "AuthZEN Access Request and Approval Profile (draft) submission: the denied subject/action/resource plus the binding_token from the requestable denial's context.access_request. Opens a real Sanction escalation in the owner's approval inbox. Binding tokens are SINGLE-USE — the token's jti is consumed with the escalation it opens; replaying a used token under a new Idempotency-Key returns a problem+json refusal, while retrying under the SAME Idempotency-Key safely replays the existing task. AuthZEN endpoints are rate-limited per agent (429 + Retry-After).",
         properties: {
           subject: { $ref: "#/components/schemas/AuthZenEntity" },
           action: { $ref: "#/components/schemas/AuthZenAction" },
