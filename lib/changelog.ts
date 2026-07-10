@@ -16,6 +16,19 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-10",
+    title: "v0.6.0 — drop-in governance, provable history",
+    version: "0.6.0",
+    tags: ["release", "sdk", "audit", "authzen", "console"],
+    body: "One day after v0.5.0 closed the surface-parity gap, v0.6.0 ships the two things a governance layer must do to be adopted and to be believed: **drop in without a rewrite**, and **prove its own record**. The SDK's framework adapters put the decision in front of execution — `authorizeTool`, `SanctionMiddleware`, and native Vercel AI SDK tool binding — so the model plans freely but the tool runs behind an approve. The decision history now exports as a **signed, hash-chained document** any auditor verifies self-contained, and the what-if simulator replays your real week **in order**, an early denial freeing budget downstream. Around the core: the AuthZEN PDP hardened (single-use denial tokens, no grant burn in batches, no approval dead loops, per-agent rate limits), capability governance reached the MCP runtime (`sanction_authorize_capability`, sanction-mcp 0.5.0), the org owner's console now sees the whole wallet tree, and the storefront finally names the internal-governance buyer it was built for. Full detail in the entries below.",
+  },
+  {
+    date: "2026-07-10",
+    title: "Capabilities ask first from any MCP host — sanction-mcp 0.5.0",
+    tags: ["mcp", "capability", "release"],
+    body: "Capability governance (CAP-1) reached the runtime where agents actually live. The new `sanction_authorize_capability` MCP tool asks before an agent installs a skill, adds a plugin, or reaches a new API — the same ordered rule ladder, approval inbox, and one-use grants as the REST surface, now from any MCP host. `npx sanction-mcp`; ten tools total.",
+  },
+  {
+    date: "2026-07-10",
     title: "The org owner sees the whole org",
     tags: ["console", "governance", "pools"],
     body: "Budgets already cascaded through the wallet tree; now visibility does too. The **Audit page** reads your entire subtree — every department pool's decisions, token burn, and secret access in one trail, each row carrying its pool name, the per-agent rollup spanning the org. The **Approvals inbox** gains *Waiting in your pools*: escalations pending in the wallets below yours, visible the moment they stall — read-only by design, because each pool's owner decides in their own inbox; the org owner's job is knowing they're waiting, not deciding over their head. A leaf wallet sees exactly what it saw before. This is the internal-governance shape made whole: the CFO who set the department budgets can now watch the same tree enforce them.",
