@@ -77,3 +77,18 @@ limits applied, which human approved the exception, and which grant was redeemed
 
 Use the **Payment agent mandate** pack when every money movement should escalate
 and the evidence trail matters more than speed.
+
+## Sanction Local (air-gapped)
+
+Regulated practices that keep models on their own hardware need a policy that
+denies cloud egress and an export an assessor can verify without a walkthrough.
+
+Use the **No egress** pack (`no-egress`): only exact on-box tools
+(`local.ollama`, `local.chroma`, `local.embeddings`, `local.memory`) are
+allowed; named cloud tools are blocked; anything else on the allow-list path is
+denied and persisted. Capability installs escalate or block. Pair it with the
+signed audit export (`GET /v1/audit/export` or **Signed evidence** on the
+dashboard Audit page) and `POST /v1/audit/verify`.
+
+Sanction decides and evidences; the runtime must still refuse egress. The pack
+is the governance half of the Local install package.

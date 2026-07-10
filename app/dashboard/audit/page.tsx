@@ -156,12 +156,20 @@ export default async function AuditPage({
         <CardHeader className="px-5 pt-5 pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium text-muted-foreground">By agent</CardTitle>
           {view.isSession ? (
-            <a
-              href={`/dashboard/audit/export`}
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border"
-            >
-              Download recent (CSV)
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={`/dashboard/audit/export`}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border"
+              >
+                Download recent (CSV)
+              </a>
+              <a
+                href={`/dashboard/audit/export/signed?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border"
+              >
+                Signed evidence (JSON)
+              </a>
+            </div>
           ) : (
             <span className="text-[11px] text-muted-foreground">Log in to export</span>
           )}

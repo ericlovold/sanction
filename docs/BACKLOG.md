@@ -184,10 +184,13 @@ conversation, not here.
       (idea, from distribution review) · 2026-07-08: promoted — ship exactly
       ONE adapter first (LiteLLM callback or LangChain middleware), not the
       full list; the rest follow demand.
-- [ ] 2026-07-05 — Channel policy packs: extend PACK-1's catalog with packs
+- [x] 2026-07-05 — Channel policy packs: extend PACK-1's catalog with packs
       shaped to a channel — coding-agent, MCP-tool, contractor-seat,
       gateway-token-budget, payment-agent. Pure data + one catalog entry each.
       (idea, from distribution review)
+      · 2026-07-10: **shipped** across channels (coding-agent-seat, mcp-tool-
+      governance, gateway-token-budget, agency-*, payment-agent-mandate) plus
+      **no-egress** for Sanction Local (`channel: local`). LOCAL-1.
 - [ ] 2026-07-05 — Hosted remote MCP endpoint: today sanction-mcp is stdio/npx
       only; a hosted remote endpoint with OAuth/API-key onboarding is the
       enterprise on-ramp. Bigger infra scope. (idea, from distribution review)

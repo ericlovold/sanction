@@ -17,7 +17,7 @@ export type PolicyPack = {
   tagline: string
   audience: string
   maturity: "metering" | "authorization" | "governance" | "evidence"
-  channel?: "coding-agent" | "mcp" | "gateway" | "payments" | "agency"
+  channel?: "coding-agent" | "mcp" | "gateway" | "payments" | "agency" | "local"
   useCases?: string[]
   policy: PolicyInput
 }
@@ -269,6 +269,54 @@ export const POLICY_PACKS: PolicyPack[] = [
         { pattern: "api:stripe.com/*", effect: "escalate" },
         { pattern: "api:coinbase.com/*", effect: "block" },
         { pattern: "payment-rail:*", effect: "escalate" },
+      ],
+      escalation_timeout_mins: 1440,
+      escalation_timeout_action: "deny",
+    },
+  },
+  {
+    // Sanction Local install pack. Tool lists are EXACT names (the tool ladder
+    // matches with includes, not globs — same shape as the no-egress dataplane
+    // test). Anything not on allowed_tools is denied and persisted as evidence.
+    // Capability rules DO use prefix-globs. The runtime must still refuse egress;
+    // this pack is Sanction's half: deny + prove.
+    id: "no-egress",
+    name: "No egress",
+    tagline: "Only on-box tools pass — every cloud call is denied and logged for the assessor.",
+    audience:
+      "Sanction Local installs: regulated practices running local models where data must not leave the building.",
+    maturity: "evidence",
+    channel: "local",
+    useCases: ["air-gapped runtime", "assessor evidence", "HIPAA / ABA Formal Op. 512 practices"],
+    policy: {
+      auto_approve_under_usd: 0,
+      escalate_over_usd: 0,
+      per_transaction_max_usd: 25,
+      daily_spend_budget_usd: 10,
+      monthly_spend_budget_usd: 100,
+      daily_token_budget_usd: 10,
+      blocked_categories: ["gambling", "adult", "weapons", "crypto"],
+      // Exact local-runtime tools only — empty allow-list would allow all.
+      allowed_tools: ["local.ollama", "local.chroma", "local.embeddings", "local.memory"],
+      escalate_tools: [],
+      blocked_tools: [
+        "anthropic.messages",
+        "openai.chat",
+        "openai.embeddings",
+        "gemini.generate",
+        "perplexity.sonar",
+        "web.fetch",
+        "web.search",
+        "transcription.cloud",
+        "tts.cloud",
+        "notifications.cloud",
+      ],
+      capability_rules: [
+        { pattern: "api:*", effect: "block" },
+        { pattern: "mcp:server:add:*", effect: "block" },
+        { pattern: "skill:install:*", effect: "escalate" },
+        { pattern: "plugin:add:*", effect: "escalate" },
+        { pattern: "*", effect: "escalate" },
       ],
       escalation_timeout_mins: 1440,
       escalation_timeout_action: "deny",

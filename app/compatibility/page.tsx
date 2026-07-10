@@ -43,6 +43,11 @@ const channels = [
     body: "Put policy, consent, and evidence before AP2, x402, checkout, procurement, or any other payment rail.",
     pack: "payment-agent-mandate",
   },
+  {
+    title: "Sanction Local",
+    body: "Air-gapped installs: only on-box tools pass; every cloud call is denied and persisted so the assessor can read the proof.",
+    pack: "no-egress",
+  },
 ]
 
 function packName(id: string) {

@@ -63,6 +63,8 @@ describe("the catalog itself", () => {
     expect(findPack("startup-defaults")?.name).toBe("Startup defaults")
     expect(findPack("mcp-tool-governance")?.channel).toBe("mcp")
     expect(findPack("coding-agent-seat")?.useCases).toContain("repository automation")
+    expect(findPack("no-egress")?.channel).toBe("local")
+    expect(findPack("no-egress")?.policy.allowed_tools).toContain("local.ollama")
     expect(findPack("nope")).toBeNull()
   })
 
@@ -71,6 +73,7 @@ describe("the catalog itself", () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.packs.map((p: { id: string }) => p.id)).toContain("compliance-baseline")
+    expect(body.packs.map((p: { id: string }) => p.id)).toContain("no-egress")
 
     rateLimitMock.mockResolvedValue({ ok: false, retryAfter: 42, limit: 60 })
     const limited = await catalog(new NextRequest("https://test.local/api/v1/policy/packs"))
