@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
         destination: "https://getsanction.com/:path*",
         permanent: true,
       },
+      // The footer link is labeled "Consulting" — people type /consulting and
+      // 404 (external reviewers concluded the services offer didn't exist).
+      // Temporary so a real /consulting page can claim the path later.
+      {
+        source: "/consulting",
+        destination: "/about",
+        permanent: false,
+      },
     ];
   },
   // Standard security headers — a clean posture helps reputation/scanner scores.

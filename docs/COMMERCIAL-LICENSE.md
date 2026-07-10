@@ -21,7 +21,7 @@ It is **not** a contract. Your signed agreement and the FSL govern.
 | | **FSL (default)** | **Commercial License** |
 |---|---|---|
 | **Cost** | Free | Negotiated agreement |
-| **Who** | Individuals, teams using it for themselves | Vendors, platforms, MSPs, regulated deployments at scale |
+| **Who** | Individuals, teams, and orgs governing their **own** AI usage — departments, cost centers, internal fleets | Vendors, platforms, MSPs, regulated deployments at scale |
 | **Self-host** | Yes — internal use, modify, fork | Yes — including uses the FSL restricts |
 | **Resell / embed as product** | No (Competing Use) | Yes — scope defined in your agreement |
 | **Hosted at getsanction.com** | Free for individual & production client work | Enterprise features via agreement |

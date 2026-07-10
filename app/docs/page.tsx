@@ -57,6 +57,12 @@ const steps = [
 
 const workflows = [
   {
+    tag: "Internal AI governance",
+    title: "Departments as wallets — govern your own org's AI spend",
+    body: "Engineering, marketing, and ops each get a wallet with the budget their cost center owns. Seats inside for the people and agents doing the work; a pooled daily cap enforces the department line at the gateway, roll-ups give finance chargeback by team, and when something runs away, freeze is one call. Hard enforcement, not a dashboard you check after the invoice.",
+    link: { label: "Agent fleets guide", href: "/docs/agent-fleets" },
+  },
+  {
     tag: "Overnight agents",
     title: "Cap the agent that runs all night",
     body: "An autonomous coding or research agent works your backlog overnight, burning tokens while you sleep. Set a daily token budget on the agent — the gateway returns 402 and stops the call the moment the cap is hit, before the overrun.",

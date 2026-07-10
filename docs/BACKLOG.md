@@ -81,6 +81,10 @@ conversation, not here.
       the label as a URL). If services becomes a real lane: give it a proper
       /consulting route (or redirect), align label and destination, and
       surface it above the footer. (fix, surfaced by external field scan)
+      · 2026-07-10: /consulting → /about redirect shipped (temporary, so a
+      real page can claim the path later) — the 404 is dead. "Surface above
+      the footer" deliberately NOT done: that's the services-vs-product
+      end-state call, still open below.
 - [ ] 2026-07-08 — Positioning review (external feedback; full text in the
       working conversation): the storefront (home, /why, /architecture, docs,
       license) consistently frames Sanction as a runtime authorization plane
@@ -111,6 +115,13 @@ conversation, not here.
       not the problem; the remaining work is specificity vocabulary
       (department / cost center / budget owner / finance) in the concrete-
       scenario layer. Fresh-reader validation: half-satisfied by this signal.
+      · 2026-07-10: the vocabulary patch shipped — a first-position
+      "Internal AI governance" scenario card on /docs (departments as
+      wallets, cost centers, chargeback for finance, freeze), the
+      multi-tenant runbook's opening reframed ("a tenant can be a department
+      or cost center"), and the license table's FSL "Who" row now names
+      internal fleets explicitly. Remaining: the lane-vs-reframe end-state
+      call and 2–3 fresh-reader reads of the patched surfaces.
 - [ ] 2026-07-08 — Weekend sprint: firm up the Sanction product — pick the
       scope by draining this backlog through /zoomout at sprint start.
       (commitment, from Eric)
