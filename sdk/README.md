@@ -1,16 +1,22 @@
 # @sanction/sdk
 
-TypeScript SDK for [Sanction](../) — the trust layer for autonomous agents.
-Gate spend, inject scoped credentials, and manage policy from your agent code.
+TypeScript SDK for [Sanction](https://getsanction.com) — the independent
+authorization plane for AI agents. Gate spend, authorize tools *before* they
+run, inject scoped credentials, and manage policy from agent or owner code.
 
-Zero runtime dependencies (uses the global `fetch`, Node ≥ 18). Ships ESM typed
-for bundlers (`moduleResolution: bundler`); consumers bundle it (Next/Vercel/esbuild).
+```bash
+npm install @sanction/sdk
+```
+
+Zero runtime dependencies (uses the global `fetch`, Node ≥ 18). Ships ESM +
+types. License: **FSL-1.1-MIT** (same as the Sanction server source — see
+[Commercial License](https://getsanction.com/docs/commercial-license)).
 
 ## Two clients
 
 | Client | Key | Use from |
 |--------|-----|----------|
-| `SanctionClient` | agent key `pxy_…` | **inside the agent** — authorize, logTokens, exec tokens, credential injection |
+| `SanctionClient` | agent key `pxy_…` | **inside the agent** — authorize, logTokens, exec tokens, credential injection, tool gate |
 | `SanctionAdminClient` | management key `sk_…` | **owner/control side** — create wallets, register agents, manage policy. Never ship this key in an agent. |
 
 ## Data plane — gate an action before it happens
@@ -33,31 +39,55 @@ const decision = await sanction.authorize({
 if (decision.status === "denied") {
   console.warn(`blocked: ${decision.code} — ${decision.remediation}`)
 } else if (decision.status === "escalated") {
-  // a human must approve before proceeding
+  // Poll until the owner approves, then retry with the grant:
+  const status = await sanction.getAuthorization(decision.requestId)
+  if (status.grantId) {
+    // retry authorize / authorizeTool with grantId: status.grantId
+  }
 } else {
   // approved — proceed
 }
-// (prefer exceptions? authorize(input, { throwOnDeny: true }))
-
-// Record what an LLM call cost (budget + audit):
-await sanction.logTokens({ model: "claude-opus-4-8", tokensIn: 1200, tokensOut: 800, costUsd: 0.06, task: "backlog #42" })
 ```
+
+## Tool gate — the tool runs behind the decision
+
+```ts
+import { SanctionClient, SanctionMiddleware, sanctionTool, SanctionToolBlocked } from "@sanction/sdk"
+
+const client = new SanctionClient(process.env.SANCTION_API_KEY!)
+const runTool = SanctionMiddleware(client)
+
+try {
+  await runTool({
+    server: "github",
+    tool: "create_pr",
+    input: { title, body },
+    run: () => octokit.pulls.create({ ... }), // runs ONLY if approved
+  })
+} catch (e) {
+  if (e instanceof SanctionToolBlocked) {
+    // e.status: "escalated" → poll e.requestId via getAuthorization, then retry with grantId
+    // e.status: "denied" → replan
+  }
+}
+
+// Vercel AI SDK: wrap tool() so execute is gated
+import { tool } from "ai"
+const deploy = sanctionTool(client, "deploy", tool({ /* ... */ }), { server: "ci" })
+```
+
+`authorizeTool` fails **closed** — if Sanction is unreachable it returns
+`denied`, so an ungoverned tool never runs.
 
 ## Scoped credential access (15-min execution JWT)
 
 ```ts
-// Request a short-lived token, inject one credential, use it — in one call:
 const result = await sanction.withCredential(
   { scope: ["github"], budgetUsd: 0, label: "github" },
   async (token) => {
-    // `token` is the decrypted GitHub credential, valid for ~15 min
     return fetch("https://api.github.com/...", { headers: { authorization: `Bearer ${token}` } })
   },
 )
-
-// Or do it in two steps:
-const exec = await sanction.requestExecutionToken({ scope: ["github", "vercel"], budgetUsd: 5 })
-const cred = await sanction.injectCredential(exec.jwt, "github")
 ```
 
 ## Management plane — provision + set policy
@@ -65,15 +95,9 @@ const cred = await sanction.injectCredential(exec.jwt, "github")
 ```ts
 import { SanctionAdminClient } from "@sanction/sdk"
 
-// 1. Create a wallet (one-time management key — store it)
 const wallet = await SanctionAdminClient.createWallet({ name: "nightly-coding", ownerEmail: "you@example.com" })
-
 const admin = new SanctionAdminClient(wallet.managementKey)
-
-// 2. Register the agent (one-time pxy_ key — give it to the agent)
 const agent = await admin.registerAgent({ walletId: wallet.id, name: "nightly-coder" })
-
-// 3. Set policy — amounts are in DOLLARS; omitted fields are unchanged
 await admin.updatePolicy(wallet.id, {
   dailySpendBudgetUsd: 75,
   autoApproveUnderUsd: 5,
@@ -81,31 +105,27 @@ await admin.updatePolicy(wallet.id, {
   perTransactionMaxUsd: 100,
   blockedCategories: ["crypto"],
 })
-
-// read it back, or apply a saved blueprint ({ policy: {...} }):
-await admin.getPolicy(wallet.id)
-await admin.applyBlueprint(wallet.id, blueprint)
 ```
 
 ## Errors
 
 - `SanctionError` — any non-2xx that isn't a normal decision (`status`, `code`, `body`).
 - `AuthorizationDeniedError` — only when you opt into `authorize(..., { throwOnDeny: true })`.
+- `SanctionToolBlocked` — thrown by middleware / `sanctionTool` on non-approved tool decisions.
 
 ## Config
 
 ```ts
-new SanctionClient(key, { baseUrl, fetch }) // baseUrl defaults to the production API; inject fetch for tests
+new SanctionClient(key, { baseUrl, fetch }) // baseUrl defaults to https://getsanction.com/api/v1
 ```
 
-## Develop
+## Develop (from the monorepo)
 
 ```bash
-npm run typecheck   # tsc against sdk/tsconfig.json
-npm run build       # emit dist/
-# tests run from the repo root: `npx vitest run` (sdk/src/*.test.ts)
+cd sdk && npm run typecheck && npm run build
+# from repo root:
+npx vitest run sdk/src
 ```
 
-All monetary policy fields are in **dollars** — the API validates and stores
-cents internally (`lib/policy.ts`). The SDK speaks camelCase; the wire is
-snake_case, mapped in one place (`policyToWire` / `policyFromWire`).
+All monetary policy fields are in **dollars**. The SDK speaks camelCase; the
+wire is snake_case, mapped internally.

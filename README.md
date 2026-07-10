@@ -70,7 +70,7 @@ agents wherever they run:
 
 - **MCP server** — `npx sanction-mcp` in any MCP host (Claude Desktop, etc.)
 - **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
-- **TypeScript SDK** — `@sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane)
+- **TypeScript SDK** — `npm install @sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane), plus framework adapters (`SanctionMiddleware`, `sanctionTool`)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
 - **AWS Bedrock Action Group** — enterprise agent orchestration ([setup guide](docs/BEDROCK.md))
 - **LLM gateway** — cross-provider metering with no code changes

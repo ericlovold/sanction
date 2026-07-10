@@ -1,9 +1,8 @@
 {
   "name": "@sanction/sdk",
-  "version": "0.1.0",
-  "description": "TypeScript SDK for Sanction — the trust layer for autonomous agents. Spend authorization, scoped credential injection, and policy management.",
-  "license": "UNLICENSED",
-  "private": true,
+  "version": "0.6.0",
+  "description": "TypeScript SDK for Sanction — authorize spend and tools, inject scoped credentials, manage policy. The tool runs behind the decision.",
+  "license": "FSL-1.1-MIT",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -14,13 +13,38 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["sanction", "ai-agents", "agent-governance", "spend-authorization", "credential-vault"]
+  "keywords": [
+    "sanction",
+    "ai-agents",
+    "agent-governance",
+    "spend-authorization",
+    "credential-vault",
+    "vercel-ai-sdk",
+    "mcp"
+  ],
+  "homepage": "https://getsanction.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ericlovold/sanction.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/ericlovold/sanction/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

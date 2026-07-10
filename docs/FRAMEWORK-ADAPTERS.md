@@ -3,7 +3,8 @@
 Sanction stays outside the framework's identity system and inside the
 pre-action path: the framework asks, Sanction decides, the agent acts only on an
 approved decision or redeemed grant. The TypeScript adapters below **ship in
-`@sanction/sdk`**; the Python recipes are copy-in until their packages land.
+`@sanction/sdk`** (`npm install @sanction/sdk`); the Python recipes are copy-in
+until their packages land.
 
 ## TypeScript: `SanctionMiddleware` (ships)
 

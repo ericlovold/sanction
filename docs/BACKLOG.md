@@ -38,6 +38,10 @@ conversation, not here.
       (2) CrewAI authorize-tool; (3) a runnable examples/ agent per adapter;
       (4) once gateway vault-injected keys land, drop the "provider keys in
       runtime" caveat from the adapter checklist. (feature, from roadmap Next)
+      · 2026-07-10: TS publish path ready (`@sanction/sdk@0.6.0`, FSL,
+      `getAuthorization` + `sanctionTool` grantId, publish-sdk workflow) —
+      run the workflow after the `sanction` npm org is confirmed; Python
+      units still open.
 
 - [x] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
       sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —

@@ -115,12 +115,17 @@ export function sanctionTool<T extends AiSdkToolLike>(
   client: SanctionClient,
   name: string,
   aiTool: T,
-  opts: { server?: string } = {},
+  opts: { server?: string; grantId?: string } = {},
 ): T {
   const original = aiTool.execute
   if (typeof original !== "function") return aiTool
   const gated = async (args: unknown, options?: unknown) => {
-    const decision = await client.authorizeTool({ tool: name, server: opts.server, input: args })
+    const decision = await client.authorizeTool({
+      tool: name,
+      server: opts.server,
+      input: args,
+      grantId: opts.grantId,
+    })
     if (decision.status !== "approved") throw new SanctionToolBlocked(name, decision)
     return original(args, options)
   }

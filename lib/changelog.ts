@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-10",
+    title: "@sanction/sdk — publish-ready, escalate loop closed",
+    tags: ["sdk", "adapters", "release"],
+    body: "The TypeScript SDK is ready for npm as **`@sanction/sdk@0.6.0`** (FSL-1.1-MIT, same terms as the server source). Package metadata, LICENSE, build/`prepublishOnly`, and a manual `publish-sdk` workflow mirror the MCP publish path. The escalate→grant loop is complete in the client: `getAuthorization(requestId)` polls an escalated decision for its one-use `grantId`, and `sanctionTool` accepts `grantId` on retry. `npm install @sanction/sdk` once the workflow has run against the `sanction` npm org. Python adapters stay Next.",
+  },
+  {
+    date: "2026-07-10",
     title: "Sanction Local's install package — no-egress pack + assessor download",
     tags: ["local", "packs", "audit"],
     body: "The Local roadmap item was \"runtime to install.\" The install half lands here. A new **`no-egress`** policy pack (`channel: local`) allows only exact on-box tools — `local.ollama`, `local.chroma`, `local.embeddings`, `local.memory` — blocks named cloud egress tools, and escalates or blocks new capability. Every deny still persists as an audit row (the no-egress evidence shape). On the console, the Audit page gains **Signed evidence (JSON)**: the same tamper-evident AUDIT-1 document as `GET /v1/audit/export`, cookie-authed so an operator downloads it for the assessor without curling an `sk_` key. Preview the pack against your last 30 days before applying; verify any export with `POST /v1/audit/verify`. Sanction decides and evidences — the runtime must still refuse egress.",
