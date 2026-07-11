@@ -109,4 +109,43 @@ describe("sanctionTool (Vercel AI SDK)", () => {
     const t = sanctionTool(c, "noop", { description: "just a schema" } as { description: string; execute?: (a: unknown) => unknown })
     expect(t.execute).toBeUndefined()
   })
+
+  it("redeems a grantId on retry after escalation", async () => {
+    const { fetch, calls } = fakeFetch([approved])
+    const c = new SanctionClient("pxy_k", { baseUrl: BASE, fetch })
+    const t = sanctionTool(c, "deploy", { execute: async () => "ok" }, { server: "ci", grantId: "grant_1" })
+    expect(await t.execute({})).toBe("ok")
+    expect(JSON.parse(calls[0].init.body as string)).toMatchObject({ tool: "deploy", grant_id: "grant_1" })
+  })
+})
+
+describe("SanctionClient.getAuthorization", () => {
+  it("polls an escalated request and surfaces the grant when approved", async () => {
+    const { fetch, calls } = fakeFetch([
+      {
+        ok: true,
+        status: 200,
+        body: {
+          authorized: true,
+          status: "approved",
+          request_id: "req_2",
+          grant_id: "grant_abc",
+          grant_status: "active",
+          agent: "tenet",
+        },
+      },
+    ])
+    const c = new SanctionClient("pxy_k", { baseUrl: BASE, fetch })
+    const s = await c.getAuthorization("req_2")
+    expect(s).toMatchObject({ status: "approved", requestId: "req_2", grantId: "grant_abc", grantStatus: "active" })
+    expect(calls[0].url).toBe(`${BASE}/authorize/req_2`)
+  })
+
+  it("returns escalated while still waiting", async () => {
+    const c = new SanctionClient("pxy_k", {
+      baseUrl: BASE,
+      fetch: fakeFetch([{ ok: true, status: 200, body: { authorized: false, status: "escalated", request_id: "req_2" } }]).fetch,
+    })
+    expect((await c.getAuthorization("req_2")).status).toBe("escalated")
+  })
 })

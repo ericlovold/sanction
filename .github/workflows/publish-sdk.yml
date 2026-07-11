@@ -1,0 +1,42 @@
+name: Publish SDK
+
+# Manual publish of @sanction/sdk to npm. Uses the same NPM_TOKEN automation
+# secret as publish-mcp.yml. Idempotent: if the version is already on npm it
+# skips. To ship: bump sdk/package.json version, push, run this workflow from
+# the Actions tab. Requires the `sanction` npm org (scoped package) and that
+# NPM_TOKEN can publish to @sanction/*.
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+          scope: "@sanction"
+      - run: npm ci
+      - name: Build + typecheck SDK
+        working-directory: sdk
+        run: |
+          npm run typecheck
+          npm run build
+      - name: Run SDK unit tests
+        run: npx vitest run sdk/src
+      - name: Publish to npm (skips if version already published)
+        working-directory: sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@sanction/sdk@$VERSION" version >/dev/null 2>&1; then
+            echo "@sanction/sdk@$VERSION already on npm — skipping npm publish"
+          else
+            npm publish
+          fi

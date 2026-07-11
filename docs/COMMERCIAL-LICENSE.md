@@ -29,7 +29,10 @@ It is **not** a contract. Your signed agreement and the FSL govern.
 | **Converts to MIT** | Each release → MIT after 2 years | Your agreement terms |
 
 The **`sanction-mcp`** client (`npx sanction-mcp`) is **[MIT](https://github.com/ericlovold/sanction/blob/main/packages/sanction-mcp/LICENSE)** —
-embed it anywhere, no commercial license required for the client itself.
+embed it anywhere, no commercial license required for the client itself. The
+**`@sanction/sdk`** TypeScript package is **FSL-1.1-MIT** — same terms as the
+server source (Permitted Purpose for your agents; Competing Use needs a
+Commercial License).
 
 ---
 
@@ -129,6 +132,7 @@ engine and grant spine as hosted Sanction; different trust boundary.
 | Component | License |
 |---|---|
 | Server, dashboard, API, SDK source | FSL-1.1-MIT → MIT after 2 years per release |
+| `@sanction/sdk` npm package | FSL-1.1-MIT (same terms as the SDK source) |
 | `sanction-mcp` npm package | MIT |
 | Commercial use beyond FSL | Commercial License (this document) |
 | Hosted free tier | No license fee for individual & production client work |

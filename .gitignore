@@ -48,3 +48,7 @@ next-env.d.ts
 
 # cross-agent-tool mirror of .claude/skills (generated; AGENTS.md-flavored wording)
 /.agents/
+
+# SDK package build output + local install
+sdk/dist/
+sdk/node_modules/

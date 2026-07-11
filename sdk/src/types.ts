@@ -104,6 +104,25 @@ export interface ToolDecision {
   remediation?: string
 }
 
+/** Poll result for an escalated authorization — includes the one-use grant when approved. */
+export interface AuthorizationStatus {
+  authorized: boolean
+  status: DecisionStatus
+  requestId: string
+  reason?: string
+  code?: DecisionCode
+  remediation?: string
+  agent?: string
+  amountUsd?: number
+  merchant?: string
+  decidedAt?: string
+  /** Present once the owner (or timeout policy) approved — redeem on the original authorize retry. */
+  grantId?: string
+  grantStatus?: string
+  grantConsumedAt?: string
+  grantExpiresAt?: string
+}
+
 export interface LogTokensInput {
   model: string
   tokensIn: number

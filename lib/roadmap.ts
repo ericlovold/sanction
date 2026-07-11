@@ -25,7 +25,7 @@ export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapI
     { title: "Tamper-evident audit exports", note: "Shipped: the decision history exports as a signed, hash-chained document any recipient can verify self-contained — altering, dropping, or reordering a row names the broken link. Governance as cryptographic evidence." },
   ],
   next: [
-    { title: "The published SDK + the Python side", note: "@sanction/sdk to npm, then the adapters where Python agents live — a LiteLLM callback and LangChain/LangGraph + CrewAI bindings over the same core, each with a runnable example." },
+    { title: "The published SDK + the Python side", note: "@sanction/sdk is publish-ready (0.6.0, FSL, escalate-loop helpers) — run the publish-sdk workflow once the npm org is wired. Next: the adapters where Python agents live — a LiteLLM callback and LangChain/LangGraph + CrewAI bindings over the same core, each with a runnable example." },
     { title: "Sequential simulation, all the way down", note: "Sequential replay shipped for per-agent budgets; next it threads pooled and subtree caps too, and the console's simulation preview grows an as-recorded vs sequential toggle." },
   ],
   later: [

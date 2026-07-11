@@ -5,6 +5,7 @@ import type {
   AgentClientOptions,
   AuthorizeInput,
   Decision,
+  DecisionStatus,
   ExecToken,
   ExecTokenInput,
   Fetch,
@@ -13,6 +14,7 @@ import type {
   PolicyInput,
   ToolAuthorizeInput,
   ToolDecision,
+  AuthorizationStatus,
   WalletStats,
 } from "./types"
 
@@ -239,6 +241,39 @@ export class SanctionClient {
       (b?.error as string) ?? `Tool authorization failed (${raw.status})`,
       { status: raw.status, code: b?.code as string | undefined, body: raw.body },
     )
+  }
+
+  /**
+   * Poll an escalated authorization for its terminal state. Pass the `requestId`
+   * from an escalated authorize / authorizeTool / provision / capability response.
+   * While pending, status stays `escalated` — wait and poll again. Once approved,
+   * `grantId` is set: retry the original call with that grant to complete.
+   */
+  async getAuthorization(requestId: string): Promise<AuthorizationStatus> {
+    if (!requestId) throw new Error("getAuthorization requires a requestId")
+    const r = await request<Record<string, unknown>>({
+      baseUrl: this.baseUrl,
+      fetch: this.fetch,
+      method: "GET",
+      path: `/authorize/${encodeURIComponent(requestId)}`,
+      headers: this.authHeaders(),
+    })
+    return {
+      authorized: Boolean(r.authorized),
+      status: r.status as DecisionStatus,
+      requestId: (r.request_id as string) ?? requestId,
+      reason: r.reason as string | undefined,
+      code: r.code as Decision["code"] | undefined,
+      remediation: r.remediation as string | undefined,
+      agent: r.agent as string | undefined,
+      amountUsd: r.amount_usd as number | undefined,
+      merchant: r.merchant as string | undefined,
+      decidedAt: r.decided_at as string | undefined,
+      grantId: r.grant_id as string | undefined,
+      grantStatus: r.grant_status as string | undefined,
+      grantConsumedAt: r.grant_consumed_at as string | undefined,
+      grantExpiresAt: r.grant_expires_at as string | undefined,
+    }
   }
 
   /** Record an LLM inference's cost for budget tracking + audit. Fire-and-forget friendly. */
