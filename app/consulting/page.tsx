@@ -207,7 +207,7 @@ export default function Consulting() {
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
             <a className="sn-btn sn-btn-primary sn-btn-s" href={CALENDLY_URL} target="_blank" rel="noopener">
-              Book free discovery
+              Book discovery
             </a>
           </div>
         </div>
@@ -228,7 +228,7 @@ export default function Consulting() {
           </h1>
           <div className="cx-fade cx-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28, flexWrap: "wrap" }}>
             <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-              Book free discovery →
+              Book discovery →
             </a>
             <a className="sn-btn sn-btn-l" href="#how" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>
               How it works
@@ -315,7 +315,7 @@ export default function Consulting() {
             Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
           </p>
           <a className="sn-btn sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ background: "#f7f6f0", color: "var(--pine-9)", fontWeight: 600 }}>
-            Book free discovery →
+            Book discovery →
           </a>
           <p style={{ fontSize: 13.5, color: "rgba(247,246,240,.6)", marginTop: 16 }}>
             Or email <a href="mailto:eric@getsanction.com" style={{ color: "#f7f6f0", textDecoration: "underline", textUnderlineOffset: 3 }}>eric@getsanction.com</a>. I reply within one business day.
