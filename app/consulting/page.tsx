@@ -72,23 +72,55 @@ const STEPS: [string, string, string][] = [
   ],
 ]
 
-const SERVICES: [string, string][] = [
-  [
-    "AI workflows & setup",
-    "Tools, automations, and guardrails installed on your team's real work: intake, follow-ups, reporting, the recurring hours. The morning that runs itself.",
-  ],
-  [
-    "Internal tools & apps",
-    "The tool your team has wanted for years but could never justify a dev shop for. Building with AI makes it affordable now. Scoped, shipped, and dependable in production.",
-  ],
-  [
-    "Content systems, in your voice",
-    "Your voice stays yours. AI makes your team faster at drafting, structuring, and repurposing, so what ships still sounds like your company.",
-  ],
-  [
-    "Websites that work",
-    "A modern site built AI-fast: designed, written with you, instrumented, and live in weeks. The same way I build for my own company.",
-  ],
+const SERVICE_GLYPHS: Record<string, React.ReactNode> = {
+  workflows: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 6h6M4 12h10M4 18h7" />
+      <circle cx="17" cy="6" r="2.4" />
+      <circle cx="19" cy="18" r="2.4" />
+    </svg>
+  ),
+  tools: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M9 9l-2 3 2 3M15 9l2 3-2 3" />
+    </svg>
+  ),
+  content: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 19l1.5-5L16 4.5a2.1 2.1 0 013 3L9.5 17 5 19z" />
+      <path d="M13 7.5l3 3" />
+    </svg>
+  ),
+  web: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.4 3.8 8.5S14.6 18 12 20.5C9.4 18 8.2 15.1 8.2 12S9.4 5.9 12 3.5z" />
+    </svg>
+  ),
+}
+
+const SERVICES: { key: string; title: string; body: string }[] = [
+  {
+    key: "workflows",
+    title: "AI workflows & setup",
+    body: "Tools, automations, and guardrails installed on your team's real work: intake, follow-ups, reporting, the recurring hours. The morning that runs itself.",
+  },
+  {
+    key: "tools",
+    title: "Internal tools & apps",
+    body: "The tool your team has wanted for years but could never justify a dev shop for. Building with AI makes it affordable now. Scoped, shipped, and dependable in production.",
+  },
+  {
+    key: "content",
+    title: "Content systems, in your voice",
+    body: "Your voice stays yours. AI makes your team faster at drafting, structuring, and repurposing, so what ships still sounds like your company.",
+  },
+  {
+    key: "web",
+    title: "Websites that work",
+    body: "A modern site built AI-fast: designed, written with you, instrumented, and live in weeks. The same way I build for my own company.",
+  },
 ]
 
 const ALSO: [string, string][] = [
@@ -96,14 +128,8 @@ const ALSO: [string, string][] = [
     "Vet your AI hire",
     "A lot of companies find out five months in that their AI director can talk AI but can't ship it. I'll help you interview and evaluate candidates before the salary bet.",
   ],
-  [
-    "Executive coaching",
-    "Direct 1:1 work on AI tools, workflows, and judgment for leaders. Practical and current.",
-  ],
-  [
-    "Design sprints",
-    "A focused week from problem to working prototype your team can evaluate with its own hands.",
-  ],
+  ["Executive coaching", "Direct 1:1 work on AI tools, workflows, and judgment for leaders. Practical and current."],
+  ["Design sprints", "A focused week from problem to working prototype your team can evaluate with its own hands."],
 ]
 
 const WONT: string[] = [
@@ -114,36 +140,61 @@ const WONT: string[] = [
 ]
 
 /* Pricing rungs. Dollar bands can be added to the price field when Eric sets them. */
-const PRICING: { name: string; price: string; detail: string }[] = [
+const PRICING: { name: string; price: string; detail: string; accent: string }[] = [
   {
     name: "First build",
     price: "Fixed quote",
-    detail:
-      "One scoped system, quoted exactly after the free look and before any work starts.",
+    detail: "One scoped system, quoted exactly after the free look and before any work starts.",
+    accent: "var(--pine-8)",
   },
   {
     name: "Build + run",
     price: "Monthly",
-    detail:
-      "I operate and improve what we built, monthly. Your team learns it as we go. Cancel anytime.",
+    detail: "I operate and improve what we built, monthly. Your team learns it as we go. Cancel anytime.",
+    accent: "var(--ochre-6)",
   },
   {
     name: "Embedded",
     price: "Quarterly retainer",
-    detail:
-      "Your fractional AI operator: a set number of days per month inside your business, shipping and teaching.",
+    detail: "Your fractional AI operator: a set number of days per month inside your business, shipping and teaching.",
+    accent: "var(--pine-8)",
   },
 ]
 
-const THREE_QUESTIONS: [string, string][] = [
-  ["Where does our data go?", "Every tool and workflow gets an answer you could give a client or an auditor."],
-  ["What happens when it's wrong?", "AI fails quietly and confidently. Everything I ship has a human checkpoint where wrong answers get caught."],
-  ["Who can turn it off?", "You. Always. Nothing runs that your team can't see, pause, or kill."],
+const THREE_QUESTIONS: [string, string, string][] = [
+  ["Q1", "Where does our data go?", "Every tool and workflow gets an answer you could give a client or an auditor."],
+  ["Q2", "What happens when it's wrong?", "AI fails quietly and confidently. Everything I ship has a human checkpoint where wrong answers get caught."],
+  ["Q3", "Who can turn it off?", "You. Always. Nothing runs that your team can't see, pause, or kill."],
 ]
+
+const css = `
+@keyframes cxUp { to { opacity: 1; transform: none } }
+.cx-fade { opacity: 0; transform: translateY(14px); animation: cxUp .7s cubic-bezier(.2,.7,.2,1) forwards }
+.cx-d1 { animation-delay: .05s } .cx-d2 { animation-delay: .15s } .cx-d3 { animation-delay: .25s }
+.cx-d4 { animation-delay: .35s } .cx-d5 { animation-delay: .45s }
+.cx-lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
+.cx-lift:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(22,24,15,.10); border-color: var(--pine-6) }
+@keyframes cxPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,.35) } 55% { box-shadow: 0 0 0 7px rgba(16,185,129,0) } }
+.cx-dot { animation: cxPulse 2.2s ease-in-out infinite }
+.cx-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; position: relative }
+.cx-steps::before { content: ""; position: absolute; top: 23px; left: 40px; right: 40px; height: 2px;
+  background: linear-gradient(90deg, var(--pine-6), var(--ochre-6), var(--pine-6)); opacity: .35 }
+@media (max-width: 900px) {
+  .cx-steps { grid-template-columns: 1fr }
+  .cx-steps::before { display: none }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-fade { animation: none; opacity: 1; transform: none }
+  .cx-dot { animation: none }
+  .cx-lift, .cx-lift:hover { transition: none; transform: none }
+}
+`
 
 export default function Consulting() {
   return (
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+
       {/* Nav */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
@@ -166,42 +217,53 @@ export default function Consulting() {
       </nav>
 
       {/* Hero */}
-      <header style={{ ...wrap, padding: "88px 32px 48px", maxWidth: 760, textAlign: "center" }}>
-        <div className="sn-mono" style={{ marginBottom: 20, letterSpacing: "0.1em" }}>
-          AI Consulting · Eric Lovold
+      <header
+        style={{
+          backgroundImage: "radial-gradient(90% 60% at 50% -10%, var(--pine-tint) 0%, rgba(228,239,232,0) 70%)",
+        }}
+      >
+        <div style={{ ...wrap, padding: "96px 32px 56px", maxWidth: 780, textAlign: "center" }}>
+          <div className="sn-mono cx-fade cx-d1" style={{ letterSpacing: "0.1em" }}>
+            AI CONSULTING · ERIC LOVOLD
+          </div>
+          <h1 className="cx-fade cx-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+            Let&apos;s put AI to work for your business.
+          </h1>
+          <div className="cx-fade cx-d3" style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 9, border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "7px 15px", fontSize: 13, color: "var(--text-secondary)", background: "var(--surface-card)" }}>
+              <span className="cx-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--signal)" }} />
+              Taking on new clients
+            </span>
+          </div>
+          <div className="cx-fade cx-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28, flexWrap: "wrap" }}>
+            <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
+              Book free discovery →
+            </a>
+            <a className="sn-btn sn-btn-l" href="#how" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>
+              How it works
+            </a>
+          </div>
+          <p className="cx-fade cx-d5" style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 16 }}>
+            Discovery is free. You&apos;ll leave with my honest read and real ideas, either way.
+          </p>
         </div>
-        <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-          Let&apos;s put AI to work for your business.
-        </h1>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 32, flexWrap: "wrap" }}>
-          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-            Book free discovery →
-          </a>
-          <a className="sn-btn sn-btn-l" href="#how" style={{ border: "1px solid var(--line-1)" }}>
-            How it works
-          </a>
+        {/* Who I work with */}
+        <div style={{ ...wrap, padding: "8px 32px 72px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Agencies & studios", "Professional services", "Lean teams everywhere"].map((i) => (
+              <span key={i} className="sn-mono" style={{ color: "var(--pine-7)", border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "8px 16px", letterSpacing: "0.08em", background: "var(--surface-card)" }}>
+                {i}
+              </span>
+            ))}
+          </div>
         </div>
-        <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 14 }}>
-          Discovery is free. You&apos;ll leave with my honest read and real ideas, either way.
-        </p>
       </header>
 
-      {/* Who I work with */}
-      <section style={{ ...wrap, padding: "8px 32px 80px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-          {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Agencies & studios", "Professional services", "Lean teams everywhere"].map((i) => (
-            <span key={i} className="sn-mono" style={{ color: "var(--pine-7)", border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "8px 16px", letterSpacing: "0.08em" }}>
-              {i}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* You might be here because */}
+      {/* You might be here because — numbered attention cards */}
       <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ marginBottom: 16 }}>Sound familiar?</div>
+            <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-7)" }}>Sound familiar?</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
               You might be here because&hellip;
             </h2>
@@ -210,8 +272,9 @@ export default function Consulting() {
             </p>
           </div>
           <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-            {PAIN_POINTS.map(([t, d]) => (
-              <div key={t} className="sn-card" style={{ padding: 28 }}>
+            {PAIN_POINTS.map(([t, d], i) => (
+              <div key={t} className="sn-card cx-lift" style={{ padding: 28, borderTop: "3px solid var(--ochre-6)" }}>
+                <div className="sn-mono" style={{ color: "var(--ochre-7)", marginBottom: 10 }}>{`0${i + 1}`}</div>
                 <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
                 <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
               </div>
@@ -220,47 +283,54 @@ export default function Consulting() {
         </div>
       </section>
 
-      {/* Philosophy */}
-      <section style={{ ...wrap, padding: "96px 32px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+      {/* Philosophy — open editorial columns, then the dark receipts panel */}
+      <section style={{ ...wrap, padding: "96px 32px 88px" }}>
+        <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>Why work with me</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Built with you. Run by you.
           </h2>
         </div>
-        <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
           {PHILOSOPHY.map(([t, d]) => (
-            <div key={t} className="sn-card" style={{ padding: 28 }}>
-              <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
+            <div key={t} style={{ borderLeft: "2px solid var(--pine-6)", paddingLeft: 22 }}>
+              <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)" }}>{t}</h3>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)" }}>{d}</p>
             </div>
           ))}
         </div>
-        {/* Receipts */}
-        <div style={{ maxWidth: 720, margin: "48px auto 0", textAlign: "center", padding: 28, border: "1px solid var(--line-1)", borderRadius: "var(--radius-card)", background: "var(--surface-card)" }}>
-          <p style={{ margin: 0, fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)" }}>
-            The receipts: I built <Link className="sanction-link" href="/" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Sanction</Link>, a
-            SaaS governance platform for AI agents that is in production today. I run my own operation on the same
-            systems I build for clients. Before that, over a decade in healthcare and technology, including years
-            alongside benefits and claims operations.
+        {/* Receipts — dark pine panel */}
+        <div style={{ maxWidth: 780, margin: "64px auto 0", padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
+          <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
+            I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
+            SaaS governance platform for AI agents that is{" "}
+            <span style={{ whiteSpace: "nowrap" }}>
+              <span className="cx-dot" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--signal)", marginRight: 7, verticalAlign: "2px" }} />
+              in production today
+            </span>
+            . I run my own operation on the same systems I build for clients. Before that, over a decade in
+            healthcare and technology, including years alongside benefits and claims operations.
           </p>
         </div>
       </section>
 
-      {/* How it works */}
+      {/* How it works — connected timeline */}
       <section id="how" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
-          <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+          <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
             <div className="sn-mono" style={{ marginBottom: 16 }}>How it works</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
               A clear path from &ldquo;we should be using AI&rdquo; to &ldquo;we are.&rdquo;
             </h2>
           </div>
-          <div className="sn-cards" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+          <div className="cx-steps">
             {STEPS.map(([n, t, d]) => (
-              <div key={n} className="sn-card" style={{ padding: 28 }}>
-                <div className="sn-mono" style={{ color: "var(--pine-7)", marginBottom: 12 }}>{n}</div>
-                <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+              <div key={n} style={{ position: "relative" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--pine-8)", color: "var(--text-on-action)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, position: "relative", zIndex: 1, border: "4px solid var(--paper-1)" }}>
+                  {n}
+                </div>
+                <h3 style={{ margin: "18px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
                 <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
               </div>
             ))}
@@ -268,7 +338,7 @@ export default function Consulting() {
         </div>
       </section>
 
-      {/* Services — the four doors */}
+      {/* Services — glyph cards */}
       <section id="services" style={{ ...wrap, padding: "96px 32px" }}>
         <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>What I do</div>
@@ -280,61 +350,74 @@ export default function Consulting() {
           </p>
         </div>
         <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-          {SERVICES.map(([t, d]) => (
-            <div key={t} className="sn-card" style={{ padding: 28 }}>
-              <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
+          {SERVICES.map(({ key, title, body }) => (
+            <div key={key} className="sn-card cx-lift" style={{ padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
+              <span style={{ flex: "none", width: 42, height: 42, borderRadius: 10, background: "var(--ochre-tint)", color: "var(--ochre-7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {SERVICE_GLYPHS[key]}
+              </span>
+              <span>
+                <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{title}</h3>
+                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{body}</p>
+              </span>
             </div>
           ))}
         </div>
 
-        <div style={{ maxWidth: 620, margin: "64px auto 24px", textAlign: "center" }}>
+        {/* Also in the kit — open row, diamond markers */}
+        <div style={{ maxWidth: 620, margin: "72px auto 28px", textAlign: "center" }}>
           <h3 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Also in the kit</h3>
         </div>
-        <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 36 }}>
           {ALSO.map(([t, d]) => (
-            <div key={t} className="sn-card" style={{ padding: 24 }}>
-              <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
+            <div key={t}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+                <span aria-hidden style={{ color: "var(--ochre-6)", fontSize: 11 }}>◆</span>
+                <h4 style={{ margin: 0, font: "var(--text-h3)" }}>{t}</h4>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)", paddingLeft: 21 }}>{d}</p>
             </div>
           ))}
         </div>
 
-        {/* Honest exclusions */}
-        <div style={{ maxWidth: 720, margin: "56px auto 0", padding: 28, border: "1px solid var(--line-1)", borderRadius: "var(--radius-card)", background: "var(--surface-card)" }}>
-          <h3 style={{ margin: "0 0 14px", font: "var(--text-h3)" }}>What I won&apos;t do</h3>
-          <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 10 }}>
+        {/* What I won't do — ochre fence */}
+        <div style={{ maxWidth: 760, margin: "64px auto 0", padding: "30px 34px", borderRadius: "var(--radius-card)", background: "var(--ochre-tint)", borderLeft: "4px solid var(--ochre-6)" }}>
+          <h3 style={{ margin: "0 0 16px", font: "var(--text-h3)", color: "var(--ochre-7)" }}>What I won&apos;t do</h3>
+          <div style={{ display: "grid", gap: 12 }}>
             {WONT.map((w) => (
-              <li key={w} style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* The three questions */}
-      <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ ...wrap, padding: "88px 32px" }}>
-          <div style={{ maxWidth: 660, margin: "0 auto 48px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ marginBottom: 16 }}>The standard</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Three questions every AI system has to answer.
-            </h2>
-            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              Ask these of any AI hire or vendor, including me. If the answers are vague, walk.
-            </p>
-          </div>
-          <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-            {THREE_QUESTIONS.map(([q, a]) => (
-              <div key={q} className="sn-card" style={{ padding: 28 }}>
-                <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{q}</h3>
-                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{a}</p>
+              <div key={w} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                <span aria-hidden style={{ color: "var(--ochre-7)", fontWeight: 700 }}>—</span>
+                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-body)" }}>{w}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* The three questions — full dark section */}
+      <section style={{ background: "var(--surface-inverse)", color: "#f7f6f0" }}>
+        <div style={{ ...wrap, padding: "96px 32px" }}>
+          <div style={{ maxWidth: 660, margin: "0 auto 56px", textAlign: "center" }}>
+            <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>The standard</div>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
+              Three questions every AI system has to answer.
+            </h2>
+            <p style={{ fontSize: 15.5, margin: "14px 0 0", color: "rgba(247,246,240,.72)" }}>
+              Ask these of any AI hire or vendor, including me. If the answers are vague, walk.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
+            {THREE_QUESTIONS.map(([n, q, a]) => (
+              <div key={n} style={{ borderTop: "1px solid rgba(247,246,240,.2)", paddingTop: 22 }}>
+                <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 12, letterSpacing: "0.1em" }}>{n}</div>
+                <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)", color: "#f7f6f0" }}>{q}</h3>
+                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: "rgba(247,246,240,.72)" }}>{a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing — accent-barred cards */}
       <section id="pricing" style={{ ...wrap, padding: "96px 32px" }}>
         <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>Pricing</div>
@@ -346,8 +429,8 @@ export default function Consulting() {
           </p>
         </div>
         <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          {PRICING.map(({ name, price, detail }) => (
-            <div key={name} className="sn-card" style={{ padding: 28, textAlign: "center" }}>
+          {PRICING.map(({ name, price, detail, accent }) => (
+            <div key={name} className="sn-card cx-lift" style={{ padding: 28, textAlign: "center", borderTop: `3px solid ${accent}` }}>
               <div className="sn-mono" style={{ marginBottom: 12 }}>{name}</div>
               <div style={{ font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", marginBottom: 10 }}>{price}</div>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{detail}</p>
@@ -356,7 +439,7 @@ export default function Consulting() {
         </div>
       </section>
 
-      {/* Recent work — placeholder until consent + write-ups */}
+      {/* Recent work */}
       <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
         <div style={{ ...wrap, padding: "88px 32px", maxWidth: 760, textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>Recent work</div>
@@ -391,9 +474,15 @@ export default function Consulting() {
         </Link>
       </section>
 
-      {/* Final CTA */}
-      <section id="book" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", padding: "88px 32px", textAlign: "center" }}>
+      {/* Final CTA — gradient band */}
+      <section
+        id="book"
+        style={{
+          borderTop: "1px solid var(--line-2)",
+          backgroundImage: "radial-gradient(80% 100% at 50% 110%, var(--pine-tint) 0%, var(--paper-1) 75%)",
+        }}
+      >
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>Start here</div>
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
             Not sure where AI fits your business? Let&apos;s find out. The first look is free.
