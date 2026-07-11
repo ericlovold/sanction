@@ -228,12 +228,6 @@ export default function Consulting() {
           <h1 className="cx-fade cx-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Let&apos;s put AI to work for your business.
           </h1>
-          <div className="cx-fade cx-d3" style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 9, border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "7px 15px", fontSize: 13, color: "var(--text-secondary)", background: "var(--surface-card)" }}>
-              <span className="cx-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--signal)" }} />
-              Taking on new clients
-            </span>
-          </div>
           <div className="cx-fade cx-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28, flexWrap: "wrap" }}>
             <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
               Book free discovery →
