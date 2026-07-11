@@ -236,14 +236,11 @@ export default function Consulting() {
               How it works
             </a>
           </div>
-          <p className="cx-fade cx-d5" style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 16 }}>
-            Discovery is free. You&apos;ll leave with my honest read and real ideas, either way.
-          </p>
         </div>
         {/* Who I work with */}
         <div style={{ ...wrap, padding: "8px 32px 72px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Agencies & studios", "Professional services", "Lean teams everywhere"].map((i, idx) => (
+            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Professional services", "Lean teams everywhere"].map((i, idx) => (
               <span key={i} className="sn-mono" style={{ color: idx % 2 ? "var(--ochre-7)" : "var(--pine-7)", borderRadius: "var(--radius-pill)", padding: "8px 16px", letterSpacing: "0.08em", background: idx % 2 ? "var(--ochre-tint)" : "var(--pine-tint)" }}>
                 {i}
               </span>
