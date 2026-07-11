@@ -259,8 +259,30 @@ export default function Consulting() {
         </div>
       </header>
 
+      {/* The path — connected timeline, leads the page */}
+      <section id="how" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
+        <div style={{ ...wrap, padding: "88px 32px" }}>
+          <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+              A clear path from &ldquo;we should be using AI&rdquo; to &ldquo;we are.&rdquo;
+            </h2>
+          </div>
+          <div className="cx-steps">
+            {STEPS.map(([n, t, d]) => (
+              <div key={n} style={{ position: "relative" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--pine-8)", color: "var(--text-on-action)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, position: "relative", zIndex: 1, border: "4px solid var(--paper-1)" }}>
+                  {n}
+                </div>
+                <h3 style={{ margin: "18px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* You might be here because — numbered attention cards */}
-      <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
+      <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
             <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-7)" }}>Sound familiar?</div>
@@ -315,28 +337,6 @@ export default function Consulting() {
         </div>
       </section>
 
-      {/* How it works — connected timeline */}
-      <section id="how" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ ...wrap, padding: "88px 32px" }}>
-          <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ marginBottom: 16 }}>How it works</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              A clear path from &ldquo;we should be using AI&rdquo; to &ldquo;we are.&rdquo;
-            </h2>
-          </div>
-          <div className="cx-steps">
-            {STEPS.map(([n, t, d]) => (
-              <div key={n} style={{ position: "relative" }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--pine-8)", color: "var(--text-on-action)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, position: "relative", zIndex: 1, border: "4px solid var(--paper-1)" }}>
-                  {n}
-                </div>
-                <h3 style={{ margin: "18px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Services — glyph cards */}
       <section id="services" style={{ ...wrap, padding: "96px 32px" }}>
