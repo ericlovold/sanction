@@ -51,6 +51,40 @@ resource allocation — big plans escalate to the owner, approval mints a
 grant, the plan applies on retry. Onboarding runs through the product's own
 approval loop, which is the demo.
 
+## The do-nothing wedge: observe mode
+
+Adoption strategy (Eric, 2026-07-11): **the easiest way to get people to
+implement is to make them do nothing.** After connect + scan, the org gets
+value with zero governance assigned — no seats, no budgets, no policy
+decisions to make:
+
+- **Scan alone tells you a thing** — the shadow-AI findings are the latent
+  value, delivered before any commitment.
+- **Observe mode is monitoring plus recommendations** — traffic routes
+  through Sanction, every would-be decision is computed and logged, nothing
+  is ever blocked. The org watches the board fill in.
+- **Migration is at their leisure** — flip a pool at a time from observe to
+  enforce, on their schedule or at compliance checkpoints. The maturity
+  ladder (`lib/readiness.ts` LEVELS, Shadow AI → Evidenced AI) becomes the
+  migration UI, not just sales framing — partially closing the queued
+  "maturity model as sales framing" backlog item.
+
+The upsell is evidence, not marketing: observe mode accumulates **real
+decision contexts**, and simulation (SIM-1/SIM-2) already replays stored
+contexts against a draft policy. So the recommendation reads "last week,
+this pack would have escalated 3 actions and denied 1 — here they are,"
+computed deterministically from the org's own traffic. The readiness
+diagnostic already prescribes exactly this as the Shadow-usage first
+workflow ("metering gate, no blocking — govern once you can see") and the
+`metering-first` pack exists; observe mode makes the prescription real for
+actions, not just tokens.
+
+**Positioning guard.** "Preventive, not observability" stays canonical:
+observe is an explicit, visibly-labeled on-ramp to enforcement, never a
+silent default for a wallet that chose governance. Fail-closed is untouched
+for enforcing wallets; every monitoring digest ends with the flip-to-enforce
+action.
+
 ## Vocabulary (extends `docs/DOMAIN.md` when shipped)
 
 - **Roster** — a point-in-time, normalized snapshot of upstream org data:
@@ -64,6 +98,11 @@ approval loop, which is the demo.
 - **Shadow-AI findings** — the observed-usage slice of the roster, reported
   on scan regardless of whether a plan is ever applied. The scan has
   standalone value.
+- **Observe mode** — shadow enforcement, per wallet: the engine computes and
+  persists the full decision (same rules, same determinism), marks the
+  request observed, and returns allow with the would-be decision attached.
+  Nothing blocked, everything seen. The audit trail records what *would*
+  have happened, which is what the migration recommendation is built from.
 
 ## Phases
 
@@ -131,6 +170,24 @@ arc gives it its killer first-run moment; directory listings and the
 install-instrumentation / install-center backlog entries bind in as the
 distribution half. stdio/npx keeps full parity — PR4's tools work there too.
 
+### Track C — observe mode (the do-nothing wedge)
+
+Independent of the roster/plan track; either can ship first, together they
+compound (a seat plan can be applied *in observe mode*, so even "apply"
+commits to nothing).
+
+- **C1 — engine mode.** `Policy.enforcementMode: enforce | observe`
+  (default `enforce`; fail-closed untouched). In observe, the shell runs the
+  identical rule fold, persists the decision with an `observed` marker, and
+  returns allow carrying the would-be decision (`would_be: denied,
+  PER_TXN_LIMIT`). Per-wallet, so migration flips pool by pool. Escalations
+  in observe mode do not page anyone — they log.
+- **C2 — the monitoring digest.** A dashboard surface (and later a webhook
+  digest) over observed decisions: what ran, what would have escalated or
+  been denied under the current draft policy, spend/token totals — each
+  recommendation backed by the simulation replay over the org's own
+  contexts, each pool row ending in one action: **flip to enforce**.
+
 ## Guardrails
 
 - **Identity stays upstream.** The roster is staging with a refresh story,
@@ -154,6 +211,11 @@ distribution half. stdio/npx keeps full parity — PR4's tools work there too.
   per the session-ops note.
 - PR4: `npm run build:mcp` bundles; a scripted MCP client submits a roster,
   previews, applies through an escalation, and lands seats.
+- C1: unit tests prove an observe-mode wallet gets `authorized: true` with
+  the would-be decision attached, the persisted request carries the observed
+  marker, and an enforce-mode wallet's behavior is byte-identical to today.
+- C2: seeded observed traffic renders the digest with at least one
+  would-have-denied line and a working flip-to-enforce action.
 
 ## Out of scope (this arc)
 

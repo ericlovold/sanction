@@ -18,9 +18,12 @@ conversation, not here.
       through the provision ladder, with a manual per-seat path over the same
       roster data. Build spec: docs/plans/connector-onboarding.md — PR1 roster
       ingestion → PR2 pure seat-plan engine → PR3 apply + console → PR4 MCP
-      tools; Track B = the already-promoted hosted remote MCP as carrier.
-      Three open questions for Eric in the spec (first slice, roster TTL,
-      seat invitations). (vision → build spec, from Eric)
+      tools; Track B = the already-promoted hosted remote MCP as carrier;
+      Track C = observe mode, the do-nothing adoption wedge (monitoring +
+      simulation-backed recommendations, flip pools to enforce at leisure /
+      compliance checkpoints — makes the readiness ladder the migration UI).
+      Seat distribution resolved owner-driven (2026-07-11); still open in the
+      spec: first slice, roster TTL. (vision → build spec, from Eric)
 - [ ] 2026-07-10 — Opaque dashboard sessions (~half a day; scoped in the
       2026-07-10 audit consolidation, report in the working conversation):
       make dashboard session handling legible/auditable rather than opaque.
