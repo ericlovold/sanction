@@ -11,6 +11,16 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-11 — Connector-grade onboarding arc (vision from Eric, Apollo.io
+      as the reference experience): enable Sanction like any connector → offer
+      an org scan (shadow-AI discovery; the host's own connectors do the
+      gathering) → autofill-grade seat-plan recommendations → one-click apply
+      through the provision ladder, with a manual per-seat path over the same
+      roster data. Build spec: docs/plans/connector-onboarding.md — PR1 roster
+      ingestion → PR2 pure seat-plan engine → PR3 apply + console → PR4 MCP
+      tools; Track B = the already-promoted hosted remote MCP as carrier.
+      Three open questions for Eric in the spec (first slice, roster TTL,
+      seat invitations). (vision → build spec, from Eric)
 - [ ] 2026-07-10 — Opaque dashboard sessions (~half a day; scoped in the
       2026-07-10 audit consolidation, report in the working conversation):
       make dashboard session handling legible/auditable rather than opaque.
