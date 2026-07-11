@@ -113,26 +113,25 @@ const WONT: string[] = [
   "Build dependency. If you can't run it without me when I leave, I haven't finished the job.",
 ]
 
-/* PRICING — ERIC SETS THE NUMBERS. Placeholders are intentional and must be
-   replaced before this page ships. Structure mirrors the engagement ladder. */
+/* Pricing rungs. Dollar bands can be added to the price field when Eric sets them. */
 const PRICING: { name: string; price: string; detail: string }[] = [
   {
     name: "First build",
-    price: "[ERIC: fixed-quote range]",
+    price: "Fixed quote",
     detail:
       "One scoped system, quoted exactly after the free look and before any work starts.",
   },
   {
     name: "Build + run",
-    price: "[ERIC: monthly range]",
+    price: "Monthly",
     detail:
       "I operate and improve what we built, monthly. Your team learns it as we go. Cancel anytime.",
   },
   {
     name: "Embedded",
-    price: "[ERIC: retainer range]",
+    price: "Quarterly retainer",
     detail:
-      "Your fractional AI operator: a set number of days per month inside your business, shipping and teaching. Quarterly.",
+      "Your fractional AI operator: a set number of days per month inside your business, shipping and teaching.",
   },
 ]
 
