@@ -68,7 +68,7 @@ const STEPS: [string, string, string][] = [
   [
     "4",
     "A simple ongoing rhythm",
-    "Keep building monthly, or have me embedded a few days a month as your fractional AI operator. Cancel anytime. The first build has to earn it.",
+    "Keep building monthly, or have me embedded a few days a month as your fractional AI operator.",
   ],
 ]
 
@@ -205,7 +205,6 @@ export default function Consulting() {
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <Link className="sanction-link" href="/">Product</Link>
             <a className="sanction-link" href="#services">Services</a>
-            <a className="sanction-link" href="#pricing">Pricing</a>
             <Link className="sanction-link" href="/about">About</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
@@ -219,7 +218,7 @@ export default function Consulting() {
       {/* Hero */}
       <header
         style={{
-          backgroundImage: "radial-gradient(90% 60% at 50% -10%, var(--pine-tint) 0%, rgba(228,239,232,0) 70%)",
+          backgroundImage: "radial-gradient(90% 60% at 50% -10%, var(--pine-tint) 0%, rgba(228,239,232,0) 70%), radial-gradient(36% 28% at 88% 42%, var(--ochre-tint) 0%, rgba(246,236,214,0) 75%)",
         }}
       >
         <div style={{ ...wrap, padding: "96px 32px 56px", maxWidth: 780, textAlign: "center" }}>
@@ -250,8 +249,8 @@ export default function Consulting() {
         {/* Who I work with */}
         <div style={{ ...wrap, padding: "8px 32px 72px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Agencies & studios", "Professional services", "Lean teams everywhere"].map((i) => (
-              <span key={i} className="sn-mono" style={{ color: "var(--pine-7)", border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "8px 16px", letterSpacing: "0.08em", background: "var(--surface-card)" }}>
+            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Agencies & studios", "Professional services", "Lean teams everywhere"].map((i, idx) => (
+              <span key={i} className="sn-mono" style={{ color: idx % 2 ? "var(--ochre-7)" : "var(--pine-7)", borderRadius: "var(--radius-pill)", padding: "8px 16px", letterSpacing: "0.08em", background: idx % 2 ? "var(--ochre-tint)" : "var(--pine-tint)" }}>
                 {i}
               </span>
             ))}
@@ -268,9 +267,9 @@ export default function Consulting() {
             </h2>
           </div>
           <div className="cx-steps">
-            {STEPS.map(([n, t, d]) => (
+            {STEPS.map(([n, t, d], idx) => (
               <div key={n} style={{ position: "relative" }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--pine-8)", color: "var(--text-on-action)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, position: "relative", zIndex: 1, border: "4px solid var(--paper-1)" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: idx % 2 ? "var(--ochre-6)" : "var(--pine-8)", color: "#fdfcf8", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, position: "relative", zIndex: 1, border: "4px solid var(--paper-1)" }}>
                   {n}
                 </div>
                 <h3 style={{ margin: "18px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
@@ -278,6 +277,64 @@ export default function Consulting() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+
+      {/* Philosophy — open editorial columns, then the dark receipts panel */}
+      <section style={{ ...wrap, padding: "96px 32px 88px" }}>
+        <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
+          <div className="sn-mono" style={{ marginBottom: 16 }}>Why work with me</div>
+          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+            Built with you. Run by you.
+          </h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
+          {PHILOSOPHY.map(([t, d], idx) => (
+            <div key={t} style={{ borderLeft: `2px solid ${idx === 1 ? "var(--ochre-6)" : "var(--pine-6)"}`, paddingLeft: 22 }}>
+              <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)" }}>{t}</h3>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)" }}>{d}</p>
+            </div>
+          ))}
+        </div>
+        {/* Receipts — dark pine panel */}
+        <div style={{ maxWidth: 780, margin: "64px auto 0", padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
+          <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
+            I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
+            SaaS governance platform for AI agents that is{" "}
+            <span style={{ whiteSpace: "nowrap" }}>
+              <span className="cx-dot" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--signal)", marginRight: 7, verticalAlign: "2px" }} />
+              in production today
+            </span>
+            . I run my own operation on the same systems I build for clients. Before that, over a decade in
+            healthcare and technology, including years alongside benefits and claims operations.
+          </p>
+        </div>
+      </section>
+
+      {/* Final CTA — deep pine band */}
+      <section
+        id="book"
+        style={{
+          backgroundImage: "radial-gradient(90% 120% at 50% 115%, var(--pine-7) 0%, var(--pine-9) 68%)",
+          color: "#f7f6f0",
+        }}
+      >
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
+          <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>Start here</div>
+          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
+            Not sure where AI fits your business? Let&apos;s find out. The first look is free.
+          </h2>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px 0 28px" }}>
+            Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
+          </p>
+          <a className="sn-btn sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ background: "#f7f6f0", color: "var(--pine-9)", fontWeight: 600 }}>
+            Book free discovery →
+          </a>
+          <p style={{ fontSize: 13.5, color: "rgba(247,246,240,.6)", marginTop: 16 }}>
+            Or email <a href="mailto:eric@getsanction.com" style={{ color: "#f7f6f0", textDecoration: "underline", textUnderlineOffset: 3 }}>eric@getsanction.com</a>. I reply within one business day.
+          </p>
         </div>
       </section>
 
@@ -305,38 +362,6 @@ export default function Consulting() {
         </div>
       </section>
 
-      {/* Philosophy — open editorial columns, then the dark receipts panel */}
-      <section style={{ ...wrap, padding: "96px 32px 88px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16 }}>Why work with me</div>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Built with you. Run by you.
-          </h2>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
-          {PHILOSOPHY.map(([t, d]) => (
-            <div key={t} style={{ borderLeft: "2px solid var(--pine-6)", paddingLeft: 22 }}>
-              <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)" }}>{d}</p>
-            </div>
-          ))}
-        </div>
-        {/* Receipts — dark pine panel */}
-        <div style={{ maxWidth: 780, margin: "64px auto 0", padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
-          <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
-            I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
-            SaaS governance platform for AI agents that is{" "}
-            <span style={{ whiteSpace: "nowrap" }}>
-              <span className="cx-dot" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--signal)", marginRight: 7, verticalAlign: "2px" }} />
-              in production today
-            </span>
-            . I run my own operation on the same systems I build for clients. Before that, over a decade in
-            healthcare and technology, including years alongside benefits and claims operations.
-          </p>
-        </div>
-      </section>
-
 
       {/* Services — glyph cards */}
       <section id="services" style={{ ...wrap, padding: "96px 32px" }}>
@@ -350,9 +375,9 @@ export default function Consulting() {
           </p>
         </div>
         <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-          {SERVICES.map(({ key, title, body }) => (
+          {SERVICES.map(({ key, title, body }, idx) => (
             <div key={key} className="sn-card cx-lift" style={{ padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
-              <span style={{ flex: "none", width: 42, height: 42, borderRadius: 10, background: "var(--ochre-tint)", color: "var(--ochre-7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ flex: "none", width: 42, height: 42, borderRadius: 10, background: idx % 2 ? "var(--pine-tint)" : "var(--ochre-tint)", color: idx % 2 ? "var(--pine-7)" : "var(--ochre-7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {SERVICE_GLYPHS[key]}
               </span>
               <span>
@@ -393,51 +418,7 @@ export default function Consulting() {
         </div>
       </section>
 
-      {/* The three questions — full dark section */}
-      <section style={{ background: "var(--surface-inverse)", color: "#f7f6f0" }}>
-        <div style={{ ...wrap, padding: "96px 32px" }}>
-          <div style={{ maxWidth: 660, margin: "0 auto 56px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>The standard</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
-              Three questions every AI system has to answer.
-            </h2>
-            <p style={{ fontSize: 15.5, margin: "14px 0 0", color: "rgba(247,246,240,.72)" }}>
-              Ask these of any AI hire or vendor, including me. If the answers are vague, walk.
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
-            {THREE_QUESTIONS.map(([n, q, a]) => (
-              <div key={n} style={{ borderTop: "1px solid rgba(247,246,240,.2)", paddingTop: 22 }}>
-                <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 12, letterSpacing: "0.1em" }}>{n}</div>
-                <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)", color: "#f7f6f0" }}>{q}</h3>
-                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: "rgba(247,246,240,.72)" }}>{a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Pricing — accent-barred cards */}
-      <section id="pricing" style={{ ...wrap, padding: "96px 32px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16 }}>Pricing</div>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            An exact number before any work starts.
-          </h2>
-          <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-            Discovery and the workflow look are free. Every build is quoted flat after that. No surprise bills, ever.
-          </p>
-        </div>
-        <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          {PRICING.map(({ name, price, detail, accent }) => (
-            <div key={name} className="sn-card cx-lift" style={{ padding: 28, textAlign: "center", borderTop: `3px solid ${accent}` }}>
-              <div className="sn-mono" style={{ marginBottom: 12 }}>{name}</div>
-              <div style={{ font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", marginBottom: 10 }}>{price}</div>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* Recent work */}
       <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
@@ -448,9 +429,7 @@ export default function Consulting() {
           </h2>
           <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "16px auto 0", maxWidth: "58ch" }}>
             Client case studies appear here only after clients say yes: situation, what was built, what it changed,
-            and what the team runs on their own now. In the meantime, the standing proof is{" "}
-            <Link className="sanction-link" href="/" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Sanction</Link>:
-            a production platform I designed, built, and operate.
+            and what the team runs on their own now.
           </p>
           {/* [CASE STUDIES: True North Co. Bookkeeping (pending Kelley's consent) + second study — Eric writes the four beats] */}
         </div>
@@ -474,30 +453,6 @@ export default function Consulting() {
         </Link>
       </section>
 
-      {/* Final CTA — gradient band */}
-      <section
-        id="book"
-        style={{
-          borderTop: "1px solid var(--line-2)",
-          backgroundImage: "radial-gradient(80% 100% at 50% 110%, var(--pine-tint) 0%, var(--paper-1) 75%)",
-        }}
-      >
-        <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16 }}>Start here</div>
-          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
-            Not sure where AI fits your business? Let&apos;s find out. The first look is free.
-          </h2>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
-          </p>
-          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-            Book free discovery →
-          </a>
-          <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 16 }}>
-            Or email <a className="sanction-link" href="mailto:eric@getsanction.com" style={{ color: "var(--pine-7)" }}>eric@getsanction.com</a>. I reply within one business day.
-          </p>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer style={{ borderTop: "1px solid var(--line-2)" }}>
