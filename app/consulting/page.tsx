@@ -176,7 +176,7 @@ export default function Consulting() {
         </h1>
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "58ch" }}>
           I&apos;m a solo AI practice for SMBs and regulated teams. I map workflow opportunities alongside my
-          clients, we work the right problems in real time, and your team ends up running the result without me.
+          clients, we create solutions that stick, and your team ends up running them without me.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 32, flexWrap: "wrap" }}>
           <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
