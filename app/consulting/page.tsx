@@ -172,7 +172,7 @@ export default function Consulting() {
           AI Consulting · Eric Lovold
         </div>
         <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-          Let&apos;s put AI to work in your business. For real, by Monday.
+          Let&apos;s put AI to work for your business.
         </h1>
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "58ch" }}>
           I&apos;m a solo AI practice for SMBs and regulated teams. I map workflow opportunities alongside my
