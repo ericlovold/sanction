@@ -6,7 +6,7 @@ import { brandFontVars } from "../brand-fonts"
 export const metadata: Metadata = {
   title: "AI Consulting — Eric Lovold | Working AI for real businesses",
   description:
-    "Eric Lovold installs working AI on real business workflows — implementation, internal tools, content systems, and coaching for SMBs and regulated teams. Discovery is free, and you'll leave with ideas either way.",
+    "Eric Lovold installs working AI on real business workflows: implementation, internal tools, content systems, and coaching for SMBs and regulated teams. Discovery is free, and you'll leave with ideas either way.",
 }
 
 // Discovery Calendly. NEXT_PUBLIC_CALENDLY_URL overrides at build time.
@@ -18,72 +18,72 @@ const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "
 const PAIN_POINTS: [string, string][] = [
   [
     "You posted an AI role that isn't filling",
-    "The person who can both build AI and understand your business is a unicorn — and the big tech companies pay them more than the role makes sense for. Meanwhile the work is still sitting there.",
+    "The person who can build AI and also understand your business is a unicorn. Big tech pays them more than the role makes sense for, and the work is still sitting there.",
   ],
   [
     "You tried the tools and nothing stuck",
-    "Someone bought licenses, a few people experimented, the excitement faded. That isn't a failure of your team — it's what happens without someone who installs AI on the way you actually work.",
+    "Someone bought licenses, a few people experimented, the excitement faded. It happens when nobody installs AI on the way you actually work.",
   ],
   [
     "Your team is at capacity and the asks keep coming",
-    "You don't need more headcount to deliver more. You need the repetitive half of the work to run itself so your people spend their hours on the judgment work only they can do.",
+    "You don't need more headcount to deliver more. You need the repetitive half of the work to run itself so your people can spend their hours on judgment.",
   ],
   [
     "You're worried about what AI does with your data",
-    "You should be. Customer data ending up in tools, wrong answers reaching clients, nothing you could show an auditor. Those are solvable problems — if someone designs for them from day one.",
+    "You should be. Customer data ending up in tools, wrong answers reaching clients, nothing you could show an auditor. Those are solvable problems when you design for them from day one.",
   ],
 ]
 
 const PHILOSOPHY: [string, string][] = [
   [
     "I meet you where you are.",
-    "No prerequisite stack, no six-month roadmap before anything works. We start with your actual workflows, this month's actual problems, and put working AI on the highest-leverage one first.",
+    "We start with your actual workflows and this month's actual problems, and we put working AI on the highest-leverage one first.",
   ],
   [
-    "I build with your team, not around it.",
-    "I map workflow opportunities alongside my clients, and we work the right problems in real time. Your people are in the room — the point is that they understand what got built and why.",
+    "I build with your team.",
+    "I map workflow opportunities alongside my clients, and your people are in the room. The point is that they understand what got built and why.",
   ],
   [
     "I leave you running it.",
-    "The engagement ends with your team operating the system without me. If you keep me around, it's because the value compounds — never because you're dependent. That's the difference between a coach and a vendor.",
+    "The engagement ends with your team operating the system without me. If you keep me around, it's because the value keeps compounding.",
   ],
 ]
 
 const STEPS: [string, string, string][] = [
   [
     "1",
-    "A real conversation — free",
-    "Thirty minutes of discovery about your goals and where you are. You'll walk away with my honest read and the ideas I'd run at first — either way, whether we work together or not.",
+    "A real conversation, free",
+    "Thirty minutes of discovery about your goals and where you are. You'll walk away with my honest read and the ideas I'd run at first, whether we work together or not.",
   ],
   [
     "2",
     "A free look at your workflows",
-    "I map where the hours actually go and where AI removes friction — measured against real outcomes, not demos. You get the map regardless. No lectures, no pitch deck.",
+    "I map where the hours actually go and where AI removes friction, measured against real outcomes. You get the map either way.",
   ],
   [
     "3",
     "A first build with a fixed scope",
-    "One concrete thing, priced exactly before any work starts. A workflow that runs itself, an internal tool, a content system. Weeks, not quarters — something your team puts its hands on.",
+    "One concrete thing, priced exactly before any work starts. A workflow that runs itself, an internal tool, a content system. Your team puts its hands on it in weeks.",
   ],
   [
     "4",
-    "A simple ongoing rhythm — if it earns it",
-    "Keep building monthly, or have me embedded a few days a month as your fractional AI operator. Cancel anytime. The first build has to prove the value first.",
+    "A simple ongoing rhythm",
+    "Keep building monthly, or have me embedded a few days a month as your fractional AI operator. Cancel anytime. The first build has to earn it.",
   ],
 ]
 
 const SERVICES: [string, string][] = [
   [
     "AI workflows & setup",
-    "Tools, automations, and guardrails installed on your team's real work — intake, follow-ups, reporting, the recurring hours. The morning that runs itself instead of starting in seventeen tabs.",
+    "Tools, automations, and guardrails installed on your team's real work: intake, follow-ups, reporting, the recurring hours. The morning that runs itself.",
   ],
   [
     "Internal tools & apps",
-    "The tool your team has wanted for years but could never justify a dev shop for. AI-built means SMB-affordable now — scoped, shipped, and dependable in production.",
+    "The tool your team has wanted for years but could never justify a dev shop for. Building with AI makes it affordable now. Scoped, shipped, and dependable in production.",
   ],
   [
-    "Content systems — in your voice",
-    "AI never writes as you. It makes your team faster in your own voice — drafting, structuring, repurposing — so what ships still sounds like your company and not like everyone else's AI.",
+    "Content systems, in your voice",
+    "Your voice stays yours. AI makes your team faster at drafting, structuring, and repurposing, so what ships still sounds like your company.",
   ],
   [
     "Websites that work",
@@ -94,11 +94,11 @@ const SERVICES: [string, string][] = [
 const ALSO: [string, string][] = [
   [
     "Vet your AI hire",
-    "A lot of companies find out five months in that their AI director can talk AI but can't ship it. I'll help you interview and evaluate candidates — before the salary bet, not after.",
+    "A lot of companies find out five months in that their AI director can talk AI but can't ship it. I'll help you interview and evaluate candidates before the salary bet.",
   ],
   [
     "Executive coaching",
-    "Direct 1:1 work on AI tools, workflows, and judgment for leaders. Practical and current, never theoretical.",
+    "Direct 1:1 work on AI tools, workflows, and judgment for leaders. Practical and current.",
   ],
   [
     "Design sprints",
@@ -108,7 +108,7 @@ const ALSO: [string, string][] = [
 
 const WONT: string[] = [
   "Sell you “transformation.” You'll get specific systems with names, owners, and measured outcomes.",
-  "Automate your voice away. Anything a human reads as you stays written by you — AI makes you faster, not replaceable.",
+  "Automate your voice away. Anything a human reads as you stays written by you. AI makes you faster.",
   "Ship anything you can't see into. If it touches your data or your customers, you can audit what it did and turn it off.",
   "Build dependency. If you can't run it without me when I leave, I haven't finished the job.",
 ]
@@ -120,7 +120,7 @@ const PRICING: { name: string; price: string; detail: string }[] = [
     name: "First build",
     price: "[ERIC: fixed-quote range]",
     detail:
-      "One scoped system, quoted exactly after the free look — before any work starts. No surprise bills, ever.",
+      "One scoped system, quoted exactly after the free look and before any work starts.",
   },
   {
     name: "Build + run",
@@ -132,7 +132,7 @@ const PRICING: { name: string; price: string; detail: string }[] = [
     name: "Embedded",
     price: "[ERIC: retainer range]",
     detail:
-      "Your fractional AI operator — a set number of days per month inside your business, shipping and teaching. Quarterly.",
+      "Your fractional AI operator: a set number of days per month inside your business, shipping and teaching. Quarterly.",
   },
 ]
 
@@ -187,7 +187,7 @@ export default function Consulting() {
           </a>
         </div>
         <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 14 }}>
-          Discovery is free. You&apos;ll leave with my honest read and real ideas — either way.
+          Discovery is free. You&apos;ll leave with my honest read and real ideas, either way.
         </p>
       </header>
 
@@ -211,7 +211,7 @@ export default function Consulting() {
               You might be here because&hellip;
             </h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              All of these are more common than you think. All of them are fixable. No lectures.
+              All of these are more common than you think. All of them are fixable.
             </p>
           </div>
           <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
@@ -244,10 +244,10 @@ export default function Consulting() {
         {/* Receipts */}
         <div style={{ maxWidth: 720, margin: "48px auto 0", textAlign: "center", padding: 28, border: "1px solid var(--line-1)", borderRadius: "var(--radius-card)", background: "var(--surface-card)" }}>
           <p style={{ margin: 0, fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)" }}>
-            The receipts: I built <Link className="sanction-link" href="/" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Sanction</Link> — a
-            production SaaS governance platform for AI agents — and I run my own operation on the same systems I
-            build for clients. Before that, a decade in healthcare and technology, including years alongside
-            benefits and claims operations.
+            The receipts: I built <Link className="sanction-link" href="/" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Sanction</Link>, a
+            SaaS governance platform for AI agents that is in production today. I run my own operation on the same
+            systems I build for clients. Before that, over a decade in healthcare and technology, including years
+            alongside benefits and claims operations.
           </p>
         </div>
       </section>
@@ -281,7 +281,7 @@ export default function Consulting() {
             Four ways in. Every one leads somewhere.
           </h2>
           <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-            Start with one concrete build. Most clients keep going — because the first one pays for the next.
+            Start with one concrete build. The first one pays for the next.
           </p>
         </div>
         <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
@@ -325,7 +325,7 @@ export default function Consulting() {
               Three questions every AI system has to answer.
             </h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              Ask these of any AI hire or vendor — including me. If the answers are vague, walk.
+              Ask these of any AI hire or vendor, including me. If the answers are vague, walk.
             </p>
           </div>
           <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
@@ -369,7 +369,7 @@ export default function Consulting() {
             Real work, shown with real consent.
           </h2>
           <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "16px auto 0", maxWidth: "58ch" }}>
-            Client case studies appear here only after clients say yes — situation, what was built, what it changed,
+            Client case studies appear here only after clients say yes: situation, what was built, what it changed,
             and what the team runs on their own now. In the meantime, the standing proof is{" "}
             <Link className="sanction-link" href="/" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Sanction</Link>:
             a production platform I designed, built, and operate.
@@ -388,7 +388,7 @@ export default function Consulting() {
         <div className="sn-mono" style={{ margin: "16px 0 20px", letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction AI</div>
         <p style={{ fontSize: 16, lineHeight: 1.65, color: "var(--text-secondary)", margin: 0 }}>
           I&apos;ve spent over a decade driving outcomes in healthcare and technology, and the last stretch running a
-          solo AI practice and building Sanction. I&apos;ve been deep in this space — and talking AI is one of my
+          solo AI practice and building Sanction. I&apos;ve been deep in this space, and talking AI is one of my
           favorite things to do.
         </p>
         <Link className="sanction-link" href="/about" style={{ display: "inline-block", marginTop: 16, color: "var(--pine-7)", fontWeight: 600 }}>
@@ -404,13 +404,13 @@ export default function Consulting() {
             Not sure where AI fits your business? Let&apos;s find out. The first look is free.
           </h2>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            Thirty minutes, no pitch, no pressure. You&apos;ll leave with ideas you can use whether we ever work together or not.
+            Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
           </p>
           <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
             Book free discovery →
           </a>
           <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 16 }}>
-            Or email <a className="sanction-link" href="mailto:eric@getsanction.com" style={{ color: "var(--pine-7)" }}>eric@getsanction.com</a> — I reply within one business day.
+            Or email <a className="sanction-link" href="mailto:eric@getsanction.com" style={{ color: "var(--pine-7)" }}>eric@getsanction.com</a>. I reply within one business day.
           </p>
         </div>
       </section>
