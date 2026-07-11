@@ -1,7 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { Permanent_Marker } from "next/font/google"
 import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
+
+// Playbook scrawl for the industries fan — loaded here only so no other page pays for it.
+const marker = Permanent_Marker({ weight: "400", subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "AI Consulting — Eric Lovold | Working AI for real businesses",
@@ -14,6 +18,10 @@ const CALENDLY_URL =
   process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/discover"
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
+
+// Arrow endpoints for the industries play fan, in the 1020-wide SVG space.
+// Tuned to the rendered pill centers at full width; the fan hides below 1120px.
+const LANE_X = [181, 382, 538, 665, 838]
 
 const PAIN_POINTS: [string, string][] = [
   [
@@ -177,6 +185,18 @@ const css = `
 .cx-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; position: relative }
 .cx-steps::before { content: ""; position: absolute; top: 23px; left: 40px; right: 40px; height: 2px;
   background: linear-gradient(90deg, var(--pine-6), var(--ochre-6), var(--pine-6)); opacity: .35 }
+.cx-play { display: flex; justify-content: center; margin-top: 4px; overflow: hidden }
+.cx-play svg { display: block; flex: none }
+.cx-lane { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cxDraw .9s cubic-bezier(.4,0,.2,1) forwards }
+.cx-lane-tip { opacity: 0; animation: cxTip .3s ease-out forwards }
+@keyframes cxDraw { to { stroke-dashoffset: 0 } }
+@keyframes cxTip { to { opacity: 1 } }
+.cx-play-call { text-align: center; font-size: 27px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink); transform: rotate(-2deg); margin-top: 2px }
+@media (max-width: 1119px) {
+  .cx-play { display: none }
+  .cx-play-call { margin-top: 20px; font-size: 22px }
+}
 @media (max-width: 900px) {
   .cx-steps { grid-template-columns: 1fr }
   .cx-steps::before { display: none }
@@ -184,6 +204,8 @@ const css = `
 @media (prefers-reduced-motion: reduce) {
   .cx-fade { animation: none; opacity: 1; transform: none }
   .cx-lift, .cx-lift:hover { transition: none; transform: none }
+  .cx-lane { animation: none; stroke-dashoffset: 0 }
+  .cx-lane-tip { animation: none; opacity: 1 }
 }
 `
 
@@ -234,15 +256,29 @@ export default function Consulting() {
             </a>
           </div>
         </div>
-        {/* Who I work with */}
+        {/* Who I work with — five buckets, play-diagram fan up from the call */}
         <div style={{ ...wrap, padding: "8px 32px 72px" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Professional services", "Lean teams everywhere"].map((i, idx) => (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", position: "relative", zIndex: 1 }}>
+            {["Healthcare & benefits", "Financial services", "Insurance", "Real estate", "Professional services"].map((i, idx) => (
               <span key={i} className="sn-mono" style={{ color: idx % 2 ? "var(--ochre-7)" : "var(--pine-7)", borderRadius: "var(--radius-pill)", padding: "8px 16px", letterSpacing: "0.08em", background: idx % 2 ? "var(--ochre-tint)" : "var(--pine-tint)" }}>
                 {i}
               </span>
             ))}
           </div>
+          <div className="cx-play" aria-hidden="true">
+            <svg viewBox="0 0 1020 122" width={1020} height={122} fill="none">
+              {LANE_X.map((x, idx) => {
+                const c = idx % 2 ? "var(--ochre-7)" : "var(--pine-7)"
+                return (
+                  <g key={x} stroke={c} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path className="cx-lane" style={{ animationDelay: `${0.15 + idx * 0.12}s` }} pathLength={1} d={`M 510 120 C 510 54 ${x} 100 ${x} 20`} />
+                    <path className="cx-lane-tip" style={{ animationDelay: `${0.85 + idx * 0.12}s` }} d={`M ${x - 8} 30 L ${x} 14 L ${x + 8} 30`} />
+                  </g>
+                )
+              })}
+            </svg>
+          </div>
+          <div className={`${marker.className} cx-play-call`}>Lean teams everywhere</div>
         </div>
       </header>
 
