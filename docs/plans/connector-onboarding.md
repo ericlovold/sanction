@@ -173,6 +173,8 @@ distribution half. stdio/npx keeps full parity — PR4's tools work there too.
    is a mockup.)
 2. **Roster retention:** TTL on snapshots (30/90 days) vs. keep-forever with
    the audit trail? PII argues for a TTL.
-3. **Seat invitations:** when a plan assigns a seat to a person, does v1
-   notify them (email the holder their key ceremony) or is distribution
-   entirely owner-driven? Owner-driven is smaller and matches today's model.
+~~3. Seat invitations~~ — **resolved 2026-07-11 (Eric): owner-driven.**
+Sanction never contacts seat holders at plan-apply time; holders learn
+about their limits, credentials, and updates through the account and the
+owner's actions. Key distribution is the owner's ceremony. (This also keeps
+PR3 free of any email/notification dependency.)
