@@ -52,12 +52,12 @@ const PHILOSOPHY: [string, string][] = [
 const STEPS: [string, string, string][] = [
   [
     "1",
-    "A real conversation, free",
+    "A real conversation",
     "Thirty minutes of discovery about your goals and where you are. You'll walk away with my honest read and the ideas I'd run at first, whether we work together or not.",
   ],
   [
     "2",
-    "A free look at your workflows",
+    "A look at your workflows",
     "I map where the hours actually go and where AI removes friction, measured against real outcomes. You get the map either way.",
   ],
   [
