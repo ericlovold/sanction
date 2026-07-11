@@ -203,6 +203,7 @@ export default function Landing() {
             <a className="sanction-link" href="#pricing">Pricing</a>
             <Link className="sanction-link" href="/readiness">Readiness check</Link>
             <Link className="sanction-link" href="/compatibility">Compatibility</Link>
+            <Link className="sanction-link" href="/consulting">Consulting</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
@@ -370,7 +371,7 @@ export default function Landing() {
           </span>
           <span>Authorize · Protect · Govern</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <Link className="sanction-link" href="/about">Consulting</Link>
+            <Link className="sanction-link" href="/consulting">Consulting</Link>
             <Link className="sanction-link" href="/why">Why Sanction</Link>
             <Link className="sanction-link" href="/architecture">Architecture</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>
