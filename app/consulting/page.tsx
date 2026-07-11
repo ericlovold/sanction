@@ -172,7 +172,7 @@ export default function Consulting() {
           AI Consulting · Eric Lovold
         </div>
         <h1 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-          Everyone&apos;s selling AI. I install the kind that works on Monday.
+          Let&apos;s put AI to work in your business. For real, by Monday.
         </h1>
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px auto 0", maxWidth: "58ch" }}>
           I&apos;m a solo AI practice for SMBs and regulated teams. I map workflow opportunities alongside my
@@ -230,7 +230,7 @@ export default function Consulting() {
         <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>Why work with me</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Anyone can demo AI. I make it yours.
+            Built with you. Run by you.
           </h2>
         </div>
         <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
@@ -245,9 +245,9 @@ export default function Consulting() {
         <div style={{ maxWidth: 720, margin: "48px auto 0", textAlign: "center", padding: 28, border: "1px solid var(--line-1)", borderRadius: "var(--radius-card)", background: "var(--surface-card)" }}>
           <p style={{ margin: 0, fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)" }}>
             The receipts: I built <Link className="sanction-link" href="/" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Sanction</Link> — a
-            production SaaS governance platform for AI agents — and I run my own operation on the systems I sell.
-            Before that, a decade in healthcare and technology, including years alongside benefits and claims
-            operations. I don&apos;t read about this work. I ship it.
+            production SaaS governance platform for AI agents — and I run my own operation on the same systems I
+            build for clients. Before that, a decade in healthcare and technology, including years alongside
+            benefits and claims operations.
           </p>
         </div>
       </section>
