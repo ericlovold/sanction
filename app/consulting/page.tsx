@@ -37,7 +37,7 @@ const PAIN_POINTS: [string, string][] = [
 const PHILOSOPHY: [string, string][] = [
   [
     "I meet you where you are.",
-    "We start with your actual workflows and this month's actual problems, and we put working AI on the highest-leverage one first.",
+    "We start with your workflows and this month's problems, and we put working AI on the highest-leverage one first.",
   ],
   [
     "I build with your team.",
@@ -174,8 +174,6 @@ const css = `
 .cx-d4 { animation-delay: .35s } .cx-d5 { animation-delay: .45s }
 .cx-lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
 .cx-lift:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(22,24,15,.10); border-color: var(--pine-6) }
-@keyframes cxPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,.35) } 55% { box-shadow: 0 0 0 7px rgba(16,185,129,0) } }
-.cx-dot { animation: cxPulse 2.2s ease-in-out infinite }
 .cx-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; position: relative }
 .cx-steps::before { content: ""; position: absolute; top: 23px; left: 40px; right: 40px; height: 2px;
   background: linear-gradient(90deg, var(--pine-6), var(--ochre-6), var(--pine-6)); opacity: .35 }
@@ -293,12 +291,8 @@ export default function Consulting() {
           <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
             I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
-            SaaS governance platform for AI agents that is{" "}
-            <span style={{ whiteSpace: "nowrap" }}>
-              <span className="cx-dot" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "var(--signal)", marginRight: 7, verticalAlign: "2px" }} />
-              in production today
-            </span>
-            . I run my own operation on the same systems I build for clients. Before that, over a decade in
+            SaaS governance platform for AI agents that is in production today.
+            I run my own operation on the same systems I build for clients. Before that, over a decade in
             healthcare and technology, including years alongside benefits and claims operations.
           </p>
         </div>
@@ -315,7 +309,7 @@ export default function Consulting() {
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>Start here</div>
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
-            Not sure where AI fits your business? Let&apos;s find out. The first look is free.
+            Not sure where AI fits your business? Let&apos;s find out.
           </h2>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px 0 28px" }}>
             Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
