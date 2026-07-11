@@ -183,7 +183,6 @@ const css = `
 }
 @media (prefers-reduced-motion: reduce) {
   .cx-fade { animation: none; opacity: 1; transform: none }
-  .cx-dot { animation: none }
   .cx-lift, .cx-lift:hover { transition: none; transform: none }
 }
 `
