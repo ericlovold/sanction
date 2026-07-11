@@ -226,6 +226,11 @@ commits to nothing).
   scan") — follow-up once the snapshot flow proves out.
 - Roadmap/storefront copy — `lib/roadmap.ts` leads by one release; it picks
   this up when PR1 is shipping, not before.
+- **Guest seats (the gig/freelance lane)** — handing a governed seat to an
+  external contractor instead of provisioning them into email/SSO. Adjacent,
+  queued in `docs/BACKLOG.md` (2026-07-11): the roster may include externals
+  and a seat plan can mint expiry-prefilled guest seats, but the guest layer
+  (claim-link handoff, holder-facing seat view) is its own arc.
 
 ## Open questions for Eric
 

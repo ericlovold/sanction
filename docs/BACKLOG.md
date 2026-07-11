@@ -11,6 +11,25 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-11 — Sanction guest seats: the gig/freelance lane (vision from
+      Eric, same session as the onboarding spec). Bringing in a part-time
+      contractor (marketing, branding, dev) shouldn't mean provisioning them
+      into your email/SSO/license stack — hand them a Sanction seat instead:
+      governed AI access (tokens via the gateway, tools, scoped credentials)
+      with budget, expiry, and audit, while they keep their own accounts and
+      identity. The skeleton is shipped (Agent.holder + expiresAt fail-closed
+      auto-shutoff, agency packs, gateway = no provider keys in their hands,
+      vault injection under execution JWTs). The new work is the guest
+      layer: (1) seat handoff ceremony — owner sends a claim link, the
+      contractor redeems the key themselves (no secrets over Slack/email);
+      (2) guest-facing seat view — the holder signs in with their OWN
+      identity (Better Auth) linked to the seat as holder, read-only: my
+      limits, my usage, my expiry — the "informed through the acct" half of
+      the owner-driven decision; (3) positioning — a gig-economy/guest-seat
+      scenario at the same concreteness as the internal-governance cards;
+      candidate guest-seat policy pack. Connects to the onboarding arc: a
+      roster can include externals, and a seat plan can mint guest seats
+      with expiry prefilled. (vision, from Eric)
 - [ ] 2026-07-11 — Connector-grade onboarding arc (vision from Eric, Apollo.io
       as the reference experience): enable Sanction like any connector → offer
       an org scan (shadow-AI discovery; the host's own connectors do the
