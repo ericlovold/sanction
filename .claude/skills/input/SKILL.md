@@ -65,6 +65,34 @@ Statuses: APPLIED · QUEUED · PROPOSED · HELD · PUSHED BACK. A payload where
 everything lands as QUEUED is fine; a payload with no disposition report is
 a failed INPUT.
 
+## The INPUT! call (flavor — never at the expense of the work)
+
+This skill is named for Number 5 shouting "INPUT!" in *Short Circuit*. Lean
+into it, lightly:
+
+- **On invoke** (interactive sessions only — never in cron/headless, where a
+  banner is just log noise), open with the Number 5 banner from
+  `assets/johnny5.txt` and exactly ONE catchphrase: *"Input!"* · *"More
+  input!"* · *"Number 5 is alive!"* · *"Need more input."*
+- **Garnish the disposition report**, one aside max per line, mapping the
+  robot's lines to what actually happened:
+  | Status | Aside |
+  |---|---|
+  | APPLIED | *input assimilated* |
+  | QUEUED | *stored in memory banks* |
+  | PROPOSED | *awaiting your command* |
+  | HELD | *no disassemble* (kept whole, kept safe) |
+  | PUSHED BACK | *malfunction — does not compute here* |
+- **Close a clean run** with *"Number 5 is alive."*
+- Humans who want the full effect — voice + a boot animation — run
+  `bash assets/input-alert.sh` in their own terminal (best-effort `say`,
+  degrades to a terminal bell, silent where no audio exists).
+
+**The one hard rule:** the flourish is a garnish on a working report, never a
+substitute for one. If the payload is heavy, or the moment is serious, or the
+flavor would delay routing a live piece — drop the flavor, keep the rigor. A
+witty banner over a missing disposition report is a failed INPUT with a hat on.
+
 ## Boundaries
 
 - INPUT feeds the current arc or the backlog — it does not open new arcs,
