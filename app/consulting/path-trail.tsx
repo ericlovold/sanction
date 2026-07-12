@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 
 type Pt = { x: number; y: number }
 
+/** Padding so sine peaks aren't clipped by the SVG viewBox. */
+const PAD = 72
+
 /** Sine-weave through measured step centers (works horizontal or vertical). */
 function weavePath(points: Pt[]): string {
   if (points.length < 2) return ""
@@ -16,7 +19,8 @@ function weavePath(points: Pt[]): string {
     const dx = b.x - a.x
     const dy = b.y - a.y
     const len = Math.hypot(dx, dy) || 1
-    const amp = Math.min(64, len * 0.42) * (i % 2 === 0 ? -1 : 1)
+    // Cap amp below PAD so peaks stay inside the padded viewBox.
+    const amp = Math.min(PAD - 8, len * 0.4) * (i % 2 === 0 ? -1 : 1)
     const cx = mx + (-dy / len) * amp
     const cy = my + (dx / len) * amp
     d += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`
@@ -50,14 +54,18 @@ export function PathTrail({ children }: { children: ReactNode }) {
       const nodes = Array.from(root.querySelectorAll<HTMLElement>(".cx-step-node"))
       if (nodes.length < 2) return
       const rr = root.getBoundingClientRect()
+      // Offset points into padded SVG space so weave peaks stay in-view.
       const pts: Pt[] = nodes.map((el) => {
         const r = el.getBoundingClientRect()
         return {
-          x: r.left - rr.left + r.width / 2,
-          y: r.top - rr.top + r.height / 2,
+          x: r.left - rr.left + r.width / 2 + PAD,
+          y: r.top - rr.top + r.height / 2 + PAD,
         }
       })
-      setSize({ w: Math.max(1, rr.width), h: Math.max(1, rr.height) })
+      setSize({
+        w: Math.max(1, rr.width) + PAD * 2,
+        h: Math.max(1, rr.height) + PAD * 2,
+      })
       setD(weavePath(pts))
     }
 
@@ -88,11 +96,11 @@ export function PathTrail({ children }: { children: ReactNode }) {
       }
       const rect = root.getBoundingClientRect()
       const vh = window.innerHeight || 1
-      // Draw while the section travels through the viewport — slow map reveal.
-      const start = vh * 0.82
-      const end = vh * 0.18
-      const travel = rect.height + (start - end)
-      setProgress(clamp01((start - rect.top) / travel))
+      // Fully drawn once the step row sits in the reading band of the
+      // viewport — not after you've already scrolled past it.
+      const start = vh * 0.92
+      const done = vh * 0.42
+      setProgress(clamp01((start - rect.top) / (start - done)))
     }
 
     const onScroll = () => {
@@ -134,6 +142,7 @@ export function PathTrail({ children }: { children: ReactNode }) {
           height={size.h}
           viewBox={`0 0 ${size.w} ${size.h}`}
           aria-hidden
+          style={{ top: -PAD, left: -PAD }}
         >
           <defs>
             <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -147,7 +156,7 @@ export function PathTrail({ children }: { children: ReactNode }) {
                 d={d}
                 fill="none"
                 stroke="#fff"
-                strokeWidth={10}
+                strokeWidth={12}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 pathLength={1}
@@ -160,21 +169,21 @@ export function PathTrail({ children }: { children: ReactNode }) {
             d={d}
             fill="none"
             stroke="var(--pine-6)"
-            strokeWidth={1.6}
+            strokeWidth={1.8}
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeDasharray="1.5 11"
-            opacity={0.14}
+            strokeDasharray="2 12"
+            opacity={0.2}
           />
           {/* Revealing dotted trail */}
           <path
             d={d}
             fill="none"
             stroke={`url(#${gradId})`}
-            strokeWidth={2.6}
+            strokeWidth={2.8}
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeDasharray="1.8 10"
+            strokeDasharray="2.2 11"
             mask={`url(#${maskId})`}
           />
         </svg>

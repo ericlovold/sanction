@@ -196,7 +196,7 @@ const css = `
 
 /* Indiana Jones trail overlay */
 .cx-trail-root { position: relative; overflow: visible }
-.cx-trail-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible }
+.cx-trail-svg { position: absolute; pointer-events: none; z-index: 0; overflow: visible }
 .cx-step-node {
   transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease, filter .35s ease;
   box-shadow: 0 0 0 0 rgba(35,121,95,0);
@@ -357,7 +357,7 @@ export default function Consulting() {
       </header>
 
       {/* The path — Indiana Jones dotted trail weaves through the steps */}
-      <section id="how" className="cx-graph" style={{ borderTop: "1px solid var(--line-2)" }}>
+      <section id="how" className="cx-graph" style={{ borderTop: "1px solid var(--line-2)", overflow: "visible" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
