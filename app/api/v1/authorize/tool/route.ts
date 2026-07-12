@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: isObserved(existing) ? 200 : statusCode(existing.status) })
   }
 
   // Grant redemption: the owner approved this exact tool (and server) — consume
@@ -108,6 +108,10 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // OBS-1: observe mode — identical ladder, truthful persisted status with an
+  // observed marker, nothing blocked, no approvals or pages (see spend route).
+  const observe = policy.enforcementMode === "observe"
+
   const decision = decideTool({
     tool,
     blockedTools: policy.blockedTools,
@@ -127,7 +131,7 @@ export async function POST(req: NextRequest) {
             amountUsd: 0,
             merchant: tool, // shared display/audit column, like provision's resource
             category: "tool",
-            detailsJson: { tool, server: server ?? null },
+            detailsJson: { tool, server: server ?? null, ...(observe ? { observed: true } : {}) },
             status: "escalated",
             decisionNote: decision.reason,
             // EVID-1: the tool ladder is fully stateless — the lists ARE the state.
@@ -141,17 +145,20 @@ export async function POST(req: NextRequest) {
             idempotencyKey,
           },
         })
-        await createToolPendingApproval(tx, {
-          walletId: agent.walletId,
-          agentName: agent.name,
-          request: { id: row.id, agentId: agent.id, tool, server: server ?? null, createdAt: row.createdAt },
-          policy,
-          reason: decision.reason ?? "Tool requires human approval",
-        })
+        // Observed escalations log; they never page anyone (OBS-1).
+        if (!observe) {
+          await createToolPendingApproval(tx, {
+            walletId: agent.walletId,
+            agentName: agent.name,
+            request: { id: row.id, agentId: agent.id, tool, server: server ?? null, createdAt: row.createdAt },
+            policy,
+            reason: decision.reason ?? "Tool requires human approval",
+          })
+        }
         return row
       })
 
-      after(() =>
+      if (!observe) after(() =>
         Promise.all([
           deliverEvent(agent.walletId, "approval.created", {
             request_id: escalated.id,
@@ -170,6 +177,26 @@ export async function POST(req: NextRequest) {
         ]),
       )
 
+      if (observe) {
+        return NextResponse.json(
+          {
+            authorized: true,
+            status: "allowed",
+            mode: "observe",
+            would_be: {
+              status: "escalated",
+              code: decision.code,
+              remediation: decision.code ? TOOL_REMEDIATION[decision.code] : undefined,
+              reason: decision.reason,
+            },
+            request_id: escalated.id,
+            agent: agent.name,
+            tool,
+            server,
+          },
+          { status: 200 },
+        )
+      }
       return NextResponse.json(
         {
           authorized: false,
@@ -189,7 +216,7 @@ export async function POST(req: NextRequest) {
         const existing = await db.authorizationRequest.findUnique({
           where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
         })
-        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: statusCode(existing.status) })
+        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: isObserved(existing) ? 200 : statusCode(existing.status) })
       }
       throw e
     }
@@ -207,7 +234,7 @@ export async function POST(req: NextRequest) {
           amountUsd: 0,
           merchant: tool,
           category: "tool",
-          detailsJson: { tool, server: server ?? null },
+          detailsJson: { tool, server: server ?? null, ...(observe ? { observed: true } : {}) },
           status: "denied",
           decidedAt: new Date(),
           decisionNote: decision.reason,
@@ -227,12 +254,32 @@ export async function POST(req: NextRequest) {
         const existing = await db.authorizationRequest.findUnique({
           where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
         })
-        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: statusCode(existing.status) })
+        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: isObserved(existing) ? 200 : statusCode(existing.status) })
       }
       throw e
     }
   }
 
+  if (observe && decision.status !== "allowed") {
+    return NextResponse.json(
+      {
+        authorized: true,
+        status: "allowed",
+        mode: "observe",
+        would_be: {
+          status: decision.status,
+          code: decision.code,
+          remediation: decision.code ? TOOL_REMEDIATION[decision.code] : undefined,
+          reason: decision.reason,
+        },
+        request_id: requestId,
+        agent: agent.name,
+        tool,
+        server,
+      },
+      { status: 200 },
+    )
+  }
   const authorized = decision.status === "allowed"
   return NextResponse.json(
     {
@@ -250,13 +297,30 @@ export async function POST(req: NextRequest) {
   )
 }
 
-type PersistedTool = { id: string; status: string; decisionNote: string | null }
+type PersistedTool = { id: string; status: string; decisionNote: string | null; detailsJson?: unknown }
+
+function isObserved(r: PersistedTool): boolean {
+  return typeof r.detailsJson === "object" && r.detailsJson !== null && (r.detailsJson as { observed?: boolean }).observed === true
+}
 
 function replayResponse(r: PersistedTool, agentName: string, tool: string, server?: string) {
   const { code, remediation } = deriveReplayCode(r.status, r.decisionNote, {
     code: "TOOL_ESCALATION_REQUIRED" as ToolDecisionCode,
     remediation: TOOL_REMEDIATION.TOOL_ESCALATION_REQUIRED,
   })
+  if (isObserved(r)) {
+    // OBS-1: an observed row replays as allowed with the truthful would_be.
+    return {
+      authorized: true,
+      status: "allowed",
+      mode: "observe",
+      would_be: { status: r.status, reason: r.decisionNote ?? undefined, code, remediation },
+      request_id: r.id,
+      agent: agentName,
+      tool,
+      server,
+    }
+  }
   return {
     authorized: r.status === "approved",
     status: r.status === "approved" ? "allowed" : r.status,

@@ -34,6 +34,8 @@ export const policyInputSchema = z
     capability_rules: capabilityRules,
     escalation_timeout_mins: z.number().int().min(0).max(10_080), // 0 = never; cap 7 days
     escalation_timeout_action: z.enum(["deny", "approve"]),
+    // OBS-1: observe runs the full engine but blocks nothing (see schema note).
+    enforcement_mode: z.enum(["enforce", "observe"]),
     // CPO-1: cost-per-outcome ceiling — spend ÷ outcomes governance (CAC/CPA).
     outcome_kind: z.string().trim().toLowerCase().min(1).max(40).nullable(),
     cost_per_outcome_ceiling_usd: dollars.nullable(),
@@ -80,6 +82,7 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
   if (d.capability_rules !== undefined) data.capabilityRules = d.capability_rules
   if (d.escalation_timeout_mins !== undefined) data.escalationTimeoutMins = d.escalation_timeout_mins
   if (d.escalation_timeout_action !== undefined) data.escalationTimeoutAction = d.escalation_timeout_action
+  if (d.enforcement_mode !== undefined) data.enforcementMode = d.enforcement_mode
   if (d.outcome_kind !== undefined) data.outcomeKind = d.outcome_kind
   if (d.cost_per_outcome_ceiling_usd !== undefined) {
     data.costPerOutcomeCeilingUsd = d.cost_per_outcome_ceiling_usd === null ? null : toCents(d.cost_per_outcome_ceiling_usd)
@@ -151,6 +154,7 @@ type PolicyRow = {
   capabilityRules?: unknown
   escalationTimeoutMins: number
   escalationTimeoutAction: string
+  enforcementMode?: string
   outcomeKind?: string | null
   costPerOutcomeCeilingUsd?: number | null
   costPerOutcomeWindowDays?: number
@@ -176,6 +180,7 @@ export function policyToDollars(p: PolicyRow) {
     capability_rules: p.capabilityRules ?? [],
     escalation_timeout_mins: p.escalationTimeoutMins,
     escalation_timeout_action: p.escalationTimeoutAction,
+    enforcement_mode: p.enforcementMode ?? "enforce",
     outcome_kind: p.outcomeKind ?? null,
     cost_per_outcome_ceiling_usd: p.costPerOutcomeCeilingUsd == null ? null : p.costPerOutcomeCeilingUsd / 100,
     cost_per_outcome_window_days: p.costPerOutcomeWindowDays ?? 30,
