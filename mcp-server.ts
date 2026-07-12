@@ -139,7 +139,7 @@ function renderAuthResult(
 
 const server = new McpServer({
   name: "sanction",
-  version: "0.5.0",
+  version: "0.6.0",
   description: "Sanction — pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)",
 })
 

@@ -31073,7 +31073,7 @@ function renderAuthResult(result, opts) {
 }
 var server = new McpServer({
   name: "sanction",
-  version: "0.5.0",
+  version: "0.6.0",
   description: "Sanction \u2014 pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)"
 });
 server.tool(
