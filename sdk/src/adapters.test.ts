@@ -113,7 +113,7 @@ describe("sanctionTool (Vercel AI SDK)", () => {
   it("redeems a grantId on retry after escalation", async () => {
     const { fetch, calls } = fakeFetch([approved])
     const c = new SanctionClient("pxy_k", { baseUrl: BASE, fetch })
-    const t = sanctionTool(c, "deploy", { execute: async () => "ok" }, { server: "ci", grantId: "grant_1" })
+    const t = sanctionTool(c, "deploy", { execute: async (_args: unknown) => "ok" }, { server: "ci", grantId: "grant_1" })
     expect(await t.execute({})).toBe("ok")
     expect(JSON.parse(calls[0].init.body as string)).toMatchObject({ tool: "deploy", grant_id: "grant_1" })
   })
