@@ -3,6 +3,8 @@ import Link from "next/link"
 import { Permanent_Marker } from "next/font/google"
 import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
+import { PathTrail } from "./path-trail"
+import { CxReveal } from "./reveal"
 
 // Playbook scrawl for the industries fan — loaded here only so no other page pays for it.
 const marker = Permanent_Marker({ weight: "400", subsets: ["latin"] })
@@ -182,9 +184,7 @@ const css = `
 .cx-d4 { animation-delay: .35s } .cx-d5 { animation-delay: .45s }
 .cx-lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
 .cx-lift:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(22,24,15,.10); border-color: var(--pine-6) }
-.cx-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; position: relative }
-.cx-steps::before { content: ""; position: absolute; top: 23px; left: 40px; right: 40px; height: 2px;
-  background: linear-gradient(90deg, var(--pine-6), var(--ochre-6), var(--pine-6)); opacity: .35 }
+.cx-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; position: relative; z-index: 1 }
 .cx-play { display: flex; justify-content: center; margin-top: 4px; overflow: hidden }
 .cx-play svg { display: block; flex: none }
 .cx-lane { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cxDraw .9s cubic-bezier(.4,0,.2,1) forwards }
@@ -193,19 +193,93 @@ const css = `
 @keyframes cxTip { to { opacity: 1 } }
 .cx-play-call { text-align: center; font-size: 27px; letter-spacing: .05em; text-transform: uppercase;
   color: var(--ink); transform: rotate(-2deg); margin-top: 2px }
+
+/* Indiana Jones trail overlay */
+.cx-trail-root { position: relative; overflow: visible }
+.cx-trail-svg { position: absolute; pointer-events: none; z-index: 0; overflow: visible }
+.cx-step-node {
+  transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease, filter .35s ease;
+  box-shadow: 0 0 0 0 rgba(35,121,95,0);
+}
+.cx-step-node[data-lit="1"] {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 4px rgba(35,121,95,.12), 0 8px 22px rgba(22,24,15,.10);
+  filter: saturate(1.05);
+}
+
+/* Mathematical graph paper — minor + major grid */
+.cx-graph {
+  background-color: var(--paper-1);
+  background-image:
+    linear-gradient(rgba(22,24,15,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22,24,15,.045) 1px, transparent 1px),
+    linear-gradient(rgba(23,97,75,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23,97,75,.07) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+}
+.cx-graph-soft {
+  background-color: transparent;
+  background-image:
+    linear-gradient(rgba(22,24,15,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22,24,15,.035) 1px, transparent 1px),
+    linear-gradient(rgba(193,146,47,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(193,146,47,.06) 1px, transparent 1px);
+  background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+}
+
+/* Scroll reveals */
+.cx-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1);
+}
+.cx-reveal.is-on { opacity: 1; transform: none }
+
+/* Geometric corner ticks — mathematical frame accent */
+.cx-frame {
+  position: relative;
+}
+.cx-frame::before, .cx-frame::after {
+  content: "";
+  position: absolute;
+  width: 18px; height: 18px;
+  border-color: var(--pine-6);
+  border-style: solid;
+  opacity: .35;
+  pointer-events: none;
+}
+.cx-frame::before { top: 12px; left: 12px; border-width: 1.5px 0 0 1.5px }
+.cx-frame::after { bottom: 12px; right: 12px; border-width: 0 1.5px 1.5px 0 }
+
+/* Axis tick marks under section labels */
+.cx-axis {
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px;
+}
+.cx-axis span {
+  display: block; width: 6px; height: 6px; border-radius: 1px;
+  background: var(--pine-6); opacity: .35; transform: rotate(45deg);
+}
+.cx-axis i {
+  display: block; height: 1px; width: 48px;
+  background: linear-gradient(90deg, transparent, var(--pine-6), transparent);
+  opacity: .35; font-style: normal;
+}
+
 @media (max-width: 1119px) {
   .cx-play { display: none }
   .cx-play-call { margin-top: 20px; font-size: 22px }
 }
 @media (max-width: 900px) {
   .cx-steps { grid-template-columns: 1fr }
-  .cx-steps::before { display: none }
 }
 @media (prefers-reduced-motion: reduce) {
   .cx-fade { animation: none; opacity: 1; transform: none }
   .cx-lift, .cx-lift:hover { transition: none; transform: none }
   .cx-lane { animation: none; stroke-dashoffset: 0 }
   .cx-lane-tip { animation: none; opacity: 1 }
+  .cx-reveal { opacity: 1; transform: none; transition: none }
+  .cx-step-node, .cx-step-node[data-lit="1"] { transition: none; transform: none }
 }
 `
 
@@ -282,86 +356,114 @@ export default function Consulting() {
         </div>
       </header>
 
-      {/* The path — connected timeline, leads the page */}
-      <section id="how" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
+      {/* The path — Indiana Jones dotted trail weaves through the steps */}
+      <section id="how" className="cx-graph" style={{ borderTop: "1px solid var(--line-2)", overflow: "visible" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
-          <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
+          <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
               A clear path from &ldquo;we should be using AI&rdquo; to &ldquo;we are.&rdquo;
             </h2>
-          </div>
-          <div className="cx-steps">
-            {STEPS.map(([n, t, d], idx) => (
-              <div key={n} style={{ position: "relative" }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: idx % 2 ? "var(--ochre-6)" : "var(--pine-8)", color: "#fdfcf8", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, position: "relative", zIndex: 1, border: "4px solid var(--paper-1)" }}>
-                  {n}
+            <div className="cx-axis" aria-hidden>
+              <span /><i /><span /><i /><span />
+            </div>
+          </CxReveal>
+          <PathTrail>
+            <div className="cx-steps">
+              {STEPS.map(([n, t, d], idx) => (
+                <div key={n} style={{ position: "relative" }}>
+                  <div
+                    className="cx-step-node"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: "50%",
+                      background: idx % 2 ? "var(--ochre-6)" : "var(--pine-8)",
+                      color: "#fdfcf8",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: 17,
+                      position: "relative",
+                      zIndex: 1,
+                      border: "4px solid var(--paper-1)",
+                    }}
+                  >
+                    {n}
+                  </div>
+                  <h3 style={{ margin: "18px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
                 </div>
-                <h3 style={{ margin: "18px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </PathTrail>
         </div>
       </section>
 
 
       {/* Philosophy — open editorial columns, then the dark receipts panel */}
       <section style={{ ...wrap, padding: "96px 32px 88px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
+        <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>Why work with me</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Built with you. Run by you.
           </h2>
-        </div>
+        </CxReveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
           {PHILOSOPHY.map(([t, d], idx) => (
-            <div key={t} style={{ borderLeft: `2px solid ${idx === 1 ? "var(--ochre-6)" : "var(--pine-6)"}`, paddingLeft: 22 }}>
+            <CxReveal key={t} delay={idx * 90} style={{ borderLeft: `2px solid ${idx === 1 ? "var(--ochre-6)" : "var(--pine-6)"}`, paddingLeft: 22 }}>
               <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)" }}>{t}</h3>
               <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)" }}>{d}</p>
-            </div>
+            </CxReveal>
           ))}
         </div>
         {/* Receipts — dark pine panel */}
-        <div style={{ maxWidth: 780, margin: "64px auto 0", padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
-          <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
-            I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
-            SaaS governance platform for AI agents that is in production today.
-            I run my own operation on the same systems I build for clients. Before that, over a decade in
-            healthcare and technology, including years alongside benefits and claims operations.
-          </p>
-        </div>
+        <CxReveal delay={180} style={{ maxWidth: 780, margin: "64px auto 0" }}>
+          <div style={{ padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
+              I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
+              SaaS governance platform for AI agents that is in production today.
+              I run my own operation on the same systems I build for clients. Before that, over a decade in
+              healthcare and technology, including years alongside benefits and claims operations.
+            </p>
+          </div>
+        </CxReveal>
       </section>
 
       {/* Final CTA — deep pine band */}
       <section
         id="book"
         style={{
-          backgroundImage: "radial-gradient(90% 120% at 50% 115%, var(--pine-7) 0%, var(--pine-9) 68%)",
+          backgroundImage:
+            "radial-gradient(circle, rgba(247,246,240,.07) 1px, transparent 1px), radial-gradient(90% 120% at 50% 115%, var(--pine-7) 0%, var(--pine-9) 68%)",
+          backgroundSize: "28px 28px, auto",
           color: "#f7f6f0",
         }}
       >
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>Start here</div>
-          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
-            Not sure where AI fits your business? Let&apos;s find out.
-          </h2>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px 0 28px" }}>
-            Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
-          </p>
-          <a className="sn-btn sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ background: "#f7f6f0", color: "var(--pine-9)", fontWeight: 600 }}>
-            Book discovery →
-          </a>
-          <p style={{ fontSize: 13.5, color: "rgba(247,246,240,.6)", marginTop: 16 }}>
-            Or email <a href="mailto:eric@getsanction.com" style={{ color: "#f7f6f0", textDecoration: "underline", textUnderlineOffset: 3 }}>eric@getsanction.com</a>. I reply within one business day.
-          </p>
+          <CxReveal>
+            <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>Start here</div>
+            <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
+              Not sure where AI fits your business? Let&apos;s find out.
+            </h2>
+            <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px 0 28px" }}>
+              Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
+            </p>
+            <a className="sn-btn sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ background: "#f7f6f0", color: "var(--pine-9)", fontWeight: 600 }}>
+              Book discovery →
+            </a>
+            <p style={{ fontSize: 13.5, color: "rgba(247,246,240,.6)", marginTop: 16 }}>
+              Or email <a href="mailto:eric@getsanction.com" style={{ color: "#f7f6f0", textDecoration: "underline", textUnderlineOffset: 3 }}>eric@getsanction.com</a>. I reply within one business day.
+            </p>
+          </CxReveal>
         </div>
       </section>
 
       {/* You might be here because — numbered attention cards */}
       <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
-          <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+          <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
             <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-7)" }}>Sound familiar?</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
               You might be here because&hellip;
@@ -369,23 +471,26 @@ export default function Consulting() {
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
               All of these are more common than you think. All of them are fixable.
             </p>
-          </div>
+          </CxReveal>
           <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
             {PAIN_POINTS.map(([t, d], i) => (
-              <div key={t} className="sn-card cx-lift" style={{ padding: 28, borderTop: "3px solid var(--ochre-6)" }}>
-                <div className="sn-mono" style={{ color: "var(--ochre-7)", marginBottom: 10 }}>{`0${i + 1}`}</div>
-                <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
-              </div>
+              <CxReveal key={t} delay={i * 80}>
+                <div className="sn-card cx-lift" style={{ padding: 28, borderTop: "3px solid var(--ochre-6)", height: "100%" }}>
+                  <div className="sn-mono" style={{ color: "var(--ochre-7)", marginBottom: 10 }}>{`0${i + 1}`}</div>
+                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
+                </div>
+              </CxReveal>
             ))}
           </div>
         </div>
       </section>
 
 
-      {/* Services — glyph cards */}
-      <section id="services" style={{ ...wrap, padding: "96px 32px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+      {/* Services — glyph cards on soft graph paper */}
+      <section id="services" className="cx-graph-soft" style={{ borderTop: "1px solid transparent" }}>
+        <div style={{ ...wrap, padding: "96px 32px" }}>
+        <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
           <div className="sn-mono" style={{ marginBottom: 16 }}>What I do</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Four ways in. Every one leads somewhere.
@@ -393,84 +498,96 @@ export default function Consulting() {
           <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
             Start with one concrete build. The first one pays for the next.
           </p>
-        </div>
+        </CxReveal>
         <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
           {SERVICES.map(({ key, title, body }, idx) => (
-            <div key={key} className="sn-card cx-lift" style={{ padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
-              <span style={{ flex: "none", width: 42, height: 42, borderRadius: 10, background: idx % 2 ? "var(--pine-tint)" : "var(--ochre-tint)", color: idx % 2 ? "var(--pine-7)" : "var(--ochre-7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {SERVICE_GLYPHS[key]}
-              </span>
-              <span>
-                <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{title}</h3>
-                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{body}</p>
-              </span>
-            </div>
+            <CxReveal key={key} delay={idx * 70}>
+              <div className="sn-card cx-lift" style={{ padding: 28, display: "flex", gap: 18, alignItems: "flex-start", height: "100%" }}>
+                <span style={{ flex: "none", width: 42, height: 42, borderRadius: 10, background: idx % 2 ? "var(--pine-tint)" : "var(--ochre-tint)", color: idx % 2 ? "var(--pine-7)" : "var(--ochre-7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {SERVICE_GLYPHS[key]}
+                </span>
+                <span>
+                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{title}</h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{body}</p>
+                </span>
+              </div>
+            </CxReveal>
           ))}
         </div>
 
         {/* Also in the kit — open row, diamond markers */}
-        <div style={{ maxWidth: 620, margin: "72px auto 28px", textAlign: "center" }}>
+        <CxReveal style={{ maxWidth: 620, margin: "72px auto 28px", textAlign: "center" }}>
           <h3 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Also in the kit</h3>
-        </div>
+        </CxReveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 36 }}>
-          {ALSO.map(([t, d]) => (
-            <div key={t}>
+          {ALSO.map(([t, d], idx) => (
+            <CxReveal key={t} delay={idx * 80}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
                 <span aria-hidden style={{ color: "var(--ochre-6)", fontSize: 11 }}>◆</span>
                 <h4 style={{ margin: 0, font: "var(--text-h3)" }}>{t}</h4>
               </div>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)", paddingLeft: 21 }}>{d}</p>
-            </div>
+            </CxReveal>
           ))}
         </div>
 
         {/* What I won't do — ochre fence */}
-        <div style={{ maxWidth: 760, margin: "64px auto 0", padding: "30px 34px", borderRadius: "var(--radius-card)", background: "var(--ochre-tint)", borderLeft: "4px solid var(--ochre-6)" }}>
-          <h3 style={{ margin: "0 0 16px", font: "var(--text-h3)", color: "var(--ochre-7)" }}>What I won&apos;t do</h3>
-          <div style={{ display: "grid", gap: 12 }}>
-            {WONT.map((w) => (
-              <div key={w} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
-                <span aria-hidden style={{ color: "var(--ochre-7)", fontWeight: 700 }}>—</span>
-                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-body)" }}>{w}</p>
-              </div>
-            ))}
+        <CxReveal delay={100} style={{ maxWidth: 760, margin: "64px auto 0" }}>
+          <div style={{ padding: "30px 34px", borderRadius: "var(--radius-card)", background: "var(--ochre-tint)", borderLeft: "4px solid var(--ochre-6)" }}>
+            <h3 style={{ margin: "0 0 16px", font: "var(--text-h3)", color: "var(--ochre-7)" }}>What I won&apos;t do</h3>
+            <div style={{ display: "grid", gap: 12 }}>
+              {WONT.map((w) => (
+                <div key={w} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                  <span aria-hidden style={{ color: "var(--ochre-7)", fontWeight: 700 }}>—</span>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-body)" }}>{w}</p>
+                </div>
+              ))}
+            </div>
           </div>
+        </CxReveal>
         </div>
       </section>
 
 
 
-      {/* Recent work */}
-      <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ ...wrap, padding: "88px 32px", maxWidth: 760, textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16 }}>Recent work</div>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Real work, shown with real consent.
-          </h2>
-          <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "16px auto 0", maxWidth: "58ch" }}>
-            Client case studies appear here only after clients say yes: situation, what was built, what it changed,
-            and what the team runs on their own now.
-          </p>
-          {/* [CASE STUDIES: True North Co. Bookkeeping (pending Kelley's consent) + second study — Eric writes the four beats] */}
+      {/* Recent work — framed graph paper placeholder until case studies land */}
+      <section style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div className="cx-graph" style={{ ...wrap, padding: "88px 32px", maxWidth: 760 }}>
+          <CxReveal className="cx-frame" style={{ textAlign: "center", padding: "28px 20px" }}>
+            <div className="sn-mono" style={{ marginBottom: 16 }}>Recent work</div>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+              Real work, shown with real consent.
+            </h2>
+            <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "16px auto 0", maxWidth: "58ch" }}>
+              Client case studies appear here only after clients say yes: situation, what was built, what it changed,
+              and what the team runs on their own now.
+            </p>
+            <div className="cx-axis" aria-hidden style={{ marginTop: 28 }}>
+              <span /><i /><span /><i /><span />
+            </div>
+            {/* [CASE STUDIES: True North Co. Bookkeeping (pending Kelley's consent) + second study — Eric writes the four beats] */}
+          </CxReveal>
         </div>
       </section>
 
       {/* Founder */}
       <section style={{ ...wrap, padding: "96px 32px", maxWidth: 720, textAlign: "center" }}>
-        <img
-          src="/brand/eric-lovold.jpg"
-          alt="Eric Lovold"
-          style={{ width: 180, maxWidth: "60%", height: "auto", display: "block", margin: "0 auto", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
-        />
-        <div className="sn-mono" style={{ margin: "16px 0 20px", letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction AI</div>
-        <p style={{ fontSize: 16, lineHeight: 1.65, color: "var(--text-secondary)", margin: 0 }}>
-          I&apos;ve spent over a decade driving outcomes in healthcare and technology, and the last stretch running a
-          solo AI practice and building Sanction. I&apos;ve been deep in this space, and talking AI is one of my
-          favorite things to do.
-        </p>
-        <Link className="sanction-link" href="/about" style={{ display: "inline-block", marginTop: 16, color: "var(--pine-7)", fontWeight: 600 }}>
-          More about Eric →
-        </Link>
+        <CxReveal>
+          <img
+            src="/brand/eric-lovold.jpg"
+            alt="Eric Lovold"
+            style={{ width: 180, maxWidth: "60%", height: "auto", display: "block", margin: "0 auto", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
+          />
+          <div className="sn-mono" style={{ margin: "16px 0 20px", letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction AI</div>
+          <p style={{ fontSize: 16, lineHeight: 1.65, color: "var(--text-secondary)", margin: 0 }}>
+            I&apos;ve spent over a decade driving outcomes in healthcare and technology, and the last stretch running a
+            solo AI practice and building Sanction. I&apos;ve been deep in this space, and talking AI is one of my
+            favorite things to do.
+          </p>
+          <Link className="sanction-link" href="/about" style={{ display: "inline-block", marginTop: 16, color: "var(--pine-7)", fontWeight: 600 }}>
+            More about Eric →
+          </Link>
+        </CxReveal>
       </section>
 
 
