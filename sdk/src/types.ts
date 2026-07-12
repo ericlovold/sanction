@@ -64,6 +64,9 @@ export interface AuthorizeInput {
   description?: string
   /** Dedupes retries server-side; the same key returns the original decision. */
   idempotencyKey?: string
+  /** Attribution tags (≤8; keys ≤40 chars, values ≤80). Inert to the decision —
+   *  stored on it and surfaced in the audit feed/CSV for rollups. */
+  tags?: Record<string, string>
 }
 
 export interface Decision {

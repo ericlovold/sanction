@@ -117,6 +117,7 @@ const deeper = [
   { title: "CrewAI guide", desc: "Give the crew an authorize tool it must clear to spend.", href: "/docs/crewai" },
   { title: "AWS Bedrock Agents guide", desc: "Action Group setup: schema subset, forwarder Lambda, first governed decision.", href: "/docs/bedrock" },
   { title: "Agent fleets guide", desc: "Channels as pools, seats as keys, envelopes with escalation — and native cost-per-outcome ceilings.", href: "/docs/agent-fleets" },
+  { title: "Pay-per-crawl guide", desc: "The web charges your agents now — govern every 402 quote with budgets, escalation, and audit.", href: "/docs/pay-per-crawl" },
   { title: "Multi-tenant Integration Runbook", desc: "Provision per tenant, govern budgets, rotate keys.", href: "/docs/multi-tenant" },
   { title: "Full API reference", desc: "OpenAPI 3.0 spec — every endpoint, Bedrock-compatible.", href: "/api/openapi.json" },
 ]
