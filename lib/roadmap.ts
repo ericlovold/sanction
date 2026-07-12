@@ -31,6 +31,6 @@ export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapI
   later: [
     { title: "Audit chain anchors", note: "Exports are tamper-evident today; anchoring each export's head to the next seals the history across time — evidence that outlives any single document." },
     { title: "Customer-managed keys + SOC 2", note: "Bring-your-own encryption keys and the compliance attestations enterprises require." },
-    { title: "Mandate authority (AP2 / x402)", note: "Hold the mandate, not the rail — policy, consent, and audit in front of whichever agent-payment standard wins." },
+    { title: "Mandate authority (AP2 / x402)", note: "Hold the mandate, not the rail — policy, consent, and audit in front of whichever agent-payment standard wins. First slice shipped: pay-per-crawl quotes (Cloudflare, x402-settled) governed as spend decisions via the SDK\u2019s sanctionedFetch. Next: settlement reconciliation (crawler-charged receipts vs decisions) and mandate scopes." },
   ],
 }
