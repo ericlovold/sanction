@@ -8,7 +8,7 @@ import { decideTool, TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolD
 import { decisionEvidence } from "@/lib/evidence"
 import { createToolPendingApproval } from "@/lib/approvals"
 import { consumeToolGrant } from "@/lib/grants"
-import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
+import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { REMEDIATION, deriveReplayCode, isObserved, type DecisionCode } from "@/lib/decisions"
 import { logger } from "@/lib/log"
@@ -166,13 +166,13 @@ export async function POST(req: NextRequest) {
             agent: agent.name,
             resource: { kind: "tool", tool, server: server ?? null },
             reason: decision.reason,
-            approve_url: APPROVE_URL,
+            approve_url: approveUrlFor(escalated.id),
           }),
           deliverEvent(agent.walletId, "escalation.created", {
-            request_id: escalated.id, agent: agent.name, action: "invoke", tool, server: server ?? null, approve_url: APPROVE_URL,
+            request_id: escalated.id, agent: agent.name, action: "invoke", tool, server: server ?? null, approve_url: approveUrlFor(escalated.id),
           }),
           sendEscalationEmail(agent.wallet.ownerEmail, {
-            agentName: agent.name, amountUsd: 0, merchant: server ? `${tool} (${server})` : tool, category: "tool", description: decision.reason ?? null, approveUrl: APPROVE_URL,
+            agentName: agent.name, amountUsd: 0, merchant: server ? `${tool} (${server})` : tool, category: "tool", description: decision.reason ?? null, approveUrl: approveUrlFor(escalated.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )

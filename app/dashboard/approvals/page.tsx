@@ -7,6 +7,8 @@ import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue
 import { WebhookSettings } from "@/components/webhook-settings"
 import { listPendingApprovals } from "@/lib/approvals"
 import { getViewWallet } from "@/lib/session"
+import { redirect } from "next/navigation"
+import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const metadata: Metadata = {
@@ -64,14 +66,23 @@ const statusClasses: Record<string, string> = {
   expired: "border-border bg-muted text-muted-foreground",
 }
 
-export default async function ApprovalsPage() {
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ review?: string }> }) {
+  const { review } = await searchParams
   const view = await getViewWallet()
+  // A ?review deep link is someone answering an escalation email. Neither the
+  // public demo fallback nor a bare "no wallet" screen may answer that click —
+  // an empty inbox reads as "already resolved" while the real decision waits
+  // in another wallet. Send them to sign in, and bring them straight back.
+  if (review && (!view || !view.isSession)) {
+    redirect(`/login?next=${encodeURIComponent(`/dashboard/approvals?review=${review}`)}`)
+  }
   if (!view) return <NoWallet />
   const walletId = view.id
 
   const pendingRows = await listPendingApprovals(walletId)
   const pending: PendingApproval[] = pendingRows.map((r) => ({
     id: r.id,
+    sourceId: r.sourceId,
     actionType: r.actionType,
     reason: r.reason,
     code: r.code,
@@ -126,8 +137,111 @@ export default async function ApprovalsPage() {
       : [],
   ])
 
+  // The email landing moment: resolve what the deep-linked decision is doing
+  // right now, and say it plainly — waiting on you, already decided, waiting
+  // on a pool below you, or not visible from this wallet.
+  type Focus =
+    | { kind: "pending" }
+    | { kind: "resolved"; status: string; decidedAt: string | null; note: string | null; grant: string | null; title: string; agentName: string }
+    | { kind: "descendant"; poolName: string; title: string }
+    | { kind: "missing" }
+  let focus: Focus | null = null
+  if (review) {
+    if (pending.some((a) => a.id === review || a.sourceId === review)) {
+      focus = { kind: "pending" }
+    } else {
+      const row = await db.pendingApproval.findFirst({
+        where: { OR: [{ id: review }, { sourceType: "authorization_request", sourceId: review }] },
+        include: {
+          agent: { select: { name: true } },
+          wallet: { select: { id: true, name: true } },
+          grants: { select: { status: true }, take: 1, orderBy: { createdAt: "desc" } },
+        },
+      })
+      if (!row) {
+        focus = { kind: "missing" }
+      } else if (row.wallet.id === walletId) {
+        focus = {
+          kind: "resolved",
+          status: row.status,
+          decidedAt: row.resolvedAt?.toLocaleString() ?? null,
+          note: row.resolutionNote,
+          grant: row.grants[0]?.status ?? null,
+          title: resourceTitle(asRecord(row.resourceJson), row.actionType),
+          agentName: row.agent.name,
+        }
+      } else if (descendantIds.includes(row.wallet.id)) {
+        focus = { kind: "descendant", poolName: row.wallet.name, title: resourceTitle(asRecord(row.resourceJson), row.actionType) }
+      } else {
+        focus = { kind: "missing" }
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
+      {focus && (
+        <Card
+          className={
+            focus.kind === "pending"
+              ? "border-emerald-600/40 bg-emerald-500/[0.06]"
+              : "bg-card border-border"
+          }
+        >
+          <CardContent className="px-4 py-4">
+            {focus.kind === "pending" && (
+              <>
+                <p className="text-sm font-medium text-foreground">This decision is waiting on you.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  It&apos;s highlighted below. The agent is paused mid-action: approving mints a single-use grant it
+                  redeems to proceed; rejecting stops it. If you do nothing, policy settles it at the deadline.
+                </p>
+              </>
+            )}
+            {focus.kind === "resolved" && (
+              <>
+                <p className="text-sm font-medium text-foreground">
+                  Already decided: {focus.title} · {focus.agentName} — <span className="uppercase">{focus.status}</span>
+                  {focus.decidedAt ? ` at ${focus.decidedAt}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {focus.status === "approved"
+                    ? focus.grant === "consumed"
+                      ? "The grant it issued was redeemed — the agent completed the action."
+                      : "It issued a single-use grant" + (focus.grant ? ` (currently ${focus.grant})` : "") + "."
+                    : focus.status === "expired"
+                      ? "No one decided in time, so policy settled it — the fail-closed default."
+                      : "The agent was told no and stood down."}
+                  {focus.note ? ` Note: ${focus.note}` : ""} The full record is in the Resolved list below.
+                </p>
+              </>
+            )}
+            {focus.kind === "descendant" && (
+              <>
+                <p className="text-sm font-medium text-foreground">
+                  This decision ({focus.title}) is waiting in <strong>{focus.poolName}</strong>.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Each pool&apos;s own owner decides — you can see it waiting under &quot;Waiting in your pools&quot; below,
+                  but the approve belongs to that pool&apos;s inbox. Sign in with that pool&apos;s key to decide.
+                </p>
+              </>
+            )}
+            {focus.kind === "missing" && (
+              <>
+                <p className="text-sm font-medium text-foreground">That decision isn&apos;t visible from this wallet.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The email went to the owner of the wallet that raised it. {" "}
+                  <Link className="underline" href={`/login?next=${encodeURIComponent(`/dashboard/approvals?review=${review}`)}`}>
+                    Sign in with that wallet&apos;s key
+                  </Link>{" "}
+                  to land back here on the decision.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Authorization inbox</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -178,7 +292,7 @@ export default async function ApprovalsPage() {
           <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{pending.length}</Badge>
         )}
       </div>
-      <ApprovalQueue pending={pending} editable={view.isSession} />
+      <ApprovalQueue pending={pending} editable={view.isSession} focusId={review} />
 
       {orgPending.length > 0 && (
         <Card className="bg-card border-border">

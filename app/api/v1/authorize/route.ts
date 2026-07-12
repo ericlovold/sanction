@@ -8,7 +8,7 @@ import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/e
 import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
 import { SPEND_STATELESS, SPEND_STATEFUL, type SpendContext } from "@/lib/rules/spend"
-import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
+import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
@@ -394,14 +394,14 @@ export async function POST(req: NextRequest) {
             agent: agent.name,
             resource: approval?.resourceJson ?? { kind: "spend", action, amount_usd, merchant, category, description },
             reason: approval?.reason ?? "Exceeds escalation threshold",
-            approve_url: APPROVE_URL,
+            approve_url: approveUrlFor(result.id),
           }),
           deliverEvent(agent.walletId, "escalation.created", {
-            approval_id: approval?.id, request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: APPROVE_URL,
+            approval_id: approval?.id, request_id: result.id, agent: agent.name, action, amount_usd, merchant, category, description, approve_url: approveUrlFor(result.id),
           }),
           // Email the owner directly, so escalations reach them even with no webhook registered.
           sendEscalationEmail(agent.wallet.ownerEmail, {
-            agentName: agent.name, amountUsd: amount_usd, merchant, category, description, approveUrl: APPROVE_URL,
+            agentName: agent.name, amountUsd: amount_usd, merchant, category, description, approveUrl: approveUrlFor(result.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )

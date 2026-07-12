@@ -10,7 +10,7 @@ import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
 import { PROVISION_STATELESS, PROVISION_STATEFUL, type ProvisionContext } from "@/lib/rules/provision"
 import type { SpendContext } from "@/lib/rules/spend"
-import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
+import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
@@ -369,13 +369,13 @@ export async function POST(req: NextRequest) {
             agent: agent.name,
             resource: approval?.resourceJson ?? { kind: "provision", resource, line_item, quantity, unit_price_usd, amount_usd, category, description },
             reason: approval?.reason ?? "Exceeds escalation threshold",
-            approve_url: APPROVE_URL,
+            approve_url: approveUrlFor(result.id),
           }),
           deliverEvent(agent.walletId, "escalation.created", {
-            approval_id: approval?.id, request_id: result.id, agent: agent.name, action: "allocate", amount_usd, resource, line_item, quantity, category, description, approve_url: APPROVE_URL,
+            approval_id: approval?.id, request_id: result.id, agent: agent.name, action: "allocate", amount_usd, resource, line_item, quantity, category, description, approve_url: approveUrlFor(result.id),
           }),
           sendEscalationEmail(agent.wallet.ownerEmail, {
-            agentName: agent.name, amountUsd: amount_usd, merchant: resourceSummary, category, description, approveUrl: APPROVE_URL,
+            agentName: agent.name, amountUsd: amount_usd, merchant: resourceSummary, category, description, approveUrl: approveUrlFor(result.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
