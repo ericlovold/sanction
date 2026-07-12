@@ -98,7 +98,10 @@ export async function buildAuditFeed(
         agent_id: inj.executionToken.agentId,
         agent_name: nameOf.get(inj.executionToken.agentId),
         ...pool(inj.executionToken.agentId),
-        credential_label: inj.credential.label,
+        // The joined vault row is RLS-shielded outside a tenant transaction, so
+        // Prisma can hand back null here despite the required relation — the
+        // injection row itself must still render (it's the audit record).
+        credential_label: inj.credential?.label,
         execution_token_id: inj.executionTokenId,
       })),
     ],

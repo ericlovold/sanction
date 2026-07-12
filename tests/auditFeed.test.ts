@@ -49,6 +49,18 @@ describe("buildAuditFeed", () => {
     expect(feed.next_before).toBe("2026-07-02T10:00:00.000Z") // oldest event's timestamp
   })
 
+  it("renders an injection whose vault row is RLS-shielded (null relation) instead of crashing", async () => {
+    // Outside a tenant transaction, RLS hides the joined CredentialVault row and
+    // Prisma returns null for the required relation. Found live by the demo-company
+    // driver: a child pool's injection crashed the org owner's Audit page.
+    dbMock.credentialInjection.findMany.mockResolvedValue([
+      { id: "i1", injectedAt: new Date("2026-07-03T11:00:00Z"), executionTokenId: "jti_1", executionToken: { agentId: "agent_1" }, credential: null },
+    ])
+    const feed = await buildAuditFeed("wallet_1", { limit: 50 })
+    expect(feed.events[0]).toMatchObject({ type: "vault.injection", agent_name: "tenet" })
+    expect(feed.events[0].credential_label).toBeUndefined()
+  })
+
   it("honors a type filter — only queries the requested table", async () => {
     await buildAuditFeed("wallet_1", { type: "token", limit: 50 })
     expect(dbMock.tokenLog.findMany).toHaveBeenCalledTimes(1)
