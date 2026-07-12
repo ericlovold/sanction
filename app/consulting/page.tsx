@@ -315,10 +315,7 @@ export default function Consulting() {
         }}
       >
         <div style={{ ...wrap, padding: "96px 32px 56px", maxWidth: 780, textAlign: "center" }}>
-          <div className="sn-mono cx-fade cx-d1" style={{ letterSpacing: "0.1em" }}>
-            AI CONSULTING · ERIC LOVOLD
-          </div>
-          <h1 className="cx-fade cx-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+          <h1 className="cx-fade cx-d2" style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Let&apos;s put AI to work for your business.
           </h1>
           <div className="cx-fade cx-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28, flexWrap: "wrap" }}>
@@ -404,7 +401,6 @@ export default function Consulting() {
       {/* Philosophy — open editorial columns, then the dark receipts panel */}
       <section style={{ ...wrap, padding: "96px 32px 88px" }}>
         <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16 }}>Why work with me</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Built with you. Run by you.
           </h2>
@@ -450,7 +446,19 @@ export default function Consulting() {
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px 0 28px" }}>
               Thirty minutes. You&apos;ll leave with ideas you can use whether we ever work together or not.
             </p>
-            <a className="sn-btn sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ background: "#f7f6f0", color: "var(--pine-9)", fontWeight: 600 }}>
+            <a
+              className="sn-btn sn-btn-l"
+              href={CALENDLY_URL}
+              target="_blank"
+              rel="noopener"
+              style={{
+                background: "var(--ochre-6)",
+                color: "var(--pine-9)",
+                fontWeight: 700,
+                border: "1px solid rgba(247,246,240,.18)",
+                boxShadow: "0 14px 32px rgba(193,146,47,.28)",
+              }}
+            >
               Book discovery →
             </a>
             <p style={{ fontSize: 13.5, color: "rgba(247,246,240,.6)", marginTop: 16 }}>
@@ -464,7 +472,6 @@ export default function Consulting() {
       <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-7)" }}>Sound familiar?</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
               You might be here because&hellip;
             </h2>
@@ -491,7 +498,6 @@ export default function Consulting() {
       <section id="services" className="cx-graph-soft" style={{ borderTop: "1px solid transparent" }}>
         <div style={{ ...wrap, padding: "96px 32px" }}>
         <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ marginBottom: 16 }}>What I do</div>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Four ways in. Every one leads somewhere.
           </h2>
