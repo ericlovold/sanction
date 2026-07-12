@@ -65,11 +65,14 @@ describe("agents route — listing", () => {
   })
 
   it("lists only display fields — prefixes, never hashes or keys", async () => {
-    dbMock.agent.findMany.mockResolvedValue([{ id: "agent_1", name: "tenet", apiKeyPrefix: "pxy_test", isActive: true, createdAt: new Date() }])
+    dbMock.agent.findMany.mockResolvedValue([{ id: "agent_1", name: "tenet", apiKeyPrefix: "pxy_test", isActive: true, createdAt: new Date(), walletId: WID, wallet: { name: "Acme" } }])
     const res = await listAgents(req("GET", `/api/v1/agents?wallet_id=${WID}`, { headers: mgmtH }))
     expect(res.status).toBe(200)
     const select = dbMock.agent.findMany.mock.calls[0][0].select
     expect(select.apiKeyHash).toBeUndefined()
-    expect((await res.json()).agents[0].apiKeyPrefix).toBe("pxy_test")
+    const listed = (await res.json()).agents[0]
+    expect(listed.apiKeyPrefix).toBe("pxy_test")
+    expect(listed.pool).toBe("Acme") // each seat carries its owning pool name
+    expect(listed.wallet).toBeUndefined() // the raw relation is flattened away
   })
 })

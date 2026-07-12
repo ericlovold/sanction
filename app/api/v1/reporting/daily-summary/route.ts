@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
 import { dayRangeUtc } from "@/lib/reporting"
+import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 // "The one screen you check before coffee" — a single UTC-day rollup of spend,
 // decision counts, token cost, secret access, and the most expensive tasks.
@@ -28,7 +29,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 })
   }
 
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true } })
+  // Owner-only subtree widening; an agent key stays scoped to its own wallet.
+  const scope = owner.wallet ? readScope(req) : "wallet"
+  const { walletIds } = await scopedWalletIds(walletId, scope)
+  const agents = await db.agent.findMany({ where: { walletId: { in: walletIds } }, select: { id: true } })
   const agentIds = agents.map((a) => a.id)
   const inDay = { gte: start, lt: end }
 
@@ -36,7 +40,7 @@ export async function GET(req: NextRequest) {
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: inDay }, _sum: { amountUsd: true } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: { agentId: { in: agentIds }, createdAt: inDay }, _count: { _all: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: inDay }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.credentialInjection.count({ where: { executionToken: { walletId }, injectedAt: inDay } }),
+    db.credentialInjection.count({ where: { executionToken: { walletId: { in: walletIds } }, injectedAt: inDay } }),
     db.tokenLog.groupBy({ by: ["taskLabel"], where: { agentId: { in: agentIds }, createdAt: inDay }, _sum: { costUsd: true }, orderBy: { _sum: { costUsd: "desc" } }, take: 5 }),
   ])
 
@@ -46,6 +50,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       wallet_id: walletId,
+      scope,
       date,
       spend_usd: approved._sum.amountUsd ?? 0,
       decisions: decisionCounts,

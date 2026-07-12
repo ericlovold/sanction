@@ -1010,6 +1010,7 @@ export const spec = {
           { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 200 } },
           { in: "query", name: "before", schema: { type: "string", format: "date-time" } },
           { in: "query", name: "format", schema: { type: "string", enum: ["csv"] }, description: "Omit for JSON" },
+          { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree rolls up this wallet + all pools beneath it (management key only)" },
         ],
         responses: {
           "200": { description: "Events page (application/json, or text/csv attachment with format=csv)" },
@@ -1030,6 +1031,7 @@ export const spec = {
           { in: "query", name: "from", schema: { type: "string", format: "date" } },
           { in: "query", name: "to", schema: { type: "string", format: "date" } },
           { in: "query", name: "download", schema: { type: "string", enum: ["1"] }, description: "Return as a file attachment" },
+          { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree chains every decision across this wallet + all pools beneath it into one signed export (management key only)" },
         ],
         responses: {
           "200": { description: "Signed, hash-chained audit export" },
@@ -1090,6 +1092,7 @@ export const spec = {
           { in: "query", name: "from", schema: { type: "string", format: "date" } },
           { in: "query", name: "to", schema: { type: "string", format: "date" } },
           { in: "query", name: "group_by", schema: { type: "string", enum: ["agent"] } },
+          { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree rolls up this wallet + all pools beneath it (management key only)" },
         ],
         responses: {
           "200": { description: "Totals + days[] (+ by_agent[] when grouped)" },
@@ -1439,6 +1442,7 @@ export const spec = {
         parameters: [
           { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
           { in: "query", name: "date", schema: { type: "string", format: "date" } },
+          { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree rolls up this wallet + all pools beneath it (management key only)" },
         ],
         responses: {
           "200": { description: "One-day totals" },
@@ -1653,9 +1657,12 @@ export const spec = {
       get: {
         operationId: "getWalletStats",
         summary: "Get wallet spend and token usage summary",
-        description: "Returns today and month-to-date token cost, real-money spend, and count of pending approvals for a wallet.",
+        description: "Returns today and month-to-date token cost, real-money spend, and count of pending approvals for a wallet. ?scope=subtree (management key only) rolls the numbers up across every pool beneath the wallet.",
         security: [{ AgentApiKey: [] }],
-        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree rolls up this wallet + all pools beneath it (management key only)" },
+        ],
         responses: {
           "200": {
             description: "Wallet stats",
@@ -1680,8 +1687,12 @@ export const spec = {
       get: {
         operationId: "listAgents",
         summary: "List a wallet's agents (seats)",
+        description: "Lists this wallet's seats. ?scope=subtree also lists every seat in the pools beneath it, each tagged with its owning pool.",
         security: [{ ManagementKey: [] }],
-        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree lists seats across this wallet + all pools beneath it" },
+        ],
         responses: {
           "200": { description: "Agents", content: { "application/json": { schema: { $ref: "#/components/schemas/AgentListResponse" } } } },
           "401": { description: "Missing or invalid management key" },

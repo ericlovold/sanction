@@ -24,6 +24,8 @@ import { monthlyPace, dailyPace } from "../lib/burn"
 import { GET as summary } from "../app/api/v1/reporting/summary/route"
 import { GET as auditEvents } from "../app/api/v1/audit-events/route"
 import { GET as stats } from "../app/api/v1/wallets/stats/route"
+import { GET as agentsList } from "../app/api/v1/agents/route"
+import { authenticateOwner } from "@/lib/ownerAuth"
 
 const KEY = "pxy_testagentkey"
 const WID = "wallet_1"
@@ -191,5 +193,67 @@ describe("GET /v1/audit-events?format=csv", () => {
     expect(lines[0].startsWith("at,type,id,agent_id,agent_name")).toBe(true)
     expect(lines[1]).toContain("authorization.denied")
     expect(lines[1]).toContain('"github, inc"')
+  })
+})
+
+// SCOPE-1: opt-in subtree rollup on management-plane reads. The dashboard rolls
+// up the subtree; ?scope=subtree gives API consumers the same org-wide view,
+// while the default stays single-wallet so existing callers are unaffected. Only
+// the owner may widen — an agent key stays scoped to its own wallet.
+describe("?scope=subtree rollup (SCOPE-1)", () => {
+  const SUBTREE = [{ id: WID }, { id: "pool_a" }, { id: "pool_b" }]
+  function ownerReq(path: string) {
+    return new NextRequest(`https://test.local${path}`, { method: "GET", headers: { "x-mgmt-key": "sk_owner" } })
+  }
+  beforeEach(() => {
+    vi.mocked(authenticateOwner).mockResolvedValue({ wallet: { id: WID } } as never)
+    // subtreeWalletIds runs first and consumes the CTE rows; any later $queryRaw
+    // (reporting's day buckets) gets empty, so buildPeriodSummary stays clean.
+    dbMock.$queryRaw.mockReset()
+    dbMock.$queryRaw.mockResolvedValueOnce(SUBTREE).mockResolvedValue([])
+  })
+
+  it("stats: subtree widens the agent + pending queries to the whole tree", async () => {
+    const res = await stats(ownerReq(`/api/v1/wallets/stats?wallet_id=${WID}&scope=subtree`))
+    expect(res.status).toBe(200)
+    expect((await res.json()).scope).toBe("subtree")
+    const where = dbMock.agent.findMany.mock.calls[0][0].where
+    expect(where.walletId).toEqual({ in: ["wallet_1", "pool_a", "pool_b"] })
+    expect(dbMock.pendingApproval.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ walletId: { in: ["wallet_1", "pool_a", "pool_b"] } }) }),
+    )
+  })
+
+  it("stats: default scope stays this wallet only", async () => {
+    const res = await stats(ownerReq(`/api/v1/wallets/stats?wallet_id=${WID}`))
+    expect((await res.json()).scope).toBe("wallet")
+    expect(dbMock.agent.findMany.mock.calls[0][0].where.walletId).toEqual({ in: ["wallet_1"] })
+  })
+
+  it("reporting/summary: subtree passes the whole tree to the aggregate", async () => {
+    // multi-wallet path reads a.wallet.name for per-pool attribution
+    dbMock.agent.findMany.mockResolvedValueOnce([{ id: "agent_1", name: "tenet", wallet: { name: "Pool A" } }])
+    const res = await summary(ownerReq(`/api/v1/reporting/summary?wallet_id=${WID}&scope=subtree`))
+    expect(res.status).toBe(200)
+    expect((await res.json()).scope).toBe("subtree")
+    expect(dbMock.agent.findMany.mock.calls[0][0].where.walletId).toEqual({ in: ["wallet_1", "pool_a", "pool_b"] })
+  })
+
+  it("agents: subtree lists seats across pools, tagged with their pool", async () => {
+    dbMock.agent.findMany.mockResolvedValueOnce([
+      { id: "a1", name: "seo-agent", holder: "Sam", walletId: "pool_a", wallet: { name: "Marketing" }, isActive: true, apiKeyPrefix: "pxy_x", createdAt: new Date(), expiresAt: null },
+    ])
+    const res = await agentsList(ownerReq(`/api/v1/agents?wallet_id=${WID}&scope=subtree`))
+    const body = await res.json()
+    expect(body.scope).toBe("subtree")
+    expect(body.agents[0].pool).toBe("Marketing")
+    expect(dbMock.agent.findMany.mock.calls[0][0].where.walletId).toEqual({ in: ["wallet_1", "pool_a", "pool_b"] })
+  })
+
+  it("an agent key cannot widen — scope=subtree is ignored without owner auth", async () => {
+    vi.mocked(authenticateOwner).mockResolvedValue({ wallet: null } as never)
+    const res = await stats(getReq(`/api/v1/wallets/stats?wallet_id=${WID}&scope=subtree`))
+    expect((await res.json()).scope).toBe("wallet")
+    expect(dbMock.agent.findMany.mock.calls[0][0].where.walletId).toEqual({ in: ["wallet_1"] })
   })
 })
