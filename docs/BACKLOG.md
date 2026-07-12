@@ -20,6 +20,14 @@ conversation, not here.
       (seed+pulse) + Meridian (internal governance) → PR2 history depth +
       Coastline (agency/outcomes) + Harbor & Wren (regulated/evidence) →
       PR3 warm cron + demo runbook. (vision → build spec, from Eric)
+      · 2026-07-12: all three PRs **built** on the work branch — driver +
+      3 personas + 30-day backdated histories (audit chain still verifies,
+      sequential sim replays the month), docs/DEMO-RUNBOOK.md click-paths,
+      Demo Pulse daily workflow (doubles as a prod smoke test). Verified
+      end-to-end locally; prod seeding waits on the session network policy
+      allowing getsanction.com. Found+fixed en route: audit-page crash on
+      RLS-shielded injection (shipped in #184). Still open: prod seed,
+      DEMO_KEYS_JSON secret, Overview-page single-wallet gap (flagged).
 - [ ] 2026-07-11 — Sanction guest seats: the gig/freelance lane (vision from
       Eric, same session as the onboarding spec). Bringing in a part-time
       contractor (marketing, branding, dev) shouldn't mean provisioning them

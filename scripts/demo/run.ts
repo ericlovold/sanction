@@ -235,14 +235,22 @@ async function runSpends(keys: Keys, specs: SpendSpec[], c: Checker, opts: { sta
   }
 }
 
-async function runOutcomes(keys: Keys, specs: OutcomeSpec[], c: Checker, occurredAt?: string) {
+async function runOutcomes(
+  keys: Keys,
+  specs: OutcomeSpec[],
+  c: Checker,
+  opts: { occurredAt?: string; dedupeSuffix?: string } = {},
+) {
   for (const o of specs) {
     const seat = keys.seats[o.seat] ?? fail(`unknown seat ${o.seat}`)
+    // The warm cron re-pulses daily; suffixing keeps "today's booking" unique
+    // per day instead of silently deduping into the first day's outcome.
+    const dedupe = `${o.dedupe_key}${opts.dedupeSuffix ?? ""}`
     const { status, json } = await call<{ error?: string }>("/outcomes", {
       auth: { agent: seat.apiKey },
-      body: { kind: o.kind, value_usd: o.value_usd, play: o.play, dedupe_key: o.dedupe_key, occurred_at: o.occurred_at ?? occurredAt },
+      body: { kind: o.kind, value_usd: o.value_usd, play: o.play, dedupe_key: dedupe, occurred_at: o.occurred_at ?? opts.occurredAt },
     })
-    c.check(`${o.seat} outcome ${o.kind} (${o.dedupe_key})`, "ok", json.error ? `${status} ${json.error}` : "ok")
+    c.check(`${o.seat} outcome ${o.kind} (${dedupe})`, "ok", json.error ? `${status} ${json.error}` : "ok")
   }
 }
 
@@ -278,7 +286,7 @@ async function pulse(persona: Persona, watch: boolean) {
   await runSpends(keys, persona.pulse.spends, c, { stagePending: true })
   if (persona.pulse.outcomes?.length) {
     console.log("outcomes:")
-    await runOutcomes(keys, persona.pulse.outcomes, c)
+    await runOutcomes(keys, persona.pulse.outcomes, c, { dedupeSuffix: `-${new Date().toISOString().slice(0, 10)}` })
   }
 
   console.log("tools:")
@@ -337,7 +345,7 @@ async function history(persona: Persona, days: number) {
     const c = makeChecker()
     await runTokens(keys, plan.tokens, c)
     await runSpends(keys, plan.spends, c, { stagePending: false })
-    if (plan.outcomes?.length) await runOutcomes(keys, plan.outcomes, c, occurredAt)
+    if (plan.outcomes?.length) await runOutcomes(keys, plan.outcomes, c, { occurredAt })
     if (c.mismatches()) fail(`day -${day}: ${c.mismatches()} expectation mismatch(es) — stopping before backdate`)
     const shifted = await backdateWindow({ since: batchStart, days: day, agentIds, walletIds })
     console.log(`  day -${day}: ${shifted.authRows} decisions + ${shifted.tokenRows} token logs shifted`)

@@ -1,0 +1,57 @@
+name: Demo Pulse
+
+# Keeps the demo companies warm (docs/plans/demo-companies.md, PR3): a daily
+# day-in-the-life per persona against production, so every dashboard shows a
+# live pulse and fresh pending approvals without a pre-demo scramble.
+#
+# The pulse is self-verifying — every spend/token/tool call asserts the
+# decision the engine must return — so this doubles as a daily production
+# smoke test of the whole authorization path. A red run means either the
+# demo drifted or prod did; both are worth a look.
+#
+# Setup (once): run scripts/demo/run.ts seed + history against prod, then
+# store the key files as the DEMO_KEYS_JSON secret:
+#   python3 -c "import json,glob; print(json.dumps({f.split('.')[-2]: json.load(open(f))
+#     for f in glob.glob('scripts/demo/.keys.*.json')}))"
+# (gh secret set DEMO_KEYS_JSON < that output)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 13 * * *" # daily, morning US
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'ericlovold/sanction' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Restore demo key stores
+        env:
+          DEMO_KEYS_JSON: ${{ secrets.DEMO_KEYS_JSON }}
+        run: |
+          if [ -z "$DEMO_KEYS_JSON" ]; then
+            echo "DEMO_KEYS_JSON secret is not set — seed the demo orgs first (see workflow header)."
+            exit 1
+          fi
+          python3 - <<'EOF'
+          import json, os
+          bundle = json.loads(os.environ["DEMO_KEYS_JSON"])
+          for name, keys in bundle.items():
+              path = f"scripts/demo/.keys.{name}.json"
+              with open(path, "w") as f:
+                  json.dump(keys, f)
+              print(f"wrote {path}")
+          EOF
+      - name: Pulse every persona
+        env:
+          SANCTION_API_URL: ${{ vars.DEMO_API_URL || 'https://getsanction.com/api/v1' }}
+        run: |
+          set -e
+          for p in meridian coastline harborwren; do
+            echo "════ pulse $p ════"
+            npx -y tsx scripts/demo/run.ts pulse "$p"
+          done
