@@ -1,5 +1,6 @@
 import { getViewWallet } from "@/lib/session"
 import { db } from "@/lib/db"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { AccountControl } from "@/components/account-control"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { SwRegister } from "@/components/sw-register"
@@ -15,9 +16,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!view) return <>{children}</>
 
   // Badge needs a number, not rows. The full read (and expiry settling) runs
-  // on the Approvals page itself, where timeouts are actually visible.
+  // on the Approvals page itself, where timeouts are actually visible. Count
+  // across the subtree so the badge matches the (subtree-aware) Approvals page.
+  const { ids: walletIds } = await subtreeWalletIds(view.id)
   const [pendingCount, childWallets] = await Promise.all([
-    db.pendingApproval.count({ where: { walletId: view.id, status: "pending" } }),
+    db.pendingApproval.count({ where: { walletId: { in: walletIds }, status: "pending" } }),
     db.wallet.count({ where: { parentId: view.id } }),
   ])
 

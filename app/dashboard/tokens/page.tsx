@@ -5,6 +5,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { revokeExecutionTokenAction } from "@/app/dashboard/tokens/actions"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -16,12 +17,15 @@ export const metadata: Metadata = {
 export default async function TokensPage() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
+  // Roll up execution authority across the subtree (leaf = self, no change).
+  const { ids: walletIds } = await subtreeWalletIds(view.id)
   const tokens = await db.executionToken.findMany({
-    where: { walletId: view.id },
+    where: { walletId: { in: walletIds } },
     orderBy: { issuedAt: "desc" },
     take: 200,
-    include: { agent: { select: { name: true } } },
+    include: { agent: { select: { name: true, wallet: { select: { name: true } } } } },
   })
+  const multiPool = walletIds.length > 1
   const active = tokens.filter((token) => token.status === "active" && token.expiresAt > new Date()).length
   const revoked = tokens.filter((token) => token.status === "revoked").length
   const spent = tokens.reduce((sum, token) => sum + token.spentUsd, 0)
@@ -76,7 +80,8 @@ export default async function TokensPage() {
                 <div className="min-w-0">
                   <p className="truncate font-mono text-xs text-muted-foreground">{token.id}</p>
                   <p className="mt-1 text-sm text-foreground">
-                    {token.agent.name} · ${token.spentUsd.toFixed(2)} / ${token.budgetUsd.toFixed(2)} · clearance {token.clearance}
+                    {token.agent.name}
+                    {multiPool && <span className="text-muted-foreground"> · {token.agent.wallet.name}</span>} · ${token.spentUsd.toFixed(2)} / ${token.budgetUsd.toFixed(2)} · clearance {token.clearance}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     issued {token.issuedAt.toLocaleString()} · expires {token.expiresAt.toLocaleString()}

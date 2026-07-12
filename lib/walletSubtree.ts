@@ -26,3 +26,31 @@ export async function subtreeWalletIds(rootId: string): Promise<{ ids: string[];
   ids.sort((a, b) => (a === rootId ? -1 : b === rootId ? 1 : 0))
   return { ids, truncated }
 }
+
+// KILL-1 inheritance across a subtree: a wallet is effectively frozen if it OR
+// any ancestor is frozen, so a frozen parent stops every pool beneath it. Pure
+// over the rows so it unit-tests without a DB. Cycle-safe (each id resolves at
+// most once); ancestors outside the given set are treated as not-frozen.
+export function frozenSubtreeWalletIds(
+  wallets: Array<{ id: string; parentId: string | null; frozenAt: Date | null }>,
+): Set<string> {
+  const byId = new Map(wallets.map((w) => [w.id, w]))
+  const frozen = new Set<string>()
+  const resolve = (id: string, seen: Set<string>): boolean => {
+    if (frozen.has(id)) return true
+    const w = byId.get(id)
+    if (!w || seen.has(id)) return false
+    if (w.frozenAt !== null) {
+      frozen.add(id)
+      return true
+    }
+    seen.add(id)
+    if (w.parentId && resolve(w.parentId, seen)) {
+      frozen.add(id)
+      return true
+    }
+    return false
+  }
+  for (const w of wallets) resolve(w.id, new Set())
+  return frozen
+}

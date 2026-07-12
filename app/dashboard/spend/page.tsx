@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 import { dailyPace } from "@/lib/burn"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -69,10 +70,13 @@ async function getSpend(walletId: string) {
   trendStart.setDate(trendStart.getDate() - 13)
   trendStart.setHours(0, 0, 0, 0)
 
+  // Analytics roll up the subtree (org-wide burn); the budget bars stay on the
+  // root wallet's own policy — the org envelope. Leaf subtree = self, no change.
+  const { ids: walletIds } = await subtreeWalletIds(walletId)
   const [wallet, agents] = await Promise.all([
     db.wallet.findUnique({ where: { id: walletId }, include: { policy: true } }),
     db.agent.findMany({
-      where: { walletId },
+      where: { walletId: { in: walletIds } },
       select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true, perTransactionMaxUsd: true, escalateOverUsd: true },
     }),
   ])

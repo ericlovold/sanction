@@ -160,13 +160,16 @@ async function getAgents(walletId: string, scope: "wallet" | "subtree") {
 export default async function AgentsPage({
   searchParams,
 }: {
-  searchParams?: { scope?: string; state?: string }
+  searchParams?: Promise<{ scope?: string; state?: string }>
 }) {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  const params = searchParams ?? {}
-  const scope: "wallet" | "subtree" = params.scope === "subtree" ? "subtree" : "wallet"
+  const params = (await searchParams) ?? {}
+  // Default to the whole hierarchy — a parent wallet's roster is the org's. A
+  // leaf's subtree is itself, so single-wallet operators see no difference.
+  // "Current wallet" narrows back to just this wallet's own seats.
+  const scope: "wallet" | "subtree" = params.scope === "wallet" ? "wallet" : "subtree"
   const stateFilter = params.state === "inactive" || params.state === "expiring" || params.state === "expired" ? params.state : "all"
   const agents = await getAgents(view.id, scope)
   const now = new Date()

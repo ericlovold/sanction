@@ -9,6 +9,7 @@ import {
   updateCredentialAccessAction,
 } from "@/app/dashboard/credentials/actions"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -20,12 +21,17 @@ export const metadata: Metadata = {
 export default async function CredentialsPage() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
-  const [credentials, agents] = await Promise.all([
+  // Roll up the subtree — the org's vault, pool by pool. Leaf subtree = self, no
+  // change. The same explicit walletId filter the page already used, widened.
+  const { ids: walletIds } = await subtreeWalletIds(view.id)
+  const multiPool = walletIds.length > 1
+  const [credentials, agents, walletRows] = await Promise.all([
     db.credentialVault.findMany({
-      where: { walletId: view.id },
+      where: { walletId: { in: walletIds } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        walletId: true,
         label: true,
         type: true,
         scopes: true,
@@ -37,11 +43,13 @@ export default async function CredentialsPage() {
       },
     }),
     db.agent.findMany({
-      where: { walletId: view.id },
+      where: { walletId: { in: walletIds } },
       orderBy: { createdAt: "desc" },
       select: { id: true, name: true, holder: true },
     }),
+    db.wallet.findMany({ where: { id: { in: walletIds } }, select: { id: true, name: true } }),
   ])
+  const poolName = new Map(walletRows.map((w) => [w.id, w.name]))
   const active = credentials.filter((c) => !c.revokedAt).length
 
   return (
@@ -119,13 +127,18 @@ export default async function CredentialsPage() {
                 >
                   {credential.revokedAt ? "retired" : "active"}
                 </span>
+                {multiPool && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {poolName.get(credential.walletId) ?? "pool"}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 clearance ≥ {credential.minClearance} ·{" "}
                 {credential.allowedAgentIds.length === 0 ? "all seats" : `${credential.allowedAgentIds.length} allowlisted`}
                 {credential.expiresAt ? ` · expires ${credential.expiresAt.toLocaleDateString()}` : ""}
               </p>
-              {view.isSession && !credential.revokedAt && (
+              {view.isSession && !credential.revokedAt && credential.walletId === view.id && (
                 <div className="space-y-2">
                   <form action={updateCredentialAccessAction} className="grid gap-2 md:grid-cols-3">
                     <input type="hidden" name="id" value={credential.id} />
