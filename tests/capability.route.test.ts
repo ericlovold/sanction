@@ -23,7 +23,7 @@ vi.mock("next/server", async (orig) => {
   const mod = await orig<typeof import("next/server")>()
   return { ...mod, after: () => {} }
 })
-vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_URL: "https://test.local/approve" }))
+vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_URL: "https://test.local/approve", approveUrlFor: (id?: string) => `https://test.local/approve${id ? `?review=${encodeURIComponent(id)}` : ""}` }))
 vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
 vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()

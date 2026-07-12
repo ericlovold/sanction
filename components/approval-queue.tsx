@@ -6,6 +6,8 @@ import { resolveApprovalAction, type ApprovalActionState } from "@/app/dashboard
 
 export type PendingApproval = {
   id: string
+  /** the AuthorizationRequest id — what escalation emails deep-link with (?review=) */
+  sourceId: string | null
   actionType: string
   reason: string | null
   code: string | null
@@ -235,12 +237,21 @@ function ApprovalRow({
   )
 }
 
-export function ApprovalQueue({ pending, editable }: { pending: PendingApproval[]; editable: boolean }) {
+export function ApprovalQueue({ pending, editable, focusId }: { pending: PendingApproval[]; editable: boolean; focusId?: string }) {
   // Optimistic list: a submitted decision removes its card immediately; the
   // server action + revalidation settle the real state behind it.
   const [visible, removeOptimistic] = useOptimistic(pending, (current, id: string) =>
     current.filter((a) => a.id !== id),
   )
+
+  // Email deep link: bring the reader to the exact decision they were asked
+  // for. The link carries the request id; resolve it to the approval card.
+  useEffect(() => {
+    if (!focusId) return
+    const match = pending.find((a) => a.id === focusId || a.sourceId === focusId)
+    if (!match) return
+    document.getElementById(`approval-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [focusId, pending])
 
   if (visible.length === 0) {
     return (
@@ -256,7 +267,13 @@ export function ApprovalQueue({ pending, editable }: { pending: PendingApproval[
   return (
     <div className="space-y-3">
       {visible.map((a) => (
-        <ApprovalRow key={a.id} a={a} editable={editable} onResolve={removeOptimistic} />
+        <div
+          key={a.id}
+          id={`approval-${a.id}`}
+          className={focusId && (a.id === focusId || a.sourceId === focusId) ? "rounded-md ring-2 ring-emerald-500/70 ring-offset-2 ring-offset-background" : undefined}
+        >
+          <ApprovalRow a={a} editable={editable} onResolve={removeOptimistic} />
+        </div>
       ))}
     </div>
   )

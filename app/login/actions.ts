@@ -12,6 +12,16 @@ import { sendMagicLinkEmail } from "@/lib/email"
 
 export type LoginState = { error: string }
 
+// Only ever redirect within the app: a next must be a local absolute path.
+// Rejected: protocol-relative //host, and anything carrying a backslash (raw
+// or %5C-encoded) — browsers normalize \ to / so "/\evil.com" becomes the
+// off-site "//evil.com". Anything suspicious falls back to the dashboard.
+function safeNext(raw: unknown): string {
+  const next = typeof raw === "string" ? raw : ""
+  const ok = next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") && !/%5c/i.test(next)
+  return ok ? next : "/dashboard"
+}
+
 export async function loginAction(_prev: LoginState, form: FormData): Promise<LoginState> {
   const ip = ipFromHeaders(await headers())
   const rl = await rateLimit("login", ip, 30, 600)
@@ -24,7 +34,7 @@ export async function loginAction(_prev: LoginState, form: FormData): Promise<Lo
   if (!wallet) return { error: "That key doesn't match a wallet. Use the management key (sk_…) from signup." }
 
   await setSession(key)
-  redirect("/dashboard")
+  redirect(safeNext(form.get("next")))
 }
 
 export async function logoutAction() {

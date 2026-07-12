@@ -45,7 +45,7 @@ vi.mock("next/server", async (orig) => {
   return { ...mod, after: () => {} }
 })
 // Authorize's post-decision side effects — irrelevant to a denial, stubbed out.
-vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_URL: "https://test.local/approve" }))
+vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_URL: "https://test.local/approve", approveUrlFor: (id?: string) => `https://test.local/approve${id ? `?review=${encodeURIComponent(id)}` : ""}` }))
 vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
 vi.mock("@/lib/thresholds", () => ({
   notifySpendBudgetThreshold: vi.fn(async () => {}),

@@ -5,10 +5,11 @@ import { loginAction, type LoginState } from "@/app/login/actions"
 
 const initial: LoginState = { error: "" }
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState(loginAction, initial)
   return (
     <form action={formAction} className="space-y-4">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <label className="block">
         <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Management key</span>
         <input

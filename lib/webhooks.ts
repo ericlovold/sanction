@@ -6,6 +6,13 @@ import { db } from "./db"
 
 export const APPROVE_URL = "https://getsanction.com/dashboard/approvals"
 
+// The human-in-the-loop moment lives or dies on this link: every escalation
+// notification deep-links to ITS decision (?review=<request id>), so the
+// owner lands on the thing they were asked to decide — not a generic inbox.
+export function approveUrlFor(requestId: string | null | undefined): string {
+  return requestId ? `${APPROVE_URL}?review=${encodeURIComponent(requestId)}` : APPROVE_URL
+}
+
 // The event catalog — one source of truth for the API route, the dashboard
 // form, and the docs. "*" subscribes to everything, present and future.
 export const KNOWN_EVENTS = [
@@ -148,7 +155,8 @@ export function slackPayload(event: string, data: Record<string, unknown>): stri
     blocks.push({
       type: "actions",
       elements: [
-        { type: "button", style: "primary", text: { type: "plain_text", text: "Review in Sanction" }, url: APPROVE_URL },
+        // Deep-link the button to the specific decision when the event carries it.
+        { type: "button", style: "primary", text: { type: "plain_text", text: "Review in Sanction" }, url: typeof data.approve_url === "string" ? data.approve_url : APPROVE_URL },
       ],
     })
   }

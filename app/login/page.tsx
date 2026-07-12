@@ -23,7 +23,8 @@ function Divider({ label }: { label: string }) {
 
 export const dynamic = "force-dynamic"
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams
   return (
     <div className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh", background: "var(--surface-page)", color: "var(--text-body)" }}>
       <header className="border-b" style={{ borderColor: "var(--paper-3)" }}>
@@ -49,7 +50,7 @@ export default function LoginPage() {
             Have a management key (<code className="font-mono">sk_…</code>)? Sign in with it →
           </summary>
           <div className="mt-4">
-            <LoginForm />
+            <LoginForm next={next} />
           </div>
         </details>
 

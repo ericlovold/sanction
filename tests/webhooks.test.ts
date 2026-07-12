@@ -75,3 +75,14 @@ describe("generateWebhookSecret", () => {
     expect(a).not.toBe(b)
   })
 })
+
+describe("approveUrlFor (APPROVE-UX)", () => {
+  it("deep-links the specific decision and falls back to the inbox", async () => {
+    const { approveUrlFor, APPROVE_URL } = await import("../lib/webhooks")
+    expect(approveUrlFor("req_123")).toBe(`${APPROVE_URL}?review=req_123`)
+    expect(approveUrlFor(null)).toBe(APPROVE_URL)
+    expect(approveUrlFor(undefined)).toBe(APPROVE_URL)
+    // ids are URL-encoded so a hostile id can't break out of the query
+    expect(approveUrlFor("a b&c")).toBe(`${APPROVE_URL}?review=a%20b%26c`)
+  })
+})

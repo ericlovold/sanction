@@ -18,7 +18,7 @@ import {
 } from "@/lib/authzen"
 import { createSpendPendingApproval, createToolPendingApproval, createProvisionPendingApproval, createCapabilityPendingApproval } from "@/lib/approvals"
 import { authzenRateLimit } from "@/lib/authzenRateLimit"
-import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
+import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { logger } from "@/lib/log"
 
@@ -243,14 +243,14 @@ export async function POST(req: NextRequest) {
           agent: agent.name,
           resource: { kind: sarc.t, ...sarc },
           reason,
-          approve_url: APPROVE_URL,
+          approve_url: approveUrlFor(escalated.id),
         }),
         deliverEvent(agent.walletId, "escalation.created", {
           request_id: escalated.id,
           agent: agent.name,
           amount_usd: amountUsd,
           merchant,
-          approve_url: APPROVE_URL,
+          approve_url: approveUrlFor(escalated.id),
         }),
         sendEscalationEmail(agent.wallet.ownerEmail, {
           agentName: agent.name,
@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
           merchant,
           category: sarc.t === "tool" ? "tool" : sarc.t === "capability" ? "capability" : sarc.category,
           description: reason,
-          approveUrl: APPROVE_URL,
+          approveUrl: approveUrlFor(escalated.id),
         }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
       ]),
     )
@@ -294,7 +294,7 @@ function taskResponse(id: string, status: string, origin: string) {
       id,
       status,
       status_endpoint: `${origin}${ACCESS_REQUEST_PATH}/${id}`,
-      links: { review: APPROVE_URL },
+      links: { review: approveUrlFor(id) },
     },
   }
 }
