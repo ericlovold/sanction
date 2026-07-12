@@ -315,7 +315,10 @@ export default function Consulting() {
         }}
       >
         <div style={{ ...wrap, padding: "96px 32px 56px", maxWidth: 780, textAlign: "center" }}>
-          <h1 className="cx-fade cx-d2" style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+          <div className="sn-mono cx-fade cx-d1" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em" }}>
+            ERIC LOVOLD
+          </div>
+          <h1 className="cx-fade cx-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Let&apos;s put AI to work for your business.
           </h1>
           <div className="cx-fade cx-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28, flexWrap: "wrap" }}>
