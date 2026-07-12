@@ -12,7 +12,8 @@
 //   · denials with stable codes: over per-txn cap, blocked category, blocked tool
 //   · one exec→inject round-trip (scoped JWT, clearance-gated vault read)
 
-import type { Persona } from "../lib"
+import { isWeekday } from "../lib"
+import type { Persona, DayPlan } from "../lib"
 
 export const meridian: Persona = {
   key: "meridian",
@@ -83,6 +84,34 @@ export const meridian: Persona = {
       ],
     },
   ],
+  history: (day: number): DayPlan => {
+    const weekday = isWeekday(day)
+    const plan: DayPlan = { tokens: [], spends: [] }
+    // Departments hum along under their caps — the month the reporting page
+    // and the sequential simulator replay.
+    plan.tokens.push(
+      { seat: "ci-agent", model: "claude-haiku-4-5", tokens_in: 380_000, tokens_out: 50_000, cost_usd: 5.8 + (day % 3) * 0.4, task: "test-triage" },
+      { seat: "code-review-agent", model: "claude-sonnet-4-6", tokens_in: 900_000, tokens_out: 130_000, cost_usd: 11 + (day % 4) * 0.5, task: "pr-review" },
+      { seat: "infra-agent", model: "gpt-4o", tokens_in: 700_000, tokens_out: 100_000, cost_usd: 11.5, task: "terraform-plan-review" },
+      { seat: "content-agent", model: "claude-sonnet-4-6", tokens_in: 300_000, tokens_out: 70_000, cost_usd: 5.2, task: "campaign-copy" },
+      { seat: "seo-agent", model: "gemini-2.5-pro", tokens_in: 250_000, tokens_out: 30_000, cost_usd: 2.4, task: "serp-analysis" },
+      { seat: "triage-agent", model: "claude-haiku-4-5", tokens_in: 200_000, tokens_out: 24_000, cost_usd: 1.8, task: "ticket-triage" },
+    )
+    if (weekday) {
+      plan.spends.push({ seat: "infra-agent", action: "purchase", amount_usd: 16 + (day % 4), merchant: "AWS", category: "infrastructure", description: "Spot capacity for the nightly build farm", expect: "approved" })
+      if (day % 7 === 4)
+        plan.spends.push({ seat: "infra-agent", action: "subscribe", amount_usd: 60, merchant: "Datadog", category: "infrastructure", description: "APM host expansion", expect: "approved" })
+      if (day % 10 === 5)
+        plan.spends.push({ seat: "infra-agent", action: "purchase", amount_usd: 140, merchant: "Lambda Labs", category: "infrastructure", description: "GPU reservation for the eval run", expect: "escalated", then: "approve-and-redeem" })
+      if (day % 5 === 0)
+        plan.spends.push({ seat: "content-agent", action: "purchase", amount_usd: 22 + (day % 3) * 4, merchant: "Canva", category: "marketing", description: "Asset pack", expect: "approved" })
+      if (day % 9 === 3)
+        plan.spends.push({ seat: "seo-agent", action: "purchase", amount_usd: 30, merchant: "CoinGecko Pro", category: "crypto", description: "Price API tier", expect: "denied" })
+      if (day % 6 === 2)
+        plan.spends.push({ seat: "triage-agent", action: "purchase", amount_usd: 12, merchant: "Zendesk", category: "software", description: "Sandbox add-on", expect: "approved" })
+    }
+    return plan
+  },
   pulse: {
     tokens: [
       // Engineering: 9.60 + 19 + 19 = 47.60 of the 55 pooled cap ≈ 87%.

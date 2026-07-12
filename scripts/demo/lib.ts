@@ -31,6 +31,12 @@ export function fail(msg: string): never {
   process.exit(1)
 }
 
+/** Shared rough weekday rhythm for history generators (dayIndex counts back
+ *  from yesterday) — one formula so the personas can't drift. */
+export function isWeekday(dayIndex: number): boolean {
+  return (dayIndex + 3) % 7 < 5
+}
+
 // ── Persona manifest ────────────────────────────────────────────────────────
 
 export type PolicyPatch = Record<string, unknown> // policyInputSchema field names, dollars
@@ -38,6 +44,9 @@ export type PolicyPatch = Record<string, unknown> // policyInputSchema field nam
 export type SeatSpec = {
   name: string
   holder: string
+  /** contractor auto-shutoff: an ISO datetime, or "past" to seed an
+   *  already-expired seat (the fail-closed story, live on stage) */
+  expiresAt?: "past" | string
   /** PATCH /v1/agents overrides after creation (budget lines, clearance). */
   overrides?: Record<string, unknown>
 }
@@ -77,11 +86,28 @@ export type TokenLogSpec = {
   expectDenied?: boolean
 }
 
+export type OutcomeSpec = {
+  seat: string
+  kind: string // must match the pool policy's outcome_kind for ceiling governance
+  value_usd?: number
+  play?: string
+  dedupe_key: string
+  /** set by the history runner to land the outcome in the right day */
+  occurred_at?: string
+}
+
 export type PoolSpec = {
   name: string
   policy: PolicyPatch
   seats: SeatSpec[]
   vault?: VaultSpec[]
+}
+
+/** One day of traffic for `history` — same self-verifying specs as pulse. */
+export type DayPlan = {
+  tokens: TokenLogSpec[]
+  spends: SpendSpec[]
+  outcomes?: OutcomeSpec[]
 }
 
 export type Persona = {
@@ -95,13 +121,29 @@ export type Persona = {
     tools: ToolCallSpec[]
     /** exec→inject round-trip: seat requests a scoped JWT and injects a label. */
     injections: { seat: string; label: string; budget_usd: number }[]
+    outcomes?: OutcomeSpec[]
+    /** seats whose key must already fail closed (contractor expiry story) */
+    expiredSeats?: string[]
+    /** staged kill-switch: pulse freezes these pools before spending (idempotent) */
+    freezePools?: { pool: string; reason: string }[]
+  }
+  /** deterministic generator for `history --days N`: dayIndex counts back from
+   *  yesterday (1 = yesterday). Keep each day's totals inside the daily caps —
+   *  every day runs against a clean (backdated) budget state. */
+  history?: (dayIndex: number) => DayPlan
+  /** API-only staging for targets without DB access (no backdating possible):
+   *  today's spends + past outcomes (occurred_at is a first-class API field)
+   *  arm windowed state like the cost-per-outcome ceiling. Run once, before
+   *  the first pulse. */
+  prime?: {
+    spends: SpendSpec[]
+    outcomes: (OutcomeSpec & { days_ago: number })[]
   }
 }
 
 // ── Key store (gitignored — raw sk_/pxy_ keys never enter the repo) ─────────
 
 export type Keys = {
-  hq?: { walletId: string; mgmtKey: string }
   company?: { walletId: string; mgmtKey: string }
   pools: Record<string, { walletId: string; mgmtKey: string }>
   seats: Record<string, { agentId: string; apiKey: string; poolName: string }>
@@ -110,6 +152,19 @@ export type Keys = {
 }
 
 const keysPath = (persona: string) => join(import.meta.dirname, `.keys.${persona}.json`)
+
+// HQ is one root wallet shared by every persona — its keys live in their own
+// store so the second persona's seed finds it instead of re-claiming the email.
+export type HqKeys = { walletId: string; mgmtKey: string }
+
+export function loadHq(): HqKeys | null {
+  if (!existsSync(keysPath("hq"))) return null
+  return JSON.parse(readFileSync(keysPath("hq"), "utf8")) as HqKeys
+}
+
+export function saveHq(hq: HqKeys) {
+  writeFileSync(keysPath("hq"), JSON.stringify(hq, null, 2))
+}
 
 export function loadKeys(persona: string): Keys {
   if (!existsSync(keysPath(persona))) return { pools: {}, seats: {}, pending: [] }
