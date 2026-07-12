@@ -127,6 +127,15 @@ repo-specific guidance belongs here, not in the skill files.
 `voice-fence` is homegrown too: the AI coaches structure and strategy on
 anything a human will read as Eric's own words, but never drafts them —
 public, linkable, universal phrasing (no repo specifics).
+`input` is homegrown too (added 2026-07-10, named for Short Circuit's
+"INPUT!"): `/INPUT` ingests raw material Eric vouches for — strategy notes,
+sprint output, snippets, live coding suggestions — splits it into pieces,
+routes each to where it lives (working tree / backlog / AGENTS.md proposal /
+conversation-only for sensitive), applies what's live after verifying against
+the code as it is, and ends with a per-piece disposition report (APPLIED ·
+QUEUED · PROPOSED · HELD · PUSHED BACK). Ingestion with judgment, not
+dictation — and never a silent drop. /queue captures a one-liner; /INPUT
+digests a payload.
 `audit` is homegrown too (adapted 2026-07-07 from the "AI Code Sanity Check"
 audit-prompt suite): `/audit [topics…]` runs read-only best-practice
 investigations — 29 topics, 0–5 maturity score + amateur/AI-built signal
