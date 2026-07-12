@@ -11,6 +11,47 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-12 — Demo companies arc (vision from Eric): 2–3 fully-loaded
+      fictional client accounts living in production Sanction — real traffic
+      through the real engine (A→B), clickable end-to-end, choreographed for
+      client demos (pending approvals staged, live approve→grant→complete
+      moment), with an admin overview from a Demo HQ root via the shipped
+      subtree views. Build spec: docs/plans/demo-companies.md — PR1 driver
+      (seed+pulse) + Meridian (internal governance) → PR2 history depth +
+      Coastline (agency/outcomes) + Harbor & Wren (regulated/evidence) →
+      PR3 warm cron + demo runbook. (vision → build spec, from Eric)
+- [ ] 2026-07-11 — Sanction guest seats: the gig/freelance lane (vision from
+      Eric, same session as the onboarding spec). Bringing in a part-time
+      contractor (marketing, branding, dev) shouldn't mean provisioning them
+      into your email/SSO/license stack — hand them a Sanction seat instead:
+      governed AI access (tokens via the gateway, tools, scoped credentials)
+      with budget, expiry, and audit, while they keep their own accounts and
+      identity. The skeleton is shipped (Agent.holder + expiresAt fail-closed
+      auto-shutoff, agency packs, gateway = no provider keys in their hands,
+      vault injection under execution JWTs). The new work is the guest
+      layer: (1) seat handoff ceremony — owner sends a claim link, the
+      contractor redeems the key themselves (no secrets over Slack/email);
+      (2) guest-facing seat view — the holder signs in with their OWN
+      identity (Better Auth) linked to the seat as holder, read-only: my
+      limits, my usage, my expiry — the "informed through the acct" half of
+      the owner-driven decision; (3) positioning — a gig-economy/guest-seat
+      scenario at the same concreteness as the internal-governance cards;
+      candidate guest-seat policy pack. Connects to the onboarding arc: a
+      roster can include externals, and a seat plan can mint guest seats
+      with expiry prefilled. (vision, from Eric)
+- [ ] 2026-07-11 — Connector-grade onboarding arc (vision from Eric, Apollo.io
+      as the reference experience): enable Sanction like any connector → offer
+      an org scan (shadow-AI discovery; the host's own connectors do the
+      gathering) → autofill-grade seat-plan recommendations → one-click apply
+      through the provision ladder, with a manual per-seat path over the same
+      roster data. Build spec: docs/plans/connector-onboarding.md — PR1 roster
+      ingestion → PR2 pure seat-plan engine → PR3 apply + console → PR4 MCP
+      tools; Track B = the already-promoted hosted remote MCP as carrier;
+      Track C = observe mode, the do-nothing adoption wedge (monitoring +
+      simulation-backed recommendations, flip pools to enforce at leisure /
+      compliance checkpoints — makes the readiness ladder the migration UI).
+      Seat distribution resolved owner-driven (2026-07-11); still open in the
+      spec: first slice, roster TTL. (vision → build spec, from Eric)
 - [ ] 2026-07-10 — x402 / pay-per-crawl follow-ons (the mandate-authority arc,
       opened by Cloudflare's July 1 launch: pay-per-crawl + Monetization
       Gateway charge agents per request for pages/datasets/APIs/MCP tools,

@@ -52,3 +52,6 @@ next-env.d.ts
 # SDK package build output + local install
 sdk/dist/
 sdk/node_modules/
+
+# demo-company driver key stores (raw sk_/pxy_ keys — never commit)
+scripts/demo/.keys.*.json
