@@ -40,6 +40,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Create a wallet, issue an agent key, route an LLM call through the gateway, and authorize a spend — your first metered, governed call in under five minutes.",
   },
+  gateway: {
+    file: "GATEWAY.md",
+    title: "The LLM gateway",
+    description:
+      "Point your model SDK's base URL at Sanction, keep your own provider key, and every token is metered and capped before the call forwards — zero per-call instrumentation, across providers, on one key. Over budget returns 402.",
+  },
   "ai-sdk": {
     file: "VERCEL-AI-SDK.md",
     title: "Sanction + Vercel AI SDK",
@@ -105,6 +111,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     title: "Multi-Tenant Integration Runbook",
     description:
       "Provision an agent per tenant, govern budgets centrally, meter LLM calls through the gateway, and rotate keys — the end-to-end runbook for platforms.",
+  },
+  security: {
+    file: "SECURITY.md",
+    title: "Security & threat model",
+    description:
+      "The trust boundaries, fail-closed invariants, and threat model behind the governance layer: envelope-encrypted vault, row-level tenant isolation, signed evidence, and how each auth plane fails closed. Plus responsible disclosure.",
   },
   "commercial-license": {
     file: "COMMERCIAL-LICENSE.md",
