@@ -136,6 +136,19 @@ the code as it is, and ends with a per-piece disposition report (APPLIED ·
 QUEUED · PROPOSED · HELD · PUSHED BACK). Ingestion with judgment, not
 dictation — and never a silent drop. /queue captures a one-liner; /INPUT
 digests a payload.
+`cut-release`, `render-check`, `truthsync`, and `tailwind` are homegrown too
+(added 2026-07-12, from a behavior scan of recurring rituals): `/cut-release`
+runs the release ritual — verify tags vs main, bump + changelog stamp as its
+own PR, notes + prefilled publish link, verify Latest — so version/tag drift
+can't recur. `/render-check` is proof-by-pixels: seed a demo org, next dev,
+Chromium screenshots of the named pages, attach evidence — no screenshot, no
+"fixed." `/truthsync` drains story drift: diff merged PRs since the last
+release stamp against changelog/roadmap/README/DOMAIN/TRACEABILITY and
+propose the catch-up as one docs-only PR (/zoomout detects, /truthsync
+fixes; run before every /cut-release). `/tailwind` is the market-event
+playbook: verify the news at primary sources, map it to engine primitives +
+roadmap ("hold the mandate, not the rail"), ship a fenced same-day slice or
+degrade gracefully to mapping + backlog arc, and flag the GTM moment.
 `audit` is homegrown too (adapted 2026-07-07 from the "AI Code Sanity Check"
 audit-prompt suite): `/audit [topics…]` runs read-only best-practice
 investigations — 29 topics, 0–5 maturity score + amateur/AI-built signal
