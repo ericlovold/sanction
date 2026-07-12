@@ -143,7 +143,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   type Focus =
     | { kind: "pending" }
     | { kind: "resolved"; status: string; decidedAt: string | null; note: string | null; grant: string | null; title: string; agentName: string }
-    | { kind: "descendant"; poolName: string; title: string }
+    | { kind: "descendant"; poolName: string; title: string; resolved: boolean }
     | { kind: "missing" }
   let focus: Focus | null = null
   if (review) {
@@ -171,7 +171,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           agentName: row.agent.name,
         }
       } else if (descendantIds.includes(row.wallet.id)) {
-        focus = { kind: "descendant", poolName: row.wallet.name, title: resourceTitle(asRecord(row.resourceJson), row.actionType) }
+        focus = {
+          kind: "descendant",
+          poolName: row.wallet.name,
+          title: resourceTitle(asRecord(row.resourceJson), row.actionType),
+          // A stale email link must not claim "waiting" for a settled decision.
+          resolved: row.status !== "pending",
+        }
       } else {
         focus = { kind: "missing" }
       }
@@ -219,11 +225,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             {focus.kind === "descendant" && (
               <>
                 <p className="text-sm font-medium text-foreground">
-                  This decision ({focus.title}) is waiting in <strong>{focus.poolName}</strong>.
+                  This decision ({focus.title}) {focus.resolved ? "was already decided in" : "is waiting in"}{" "}
+                  <strong>{focus.poolName}</strong>.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Each pool&apos;s own owner decides — you can see it waiting under &quot;Waiting in your pools&quot; below,
-                  but the approve belongs to that pool&apos;s inbox. Sign in with that pool&apos;s key to decide.
+                  {focus.resolved
+                    ? "Its owner settled it — sign in with that pool's key to see the full record."
+                    : 'Each pool\u2019s own owner decides — you can see it waiting under "Waiting in your pools" below, but the approve belongs to that pool\u2019s inbox. Sign in with that pool\u2019s key to decide.'}
                 </p>
               </>
             )}
