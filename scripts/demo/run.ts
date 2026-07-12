@@ -20,7 +20,7 @@
 // and the counter-coherence rules). Keys land in scripts/demo/.keys.<persona>.json
 // (gitignored). Run order: seed → history → pulse.
 
-import { API_URL, call, fail, loadKeys, saveKeys, loadHq, saveHq } from "./lib"
+import { API_URL, call, fail, loadKeys, saveKeys, loadHq, saveHq, baselineActivity } from "./lib"
 import type { Persona, Keys, HqKeys, SpendSpec, TokenLogSpec, OutcomeSpec } from "./lib"
 import { meridian } from "./personas/meridian"
 import { coastline } from "./personas/coastline"
@@ -420,13 +420,35 @@ async function status(persona: Persona) {
   }
 }
 
+// ── liven ─────────────────────────────────────────────────────────────────
+// Give every roled seat a believable slice of today's work: token burn across
+// models/tasks plus a small approved purchase. This is what makes a 50-seat org
+// read as alive rather than as a static roster. Separate from `pulse` so it
+// never re-runs the curated moments (the pending escalation, the throttle) and
+// can be re-applied to top up today's activity. Best-effort: mismatches are
+// reported, not fatal — added burn should never deny, but a tightened cap
+// shouldn't abort the whole run.
+async function liven(persona: Persona) {
+  const keys = loadKeys(persona.key)
+  if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
+  const { tokens, spends } = baselineActivity(persona.pools)
+  const seated = tokens.filter((t) => keys.seats[t.seat])
+  const seatedSpends = spends.filter((s) => keys.seats[s.seat])
+  console.log(`liven ${persona.company}: ${seated.length} token logs, ${seatedSpends.length} purchases across roled seats`)
+  const c = makeChecker()
+  await runTokens(keys, seated, c)
+  await runSpends(keys, seatedSpends, c, { stagePending: false })
+  console.log(`\nLivened — ${c.mismatches()} unexpected outcome(s) (0 is ideal; any denials mean a cap is tight).`)
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 
 const [cmd, personaKey, ...flags] = process.argv.slice(2)
 const persona = PERSONAS[personaKey ?? ""]
-if (!cmd || !persona) fail(`usage: run.ts <seed|prime|history|pulse|status> <${Object.keys(PERSONAS).join("|")}> [--days N] [--watch]`)
+if (!cmd || !persona) fail(`usage: run.ts <seed|prime|history|pulse|liven|status> <${Object.keys(PERSONAS).join("|")}> [--days N] [--watch]`)
 
 if (cmd === "seed") await seed(persona)
+else if (cmd === "liven") await liven(persona)
 else if (cmd === "prime") await prime(persona)
 else if (cmd === "history") {
   const di = flags.indexOf("--days")

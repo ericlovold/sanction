@@ -20,10 +20,12 @@ export const meridian: Persona = {
   company: "Demo — Meridian Analytics",
   companyPolicy: {
     allowed_categories: ["software", "services", "research", "infrastructure", "marketing"],
-    daily_spend_budget_usd: 3000,
-    daily_token_budget_usd: 100,
-    subtree_daily_cap_usd: 2000,
-    subtree_daily_token_cap_usd: 150,
+    // Caps sized for the full ~25-seat org (the departments below), not just the
+    // three curated pools. Headroom so `liven` never trips a company-level cap.
+    daily_spend_budget_usd: 8000,
+    daily_token_budget_usd: 600,
+    subtree_daily_cap_usd: 6000,
+    subtree_daily_token_cap_usd: 1200,
     per_transaction_max_usd: 1500,
     auto_approve_under_usd: 50,
     escalate_over_usd: 200,
@@ -81,6 +83,51 @@ export const meridian: Persona = {
       seats: [
         { name: "triage-agent", holder: "Ren Ishikawa" },
         { name: "kb-agent", holder: "Alma Reyes" },
+      ],
+    },
+    // ── Departments that make the org read as a real 25-person company. Their
+    // seats carry a `role` (not curated moments), so `liven` fills today's burn.
+    // Generous per-seat + pool caps keep livening under budget (no denials).
+    {
+      name: "Demo — Meridian / Platform Engineering",
+      policy: { daily_spend_budget_usd: 1200, daily_token_budget_usd: 40, subtree_daily_token_cap_usd: 320, per_transaction_max_usd: 500, auto_approve_under_usd: 50, escalate_over_usd: 200 },
+      seats: [
+        { name: "backend-agent", holder: "Tomás Herrera", role: "engineer" },
+        { name: "frontend-agent", holder: "Wei Zhang", role: "engineer" },
+        { name: "sre-agent", holder: "Nadia Boukhari", role: "engineer", overrides: { clearance: 2 } },
+        { name: "release-agent", holder: "Kofi Mensah", role: "engineer" },
+        { name: "platform-qa-agent", holder: "Elena Petrova", role: "engineer" },
+      ],
+    },
+    {
+      name: "Demo — Meridian / Data Science",
+      policy: { daily_spend_budget_usd: 1200, daily_token_budget_usd: 40, subtree_daily_token_cap_usd: 340, per_transaction_max_usd: 500, auto_approve_under_usd: 50, escalate_over_usd: 200 },
+      seats: [
+        { name: "ml-agent", holder: "Arjun Malhotra", role: "data-scientist" },
+        { name: "eval-agent", holder: "Sofia Castellano", role: "data-scientist" },
+        { name: "feature-agent", holder: "Daniel Osei", role: "data-scientist" },
+        { name: "insights-agent", holder: "Mei-Ling Chen", role: "analyst" },
+        { name: "experiments-agent", holder: "Lucas Brandt", role: "data-scientist" },
+      ],
+    },
+    {
+      name: "Demo — Meridian / Growth Marketing",
+      policy: { allowed_categories: ["software", "services", "marketing"], daily_spend_budget_usd: 1500, daily_token_budget_usd: 40, subtree_daily_token_cap_usd: 240, per_transaction_max_usd: 600, auto_approve_under_usd: 50, escalate_over_usd: 150, blocked_categories: ["crypto"] },
+      seats: [
+        { name: "paid-search-agent", holder: "Grace O'Connor", role: "media-buyer" },
+        { name: "lifecycle-agent", holder: "Ibrahim Al-Sayed", role: "marketer" },
+        { name: "brand-agent", holder: "Yuki Tanaka", role: "designer" },
+        { name: "growth-analyst-agent", holder: "Paula Marković", role: "analyst" },
+      ],
+    },
+    {
+      name: "Demo — Meridian / Revenue Operations",
+      policy: { daily_spend_budget_usd: 900, daily_token_budget_usd: 40, subtree_daily_token_cap_usd: 200, per_transaction_max_usd: 500, auto_approve_under_usd: 50, escalate_over_usd: 200 },
+      seats: [
+        { name: "forecast-agent", holder: "Hassan Farah", role: "ops" },
+        { name: "crm-agent", holder: "Ana Beatriz Lima", role: "ops" },
+        { name: "billing-ops-agent", holder: "Sven Johansson", role: "analyst" },
+        { name: "deal-desk-agent", holder: "Fatima Zahra", role: "ops" },
       ],
     },
   ],
