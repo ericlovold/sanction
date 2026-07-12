@@ -15,6 +15,25 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-12",
+    title: "v0.7.0 — adopt first, enforce when the numbers say so",
+    version: "0.7.0",
+    tags: ["release", "observe", "local", "sdk", "adoption"],
+    body: "Where v0.6.0 made governance drop-in and provable, v0.7.0 makes it **adoptable** — you don't have to flip enforcement on to start. **Observe mode** runs the real engine and records exactly what it *would* have done, blocking nothing, so you can point Sanction at a live fleet, watch a week of would-be denials and the dollars behind them, and flip each pool to enforce when the ledger convinces you — the revision chain marking the moment it went live. Around that on-ramp: **Sanction Local's install package** (the no-egress pack + the assessor's self-verifying evidence download) turns the air-gapped runtime into something a regulated shop can actually stand up; the **`@sanction/sdk`** is publish-ready with the escalate→grant loop closed; escalation notices now **land the human on the exact decision**, not a generic inbox; and the first **pay-per-crawl** slice governs what your agents pay the metered web. Adopt quietly, enforce deliberately, govern where the agents already are.",
+  },
+  {
+    date: "2026-07-12",
+    title: "See what enforcement would do — before it does anything",
+    tags: ["observe", "adoption", "governance", "console"],
+    body: "The hardest part of adopting a governance layer is the first `deny` — nobody wants to be the reason a production agent stalled on day one. **Observe mode** removes that risk. Set a pool to `observe` and the identical decision engine runs on every request and persists the truthful would-be outcome — but blocks nothing: responses read approved with the real decision in `would_be`, no approvals page a human, and no counters move (an observed pool can never trip a shared cap for an enforcing sibling). Freeze and no-policy still enforce; everything else just watches. The new **Observe** console page reads those rows back as the flip-to-enforce case — per pool over 7 days, what enforcement *would* have denied or escalated with the dollars behind it and the exact decision codes that would fire, the real ledger with enforcement stood down, never a simulation. Flip a pool observe→enforce in one confirm-gated click; the policy revision chain records precisely when enforcement went live. Watch first, enforce when you're convinced — and org roots now read the whole subtree, so a parent wallet shows every pool's activity, not an empty page.",
+  },
+  {
+    date: "2026-07-11",
+    title: "The approval email lands you on the decision, not the inbox",
+    tags: ["approvals", "notifications", "ux"],
+    body: "When an agent's charge escalates, the notification that finds you — email, Slack, or a signed webhook — now deep-links to *that* pending request, not the generic approvals list. The email's \"Review & decide\" button drops you straight onto the decision waiting on you, so approving is one click from wherever the alert reached you. Small change, real difference when a fleet is escalating in parallel and you're deciding from your phone.",
+  },
+  {
     date: "2026-07-10",
     title: "The web now charges your agents. Sanction decides what they pay.",
     tags: ["adapters", "x402", "pay-per-crawl", "spend"],

@@ -10,16 +10,17 @@
 // evidence+replay, capability governance, simulation (incl. sequential replay),
 // policy packs, console parity, gateway fail-closed metering, the Local runtime,
 // outcome governance (cost-per-outcome ceilings, freeze, reallocation), the TS
-// framework adapters, and tamper-evident audit exports are shipped (see the
-// changelog) → now, Local install package + ecosystem distribution → next,
-// the published SDK + Python adapters and simulation all the way down → later,
-// enterprise trust.
+// framework adapters, tamper-evident audit exports, the Local install package,
+// and observe-mode adoption are shipped (see the changelog) → now, ecosystem
+// distribution → next, the published SDK + Python adapters and simulation all
+// the way down → later, enterprise trust.
 
 export type RoadmapItem = { title: string; note: string }
 
 export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapItem[] } = {
   now: [
-    { title: "Sanction Local: from runtime to install", note: "The air-gapped runtime is real — local models, fail-closed egress denial, every denied attempt in the audit trail. The install package is landing: the **no-egress** policy pack ships (only on-box tools pass; cloud calls deny and persist), and the Audit console downloads the signed, hash-chained evidence export an assessor verifies self-contained. Regulated practices first." },
+    { title: "Adopt without flipping the switch", note: "Shipped: **observe mode** runs the real decision engine on a live fleet and records exactly what it would have done — blocking nothing, moving no counters — so you watch a week of would-be denials and the dollars behind them on the Observe console, then flip each pool to enforce in one confirm-gated click, the revision chain marking when enforcement went live. The do-nothing on-ramp: adopt quietly, enforce when the numbers convince you." },
+    { title: "Sanction Local: from runtime to install", note: "Shipped: the air-gapped runtime (local models, fail-closed egress denial, every denied attempt in the audit trail) now has its install package — the **no-egress** policy pack (only on-box tools pass; cloud calls deny and persist) and the Audit console's signed, hash-chained evidence download an assessor verifies self-contained. Regulated practices first." },
     { title: "Distribution by channel", note: "Compatibility badges, channel-shaped policy packs, and install paths for MCP hosts, coding agents, LLM gateways, agencies, and payment-agent pilots — each previewable against your real history before you apply it." },
     { title: "Governed in every runtime", note: "One authorization plane, wherever the agent runs — MCP, the SDK's framework adapters (the tool executes behind the decision, shipped for TypeScript and the Vercel AI SDK), and Bedrock. Add Sanction in front of any tool server." },
     { title: "Tamper-evident audit exports", note: "Shipped: the decision history exports as a signed, hash-chained document any recipient can verify self-contained — altering, dropping, or reordering a row names the broken link. Governance as cryptographic evidence." },
