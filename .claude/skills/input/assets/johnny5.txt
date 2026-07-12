@@ -1,0 +1,10 @@
+        [ I N P U T ! ]
+         ___________
+        | .-.   .-. |          >> NUMBER 5 IS ALIVE <<
+        |( O ) ( O )|
+        | '-'   '-' |          "Input!  ...need MORE input!"
+        |    ___    |
+         \  |___|  /           (no disassemble)
+        .-'-------'-.
+       [ o o o o o o ]
+        '-----------'
