@@ -342,6 +342,16 @@ model Policy {
   escalationTimeoutMins   Int    @default(60)
   escalationTimeoutAction String @default("deny") // deny | approve
 
+  // Observe mode (OBS-1): the do-nothing adoption wedge. "observe" runs the
+  // identical decision engine and persists the truthful would-be outcome
+  // (marked observed in detailsJson), but nothing is blocked, no approvals
+  // page anyone, and NO enforcement state is written — no cascade-counter or
+  // exec-token debits, so an observed pool can never trip a shared cap and
+  // cause real denials for an enforcing sibling. Freeze (KILL-1) still
+  // enforces: the kill switch is an owner action, not policy. Default is
+  // enforce — observe is always an explicit choice.
+  enforcementMode String @default("enforce") // enforce | observe
+
   // Evidence (EVID-1): every mutation bumps currentRevision and writes an
   // immutable PolicyRevision snapshot; decisions record the revision they ran
   // under, so "what policy was in force?" stays answerable after any edit.

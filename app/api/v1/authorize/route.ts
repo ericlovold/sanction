@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionCode, isObserved, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/evidence"
 import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
@@ -71,6 +71,13 @@ export async function POST(req: NextRequest) {
 
 
   const policy = agent.wallet.policy
+  // OBS-1: observe mode runs the identical engine and persists the truthful
+  // would-be decision (marked observed), but blocks nothing and writes no
+  // enforcement state — no cascade/exec debits (an observed pool must never
+  // trip a shared cap for an enforcing sibling), no approvals, no pages.
+  // Freeze (above) and no-policy (below) still enforce: the kill switch is an
+  // owner action, and observe is a property OF a policy.
+  const observe = policy?.enforcementMode === "observe"
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
   // UX-3: a hard budget denial is appealable — attach the same signed
   // access_request offer the AuthZEN wire carries, so "what changes the
@@ -96,7 +103,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: httpFor(existing) })
   }
 
   // Spend rows keep detailsJson free (provision writes its own shape in its own
@@ -109,7 +116,9 @@ export async function POST(req: NextRequest) {
     category,
     description,
     idempotencyKey,
-    detailsJson: tags ? { tags } : undefined,
+    // The observed marker rides detailsJson like tags do — the row keeps the
+    // truthful would-be status, and this marker says enforcement stood down.
+    detailsJson: tags || observe ? { ...(tags ? { tags } : {}), ...(observe ? { observed: true } : {}) } : undefined,
   }
   const amountCents = Math.round(amount_usd * 100)
 
@@ -229,7 +238,7 @@ export async function POST(req: NextRequest) {
           decisionContextJson: decisionEvidence("spend", gateCtx),
         },
       })
-      return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: statusCode(rec.status) })
+      return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: httpFor(rec) })
     }
   }
 
@@ -329,7 +338,10 @@ export async function POST(req: NextRequest) {
         const escalated = await tx.authorizationRequest.create({
           data: { ...base, ...evidence, status: "escalated", decisionNote: decision.code === "COST_PER_OUTCOME_CEILING" ? decision.reason : undefined },
         })
-        await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
+        // Observed escalations log; they never page anyone (OBS-1).
+        if (!observe) {
+          await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
+        }
         return escalated
       }
 
@@ -338,22 +350,29 @@ export async function POST(req: NextRequest) {
       // breach throws and rolls back the whole transaction. Then honor the
       // reserve_budget obligation (exec-token debit) when there's a token to enforce
       // against — debited on every approval, including sub-floor ones.
-      try {
-        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
-      } catch (e) {
-        if (e instanceof CascadeBudgetExceeded) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
+      if (!observe) {
+        try {
+          poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
+        } catch (e) {
+          if (e instanceof CascadeBudgetExceeded) {
+            return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
+          }
+          throw e
         }
-        throw e
-      }
 
-      const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
-      spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
+        const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
+        spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
+      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain)) {
+        // Observe writes no counters, but the would_be must stay truthful: the
+        // subtree cap lives outside the ladder, so check it read-only here —
+        // the same answer FUND-1's simulate path gives.
+        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
+      }
 
       const approved = await tx.authorizationRequest.create({
         data: { ...base, ...evidence, status: "approved", decidedAt: new Date(), decisionNote: decision.reason },
       })
-      if (execTokenId && decision.obligations.some((o) => o.type === "reserve_budget")) {
+      if (!observe && execTokenId && decision.obligations.some((o) => o.type === "reserve_budget")) {
         await tx.executionToken.update({ where: { id: execTokenId }, data: { spentUsd: { increment: amount_usd } } })
       }
       return approved
@@ -361,7 +380,7 @@ export async function POST(req: NextRequest) {
 
     // Notify the owner (best-effort, after the response) when a human is needed
     // or a budget tripped — the make-or-break human-in-the-loop moment.
-    if (result.status === "escalated") {
+    if (!observe && result.status === "escalated") {
       const approval = await db.pendingApproval.findFirst({
         where: { sourceType: "authorization_request", sourceId: result.id },
         select: { id: true, actionType: true, resourceJson: true, reason: true },
@@ -386,7 +405,7 @@ export async function POST(req: NextRequest) {
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
-    } else if (result.status === "denied" && (result.decisionNote === "Daily spend budget exceeded" || result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE)) {
+    } else if (!observe && result.status === "denied" && (result.decisionNote === "Daily spend budget exceeded" || result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE)) {
       after(() =>
         deliverEvent(agent.walletId, "budget.exhausted", {
           agent: agent.name, scope: result.decisionNote === SUBTREE_CAP_EXCEEDED_NOTE ? "subtree_daily_spend" : "daily_spend", amount_usd, merchant, category,
@@ -419,37 +438,38 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: statusCode(result.status) })
+    return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: httpFor(result) })
   } catch (e: unknown) {
     // Unique violation on (agentId, idempotencyKey) => concurrent duplicate; return the winner.
     if (idempotencyKey && isUniqueViolation(e)) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: httpFor(existing) })
     }
     throw e
   }
 }
 
-type Decision = { id: string; status: string; decisionNote: string | null; amountUsd: number; merchant: string; decisionContextJson?: unknown }
+type Decision = {
+  id: string
+  status: string
+  decisionNote: string | null
+  amountUsd: number
+  merchant: string
+  decisionContextJson?: unknown
+  detailsJson?: unknown
+}
 
 async function persist(data: Record<string, unknown>, agentName: string) {
   const rec = await db.authorizationRequest.create({ data: data as never })
-  return NextResponse.json(decisionResponse(rec, agentName), { status: statusCode(rec.status) })
+  return NextResponse.json(decisionResponse(rec, agentName), { status: httpFor(rec) })
 }
 
 function decisionResponse(r: Decision, agentName: string) {
-  const authorized = r.status === "approved"
   const code = decisionCode(r.status, r.decisionNote)
-  return {
-    authorized,
-    status: r.status,
+  const common = {
     request_id: r.id,
-    reason: r.decisionNote ?? undefined,
-    // Machine-readable code + remediation hint so an agent can replan (UX-1).
-    code,
-    remediation: code ? REMEDIATION[code] : undefined,
     // UX-3: the limit that fired with live values, from the decision's own
     // stored evidence — identical on idempotent replays, zero extra reads.
     limit: limitFromDecision(code, r.decisionContextJson),
@@ -458,6 +478,36 @@ function decisionResponse(r: Decision, agentName: string) {
     amount_usd: r.amountUsd,
     merchant: r.merchant,
   }
+  if (isObserved(r)) {
+    // Nothing is blocked in observe mode — the agent proceeds, and the
+    // decision the engine WOULD have made rides along for the record.
+    return {
+      authorized: true,
+      status: "approved",
+      mode: "observe",
+      would_be: {
+        status: r.status,
+        reason: r.decisionNote ?? undefined,
+        code,
+        remediation: code ? REMEDIATION[code] : undefined,
+      },
+      ...common,
+    }
+  }
+  return {
+    authorized: r.status === "approved",
+    status: r.status,
+    reason: r.decisionNote ?? undefined,
+    // Machine-readable code + remediation hint so an agent can replan (UX-1).
+    code,
+    remediation: code ? REMEDIATION[code] : undefined,
+    ...common,
+  }
+}
+
+// Observed decisions always answer 200 — the truthful status lives in would_be.
+function httpFor(r: Decision): number {
+  return isObserved(r) ? 200 : statusCode(r.status)
 }
 
 function deniedResponse(code: DecisionCode, reason: string, agentName: string, amount_usd: number, merchant: string) {
