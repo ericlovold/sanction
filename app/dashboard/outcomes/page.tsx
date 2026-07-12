@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 import { walletWindowOutcomes, walletWindowSpendUsd, windowStart } from "@/lib/outcomes"
+import { subtreeWalletIds, frozenSubtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -115,14 +116,21 @@ export default async function OutcomesPage() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  const [self, children] = await Promise.all([
-    db.wallet.findUnique({ where: { id: view.id }, select: { id: true, name: true, frozenAt: true } }),
-    db.wallet.findMany({ where: { parentId: view.id }, select: { id: true, name: true, frozenAt: true }, orderBy: { name: "asc" } }),
-  ])
+  // The whole subtree, not just direct children — outcomes live on the leaf
+  // pools, which sit two levels under an org root. Leaf subtree = self.
+  const { ids: subtreeIds } = await subtreeWalletIds(view.id)
+  const walletRows = await db.wallet.findMany({
+    where: { id: { in: subtreeIds } },
+    select: { id: true, name: true, parentId: true, frozenAt: true },
+  })
+  const self = walletRows.find((w) => w.id === view.id)
   if (!self) return <NoWallet />
 
-  const selfFrozen = self.frozenAt !== null
-  const rows = await Promise.all([poolOutcomeRow(self, true), ...children.map((c) => poolOutcomeRow(c, false, selfFrozen))])
+  // Freeze inherits down the tree (KILL-1): a frozen ancestor freezes the pool.
+  const frozenIds = frozenSubtreeWalletIds(walletRows)
+  // Root first, then by name — the org's own row leads its pools.
+  const ordered = [self, ...walletRows.filter((w) => w.id !== view.id).sort((a, b) => a.name.localeCompare(b.name))]
+  const rows = await Promise.all(ordered.map((w) => poolOutcomeRow(w, w.id === view.id, frozenIds.has(w.id))))
   const reporting = rows.filter((r) => r.kind !== null)
   const totalOutcomes = reporting.reduce((s, r) => s + r.outcomes, 0)
   const totalSpend = rows.reduce((s, r) => s + r.spendUsd, 0)

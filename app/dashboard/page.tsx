@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -21,17 +22,20 @@ async function getStats(walletId: string) {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true, name: true, isActive: true, apiKeyPrefix: true } })
+  // Roll up the whole subtree: a parent wallet's Overview is the org's, not just
+  // its own row. A leaf wallet's subtree is itself, so this is a no-op there.
+  const { ids: walletIds } = await subtreeWalletIds(walletId)
+  const agents = await db.agent.findMany({ where: { walletId: { in: walletIds } }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, isActive: true, apiKeyPrefix: true } })
   const agentIds = agents.map((a) => a.id)
 
   const [tokenDay, spendDay, spendMonth, pendingCount, activeGrantCount, deniedToday, firstAuth, firstToken] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
-    db.pendingApproval.count({ where: { walletId, status: "pending" } }),
+    db.pendingApproval.count({ where: { walletId: { in: walletIds }, status: "pending" } }),
     db.grant.count({
       where: {
-        walletId,
+        walletId: { in: walletIds },
         status: "active",
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
