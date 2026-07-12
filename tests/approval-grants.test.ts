@@ -115,6 +115,22 @@ describe("resolveApproval grant issuance", () => {
     expect(afterMock).toHaveBeenCalledOnce()
   })
 
+  it("records the named human approver as evidence (Art 14) — on the approval and the grant", async () => {
+    const result = await resolveApproval("wallet_1", "pa_1", "approve", undefined, "jane@acme.co")
+
+    expect(result.ok).toBe(true)
+    // resolvedBy carries the actual actor, and the default note names them.
+    expect(txMock.pendingApproval.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ resolvedBy: "jane@acme.co", resolutionNote: "Approved by jane@acme.co" }),
+      }),
+    )
+    // The minted authority is attributed to the same human.
+    expect(txMock.grant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ issuedBy: "jane@acme.co" }) }),
+    )
+  })
+
   it("does not mint a grant when another resolver wins the pending-approval race", async () => {
     txMock.pendingApproval.updateMany.mockResolvedValue({ count: 0 })
 

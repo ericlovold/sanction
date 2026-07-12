@@ -265,6 +265,11 @@ export async function resolveApproval(
   approvalOrRequestId: string,
   decision: ApprovalDecision,
   note?: string,
+  // Who decided (Art 14 human-oversight evidence). The accountable owner
+  // identity: the signed-in human's email for dashboard/social sign-in, the
+  // wallet's owner email for a management key. Defaults to "owner" only when a
+  // caller supplies nothing, so evidence never silently loses the actor.
+  resolvedBy: string = "owner",
 ) {
   const approval = await db.pendingApproval.findFirst({
     where: {
@@ -277,7 +282,7 @@ export async function resolveApproval(
     include: { agent: { select: { name: true } } },
   })
 
-  if (!approval) return resolveLegacyAuthorizationRequest(walletId, approvalOrRequestId, decision, note)
+  if (!approval) return resolveLegacyAuthorizationRequest(walletId, approvalOrRequestId, decision, note, resolvedBy)
 
   const wasExpired = await settlePendingApprovalIfExpired(approval)
   if (wasExpired) {
@@ -290,14 +295,14 @@ export async function resolveApproval(
 
   const approvalStatus = decision === "approve" ? "approved" : "denied"
   const requestStatus = decision === "approve" ? "approved" : "denied"
-  const resolutionNote = note?.trim() || (decision === "approve" ? "Approved by owner" : "Rejected by owner")
+  const resolutionNote = note?.trim() || (decision === "approve" ? `Approved by ${resolvedBy}` : `Rejected by ${resolvedBy}`)
   const resolvedAt = new Date()
 
   const result = await db.$transaction(async (tx) => {
     const client = tx as ApprovalWorkflowClient
     const updatedCount = await client.pendingApproval.updateMany({
       where: { id: approval.id, walletId, status: "pending" },
-      data: { status: approvalStatus, resolvedAt, resolvedBy: "owner", resolutionNote },
+      data: { status: approvalStatus, resolvedAt, resolvedBy, resolutionNote },
     })
     if (updatedCount.count === 0) return { ok: false as const }
 
@@ -319,7 +324,7 @@ export async function resolveApproval(
               constraintsJson: approval.constraintsJson,
               sourceType: approval.sourceType,
               sourceId: approval.sourceId,
-              issuedBy: "owner",
+              issuedBy: resolvedBy,
               issuedFromApprovalId: approval.id,
               justification: resolutionNote,
               expiresAt: grantExpiresAt(approval.constraintsJson, resolvedAt),
@@ -373,6 +378,9 @@ async function resolveLegacyAuthorizationRequest(
   requestId: string,
   decision: ApprovalDecision,
   note?: string,
+  // Deprecated escalation path (pre-PendingApproval rows): AuthorizationRequest
+  // has no resolvedBy column, so the actor is named in decisionNote instead.
+  resolvedBy: string = "owner",
 ) {
   const reqRow = await db.authorizationRequest.findUnique({
     where: { id: requestId },
@@ -387,7 +395,7 @@ async function resolveLegacyAuthorizationRequest(
   }
 
   const status = decision === "approve" ? "approved" : "denied"
-  const decisionNote = note?.trim() || (decision === "approve" ? "Approved by owner" : "Rejected by owner")
+  const decisionNote = note?.trim() || (decision === "approve" ? `Approved by ${resolvedBy}` : `Rejected by ${resolvedBy}`)
 
   const updated = await db.authorizationRequest.update({
     where: { id: requestId },

@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const result = await resolveApproval(wallet_id, approval_id ?? request_id ?? "", decision, note)
+  // Record the accountable owner (the mgmt-key holder's account) as the actor —
+  // Art 14 human-oversight evidence: who approved, not just "owner".
+  const result = await resolveApproval(wallet_id, approval_id ?? request_id ?? "", decision, note, owner.wallet.ownerEmail)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
 
   const approval = "approval" in result ? result.approval : null

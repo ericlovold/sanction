@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { rangeUtc } from "@/lib/reporting"
-import { buildWalletExport } from "@/lib/auditExport"
+import { buildWalletExport, euAiActFraming } from "@/lib/auditExport"
 import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 // Tamper-evident audit export (AUDIT-1). GET a signed, hash-chained snapshot of
@@ -43,10 +43,18 @@ export async function GET(req: NextRequest) {
   const { walletIds } = await scopedWalletIds(walletId, readScope(req))
   const { export: doc, truncated } = await buildWalletExport(walletId, from, to, start, end, secret, generatedAt, walletIds)
 
+  // ?framing=eu-ai-act attaches a descriptive block mapping this signed export
+  // onto the Act's Art 12/13/14 obligations + retention. It rides alongside the
+  // signed decisions/chain/signature (never alters them), so /audit/verify is
+  // unaffected — the integrity proof and the framing are independent.
+  const framed = req.nextUrl.searchParams.get("framing") === "eu-ai-act"
+  const withFraming = framed ? { ...doc, ai_act: euAiActFraming(doc) } : doc
+
   const download = req.nextUrl.searchParams.get("download") === "1"
   const headers: Record<string, string> = { "Cache-Control": "no-store" }
   if (download) {
-    headers["Content-Disposition"] = `attachment; filename="sanction-audit-${walletId}-${from}_${to}.json"`
+    const suffix = framed ? "-eu-ai-act" : ""
+    headers["Content-Disposition"] = `attachment; filename="sanction-audit${suffix}-${walletId}-${from}_${to}.json"`
   }
-  return NextResponse.json(truncated ? { ...doc, truncated: true, note_truncated: `only the first ${doc.count} decisions in range were exported` } : doc, { headers })
+  return NextResponse.json(truncated ? { ...withFraming, truncated: true, note_truncated: `only the first ${doc.count} decisions in range were exported` } : withFraming, { headers })
 }
