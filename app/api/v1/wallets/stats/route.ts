@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
 import { monthlyPace, dailyPace } from "@/lib/burn"
+import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 export async function GET(req: NextRequest) {
   const walletId = req.nextUrl.searchParams.get("wallet_id")
@@ -27,7 +28,11 @@ export async function GET(req: NextRequest) {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true } })
+  // Owner-only subtree widening; an agent key stays scoped to its own wallet.
+  // The budget/projection stays on the root wallet's own policy (the envelope).
+  const scope = owner.wallet ? readScope(req) : "wallet"
+  const { walletIds, truncated } = await scopedWalletIds(walletId, scope)
+  const agents = await db.agent.findMany({ where: { walletId: { in: walletIds } }, select: { id: true } })
   const agentIds = agents.map((a) => a.id)
 
   const [tokenDay, tokenMonth, spendDay, spendMonth, recentAuth, recentTokens, pending, policy] = await Promise.all([
@@ -37,7 +42,7 @@ export async function GET(req: NextRequest) {
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: monthStart } }, _sum: { amountUsd: true } }),
     db.authorizationRequest.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 10, include: { agent: { select: { name: true } } } }),
     db.tokenLog.findMany({ where: { agentId: { in: agentIds } }, orderBy: { createdAt: "desc" }, take: 10, include: { agent: { select: { name: true } } } }),
-    db.pendingApproval.count({ where: { walletId, status: "pending" } }),
+    db.pendingApproval.count({ where: { walletId: { in: walletIds }, status: "pending" } }),
     db.policy.findUnique({ where: { walletId }, select: { monthlySpendBudgetUsd: true, dailySpendBudgetUsd: true } }),
   ])
 
@@ -74,5 +79,7 @@ export async function GET(req: NextRequest) {
     pending_approvals: pending,
     recent_auth: recentAuth,
     recent_tokens: recentTokens,
+    scope,
+    ...(truncated ? { truncated: true } : {}),
   })
 }

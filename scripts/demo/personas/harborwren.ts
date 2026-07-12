@@ -67,6 +67,30 @@ export const harborwren: Persona = {
         { label: "WESTLAW_API_KEY", type: "api_key", value: "demo-not-a-real-key-westlaw", min_clearance: 3 },
       ],
     },
+    // ── Two more practices, staffed by named associates and paralegals — the
+    // roster that makes the firm read as a real 13-seat shop. Roled seats
+    // filled by `liven`; buys sit under the firm's $40 auto-approve line.
+    {
+      name: "Demo — Harbor & Wren / Practice — Intellectual Property",
+      policy: { allowed_categories: ["software", "services", "research", "legal"], daily_spend_budget_usd: 700, daily_token_budget_usd: 40, per_transaction_max_usd: 500, auto_approve_under_usd: 40, escalate_over_usd: 150 },
+      seats: [
+        { name: "patent-agent", holder: "S. Okonkwo", role: "associate" },
+        { name: "trademark-agent", holder: "H. Nakamura", role: "paralegal" },
+        { name: "ip-diligence-agent", holder: "C. Delacroix", role: "associate" },
+        { name: "ip-docket-agent", holder: "V. Andersson", role: "analyst" },
+      ],
+    },
+    {
+      name: "Demo — Harbor & Wren / Practice — Regulatory",
+      policy: { allowed_categories: ["software", "services", "research", "legal"], daily_spend_budget_usd: 700, daily_token_budget_usd: 40, per_transaction_max_usd: 500, auto_approve_under_usd: 40, escalate_over_usd: 150 },
+      seats: [
+        { name: "compliance-agent", holder: "N. Adeyemi", role: "associate" },
+        { name: "filings-agent", holder: "L. Moreau", role: "paralegal" },
+        { name: "privacy-agent", holder: "T. Bergström", role: "associate" },
+        { name: "reg-research-agent", holder: "D. Haddad", role: "paralegal" },
+        { name: "reg-analyst-agent", holder: "E. Kowalczyk", role: "analyst" },
+      ],
+    },
   ],
   history: (day: number): DayPlan => {
     const weekday = isWeekday(day)

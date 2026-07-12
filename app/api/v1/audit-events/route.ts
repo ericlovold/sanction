@@ -3,6 +3,7 @@ import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
 import { toCsv } from "@/lib/reporting"
 import { buildAuditFeed } from "@/lib/auditFeed"
+import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 // Unified, time-sorted audit feed for a wallet: spend decisions, token usage, and
 // credential injections (secret access). The "what did my agents do?" surface —
@@ -29,7 +30,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "before must be an ISO timestamp" }, { status: 400 })
   }
 
-  const { events, next_before } = await buildAuditFeed(walletId, { type, limit, before })
+  // Owner-only subtree widening; an agent key stays scoped to its own wallet.
+  const scope = owner.wallet ? readScope(req) : "wallet"
+  const { walletIds } = await scopedWalletIds(walletId, scope)
+  const { events, next_before } = await buildAuditFeed(walletIds, { type, limit, before })
 
   // CSV export (REPORT-1): the same page of the same feed, spreadsheet-ready.
   // Paginate with `before` exactly like the JSON shape.
@@ -43,5 +47,5 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ wallet_id: walletId, events, next_before }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ wallet_id: walletId, scope, events, next_before }, { headers: { "Cache-Control": "no-store" } })
 }

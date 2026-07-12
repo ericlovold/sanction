@@ -47,8 +47,13 @@ export async function buildWalletExport(
   end: Date,
   secret: string,
   generatedAt: string,
+  // Optional query scope: when the caller widened to a subtree, the export
+  // chains every decision across these wallets while the doc's identity stays
+  // the root `walletId`. Defaults to just the root — single-wallet, unchanged.
+  walletIds?: string[],
 ): Promise<{ export: AuditExport; truncated: boolean }> {
-  const agents = await db.agent.findMany({ where: { walletId }, select: { id: true } })
+  const scopeIds = walletIds ?? [walletId]
+  const agents = await db.agent.findMany({ where: { walletId: { in: scopeIds } }, select: { id: true } })
   const rows = await db.authorizationRequest.findMany({
     where: { agentId: { in: agents.map((a) => a.id) }, createdAt: { gte: start, lt: end } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],

@@ -66,7 +66,7 @@ const workflows = [
     tag: "Overnight agents",
     title: "Cap the agent that runs all night",
     body: "An autonomous coding or research agent works your backlog overnight, burning tokens while you sleep. Set a daily token budget on the agent — the gateway returns 402 and stops the call the moment the cap is hit, before the overrun.",
-    link: { label: "Gateway reference", href: `${REPO}/GATEWAY.md` },
+    link: { label: "Gateway reference", href: "/docs/gateway" },
   },
   {
     tag: "Multi-tenant platforms",
@@ -89,6 +89,7 @@ const concepts = [
   { title: "Authorization: the decision", desc: "Wallets, agents, the ladder, grants — and the invariants.", href: "/docs/authorization" },
   { title: "Evidence & replay", desc: "Revisions, stored contexts, replay with proof, what-if simulation.", href: "/docs/evidence-and-replay" },
   { title: "Capability governance", desc: "New powers ask first — skills and plugins governed like money.", href: "/docs/capability-governance" },
+  { title: "Security & threat model", desc: "Trust boundaries, fail-closed invariants, vault encryption, tenant isolation, disclosure.", href: "/docs/security" },
 ]
 
 const ecosystem = [
@@ -112,6 +113,7 @@ const licensing = [
 
 const deeper = [
   { title: "Quickstart", desc: "First metered, governed call in under five minutes.", href: "/docs/quickstart" },
+  { title: "The LLM gateway", desc: "Meter and cap every token across providers on one key — 402 when over budget.", href: "/docs/gateway" },
   { title: "Vercel AI SDK guide", desc: "Drop Sanction into the AI SDK with two lines of config.", href: "/docs/ai-sdk" },
   { title: "LangChain guide", desc: "Meter and cap LangChain calls; authorize before spend.", href: "/docs/langchain" },
   { title: "CrewAI guide", desc: "Give the crew an authorize tool it must clear to spend.", href: "/docs/crewai" },

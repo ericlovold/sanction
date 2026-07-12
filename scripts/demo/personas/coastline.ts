@@ -23,9 +23,10 @@ export const coastline: Persona = {
   company: "Demo — Coastline Digital",
   companyPolicy: {
     allowed_categories: ["software", "services", "marketing", "research", "infrastructure"],
-    daily_spend_budget_usd: 5000,
-    daily_token_budget_usd: 150,
-    subtree_daily_cap_usd: 3000,
+    // Sized for the full agency (curated client pods + the healthy new ones).
+    daily_spend_budget_usd: 8000,
+    daily_token_budget_usd: 400,
+    subtree_daily_cap_usd: 6000,
     per_transaction_max_usd: 2000,
     auto_approve_under_usd: 60,
     escalate_over_usd: 300,
@@ -77,6 +78,28 @@ export const coastline: Persona = {
         escalate_over_usd: 250,
       },
       seats: [{ name: "corsair-media-agent", holder: "Coastline · paid media" }],
+    },
+    // ── Healthy client pods staffed by named account teams — the roster that
+    // makes the agency feel like a real shop. Roled seats, filled by `liven`.
+    {
+      name: "Demo — Coastline / Client — Northwind Retail",
+      policy: { allowed_categories: ["software", "services", "marketing"], daily_spend_budget_usd: 1200, daily_token_budget_usd: 40, per_transaction_max_usd: 800, auto_approve_under_usd: 60, escalate_over_usd: 300 },
+      seats: [
+        { name: "northwind-media-agent", holder: "Devon Pierce", role: "media-buyer" },
+        { name: "northwind-social-agent", holder: "Amara Nwosu", role: "marketer" },
+        { name: "northwind-creative-agent", holder: "Rafael Ortiz", role: "designer" },
+        { name: "northwind-analyst-agent", holder: "Chloe Bennett", role: "analyst" },
+      ],
+    },
+    {
+      name: "Demo — Coastline / Client — Vireo Fitness",
+      policy: { allowed_categories: ["software", "services", "marketing"], daily_spend_budget_usd: 1000, daily_token_budget_usd: 40, per_transaction_max_usd: 800, auto_approve_under_usd: 60, escalate_over_usd: 300 },
+      seats: [
+        { name: "vireo-media-agent", holder: "Jasmine Carter", role: "media-buyer" },
+        { name: "vireo-content-agent", holder: "Mateo Rossi", role: "marketer" },
+        { name: "vireo-lifecycle-agent", holder: "Priyanka Rao", role: "marketer" },
+        { name: "vireo-analyst-agent", holder: "Owen Fitzgerald", role: "analyst" },
+      ],
     },
   ],
   history: (day: number): DayPlan => {

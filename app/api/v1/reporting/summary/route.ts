@@ -3,6 +3,7 @@ import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
 import { rangeUtc } from "@/lib/reporting"
 import { buildPeriodSummary } from "@/lib/reportingSummary"
+import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 // Period reporting (REPORT-1): the daily summary's grown-up sibling — any
 // range up to 92 days, day-by-day buckets, optional per-agent grouping.
@@ -33,10 +34,14 @@ export async function GET(req: NextRequest) {
   }
   const groupByAgent = req.nextUrl.searchParams.get("group_by") === "agent"
 
-  const summary = await buildPeriodSummary(walletId, { start, end, groupByAgent })
+  // Only the wallet owner may widen to the subtree; an agent key stays scoped to
+  // its own wallet.
+  const scope = owner.wallet ? readScope(req) : "wallet"
+  const { walletIds, truncated } = await scopedWalletIds(walletId, scope)
+  const summary = await buildPeriodSummary(walletIds, { start, end, groupByAgent })
 
   return NextResponse.json(
-    { wallet_id: walletId, from, to, ...summary },
+    { wallet_id: walletId, scope, ...(truncated ? { truncated: true } : {}), from, to, ...summary },
     { headers: { "Cache-Control": "no-store" } },
   )
 }

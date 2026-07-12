@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { withTenant } from "@/lib/rls"
+import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -82,13 +83,20 @@ export async function GET(req: NextRequest) {
   const owner = await authenticateOwner(req, walletId)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const agents = await db.agent.findMany({
-    where: { walletId },
-    select: { id: true, name: true, holder: true, expiresAt: true, apiKeyPrefix: true, isActive: true, createdAt: true },
+  // ?scope=subtree lists every seat under this wallet's pools too, each tagged
+  // with its owning pool. Default stays this wallet's own seats.
+  const { walletIds, truncated } = await scopedWalletIds(walletId, readScope(req))
+  const rows = await db.agent.findMany({
+    where: { walletId: { in: walletIds } },
+    select: {
+      id: true, name: true, holder: true, expiresAt: true, apiKeyPrefix: true, isActive: true, createdAt: true,
+      walletId: true, wallet: { select: { name: true } },
+    },
     orderBy: { createdAt: "desc" },
   })
+  const agents = rows.map(({ wallet, ...a }) => ({ ...a, pool: wallet.name }))
 
-  return NextResponse.json({ agents })
+  return NextResponse.json({ agents, scope: readScope(req), ...(truncated ? { truncated: true } : {}) })
 }
 
 // Set or clear per-agent budget overrides (management plane).

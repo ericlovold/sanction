@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { rangeUtc } from "@/lib/reporting"
 import { buildWalletExport } from "@/lib/auditExport"
+import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 // Tamper-evident audit export (AUDIT-1). GET a signed, hash-chained snapshot of
 // a wallet's governed decisions over a date range. Each decision is chained to
@@ -37,7 +38,10 @@ export async function GET(req: NextRequest) {
   }
 
   const generatedAt = new Date().toISOString()
-  const { export: doc, truncated } = await buildWalletExport(walletId, from, to, start, end, secret, generatedAt)
+  // Owner is already authenticated on walletId; ?scope=subtree chains the whole
+  // subtree's decisions into one signed export.
+  const { walletIds } = await scopedWalletIds(walletId, readScope(req))
+  const { export: doc, truncated } = await buildWalletExport(walletId, from, to, start, end, secret, generatedAt, walletIds)
 
   const download = req.nextUrl.searchParams.get("download") === "1"
   const headers: Record<string, string> = { "Cache-Control": "no-store" }
