@@ -1,25 +1,31 @@
 #!/usr/bin/env npx tsx
-// Demo-company driver (docs/plans/demo-companies.md, PR1).
+// Demo-company driver (docs/plans/demo-companies.md, PR1+PR2).
 //
-//   npx tsx scripts/demo/run.ts seed  meridian    # build the org (idempotent)
-//   npx tsx scripts/demo/run.ts pulse meridian    # a day-in-the-life; leaves the stage set
-//   npx tsx scripts/demo/run.ts pulse meridian --watch   # …then redeem grants as approvals land
-//   npx tsx scripts/demo/run.ts status meridian   # where things stand
+//   npx tsx scripts/demo/run.ts seed    <persona>            # build the org (idempotent)
+//   npx tsx scripts/demo/run.ts history <persona> --days 30  # backdated month of real traffic (needs DATABASE_URL)
+//   npx tsx scripts/demo/run.ts pulse   <persona> [--watch]  # today; leaves the stage set
+//   npx tsx scripts/demo/run.ts status  <persona>
 //
 // Environment:
 //   SANCTION_API_URL   target API (default http://localhost:3000/api/v1)
 //   DEMO_HQ_EMAIL      owner email for the Demo HQ root wallet (required on first seed)
 //   DEMO_HQ_WALLET_ID / DEMO_HQ_MGMT   adopt an existing HQ instead of creating one
+//   DATABASE_URL       history mode only — direct DB access for the backdate pass
 //
 // Everything flows through the public REST API — the same path a customer's
 // agents take — so every dashboard surface is populated with honest data.
-// Keys land in scripts/demo/.keys.<persona>.json (gitignored).
+// History mode is the one exception: it drives each day via the API, then
+// shifts timestamps with a direct-DB pass (see backdate.ts for the rationale
+// and the counter-coherence rules). Keys land in scripts/demo/.keys.<persona>.json
+// (gitignored). Run order: seed → history → pulse.
 
-import { API_URL, call, fail, loadKeys, saveKeys } from "./lib"
-import type { Persona, Keys, SpendSpec } from "./lib"
+import { API_URL, call, fail, loadKeys, saveKeys, loadHq, saveHq } from "./lib"
+import type { Persona, Keys, HqKeys, SpendSpec, TokenLogSpec, OutcomeSpec } from "./lib"
 import { meridian } from "./personas/meridian"
+import { coastline } from "./personas/coastline"
+import { harborwren } from "./personas/harborwren"
 
-const PERSONAS: Record<string, Persona> = { meridian }
+const PERSONAS: Record<string, Persona> = { meridian, coastline, harborwren }
 
 // ownerEmail is unique per wallet, so every wallet in the demo tree gets a
 // deterministic plus-address off the HQ email: demo@x.com + "meridian-eng"
@@ -33,39 +39,37 @@ function demoEmail(slug: string): string {
 
 // ── seed ────────────────────────────────────────────────────────────────────
 
-async function ensureWallet(
-  keys: Keys,
-  slot: "hq" | "company",
+async function createWallet(
   name: string,
   email: string,
   parent?: { walletId: string; mgmtKey: string },
 ): Promise<{ walletId: string; mgmtKey: string }> {
-  const existing = keys[slot]
-  if (existing) return existing
   const body: Record<string, unknown> = { name, owner_email: email }
   if (parent) body.parent_id = parent.walletId
-  if (slot === "hq" && process.env.DEMO_HQ_WALLET_ID && process.env.DEMO_HQ_MGMT) {
-    const adopted = { walletId: process.env.DEMO_HQ_WALLET_ID, mgmtKey: process.env.DEMO_HQ_MGMT }
-    keys.hq = adopted
-    return adopted
-  }
-  if (!process.env.DEMO_HQ_EMAIL) fail("DEMO_HQ_EMAIL is required on first seed")
   const { status, json } = await call<{ id: string; management_key: string; error?: string }>("/wallets", {
     auth: parent ? { mgmt: parent.mgmtKey } : undefined,
     body,
   })
   if (status !== 201 && status !== 200) fail(`create wallet "${name}" → ${status} ${JSON.stringify(json)}`)
-  const created = { walletId: json.id, mgmtKey: json.management_key }
-  keys[slot] = created
-  console.log(`  + wallet ${name} (${created.walletId})`)
-  return created
+  console.log(`  + wallet ${name} (${json.id})`)
+  return { walletId: json.id, mgmtKey: json.management_key }
+}
+
+async function ensureHq(): Promise<HqKeys> {
+  const existing = loadHq()
+  if (existing) return existing
+  const adopted =
+    process.env.DEMO_HQ_WALLET_ID && process.env.DEMO_HQ_MGMT
+      ? { walletId: process.env.DEMO_HQ_WALLET_ID, mgmtKey: process.env.DEMO_HQ_MGMT }
+      : await createWallet("Demo — Sanction HQ", process.env.DEMO_HQ_EMAIL!)
+  saveHq(adopted)
+  return adopted
 }
 
 async function seed(persona: Persona) {
   const keys = loadKeys(persona.key)
   if (!process.env.DEMO_HQ_EMAIL) fail("DEMO_HQ_EMAIL is required")
-  const hq = await ensureWallet(keys, "hq", "Demo — Sanction HQ", process.env.DEMO_HQ_EMAIL)
-  saveKeys(persona.key, keys)
+  const hq = await ensureHq()
   // Ancestor policies fold into every descendant's decision (deny-overrides up
   // the tree), and a fresh wallet's defaults are tight ($50/day, $50/txn). HQ
   // is the umbrella, not the governor — open its guardrails so each company's
@@ -84,8 +88,11 @@ async function seed(persona: Persona) {
     },
   })
   if (hp.status !== 200) fail(`HQ policy → ${hp.status} ${JSON.stringify(hp.json)}`)
-  const company = await ensureWallet(keys, "company", persona.company, demoEmail(persona.key), hq)
-  saveKeys(persona.key, keys)
+  if (!keys.company) {
+    keys.company = await createWallet(persona.company, demoEmail(persona.key), hq)
+    saveKeys(persona.key, keys)
+  }
+  const company = keys.company
 
   const cp = await call("/wallets/policy", {
     method: "PATCH",
@@ -116,14 +123,16 @@ async function seed(persona: Persona) {
 
     for (const seat of pool.seats) {
       if (!keys.seats[seat.name]) {
-        const { status, json } = await call<{ id: string; api_key: string }>("/agents", {
-          auth: { mgmt: pk.mgmtKey },
-          body: { wallet_id: pk.walletId, name: seat.name, holder: seat.holder },
-        })
+        const body: Record<string, unknown> = { wallet_id: pk.walletId, name: seat.name, holder: seat.holder }
+        if (seat.expiresAt) {
+          body.expires_at =
+            seat.expiresAt === "past" ? new Date(Date.now() - 24 * 3600 * 1000).toISOString() : seat.expiresAt
+        }
+        const { status, json } = await call<{ id: string; api_key: string }>("/agents", { auth: { mgmt: pk.mgmtKey }, body })
         if (status !== 201 && status !== 200) fail(`create seat "${seat.name}" → ${status} ${JSON.stringify(json)}`)
         keys.seats[seat.name] = { agentId: json.id, apiKey: json.api_key, poolName: pool.name }
         saveKeys(persona.key, keys)
-        console.log(`  + seat ${seat.name} (${seat.holder})`)
+        console.log(`  + seat ${seat.name} (${seat.holder})${seat.expiresAt === "past" ? " — already expired" : ""}`)
       }
       if (seat.overrides) {
         const s = keys.seats[seat.name]
@@ -152,7 +161,7 @@ async function seed(persona: Persona) {
   console.log(`  admin view (your side):          HQ wallet ${hq.walletId}`)
 }
 
-// ── pulse ───────────────────────────────────────────────────────────────────
+// ── shared runners (pulse + history speak the same specs) ───────────────────
 
 type AuthorizeResponse = {
   authorized?: boolean
@@ -161,6 +170,20 @@ type AuthorizeResponse = {
   request_id?: string
   grant_id?: string
   error?: string
+}
+
+type Checker = { check: (label: string, expected: string, actual: string | undefined) => void; mismatches: () => number }
+
+function makeChecker(): Checker {
+  let n = 0
+  return {
+    check: (label, expected, actual) => {
+      const ok = expected === actual
+      if (!ok) n++
+      console.log(`  ${ok ? "✓" : "✗"} ${label} → ${actual}${ok ? "" : ` (expected ${expected})`}`)
+    },
+    mismatches: () => n,
+  }
 }
 
 function spendBody(s: SpendSpec, grantId?: string) {
@@ -175,32 +198,22 @@ function spendBody(s: SpendSpec, grantId?: string) {
   }
 }
 
-async function pulse(persona: Persona, watch: boolean) {
-  const keys = loadKeys(persona.key)
-  if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
-  let mismatches = 0
-  const check = (label: string, expected: string, actual: string | undefined) => {
-    const ok = expected === actual
-    if (!ok) mismatches++
-    console.log(`  ${ok ? "✓" : "✗"} ${label} → ${actual}${ok ? "" : ` (expected ${expected})`}`)
-  }
-  keys.pending = keys.pending.filter((p) => p.kind !== "spend" && p.kind !== "tool") // reset staging; re-pulse restages
-
-  console.log("tokens:")
-  for (const t of persona.pulse.tokens) {
+async function runTokens(keys: Keys, specs: TokenLogSpec[], c: Checker) {
+  for (const t of specs) {
     const seat = keys.seats[t.seat] ?? fail(`unknown seat ${t.seat}`)
     const { status } = await call("/tokens", {
       auth: { agent: seat.apiKey },
       body: { model: t.model, tokens_in: t.tokens_in, tokens_out: t.tokens_out, cost_usd: t.cost_usd, task: t.task },
     })
-    check(`${t.seat} $${t.cost_usd} ${t.task}`, t.expectDenied ? "402" : "200", String(status))
+    c.check(`${t.seat} $${t.cost_usd} ${t.task}`, t.expectDenied ? "402" : "200", String(status))
   }
+}
 
-  console.log("spends:")
-  for (const s of persona.pulse.spends) {
+async function runSpends(keys: Keys, specs: SpendSpec[], c: Checker, opts: { stagePending: boolean }) {
+  for (const s of specs) {
     const seat = keys.seats[s.seat] ?? fail(`unknown seat ${s.seat}`)
     const { json } = await call<AuthorizeResponse>("/authorize", { auth: { agent: seat.apiKey }, body: spendBody(s) })
-    check(`${s.seat} ${s.merchant} $${s.amount_usd}`, s.expect, json.status)
+    c.check(`${s.seat} ${s.merchant} $${s.amount_usd}`, s.expect, json.status)
     if (json.status === "escalated" && json.request_id) {
       if (s.then === "approve-and-redeem") {
         const pool = keys.pools[seat.poolName]
@@ -213,12 +226,59 @@ async function pulse(persona: Persona, watch: boolean) {
           auth: { agent: seat.apiKey },
           body: spendBody(s, ap.json.grant_id),
         })
-        check(`  ↳ approved by owner, grant redeemed`, "approved", redo.json.status)
-      } else {
+        c.check(`  ↳ approved by owner, grant redeemed`, "approved", redo.json.status)
+      } else if (opts.stagePending) {
         keys.pending.push({ requestId: json.request_id, seat: s.seat, kind: "spend", retry: spendBody(s) })
         console.log(`    ↳ left pending for the live demo (${json.request_id})`)
       }
     }
+  }
+}
+
+async function runOutcomes(keys: Keys, specs: OutcomeSpec[], c: Checker, occurredAt?: string) {
+  for (const o of specs) {
+    const seat = keys.seats[o.seat] ?? fail(`unknown seat ${o.seat}`)
+    const { status, json } = await call<{ error?: string }>("/outcomes", {
+      auth: { agent: seat.apiKey },
+      body: { kind: o.kind, value_usd: o.value_usd, play: o.play, dedupe_key: o.dedupe_key, occurred_at: o.occurred_at ?? occurredAt },
+    })
+    c.check(`${o.seat} outcome ${o.kind} (${o.dedupe_key})`, "ok", json.error ? `${status} ${json.error}` : "ok")
+  }
+}
+
+// ── pulse ───────────────────────────────────────────────────────────────────
+
+async function pulse(persona: Persona, watch: boolean) {
+  const keys = loadKeys(persona.key)
+  if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
+  const c = makeChecker()
+  keys.pending = [] // reset staging; re-pulse restages
+
+  for (const f of persona.pulse.freezePools ?? []) {
+    const pool = keys.pools[f.pool] ?? fail(`unknown pool ${f.pool}`)
+    const { status, json } = await call<{ frozen?: boolean }>("/wallets/freeze", {
+      auth: { mgmt: pool.mgmtKey },
+      body: { wallet_id: pool.walletId, reason: f.reason },
+    })
+    c.check(`freeze ${f.pool.split("/").pop()}`, "frozen", status === 200 && json.frozen ? "frozen" : `${status}`)
+  }
+
+  for (const seatName of persona.pulse.expiredSeats ?? []) {
+    const seat = keys.seats[seatName] ?? fail(`unknown seat ${seatName}`)
+    const { status } = await call("/authorize", {
+      auth: { agent: seat.apiKey },
+      body: { action: "purchase", amount_usd: 5, merchant: "Anywhere", category: "software" },
+    })
+    c.check(`${seatName} (expired contractor) fails closed`, "401", String(status))
+  }
+
+  console.log("tokens:")
+  await runTokens(keys, persona.pulse.tokens, c)
+  console.log("spends:")
+  await runSpends(keys, persona.pulse.spends, c, { stagePending: true })
+  if (persona.pulse.outcomes?.length) {
+    console.log("outcomes:")
+    await runOutcomes(keys, persona.pulse.outcomes, c)
   }
 
   console.log("tools:")
@@ -226,14 +286,14 @@ async function pulse(persona: Persona, watch: boolean) {
     const seat = keys.seats[t.seat] ?? fail(`unknown seat ${t.seat}`)
     const body = { tool: t.tool, server: t.server }
     const { json } = await call<AuthorizeResponse>("/authorize/tool", { auth: { agent: seat.apiKey }, body })
-    check(`${t.seat} ${t.tool}`, t.expect, json.status)
+    c.check(`${t.seat} ${t.tool}`, t.expect, json.status)
     if (json.status === "escalated" && json.request_id && t.then === "leave-pending") {
       keys.pending.push({ requestId: json.request_id, seat: t.seat, kind: "tool", retry: body })
       console.log(`    ↳ left pending for the live demo (${json.request_id})`)
     }
   }
 
-  console.log("credential injections:")
+  if (persona.pulse.injections.length) console.log("credential injections:")
   for (const inj of persona.pulse.injections) {
     const seat = keys.seats[inj.seat] ?? fail(`unknown seat ${inj.seat}`)
     const ex = await call<{ jwt?: string; error?: string }>("/exec", {
@@ -245,16 +305,44 @@ async function pulse(persona: Persona, watch: boolean) {
       auth: { bearer: ex.json.jwt },
       body: { credential_label: inj.label },
     })
-    check(`${inj.seat} inject ${inj.label}`, "ok", injected.json.value ? "ok" : "missing")
+    c.check(`${inj.seat} inject ${inj.label}`, "ok", injected.json.value ? "ok" : "missing")
   }
 
   saveKeys(persona.key, keys)
   console.log(
     `\nPulse complete — ${keys.pending.length} escalation(s) left pending on stage.` +
-      (mismatches ? ` ${mismatches} EXPECTATION MISMATCH(ES).` : ""),
+      (c.mismatches() ? ` ${c.mismatches()} EXPECTATION MISMATCH(ES).` : ""),
   )
-  if (mismatches) process.exit(1)
+  if (c.mismatches()) process.exit(1)
   if (watch) await watchPending(persona)
+}
+
+// ── history ─────────────────────────────────────────────────────────────────
+
+async function history(persona: Persona, days: number) {
+  if (!persona.history) fail(`persona "${persona.key}" has no history generator`)
+  const keys = loadKeys(persona.key)
+  if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
+  const { backdateWindow } = await import("./backdate")
+  const agentIds = Object.values(keys.seats).map((s) => s.agentId)
+  const walletIds = [keys.company.walletId, ...Object.values(keys.pools).map((p) => p.walletId)]
+
+  console.log(`Generating ${days - 1} backdated days for ${persona.company} (oldest first)…`)
+  for (let day = days - 1; day >= 1; day--) {
+    const plan = persona.history(day)
+    const nothing = !plan.tokens.length && !plan.spends.length && !(plan.outcomes?.length ?? 0)
+    if (nothing) continue
+    const batchStart = new Date(Date.now() - 2000)
+    const occurredAt = new Date(Date.now() - day * 24 * 3600 * 1000).toISOString()
+    const c = makeChecker()
+    await runTokens(keys, plan.tokens, c)
+    await runSpends(keys, plan.spends, c, { stagePending: false })
+    if (plan.outcomes?.length) await runOutcomes(keys, plan.outcomes, c, occurredAt)
+    if (c.mismatches()) fail(`day -${day}: ${c.mismatches()} expectation mismatch(es) — stopping before backdate`)
+    const shifted = await backdateWindow({ since: batchStart, days: day, agentIds, walletIds })
+    console.log(`  day -${day}: ${shifted.authRows} decisions + ${shifted.tokenRows} token logs shifted`)
+  }
+  console.log(`History complete. Run pulse for today's staged state.`)
 }
 
 // Poll the staged escalations; when the owner approves one in the dashboard,
@@ -310,9 +398,14 @@ async function status(persona: Persona) {
 
 const [cmd, personaKey, ...flags] = process.argv.slice(2)
 const persona = PERSONAS[personaKey ?? ""]
-if (!cmd || !persona) fail(`usage: run.ts <seed|pulse|status> <${Object.keys(PERSONAS).join("|")}> [--watch]`)
+if (!cmd || !persona) fail(`usage: run.ts <seed|history|pulse|status> <${Object.keys(PERSONAS).join("|")}> [--days N] [--watch]`)
 
 if (cmd === "seed") await seed(persona)
-else if (cmd === "pulse") await pulse(persona, flags.includes("--watch"))
+else if (cmd === "history") {
+  const di = flags.indexOf("--days")
+  const days = di >= 0 ? Number(flags[di + 1]) : 30
+  if (!Number.isInteger(days) || days < 2 || days > 90) fail("--days must be an integer between 2 and 90")
+  await history(persona, days)
+} else if (cmd === "pulse") await pulse(persona, flags.includes("--watch"))
 else if (cmd === "status") await status(persona)
 else fail(`unknown command "${cmd}"`)
