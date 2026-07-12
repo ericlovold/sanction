@@ -10,7 +10,7 @@ import { createToolPendingApproval } from "@/lib/approvals"
 import { consumeToolGrant } from "@/lib/grants"
 import { deliverEvent, APPROVE_URL } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
-import { REMEDIATION, deriveReplayCode, type DecisionCode } from "@/lib/decisions"
+import { REMEDIATION, deriveReplayCode, isObserved, type DecisionCode } from "@/lib/decisions"
 import { logger } from "@/lib/log"
 
 const log = logger("v1/authorize/tool")
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: isObserved(existing) ? 200 : statusCode(existing.status) })
+    if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: httpFor(existing) })
   }
 
   // Grant redemption: the owner approved this exact tool (and server) — consume
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
         const existing = await db.authorizationRequest.findUnique({
           where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
         })
-        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: isObserved(existing) ? 200 : statusCode(existing.status) })
+        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: httpFor(existing) })
       }
       throw e
     }
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
         const existing = await db.authorizationRequest.findUnique({
           where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
         })
-        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: isObserved(existing) ? 200 : statusCode(existing.status) })
+        if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: httpFor(existing) })
       }
       throw e
     }
@@ -299,8 +299,9 @@ export async function POST(req: NextRequest) {
 
 type PersistedTool = { id: string; status: string; decisionNote: string | null; detailsJson?: unknown }
 
-function isObserved(r: PersistedTool): boolean {
-  return typeof r.detailsJson === "object" && r.detailsJson !== null && (r.detailsJson as { observed?: boolean }).observed === true
+// Observed rows always answer 200 — the truthful status lives in would_be.
+function httpFor(r: PersistedTool): number {
+  return isObserved(r) ? 200 : statusCode(r.status)
 }
 
 function replayResponse(r: PersistedTool, agentName: string, tool: string, server?: string) {

@@ -55,7 +55,7 @@ vi.mock("@/lib/freeze", async (orig) => {
 import { POST as authorize } from "../app/api/v1/authorize/route"
 import { POST as authorizeTool } from "../app/api/v1/authorize/tool/route"
 import { createSpendPendingApproval, createToolPendingApproval } from "../lib/approvals"
-import { reserveCascadeDailySpend } from "../lib/cascadeBudget"
+import { cascadeDailyWouldExceed, reserveCascadeDailySpend } from "../lib/cascadeBudget"
 import { deliverEvent } from "../lib/webhooks"
 
 const KEY = "pxy_observetestkey"
@@ -129,6 +129,7 @@ beforeEach(() => {
   dbMock.pendingApproval.findFirst.mockResolvedValue(null)
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
+  vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(false)
 })
 
 describe("observe mode — spend route", () => {
@@ -162,6 +163,17 @@ describe("observe mode — spend route", () => {
     expect(body.would_be.status).toBe("escalated")
     expect(createSpendPendingApproval).not.toHaveBeenCalled()
     expect(deliverEvent).not.toHaveBeenCalled()
+  })
+
+  it("the would_be stays truthful for subtree caps — read-only check, no counter writes", async () => {
+    // The subtree cap lives outside the ladder; observe must still report it.
+    vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(true)
+    const res = await authorize(req("/authorize", SPEND))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: true, mode: "observe" })
+    expect(body.would_be).toMatchObject({ status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
+    expect(reserveCascadeDailySpend).not.toHaveBeenCalled()
   })
 
   it("a would-be approval writes no enforcement state — no cascade reserve", async () => {

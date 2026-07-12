@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionCode, isObserved, REMEDIATION, type DecisionCode } from "@/lib/decisions"
 import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/evidence"
 import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
@@ -362,6 +362,11 @@ export async function POST(req: NextRequest) {
 
         const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
         spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
+      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain)) {
+        // Observe writes no counters, but the would_be must stay truthful: the
+        // subtree cap lives outside the ladder, so check it read-only here —
+        // the same answer FUND-1's simulate path gives.
+        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
       }
 
       const approved = await tx.authorizationRequest.create({
@@ -454,13 +459,6 @@ type Decision = {
   merchant: string
   decisionContextJson?: unknown
   detailsJson?: unknown
-}
-
-// OBS-1: the persisted row keeps the truthful would-be status; this marker
-// says enforcement stood down, so the response must read as approved to every
-// existing client (the SDK middleware throws on any non-approved status).
-function isObserved(r: Decision): boolean {
-  return typeof r.detailsJson === "object" && r.detailsJson !== null && (r.detailsJson as { observed?: boolean }).observed === true
 }
 
 async function persist(data: Record<string, unknown>, agentName: string) {

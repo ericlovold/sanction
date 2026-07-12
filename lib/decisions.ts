@@ -209,3 +209,10 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note === "Wallet is frozen" || note.startsWith("Parent wallet is frozen")) return "WALLET_FROZEN"
   return "POLICY_DENIED"
 }
+
+// OBS-1: an observed row keeps its truthful would-be status; this marker in
+// detailsJson says enforcement stood down. Shared by every authorize route so
+// the response-wrapping semantics can't drift as observe reaches new surfaces.
+export function isObserved(r: { detailsJson?: unknown }): boolean {
+  return typeof r.detailsJson === "object" && r.detailsJson !== null && (r.detailsJson as { observed?: boolean }).observed === true
+}
