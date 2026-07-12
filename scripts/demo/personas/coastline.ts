@@ -11,6 +11,7 @@
 //   · Corsair — the kill switch: frozen by the owner, every spend denies
 //     WALLET_FROZEN until unfrozen
 
+import { isWeekday } from "../lib"
 import type { Persona, DayPlan } from "../lib"
 
 const ATLAS = "Demo — Coastline / Client — Atlas D2C"
@@ -79,7 +80,7 @@ export const coastline: Persona = {
     },
   ],
   history: (day: number): DayPlan => {
-    const weekday = (day + 3) % 7 < 5 // rough weekday rhythm
+    const weekday = isWeekday(day) // rough weekday rhythm
     const plan: DayPlan = { tokens: [], spends: [], outcomes: [] }
     // Atlas: the healthy channel — daily media buys + copy tokens, regular bookings.
     plan.tokens.push({
@@ -148,21 +149,28 @@ export const coastline: Persona = {
     return plan
   },
   // For DB-less targets (prod): arm Bluebird's ceiling through the API alone —
-  // today's approved spend supplies the ratio's numerator, three backdated
-  // bookings (occurred_at) satisfy min_outcomes. Windowed: ~$204 / 3 ≈ $68 >
-  // the $60 ceiling, so the next spend escalates. `history` supersedes this
-  // when direct DB access exists.
+  // today's approved spend supplies the ratio's numerator (4 × $48 = $192),
+  // three recent backdated bookings (occurred_at) satisfy min_outcomes:
+  // $192 / 3 = $64 > the $60 ceiling, so the next spend escalates.
+  //
+  // The arming DECAYS by design: a throttled channel approves nothing, so its
+  // windowed spend only ages out — after ~25 days (bookings at 5/3/1 days ago
+  // sliding past the 30-day window) the ratio disarms and the daily pulse
+  // flags Bluebird approved-instead-of-escalated. That red run is the
+  // maintenance beat: re-run `prime coastline` (dedupe keys are date-scoped,
+  // so re-priming mints fresh rows). `history` supersedes this when direct
+  // DB access exists.
   prime: {
     spends: [
-      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 1 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
-      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 2 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
-      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 3 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
-      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 4 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 48, merchant: "Google Ads", category: "marketing", description: "Search defense — week 1 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 48, merchant: "Google Ads", category: "marketing", description: "Search defense — week 2 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 48, merchant: "Google Ads", category: "marketing", description: "Search defense — week 3 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 48, merchant: "Google Ads", category: "marketing", description: "Search defense — week 4 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
     ],
     outcomes: [
-      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: "bluebird-booking-p20", days_ago: 20 },
-      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: "bluebird-booking-p10", days_ago: 10 },
-      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: "bluebird-booking-p1", days_ago: 1 },
+      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: `bluebird-booking-p5-${new Date().toISOString().slice(0, 10)}`, days_ago: 5 },
+      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: `bluebird-booking-p3-${new Date().toISOString().slice(0, 10)}`, days_ago: 3 },
+      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: `bluebird-booking-p1-${new Date().toISOString().slice(0, 10)}`, days_ago: 1 },
     ],
   },
   pulse: {

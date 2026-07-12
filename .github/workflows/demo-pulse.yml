@@ -7,7 +7,9 @@ name: Demo Pulse
 # The pulse is self-verifying — every spend/token/tool call asserts the
 # decision the engine must return — so this doubles as a daily production
 # smoke test of the whole authorization path. A red run means either the
-# demo drifted or prod did; both are worth a look.
+# demo drifted or prod did; both are worth a look. (Known drift beat: the
+# Bluebird CPO throttle disarms as its windowed ratio decays — re-run
+# `prime coastline` per the runbook's maintenance note.)
 #
 # Setup (once): run scripts/demo/run.ts seed + history against prod, then
 # store the key files as the DEMO_KEYS_JSON secret:
@@ -20,15 +22,30 @@ on:
   schedule:
     - cron: "0 13 * * *" # daily, morning US
 
+# Never overlap two pulses (a queued rerun would replay the same day's
+# budgets and trip the staged expectations).
+concurrency:
+  group: demo-pulse
+  cancel-in-progress: false
+
 jobs:
   pulse:
     runs-on: ubuntu-latest
     if: ${{ github.repository == 'ericlovold/sanction' }}
+    # This job handles production demo keys and runs scripts — keep the
+    # GITHUB_TOKEN read-only and out of .git/config.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+      # Lockfile-pinned runtime — no registry fetch-and-execute next to the keys.
+      - run: npm ci --no-audit --no-fund
       - name: Restore demo key stores
         env:
           DEMO_KEYS_JSON: ${{ secrets.DEMO_KEYS_JSON }}
@@ -53,5 +70,5 @@ jobs:
           set -e
           for p in meridian coastline harborwren; do
             echo "════ pulse $p ════"
-            npx -y tsx scripts/demo/run.ts pulse "$p"
+            npx --no-install tsx scripts/demo/run.ts pulse "$p"
           done

@@ -9,6 +9,7 @@
 //   · a docusign.send tool escalation LEFT PENDING
 //   · a month of research burn + small filings, one approved retainer a week
 
+import { isWeekday } from "../lib"
 import type { Persona, DayPlan } from "../lib"
 
 const CORPORATE = "Demo — Harbor & Wren / Practice — Corporate"
@@ -68,7 +69,7 @@ export const harborwren: Persona = {
     },
   ],
   history: (day: number): DayPlan => {
-    const weekday = (day + 3) % 7 < 5
+    const weekday = isWeekday(day)
     const plan: DayPlan = { tokens: [], spends: [] }
     if (!weekday) return plan // the firm rests
     plan.tokens.push(

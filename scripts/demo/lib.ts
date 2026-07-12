@@ -31,6 +31,12 @@ export function fail(msg: string): never {
   process.exit(1)
 }
 
+/** Shared rough weekday rhythm for history generators (dayIndex counts back
+ *  from yesterday) — one formula so the personas can't drift. */
+export function isWeekday(dayIndex: number): boolean {
+  return (dayIndex + 3) % 7 < 5
+}
+
 // ── Persona manifest ────────────────────────────────────────────────────────
 
 export type PolicyPatch = Record<string, unknown> // policyInputSchema field names, dollars

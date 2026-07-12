@@ -12,6 +12,7 @@
 //   · denials with stable codes: over per-txn cap, blocked category, blocked tool
 //   · one exec→inject round-trip (scoped JWT, clearance-gated vault read)
 
+import { isWeekday } from "../lib"
 import type { Persona, DayPlan } from "../lib"
 
 export const meridian: Persona = {
@@ -84,7 +85,7 @@ export const meridian: Persona = {
     },
   ],
   history: (day: number): DayPlan => {
-    const weekday = (day + 3) % 7 < 5
+    const weekday = isWeekday(day)
     const plan: DayPlan = { tokens: [], spends: [] }
     // Departments hum along under their caps — the month the reporting page
     // and the sequential simulator replay.

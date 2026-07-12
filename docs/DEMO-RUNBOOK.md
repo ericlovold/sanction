@@ -19,9 +19,14 @@ npx tsx scripts/demo/run.ts pulse   meridian      # stages today; leaves approva
 npx tsx scripts/demo/run.ts status  meridian
 ```
 
-Run order matters: **seed → history → pulse**. History needs `DATABASE_URL`
+Run order matters, per target: **seed → history (DB targets) or prime
+(DB-less targets, e.g. prod) → pulse**. Coastline's ceiling story *requires*
+history or prime before its first pulse. History needs `DATABASE_URL`
 for the backdate pass (see `scripts/demo/backdate.ts` for why and what it
-touches); pulse and seed are pure REST. After bootstrapping, bundle the key
+touches); seed, prime, and pulse are pure REST. Maintenance beat: the
+Bluebird throttle's windowed ratio decays by design (a throttled channel
+approves nothing, so its spend ages out) — when the daily pulse flags
+Bluebird approved-instead-of-escalated, re-run `prime coastline`. After bootstrapping, bundle the key
 files into the `DEMO_KEYS_JSON` secret (recipe in
 `.github/workflows/demo-pulse.yml`) — the **Demo Pulse** workflow then
 re-pulses all three companies daily, so dashboards always show a live day

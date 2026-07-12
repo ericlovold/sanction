@@ -3,6 +3,7 @@
 //
 //   npx tsx scripts/demo/run.ts seed    <persona>            # build the org (idempotent)
 //   npx tsx scripts/demo/run.ts history <persona> --days 30  # backdated month of real traffic (needs DATABASE_URL)
+//   npx tsx scripts/demo/run.ts prime   <persona>            # DB-less targets: arm windowed state (CPO ceiling) via API only
 //   npx tsx scripts/demo/run.ts pulse   <persona> [--watch]  # today; leaves the stage set
 //   npx tsx scripts/demo/run.ts status  <persona>
 //
@@ -104,14 +105,8 @@ async function seed(persona: Persona) {
 
   for (const pool of persona.pools) {
     if (!keys.pools[pool.name]) {
-      const { status, json } = await call<{ id: string; management_key: string }>("/wallets", {
-        auth: { mgmt: company.mgmtKey },
-        body: { name: pool.name, owner_email: demoEmail(`${persona.key}-${pool.name.split("/").pop()}`), parent_id: company.walletId },
-      })
-      if (status !== 201 && status !== 200) fail(`create pool "${pool.name}" → ${status} ${JSON.stringify(json)}`)
-      keys.pools[pool.name] = { walletId: json.id, mgmtKey: json.management_key }
+      keys.pools[pool.name] = await createWallet(pool.name, demoEmail(`${persona.key}-${pool.name.split("/").pop()}`), company)
       saveKeys(persona.key, keys)
-      console.log(`  + pool ${pool.name}`)
     }
     const pk = keys.pools[pool.name]
     const pp = await call("/wallets/policy", {
@@ -429,7 +424,7 @@ async function status(persona: Persona) {
 
 const [cmd, personaKey, ...flags] = process.argv.slice(2)
 const persona = PERSONAS[personaKey ?? ""]
-if (!cmd || !persona) fail(`usage: run.ts <seed|history|pulse|status> <${Object.keys(PERSONAS).join("|")}> [--days N] [--watch]`)
+if (!cmd || !persona) fail(`usage: run.ts <seed|prime|history|pulse|status> <${Object.keys(PERSONAS).join("|")}> [--days N] [--watch]`)
 
 if (cmd === "seed") await seed(persona)
 else if (cmd === "prime") await prime(persona)
