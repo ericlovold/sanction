@@ -14,6 +14,7 @@ export DEMO_HQ_EMAIL=<owner email for the Demo HQ root>
 
 npx tsx scripts/demo/run.ts seed    meridian      # then coastline, harborwren
 npx tsx scripts/demo/run.ts history meridian --days 30   # needs DATABASE_URL (direct DB)
+npx tsx scripts/demo/run.ts prime   coastline     # DB-less targets: arms the CPO ceiling via API
 npx tsx scripts/demo/run.ts pulse   meridian      # stages today; leaves approvals pending
 npx tsx scripts/demo/run.ts status  meridian
 ```

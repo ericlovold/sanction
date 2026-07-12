@@ -147,6 +147,24 @@ export const coastline: Persona = {
       })
     return plan
   },
+  // For DB-less targets (prod): arm Bluebird's ceiling through the API alone —
+  // today's approved spend supplies the ratio's numerator, three backdated
+  // bookings (occurred_at) satisfy min_outcomes. Windowed: ~$204 / 3 ≈ $68 >
+  // the $60 ceiling, so the next spend escalates. `history` supersedes this
+  // when direct DB access exists.
+  prime: {
+    spends: [
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 1 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 2 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 3 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+      { seat: "bluebird-media-agent", action: "purchase", amount_usd: 45, merchant: "Google Ads", category: "marketing", description: "Search defense — week 4 batch", tags: { channel: "bluebird", play: "branded-search" }, expect: "approved" },
+    ],
+    outcomes: [
+      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: "bluebird-booking-p20", days_ago: 20 },
+      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: "bluebird-booking-p10", days_ago: 10 },
+      { seat: "bluebird-media-agent", kind: "booking", value_usd: 180, play: "branded-search", dedupe_key: "bluebird-booking-p1", days_ago: 1 },
+    ],
+  },
   pulse: {
     freezePools: [{ pool: CORSAIR, reason: "Client paused the engagement — spend stop while renegotiating" }],
     tokens: [

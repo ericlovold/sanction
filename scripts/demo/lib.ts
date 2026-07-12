@@ -125,6 +125,14 @@ export type Persona = {
    *  yesterday (1 = yesterday). Keep each day's totals inside the daily caps —
    *  every day runs against a clean (backdated) budget state. */
   history?: (dayIndex: number) => DayPlan
+  /** API-only staging for targets without DB access (no backdating possible):
+   *  today's spends + past outcomes (occurred_at is a first-class API field)
+   *  arm windowed state like the cost-per-outcome ceiling. Run once, before
+   *  the first pulse. */
+  prime?: {
+    spends: SpendSpec[]
+    outcomes: (OutcomeSpec & { days_ago: number })[]
+  }
 }
 
 // ── Key store (gitignored — raw sk_/pxy_ keys never enter the repo) ─────────

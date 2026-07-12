@@ -254,6 +254,29 @@ async function runOutcomes(
   }
 }
 
+// ── prime ───────────────────────────────────────────────────────────────────
+
+// API-only staging for DB-less targets: today's spends + occurred_at-backdated
+// outcomes arm windowed state (the CPO ceiling) without touching the database.
+async function prime(persona: Persona) {
+  if (!persona.prime) fail(`persona "${persona.key}" has no prime plan`)
+  const keys = loadKeys(persona.key)
+  if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
+  const c = makeChecker()
+  console.log("prime spends:")
+  await runSpends(keys, persona.prime.spends, c, { stagePending: false })
+  console.log("prime outcomes (backdated via occurred_at):")
+  for (const o of persona.prime.outcomes) {
+    const occurred = new Date(Date.now() - o.days_ago * 24 * 3600 * 1000).toISOString()
+    await runOutcomes(keys, [o], c, { occurredAt: occurred })
+  }
+  if (c.mismatches()) {
+    console.log(`\nPrime finished with ${c.mismatches()} mismatch(es).`)
+    process.exit(1)
+  }
+  console.log(`\nPrimed — windowed state armed. Run pulse.`)
+}
+
 // ── pulse ───────────────────────────────────────────────────────────────────
 
 async function pulse(persona: Persona, watch: boolean) {
@@ -409,6 +432,7 @@ const persona = PERSONAS[personaKey ?? ""]
 if (!cmd || !persona) fail(`usage: run.ts <seed|history|pulse|status> <${Object.keys(PERSONAS).join("|")}> [--days N] [--watch]`)
 
 if (cmd === "seed") await seed(persona)
+else if (cmd === "prime") await prime(persona)
 else if (cmd === "history") {
   const di = flags.indexOf("--days")
   const days = di >= 0 ? Number(flags[di + 1]) : 30
