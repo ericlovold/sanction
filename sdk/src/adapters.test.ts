@@ -113,7 +113,7 @@ describe("sanctionTool (Vercel AI SDK)", () => {
   it("redeems a grantId on retry after escalation", async () => {
     const { fetch, calls } = fakeFetch([approved])
     const c = new SanctionClient("pxy_k", { baseUrl: BASE, fetch })
-    const t = sanctionTool(c, "deploy", { execute: async () => "ok" }, { server: "ci", grantId: "grant_1" })
+    const t = sanctionTool(c, "deploy", { execute: async (_a: unknown) => "ok" }, { server: "ci", grantId: "grant_1" })
     expect(await t.execute({})).toBe("ok")
     expect(JSON.parse(calls[0].init.body as string)).toMatchObject({ tool: "deploy", grant_id: "grant_1" })
   })
@@ -147,5 +147,129 @@ describe("SanctionClient.getAuthorization", () => {
       fetch: fakeFetch([{ ok: true, status: 200, body: { authorized: false, status: "escalated", request_id: "req_2" } }]).fetch,
     })
     expect((await c.getAuthorization("req_2")).status).toBe("escalated")
+  })
+})
+
+// ── sanctionedFetch (pay-per-crawl 402 gate) ─────────────────────────────────
+
+import { sanctionedFetch, parseCrawlPrice, SanctionCrawlBlocked } from "./adapters"
+
+const spendApproved = { ok: true, status: 200, body: { authorized: true, status: "approved", request_id: "req_s1", agent: "tenet", amount_usd: 0.05, merchant: "example.com" } }
+const spendEscalated = { ok: true, status: 200, body: { authorized: false, status: "escalated", request_id: "req_s2", agent: "tenet", amount_usd: 0.05, merchant: "example.com", code: "ESCALATION_REQUIRED" } }
+const spendDenied = { ok: true, status: 403, body: { authorized: false, status: "denied", request_id: "req_s3", agent: "tenet", amount_usd: 0.05, merchant: "example.com", code: "CATEGORY_BLOCKED", reason: "blocked" } }
+
+function webResponse(status: number, headers: Record<string, string> = {}): Response {
+  return { status, headers: new Headers(headers) } as unknown as Response
+}
+
+function fakeWeb(responses: Response[]): { fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>; calls: Array<{ url: string; init?: RequestInit }> } {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  let i = 0
+  return {
+    calls,
+    fetch: async (input, init) => {
+      calls.push({ url: String(input), init })
+      return responses[i++] ?? webResponse(200)
+    },
+  }
+}
+
+describe("parseCrawlPrice", () => {
+  it("parses the documented USD form and tolerant variants", () => {
+    expect(parseCrawlPrice("USD 0.01")).toBe(0.01)
+    expect(parseCrawlPrice("usd 1.50")).toBe(1.5)
+    expect(parseCrawlPrice("$0.05")).toBe(0.05)
+    expect(parseCrawlPrice("0.05")).toBe(0.05)
+  })
+  it("rejects junk, zero, negatives, and non-USD", () => {
+    expect(parseCrawlPrice(null)).toBeNull()
+    expect(parseCrawlPrice("")).toBeNull()
+    expect(parseCrawlPrice("EUR 0.05")).toBeNull()
+    expect(parseCrawlPrice("USD 0")).toBeNull()
+    expect(parseCrawlPrice("free")).toBeNull()
+  })
+})
+
+describe("sanctionedFetch", () => {
+  it("passes non-402 responses through without authorizing", async () => {
+    const api = fakeFetch([])
+    const client = new SanctionClient("pxy_k", { baseUrl: BASE, fetch: api.fetch })
+    const web = fakeWeb([webResponse(200)])
+    const res = await sanctionedFetch(client, web.fetch)("https://example.com/a")
+    expect(res.status).toBe(200)
+    expect(api.calls).toHaveLength(0)
+    expect(web.calls).toHaveLength(1)
+  })
+
+  it("passes a 402 WITHOUT a parseable crawler-price through (not a crawl offer)", async () => {
+    const api = fakeFetch([])
+    const client = new SanctionClient("pxy_k", { baseUrl: BASE, fetch: api.fetch })
+    const web = fakeWeb([webResponse(402)])
+    const res = await sanctionedFetch(client, web.fetch)("https://example.com/a")
+    expect(res.status).toBe(402)
+    expect(api.calls).toHaveLength(0)
+  })
+
+  it("approved: authorizes the quote and retries echoing crawler-exact-price verbatim", async () => {
+    const api = fakeFetch([spendApproved])
+    const client = new SanctionClient("pxy_k", { baseUrl: BASE, fetch: api.fetch })
+    const web = fakeWeb([
+      webResponse(402, { "crawler-price": "USD 0.05" }),
+      webResponse(200, { "crawler-charged": "USD 0.05" }),
+    ])
+    const res = await sanctionedFetch(client, web.fetch)("https://example.com/article")
+    expect(res.status).toBe(200)
+    // The authorize call carried the crawl mapping: merchant = host, tags on.
+    const body = JSON.parse(String(api.calls[0].init.body))
+    expect(body).toMatchObject({
+      action: "purchase",
+      amount_usd: 0.05,
+      merchant: "example.com",
+      category: "content-access",
+      tags: { channel: "pay-per-crawl", url: "https://example.com/article" },
+    })
+    // The retry echoed the site's own quote, exact-match semantics.
+    const retryHeaders = new Headers(web.calls[1].init?.headers)
+    expect(retryHeaders.get("crawler-exact-price")).toBe("USD 0.05")
+  })
+
+  it("escalated: throws SanctionCrawlBlocked carrying the request id and quote — no paid retry", async () => {
+    const api = fakeFetch([spendEscalated])
+    const client = new SanctionClient("pxy_k", { baseUrl: BASE, fetch: api.fetch })
+    const web = fakeWeb([webResponse(402, { "crawler-price": "USD 0.05" })])
+    const err = await sanctionedFetch(client, web.fetch)("https://example.com/a").catch((e) => e)
+    expect(err).toBeInstanceOf(SanctionCrawlBlocked)
+    expect(err.status).toBe("escalated")
+    expect(err.requestId).toBe("req_s2")
+    expect(err.priceUsd).toBe(0.05)
+    expect(web.calls).toHaveLength(1) // never retried with payment intent
+  })
+
+  it("denied: throws with the machine code — no paid retry", async () => {
+    const api = fakeFetch([spendDenied])
+    const client = new SanctionClient("pxy_k", { baseUrl: BASE, fetch: api.fetch })
+    const web = fakeWeb([webResponse(402, { "crawler-price": "USD 0.05" })])
+    const err = await sanctionedFetch(client, web.fetch)("https://example.com/a").catch((e) => e)
+    expect(err).toBeInstanceOf(SanctionCrawlBlocked)
+    expect(err.status).toBe("denied")
+    expect(err.code).toBe("CATEGORY_BLOCKED")
+    expect(web.calls).toHaveLength(1)
+  })
+
+  it("honors custom category and merged tags, and reports via onDecision", async () => {
+    const api = fakeFetch([spendApproved])
+    const client = new SanctionClient("pxy_k", { baseUrl: BASE, fetch: api.fetch })
+    const web = fakeWeb([webResponse(402, { "crawler-price": "USD 0.05" }), webResponse(200)])
+    const seen: Array<{ url: string; priceUsd: number; status: string }> = []
+    const f = sanctionedFetch(client, web.fetch, {
+      category: "research-data",
+      tags: { play: "market-scan" },
+      onDecision: (d, url, priceUsd) => seen.push({ url, priceUsd, status: d.status }),
+    })
+    await f("https://example.com/report")
+    const body = JSON.parse(String(api.calls[0].init.body))
+    expect(body.category).toBe("research-data")
+    expect(body.tags).toMatchObject({ channel: "pay-per-crawl", play: "market-scan" })
+    expect(seen).toEqual([{ url: "https://example.com/report", priceUsd: 0.05, status: "approved" }])
   })
 })

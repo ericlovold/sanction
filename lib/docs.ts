@@ -94,6 +94,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Point any OpenID AuthZEN 1.0 enforcement point at Sanction as its policy decision point — standard subject/action/resource in, decision out, mapped onto the same ladders as the native API.",
   },
+  "pay-per-crawl": {
+    file: "PAY-PER-CRAWL.md",
+    title: "Pay-per-crawl — govern what your agents pay the web",
+    description:
+      "The web now charges agents per request (402 + crawler-price, x402 settlement). sanctionedFetch turns every quote into a governed spend decision — budgets, escalation, and audit instead of a static max-price header.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",

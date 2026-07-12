@@ -11,6 +11,18 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-10 — x402 / pay-per-crawl follow-ons (the mandate-authority arc,
+      opened by Cloudflare's July 1 launch: pay-per-crawl + Monetization
+      Gateway charge agents per request for pages/datasets/APIs/MCP tools,
+      x402 settlement; agent crawlers blocked by default on ad pages from
+      Sept 15). Buyer-side slice 1 shipped (sanctionedFetch + guide). Next:
+      (1) settlement reconciliation — ingest `crawler-charged` receipts and
+      cross-check against decisions (the seller's ledger vs ours);
+      (2) a crawl-fleet policy pack (content-access bands per the guide's
+      recipe); (3) generic x402 offer parsing beyond Cloudflare's headers as
+      the protocol spreads; (4) seller-side question for GTM: should Sanction
+      users meter/charge for THEIR endpoints, or is that Cloudflare's rail —
+      revisit when a customer asks. (arc, from Cloudflare launch)
 - [ ] 2026-07-10 — Opaque dashboard sessions (~half a day; scoped in the
       2026-07-10 audit consolidation, report in the working conversation):
       make dashboard session handling legible/auditable rather than opaque.

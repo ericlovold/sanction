@@ -97,6 +97,7 @@ export class SanctionClient {
           merchant: input.merchant,
           category: input.category,
           description: input.description,
+          tags: input.tags,
         },
       })
     } catch {

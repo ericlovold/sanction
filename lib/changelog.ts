@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-10",
+    title: "The web now charges your agents. Sanction decides what they pay.",
+    tags: ["adapters", "x402", "pay-per-crawl", "spend"],
+    body: "Cloudflare flipped the switch: any site, dataset, API, or MCP tool behind them can now charge agents per request — a `402` with a `crawler-price` quote, settled over x402, with agent crawlers blocked by default on ad pages from September 15. The protocol's own answer to \"what will my fleet pay?\" is a static max-price header. A cap is not governance. The SDK's new `sanctionedFetch` wraps your crawler's fetch (your Web Bot Auth signing stays yours): a paid page's quote runs through `/authorize` as a real spend decision — merchant = the site, category = content-access — so auto-approve bands, per-domain audit, daily and pooled department budgets, human escalation on unusual prices, and one-call freeze all apply before a cent of payment intent leaves your stack. Approved quotes retry echoing the site's own price verbatim; anything else is a typed planning outcome carrying the request id. Every payment lands in the audit feed tagged `pay-per-crawl` with the URL, so finance can answer \"what did we pay the web last month, by department?\" — the question this era just invented. [Guide](/docs/pay-per-crawl).",
+  },
+  {
+    date: "2026-07-10",
     title: "@sanction/sdk — publish-ready, escalate loop closed",
     tags: ["sdk", "adapters", "release"],
     body: "The TypeScript SDK is ready for npm as **`@sanction/sdk@0.6.0`** (FSL-1.1-MIT, same terms as the server source). Package metadata, LICENSE, build/`prepublishOnly`, and a manual `publish-sdk` workflow mirror the MCP publish path. The escalate→grant loop is complete in the client: `getAuthorization(requestId)` polls an escalated decision for its one-use `grantId`, and `sanctionTool` accepts `grantId` on retry. `npm install @sanction/sdk` once the workflow has run against the `sanction` npm org. Python adapters stay Next.",
