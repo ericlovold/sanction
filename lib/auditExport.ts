@@ -69,3 +69,55 @@ export async function buildWalletExport(
   const decisions = considered.map(toCanonical)
   return { export: buildExport(walletId, from, to, decisions, secret, generatedAt), truncated }
 }
+
+// EU AI Act evidence framing (AI-ACT-1). A descriptive block that maps THIS
+// signed export onto the Act's operator obligations — Art 12 (record-keeping),
+// 13 (transparency), 14 (human oversight) — plus the append-only retention
+// statement and a decision-count summary. It sits alongside the signed
+// decisions/chain/signature (which it never alters), so verification is
+// unaffected. Deliberately non-overclaiming: evidence to SUPPORT obligations,
+// not a certification. Pure over the export doc — unit-testable.
+export type EuAiActFraming = {
+  framework: string
+  disclaimer: string
+  integrity: { algorithm: string; signed_head: string; verify: string }
+  articles: Record<"art_12_record_keeping" | "art_13_transparency" | "art_14_human_oversight", string>
+  retention: { model: string; statement: string }
+  decision_counts: { total: number; approved: number; denied: number; escalated: number; human_resolved: number }
+}
+
+export function euAiActFraming(doc: AuditExport): EuAiActFraming {
+  const counts = { total: doc.count, approved: 0, denied: 0, escalated: 0, human_resolved: 0 }
+  for (const d of doc.decisions) {
+    if (d.status === "approved") counts.approved++
+    else if (d.status === "denied") counts.denied++
+    else if (d.status === "escalated") counts.escalated++
+    // A decision resolved by a human carries "Approved by <actor>" / "Rejected
+    // by <actor>" in its note; auto-decisions and policy timeouts do not.
+    if (/^(Approved|Rejected) by /.test(d.decision_note ?? "")) counts.human_resolved++
+  }
+  return {
+    framework: "EU AI Act (Regulation (EU) 2024/1689)",
+    disclaimer:
+      "Evidence to support Article 12 (record-keeping), 13 (transparency) and 14 (human oversight) obligations for AI systems you operate. Not legal advice and not a compliance certification.",
+    integrity: {
+      algorithm: doc.algo,
+      signed_head: doc.head,
+      verify: "POST this document to /api/v1/audit/verify to confirm the hash chain and HMAC signature — proof nothing was altered, dropped, or reordered after signing.",
+    },
+    articles: {
+      art_12_record_keeping:
+        "Every governed agent decision below is an automatically-logged event, hash-chained to its predecessor and signed at the head. Altering, dropping, or reordering any entry breaks the chain.",
+      art_13_transparency:
+        "Each decision records its outcome and the policy revision (policy_revision) it ran under, and can be replayed to reproduce the decision from the stored context.",
+      art_14_human_oversight:
+        "Decisions that escalated were resolved by a named human — the approver identity, timestamp, and rationale are recorded (decision_note here; full approver on the approval record). human_resolved counts them.",
+    },
+    retention: {
+      model: "append-only",
+      statement:
+        "The audit trail is append-only: decisions, token logs, and credential-injection records are never modified or deleted after write. This export is a signed snapshot of the requested range.",
+    },
+    decision_counts: counts,
+  }
+}

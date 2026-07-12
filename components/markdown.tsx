@@ -19,6 +19,8 @@ const ROUTES: Record<string, string> = {
   "gateway.md": "/docs/gateway",
   "SECURITY.md": "/docs/security",
   "security.md": "/docs/security",
+  "EU-AI-ACT.md": "/docs/eu-ai-act",
+  "eu-ai-act.md": "/docs/eu-ai-act",
 }
 
 function rewriteHref(href?: string): string | undefined {

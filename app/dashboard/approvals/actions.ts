@@ -23,7 +23,10 @@ export async function resolveApprovalAction(
   const note = String(form.get("note") ?? "").trim() || undefined
   if (decision !== "approve" && decision !== "reject") return { ok: false, message: "Invalid decision" }
 
-  const result = await resolveApproval(wallet.id, approvalId, decision, note)
+  // The signed-in human is the accountable actor (Art 14 oversight evidence).
+  // For social sign-in ownerEmail is that person's email; for a management-key
+  // session it's the wallet's owner account.
+  const result = await resolveApproval(wallet.id, approvalId, decision, note, wallet.ownerEmail)
   if (!result.ok) return { ok: false, message: result.error }
 
   // Only the surfaces that show this decision revalidate on the critical path;

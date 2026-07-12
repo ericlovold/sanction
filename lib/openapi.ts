@@ -1032,6 +1032,7 @@ export const spec = {
           { in: "query", name: "to", schema: { type: "string", format: "date" } },
           { in: "query", name: "download", schema: { type: "string", enum: ["1"] }, description: "Return as a file attachment" },
           { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree chains every decision across this wallet + all pools beneath it into one signed export (management key only)" },
+          { in: "query", name: "framing", schema: { type: "string", enum: ["eu-ai-act"] }, description: "Attach an ai_act block mapping the signed export onto EU AI Act Art 12/13/14 + retention. Evidence support, not a compliance certification. Rides alongside the signed chain (verify unaffected)." },
         ],
         responses: {
           "200": { description: "Signed, hash-chained audit export" },

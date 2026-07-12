@@ -11,6 +11,27 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-12 — EU AI Act readiness sprint (Aug 2, 2026) (direction from
+      Eric): the Act goes fully applicable Aug 2 — GPAI enforcement + fines
+      live; high-risk obligations deferred to Dec 2027 / Aug 2028 pending the
+      May-2026 Digital Omnibus. Position Sanction as the **evidence + human-
+      oversight layer** orgs put around their AI agents (Art 12 logging → signed
+      audit export; Art 14 oversight → escalation/approval; Art 13 transparency
+      → decision codes + replay), never as a compliance guarantor. Plan +
+      crosswalk + fenced slices: docs/plans/eu-ai-act-readiness.md. Fenced
+      same-day slice = publish the Article→primitive crosswalk (docs/EU-AI-ACT.md
+      + /docs/eu-ai-act). Then: oversight-evidence audit (does every approval
+      capture approver + rationale?), AI-Act evidence-pack export, retention
+      statement, GTM. (direction → plan, from Eric)
+
+- [ ] 2026-07-12 — npm publish hardening before the 2FA-token deadline (from
+      the sanction-mcp npm banner): npm is restricting tokens that bypass 2FA —
+      account changes Aug 2026, direct publishing Jan 2027. publish-mcp.yml
+      publishes with an npm automation token; migrate to npm **trusted
+      publishing (OIDC)** from the GitHub Action (no long-lived token) or a
+      2FA-enabled flow before those dates. Low urgency, hard deadline. (ops,
+      from npm dashboard)
+
 - [ ] 2026-07-12 — Demo companies arc (vision from Eric): 2–3 fully-loaded
       fictional client accounts living in production Sanction — real traffic
       through the real engine (A→B), clickable end-to-end, choreographed for
