@@ -15,7 +15,7 @@ const { dbMock, deliverMock } = vi.hoisted(() => ({
   deliverMock: vi.fn(async (..._args: unknown[]) => {}),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
-vi.mock("@/lib/webhooks", () => ({ deliverEvent: deliverMock, approveUrlFor: (id?: string) => `https://test.local/approve${id ? `?review=${id}` : ""}`, }))
+vi.mock("@/lib/webhooks", () => ({ deliverEvent: deliverMock, approveUrlFor: (id?: string) => `https://test.local/approve${id ? `?review=${encodeURIComponent(id)}` : ""}`, }))
 
 import { GET as digests } from "../app/api/cron/digests/route"
 
