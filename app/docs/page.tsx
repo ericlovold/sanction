@@ -90,6 +90,7 @@ const concepts = [
   { title: "Evidence & replay", desc: "Revisions, stored contexts, replay with proof, what-if simulation.", href: "/docs/evidence-and-replay" },
   { title: "Capability governance", desc: "New powers ask first — skills and plugins governed like money.", href: "/docs/capability-governance" },
   { title: "Security & threat model", desc: "Trust boundaries, fail-closed invariants, vault encryption, tenant isolation, disclosure.", href: "/docs/security" },
+  { title: "EU AI Act", desc: "Evidence + oversight for the agents you run: Art 12/13/14 mapped to signed audit, transparency, and human approvals.", href: "/compliance" },
 ]
 
 const ecosystem = [

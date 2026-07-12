@@ -9,6 +9,7 @@ export function DocsHeader() {
         <div className="flex items-center gap-6 text-sm text-zinc-400">
           <Link href="/docs" className="hover:text-zinc-100 transition-colors">Docs</Link>
           <Link href="/architecture" className="hover:text-zinc-100 transition-colors">Architecture</Link>
+          <Link href="/compliance" className="hidden sm:inline hover:text-zinc-100 transition-colors">EU AI Act</Link>
           <Link href="/compatibility" className="hidden sm:inline hover:text-zinc-100 transition-colors">Compatibility</Link>
           <Link href="/roadmap" className="hidden sm:inline hover:text-zinc-100 transition-colors">Roadmap</Link>
           <Link href="/changelog" className="hidden sm:inline hover:text-zinc-100 transition-colors">Changelog</Link>

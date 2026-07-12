@@ -112,6 +112,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Provision an agent per tenant, govern budgets centrally, meter LLM calls through the gateway, and rotate keys — the end-to-end runbook for platforms.",
   },
+  "eu-ai-act": {
+    file: "EU-AI-ACT.md",
+    title: "Sanction & the EU AI Act",
+    description:
+      "The evidence and human-oversight layer for the agents you operate: how Sanction's signed audit export, decision transparency, and human-approval records map to the Act's Art 12/13/14 obligations — with the exact calls to pull an Article-framed, verifiable evidence bundle. Evidence support, not legal advice.",
+  },
   security: {
     file: "SECURITY.md",
     title: "Security & threat model",
