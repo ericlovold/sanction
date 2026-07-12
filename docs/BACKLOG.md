@@ -11,6 +11,15 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-12 — Demo companies arc (vision from Eric): 2–3 fully-loaded
+      fictional client accounts living in production Sanction — real traffic
+      through the real engine (A→B), clickable end-to-end, choreographed for
+      client demos (pending approvals staged, live approve→grant→complete
+      moment), with an admin overview from a Demo HQ root via the shipped
+      subtree views. Build spec: docs/plans/demo-companies.md — PR1 driver
+      (seed+pulse) + Meridian (internal governance) → PR2 history depth +
+      Coastline (agency/outcomes) + Harbor & Wren (regulated/evidence) →
+      PR3 warm cron + demo runbook. (vision → build spec, from Eric)
 - [ ] 2026-07-11 — Sanction guest seats: the gig/freelance lane (vision from
       Eric, same session as the onboarding spec). Bringing in a part-time
       contractor (marketing, branding, dev) shouldn't mean provisioning them
