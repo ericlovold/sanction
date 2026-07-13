@@ -149,34 +149,6 @@ const WONT: string[] = [
   "Build dependency. If you can't run it without me when I leave, I haven't finished the job.",
 ]
 
-/* Pricing rungs. Dollar bands can be added to the price field when Eric sets them. */
-const PRICING: { name: string; price: string; detail: string; accent: string }[] = [
-  {
-    name: "First build",
-    price: "Fixed quote",
-    detail: "One scoped system, quoted exactly after the free look and before any work starts.",
-    accent: "var(--pine-8)",
-  },
-  {
-    name: "Build + run",
-    price: "Monthly",
-    detail: "I operate and improve what we built, monthly. Your team learns it as we go. Cancel anytime.",
-    accent: "var(--ochre-6)",
-  },
-  {
-    name: "Embedded",
-    price: "Quarterly retainer",
-    detail: "Your fractional AI operator: a set number of days per month inside your business, shipping and teaching.",
-    accent: "var(--pine-8)",
-  },
-]
-
-const THREE_QUESTIONS: [string, string, string][] = [
-  ["Q1", "Where does our data go?", "Every tool and workflow gets an answer you could give a client or an auditor."],
-  ["Q2", "What happens when it's wrong?", "AI fails quietly and confidently. Everything I ship has a human checkpoint where wrong answers get caught."],
-  ["Q3", "Who can turn it off?", "You. Always. Nothing runs that your team can't see, pause, or kill."],
-]
-
 const css = `
 @keyframes cxUp { to { opacity: 1; transform: none } }
 .cx-fade { opacity: 0; transform: translateY(14px); animation: cxUp .7s cubic-bezier(.2,.7,.2,1) forwards }
@@ -315,10 +287,7 @@ export default function Consulting() {
         }}
       >
         <div style={{ ...wrap, padding: "96px 32px 56px", maxWidth: 780, textAlign: "center" }}>
-          <div className="sn-mono cx-fade cx-d1" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em" }}>
-            ERIC LOVOLD
-          </div>
-          <h1 className="cx-fade cx-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+          <h1 className="cx-fade cx-d1" style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
             Let&apos;s put AI to work for your business.
           </h1>
           <div className="cx-fade cx-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 28, flexWrap: "wrap" }}>
@@ -419,7 +388,6 @@ export default function Consulting() {
         {/* Receipts — dark pine panel */}
         <CxReveal delay={180} style={{ maxWidth: 780, margin: "64px auto 0" }}>
           <div style={{ padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
-            <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 14, letterSpacing: "0.1em" }}>The receipts</div>
             <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
               I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
               SaaS governance platform for AI agents that is in production today.
@@ -442,7 +410,6 @@ export default function Consulting() {
       >
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
           <CxReveal>
-            <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>Start here</div>
             <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
               Not sure where AI fits your business? Let&apos;s find out.
             </h2>
@@ -559,26 +526,6 @@ export default function Consulting() {
 
 
 
-      {/* Recent work — framed graph paper placeholder until case studies land */}
-      <section style={{ borderTop: "1px solid var(--line-2)" }}>
-        <div className="cx-graph" style={{ ...wrap, padding: "88px 32px", maxWidth: 760 }}>
-          <CxReveal className="cx-frame" style={{ textAlign: "center", padding: "28px 20px" }}>
-            <div className="sn-mono" style={{ marginBottom: 16 }}>Recent work</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Real work, shown with real consent.
-            </h2>
-            <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "16px auto 0", maxWidth: "58ch" }}>
-              Client case studies appear here only after clients say yes: situation, what was built, what it changed,
-              and what the team runs on their own now.
-            </p>
-            <div className="cx-axis" aria-hidden style={{ marginTop: 28 }}>
-              <span /><i /><span /><i /><span />
-            </div>
-            {/* [CASE STUDIES: True North Co. Bookkeeping (pending Kelley's consent) + second study — Eric writes the four beats] */}
-          </CxReveal>
-        </div>
-      </section>
-
       {/* Founder */}
       <section style={{ ...wrap, padding: "96px 32px", maxWidth: 720, textAlign: "center" }}>
         <CxReveal>
@@ -587,7 +534,7 @@ export default function Consulting() {
             alt="Eric Lovold"
             style={{ width: 180, maxWidth: "60%", height: "auto", display: "block", margin: "0 auto", borderRadius: "var(--radius-card)", border: "1px solid var(--line-1)" }}
           />
-          <div className="sn-mono" style={{ margin: "16px 0 20px", letterSpacing: "0.1em" }}>Eric Lovold · Founder, Sanction AI</div>
+          <div style={{ margin: "16px 0 20px", fontSize: 14, color: "var(--text-secondary)" }}>Eric Lovold · Founder, Sanction AI</div>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: "var(--text-secondary)", margin: 0 }}>
             I&apos;ve spent over a decade driving outcomes in healthcare and technology, and the last stretch running a
             solo AI practice and building Sanction. I&apos;ve been deep in this space, and talking AI is one of my
