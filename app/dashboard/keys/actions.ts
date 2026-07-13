@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
-import { generateApiKey } from "@/lib/apiKey"
-import { getSessionWallet } from "@/lib/session"
+import { generateApiKey, generateManagementKey } from "@/lib/apiKey"
+import { getSessionWallet, setSession } from "@/lib/session"
 
 // Resolve an agent only if it belongs to the logged-in wallet. Session-gated —
 // same management-plane trust model as the REST endpoints (x-mgmt-key).
@@ -39,6 +39,31 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/keys")
   return { ok: true, error: "", agentId, newKey: key.raw }
+}
+
+export type MgmtKeyState = { ok: boolean; error: string; newKey?: string }
+
+// Reset the wallet's MASTER management key (sk_ — the admin key that gates agent
+// creation, policy, vault, and the whole management plane). Session-gated: the
+// logged-in owner is proven by the session, so no old key is required — this is
+// exactly the "I lost my admin key" recovery a user must be able to self-serve.
+// The old key stops working the instant the new hash is stored; we re-set the
+// session to the new key so the current login survives the rotation. Shown once.
+export async function resetManagementKeyAction(_prev: MgmtKeyState, _form: FormData): Promise<MgmtKeyState> {
+  const wallet = await getSessionWallet()
+  if (!wallet) return { ok: false, error: "Log in to reset your management key." }
+
+  const key = generateManagementKey()
+  await db.wallet.update({
+    where: { id: wallet.id },
+    data: { mgmtKeyHash: key.hash, mgmtKeyPrefix: key.prefix },
+  })
+  // Keep this browser logged in after the rotation (the legacy session cookie
+  // holds the raw key; Better Auth sessions are unaffected but this is harmless).
+  await setSession(key.raw)
+
+  revalidatePath("/dashboard/keys")
+  return { ok: true, error: "", newKey: key.raw }
 }
 
 // Revoke (active=false) or reactivate (active=true) an agent's key. Form-action

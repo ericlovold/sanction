@@ -31,6 +31,7 @@ const ICON = {
   observe: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
   credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
   tokens: "M4 7h16v10H4zM8 7V5h8v2M9 12h6",
+  keys: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
   audit: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M9 13h6M9 17h6M9 9h1",
 }
 
@@ -40,6 +41,7 @@ const ICON = {
 const items: Item[] = [
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
   { href: "/dashboard/agents", label: "Seats", icon: <Icon d={ICON.agents} /> },
+  { href: "/dashboard/keys", label: "API Keys", icon: <Icon d={ICON.keys} /> },
   { href: "/dashboard/credentials", label: "Credentials", icon: <Icon d={ICON.credentials} /> },
   { href: "/dashboard/tokens", label: "Execution", icon: <Icon d={ICON.tokens} /> },
   { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
