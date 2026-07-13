@@ -64,30 +64,59 @@ const STEPS: [string, string, string][] = [
   ],
 ]
 
-const SERVICE_GLYPHS: Record<string, React.ReactNode> = {
-  workflows: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 6h6M4 12h10M4 18h7" />
-      <circle cx="17" cy="6" r="2.4" />
-      <circle cx="19" cy="18" r="2.4" />
+// Hand-drawn "what you get" vignettes — line art that draws itself in on scroll
+// (paths in .cx-hand animate via stroke-dashoffset). One per service, tinted to
+// the section's alternating accent. Same pen language as the Lean-teams arrows.
+const SERVICE_SCENES: Record<string, (c: string) => React.ReactNode> = {
+  // The morning that runs itself — an automation loop with the work already done.
+  workflows: (c) => (
+    <svg viewBox="0 0 120 96" width="116" height="92" fill="none" aria-hidden>
+      <g className="cx-hand" stroke={c} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path pathLength={1} d="M60 20 C82 20 94 39 88 57 C82 75 60 82 42 74 C26 67 20 47 31 33" />
+        <path pathLength={1} d="M22 40 L31 30 L41 37" />
+        <path pathLength={1} strokeWidth="3.2" d="M45 51 L55 61 L76 39" />
+      </g>
     </svg>
   ),
-  tools: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="4" y="4" width="16" height="16" rx="3" />
-      <path d="M9 9l-2 3 2 3M15 9l2 3-2 3" />
+  // The app you could never justify — a sketched internal tool with a toggle on.
+  tools: (c) => (
+    <svg viewBox="0 0 120 96" width="116" height="92" fill="none" aria-hidden>
+      <g className="cx-hand" stroke={c} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path pathLength={1} d="M22 22 h76 a5 5 0 0 1 5 5 v42 a5 5 0 0 1 -5 5 h-76 a5 5 0 0 1 -5 -5 v-42 a5 5 0 0 1 5 -5 Z" />
+        <path pathLength={1} d="M17 35 H103" />
+        <path pathLength={1} d="M34 49 H58" />
+        <path pathLength={1} d="M34 61 H50" />
+        <path pathLength={1} d="M72 47 h14 a7 7 0 0 1 0 14 h-14 a7 7 0 0 1 0 -14 Z" />
+      </g>
+      <circle cx="27" cy="28.5" r="1.7" fill={c} /><circle cx="34" cy="28.5" r="1.7" fill={c} /><circle cx="41" cy="28.5" r="1.7" fill={c} />
+      <circle cx="86" cy="54" r="3.2" fill={c} />
     </svg>
   ),
-  content: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M5 19l1.5-5L16 4.5a2.1 2.1 0 013 3L9.5 17 5 19z" />
-      <path d="M13 7.5l3 3" />
+  // Faster, still unmistakably you — a page of handwriting and a pen.
+  content: (c) => (
+    <svg viewBox="0 0 120 96" width="116" height="92" fill="none" aria-hidden>
+      <g className="cx-hand" stroke={c} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path pathLength={1} d="M32 16 h34 l16 16 v44 a2 2 0 0 1 -2 2 h-46 a2 2 0 0 1 -2 -2 Z" />
+        <path pathLength={1} d="M66 16 v16 h16" />
+        <path pathLength={1} d="M40 42 q5 -3 10 0 t10 0 t8 0" />
+        <path pathLength={1} d="M40 52 q5 -3 10 0 t10 0 t8 0" />
+        <path pathLength={1} d="M40 62 q5 -3 10 0 t7 0" />
+        <path pathLength={1} d="M80 72 L98 50" />
+        <path pathLength={1} d="M93 45 L103 53 L98 50 Z" />
+      </g>
     </svg>
   ),
-  web: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.4 3.8 8.5S14.6 18 12 20.5C9.4 18 8.2 15.1 8.2 12S9.4 5.9 12 3.5z" />
+  // Live in weeks — a browser that renders a real page.
+  web: (c) => (
+    <svg viewBox="0 0 120 96" width="116" height="92" fill="none" aria-hidden>
+      <g className="cx-hand" stroke={c} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path pathLength={1} d="M18 20 h84 a4 4 0 0 1 4 4 v48 a4 4 0 0 1 -4 4 h-84 a4 4 0 0 1 -4 -4 v-48 a4 4 0 0 1 4 -4 Z" />
+        <path pathLength={1} d="M14 33 H106" />
+        <path pathLength={1} d="M48 27 H98" />
+        <path pathLength={1} d="M26 43 H60 M26 43 V65 H60 V43" />
+        <path pathLength={1} d="M70 45 H98 M70 54 H92 M70 63 H98" />
+      </g>
+      <circle cx="24" cy="26.5" r="1.7" fill={c} /><circle cx="31" cy="26.5" r="1.7" fill={c} /><circle cx="38" cy="26.5" r="1.7" fill={c} />
     </svg>
   ),
 }
@@ -95,23 +124,23 @@ const SERVICE_GLYPHS: Record<string, React.ReactNode> = {
 const SERVICES: { key: string; title: string; body: string }[] = [
   {
     key: "workflows",
-    title: "AI workflows & setup",
-    body: "Tools, automations, and guardrails installed on your team's real work: intake, follow-ups, reporting, the recurring hours. The morning that runs itself.",
+    title: "The morning that runs itself",
+    body: "Intake, follow-ups, reporting, the recurring hours — wired to run on their own. You review the exceptions; you stop retyping.",
   },
   {
     key: "tools",
-    title: "Internal tools & apps",
-    body: "The tool your team has wanted for years but could never justify a dev shop for. Building with AI makes it affordable now. Scoped, shipped, and dependable in production.",
+    title: "The app that's in your head",
+    body: "The internal tool your team's wanted for years, now cheap enough to actually build with AI. Scoped, shipped, dependable in production.",
   },
   {
     key: "content",
-    title: "Content systems, in your voice",
-    body: "Your voice stays yours. AI makes your team faster at drafting, structuring, and repurposing, so what ships still sounds like your company.",
+    title: "Faster, still unmistakably you",
+    body: "Drafting, structuring, repurposing at speed — tuned so everything that ships still reads like your company wrote it.",
   },
   {
     key: "web",
-    title: "Websites that work",
-    body: "A modern site built AI-fast: designed, written with you, instrumented, and live in weeks. The same way I build for my own company.",
+    title: "Live in weeks, not quarters",
+    body: "A modern site — designed, written with you, instrumented, shipped AI-fast. The same way I built this one.",
   },
 ]
 
@@ -441,28 +470,28 @@ export default function Consulting() {
       {/* Services — glyph cards on soft graph paper */}
       <section id="services" className="cx-graph-soft" style={{ borderTop: "1px solid transparent" }}>
         <div style={{ ...wrap, padding: "96px 32px" }}>
-        <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+        <CxReveal style={{ maxWidth: 640, margin: "0 auto 64px", textAlign: "center" }}>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Four ways in. Every one leads somewhere.
+            Four ways in.
           </h2>
           <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-            Start with one concrete build. The first one pays for the next.
+            Each one is a named, priced build. Start with the one that hurts most &mdash; it pays for the next.
           </p>
         </CxReveal>
-        <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-          {SERVICES.map(({ key, title, body }, idx) => (
-            <CxReveal key={key} delay={idx * 70}>
-              <div className="sn-card cx-lift" style={{ padding: 28, display: "flex", gap: 18, alignItems: "flex-start", height: "100%" }}>
-                <span style={{ flex: "none", width: 42, height: 42, borderRadius: 10, background: idx % 2 ? "var(--pine-tint)" : "var(--ochre-tint)", color: idx % 2 ? "var(--pine-7)" : "var(--ochre-7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {SERVICE_GLYPHS[key]}
-                </span>
-                <span>
-                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{title}</h3>
-                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{body}</p>
-                </span>
-              </div>
-            </CxReveal>
-          ))}
+        {/* Open on the graph paper — hand-drawn vignettes, no boxes */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "52px 56px", maxWidth: 920, margin: "0 auto" }}>
+          {SERVICES.map(({ key, title, body }, idx) => {
+            const c = idx % 2 ? "var(--ochre-6)" : "var(--pine-7)"
+            return (
+              <CxReveal key={key} delay={idx * 130}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ height: 92, display: "flex", alignItems: "flex-end" }}>{SERVICE_SCENES[key](c)}</div>
+                  <h3 style={{ margin: 0, font: "var(--text-h3)" }}>{title}</h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)", maxWidth: "40ch" }}>{body}</p>
+                </div>
+              </CxReveal>
+            )
+          })}
         </div>
 
         {/* Also in the kit — open row, diamond markers */}
