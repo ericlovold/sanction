@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
+import { AnthropicCerts } from "@/components/anthropic-certs"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 
@@ -233,6 +234,9 @@ export default function Landing() {
           <div className="sn-key"><AccessKeyCard width={400} /></div>
         </div>
       </header>
+
+      {/* Anthropic-certified trust strip */}
+      <AnthropicCerts />
 
       {/* Pillars */}
       <section style={{ ...wrap, padding: "0 32px 112px" }}>
