@@ -248,15 +248,32 @@ export default function MoralIntentionAnalyst() {
       <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px", maxWidth: 720, textAlign: "center" }}>
           <Reveal>
-            {/* [AUTHOR: Dr. A.C. Ping headshot — supplied by Eric/Ping, not fabricated] */}
+            {/* [AUTHOR: headshot pending — Eric to attach the photo as a file, then
+                add <img src="/brand/ac-ping.jpg"> here, 168px, rounded.] */}
             <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 16 }}>AUTHOR &amp; FRAMEWORK AUTHORITY</div>
             <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Dr. A.C. Ping, PhD</h2>
-            <p style={{ fontSize: 16, lineHeight: 1.7, color: "var(--text-secondary)", margin: "18px auto 0", maxWidth: "60ch" }}>
-              Ethicist, author, and executive coach; founder of Ethics Advisory Services. Dr. Ping is the author of the
-              Moral Intention Analyst and the final authority on its interpretation, refinement, and version approval.
-              MIA carries his method faithfully — it does not extend or override it.
+            <p style={{ fontSize: 16.5, lineHeight: 1.7, color: "var(--text-secondary)", margin: "18px auto 0", maxWidth: "62ch" }}>
+              Managing Director of Ethics Advisory Services, Visiting Research Fellow in Philosophy at the University of
+              Adelaide, and a Colin Brain Governance Fellow; formerly Adjunct Professor at QUT&rsquo;s Graduate School of
+              Business. A Fulbright Scholar with more than 25 years in ethics and governance, he has written eight books
+              and advises corporations and governments across four continents.
             </p>
-            <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 22, flexWrap: "wrap" }}>
+            <p style={{ fontSize: 16.5, lineHeight: 1.7, color: "var(--text-secondary)", margin: "16px auto 0", maxWidth: "62ch" }}>
+              His doctoral research in applied ethics asked <em>why good people do bad things</em> &mdash; and produced a
+              causal-factor model of the behavioural and contextual cues that lead good people to unethical outcomes.
+              That work, and his Moral Intention Theory, now turn to the defining ethical question of this moment:{" "}
+              <strong style={{ color: "var(--text-body)" }}>why good AI does bad things</strong>.
+            </p>
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-muted)", margin: "16px auto 0", maxWidth: "58ch" }}>
+              Dr. Ping is the author of the Moral Intention Analyst and the final authority on its interpretation,
+              refinement, and version approval. MIA carries his method faithfully &mdash; it does not extend or override it.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", margin: "22px 0 4px" }}>
+              {["Fulbright Scholar", "8 books", "25+ years in ethics & governance"].map((t) => (
+                <span key={t} className="sn-mono" style={{ fontSize: 11.5, letterSpacing: "0.03em", color: "var(--text-secondary)", background: "var(--surface-card)", border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "5px 12px" }}>{t}</span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 18, flexWrap: "wrap" }}>
               <a className="sanction-link" href={PING_SITE} target="_blank" rel="noopener" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Dr. Ping’s work →</a>
               <a className="sanction-link" href={EAS_SITE} target="_blank" rel="noopener" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Ethics Advisory Services →</a>
             </div>
