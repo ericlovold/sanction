@@ -129,7 +129,7 @@ const SERVICES: { key: string; title: string; body: string }[] = [
   },
   {
     key: "tools",
-    title: "The app you could never justify",
+    title: "The app that's in your head",
     body: "The internal tool your team's wanted for years, now cheap enough to actually build with AI. Scoped, shipped, dependable in production.",
   },
   {
