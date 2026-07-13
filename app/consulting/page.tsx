@@ -134,6 +134,20 @@ const WONT: string[] = [
   "Build dependency. If you can't run it without me when I leave, I haven't finished the job.",
 ]
 
+// Eric's Anthropic credentials (issued Mar 2026) — a light-touch trust strip
+// near the top of the page. Clio is called out separately below the row.
+const CERTS: string[] = [
+  "Claude in Amazon Bedrock",
+  "Claude Code in Action",
+  "MCP: Advanced Topics",
+  "Introduction to MCP",
+  "Introduction to Agent Skills",
+  "Building with the Claude API",
+  "AI Fluency: Framework & Foundations",
+  "AI Fluency for Educators",
+  "Claude 101",
+]
+
 const css = `
 @keyframes cxUp { to { opacity: 1; transform: none } }
 .cx-fade { opacity: 0; transform: translateY(14px); animation: cxUp .7s cubic-bezier(.2,.7,.2,1) forwards }
@@ -309,6 +323,25 @@ export default function Consulting() {
           <div className={`${marker.className} cx-play-call`}>Lean teams everywhere</div>
         </div>
       </header>
+
+      {/* Credentials — light Anthropic-certified trust strip */}
+      <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--pine-tint)" }}>
+        <div style={{ ...wrap, padding: "26px 32px", textAlign: "center" }}>
+          <div className="sn-mono" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--pine-7)", letterSpacing: "0.12em", fontSize: 12, marginBottom: 14 }}>
+            <span aria-hidden style={{ color: "var(--ochre-6)" }}>◆</span> ANTHROPIC CERTIFIED
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            {CERTS.map((c) => (
+              <span key={c} className="sn-mono" style={{ fontSize: 11.5, letterSpacing: "0.02em", color: "var(--text-secondary)", background: "var(--surface-card)", border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "5px 12px" }}>
+                {c}
+              </span>
+            ))}
+          </div>
+          <p style={{ margin: "14px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>
+            Also certified: <span style={{ color: "var(--text-secondary)" }}>Clio Legal AI Fundamentals</span>
+          </p>
+        </div>
+      </section>
 
       {/* The path — Indiana Jones dotted trail weaves through the steps */}
       <section id="how" className="cx-graph" style={{ borderTop: "1px solid var(--line-2)", overflow: "visible" }}>
