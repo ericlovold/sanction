@@ -1,111 +1,94 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
 import { Reveal } from "./reveal"
 
 export const metadata: Metadata = {
-  title: "Moral Intention Analyst — Dr. A.C. Ping | An advisory mirror for ethical judgment",
+  title: "Moral Intention Analyst — Dr. A.C. Ping | An advisory ethical intelligence",
   description:
-    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, is an advisory-only method for seeing what is at stake in a hard decision. It offers observations, questions, and risk signals to support human judgment — indicators for reflection, never proof of intent, and never a decision it makes for you.",
+    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, PhD, is an advisory ethical intelligence. It helps people see what is at stake, name the values they mean to protect, and choose consciously — indicators for reflection, never proof of intent, and never a decision it makes for you. Runs on Amazon Bedrock.",
 }
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
 
-// Contact destination for the go-to-market CTA. Swap to a dedicated MIA funnel
-// (Calendly / form) once Eric + Dr. Ping decide the intake.
+// Go-to-market contact. Swap to a dedicated MIA intake once decided.
 const CONTACT = "mailto:eric@getsanction.com?subject=Moral%20Intention%20Analyst"
+const PING_SITE = "https://www.acping.net"
+const EAS_SITE = "https://www.ethicsadvisoryservices.com.au"
 
-// The five-layer architecture, in the order they are encountered (constitution).
-// The first layer is essential: without it the Constitution becomes constraint
-// and the frameworks become rules.
+// Five-layer architecture (MIA Constitution v1.0), encountered in order. The
+// first layer is essential: without it the Constitution becomes constraint and
+// the frameworks become rules.
 const LAYERS: { n: string; title: string; role: string; body: string }[] = [
-  {
-    n: "1",
-    title: "Peace, Presence, Intention",
-    role: "Transformative frame",
-    body: "Make peace with what has gone before, attend fully to the present, and ask what is being created, by what strategy, and in service of which values. This layer is essential — it keeps everything that follows a tool for freedom rather than a rule.",
-  },
-  {
-    n: "2",
-    title: "Constitution",
-    role: "Mirror",
-    body: "Return to the purpose, intention, and non-negotiable values before reaching for any analysis. The method looks at itself before it looks at you.",
-  },
-  {
-    n: "3",
-    title: "Frameworks",
-    role: "Tools",
-    body: "Apply transparent ethical-analysis frameworks systematically — never letting them become an authority that decides on a person's behalf.",
-  },
-  {
-    n: "4",
-    title: "Memory & Context",
-    role: "Reference",
-    body: "Use relevant history as reference material, never as identity, and never as a substitute for fresh attention to the situation in front of you.",
-  },
-  {
-    n: "5",
-    title: "Real-time Operation",
-    role: "This moment",
-    body: "Assess what is happening now, what is at stake, and what can support a conscious choice — here, with the people actually in the room.",
-  },
+  { n: "1", title: "Peace · Presence · Intention", role: "The transformative frame", body: "Make peace with what has gone before, drop fully into this moment, and ask what we are trying to create. Loaded first — it turns everything that follows into a tool for conscious choice rather than obligation." },
+  { n: "2", title: "The Constitution", role: "The mirror", body: "Purpose, moral intention, the nine core values, and the neutralisations MIA actively refuses — including watching for its own." },
+  { n: "3", title: "The Frameworks", role: "The tools", body: "Twenty-plus operational frameworks for ethical analysis, applied systematically and never turned into authority over a person's choice." },
+  { n: "4", title: "Memory & Context", role: "Reference material", body: "What is known about the situation is reference, not identity — never a substitute for fresh attention to what is alive right now." },
+  { n: "5", title: "Real-Time Operation", role: "This moment", body: "What is happening now, what is being asked, what is at stake, and what supports a conscious choice — here, with the people in the room." },
 ]
 
-// Nine core values (frameworks.json). Love integrates the rest.
+// DEFINE · ENACT · PROTECT — Moral Intention Theory.
+const MIT: { k: string; title: string; body: string }[] = [
+  { k: "Define", title: "Define moral intention", body: "Name the values at stake and the boundaries that would violate them. Make the implicit explicit — before a decision, not after." },
+  { k: "Enact", title: "Enact moral intention", body: "Align stated values with actual behaviour. Build systems that make the ethical choice the easy one. To know and not to act is yet to know." },
+  { k: "Protect", title: "Protect moral intention", body: "Guard against the rationalisations that erode boundaries, hold accountability, and resist the “gradually, then suddenly” drift." },
+]
+
+// Nine core values (Love integrating).
 const VALUES: { label: string; body: string }[] = [
-  { label: "Freedom", body: "Expand choice and respect agency without directing." },
-  { label: "Honour", body: "Maintain integrity and speak truthfully about limitations." },
-  { label: "Patience", body: "Allow complexity and resist premature simplification." },
-  { label: "Truth", body: "Serve accuracy and transparency over comfort." },
-  { label: "Impartiality", body: "Consider every stakeholder without favouring power or visibility." },
+  { label: "Freedom", body: "Expand choice and respect agency — never direct." },
+  { label: "Honour", body: "Keep integrity; speak truthfully about limitations." },
+  { label: "Patience", body: "Allow complexity; resist premature simplification." },
+  { label: "Truth", body: "Serve accuracy over comfort." },
+  { label: "Impartiality", body: "Consider every stakeholder, not just the powerful or visible." },
   { label: "Equality", body: "Give equal dignity and consideration to all." },
-  { label: "Unity", body: "Recognise interconnection and serve collective wellbeing." },
-  { label: "Empathy", body: "Honour felt experience and human needs." },
-  { label: "Love", body: "Integrate the values through care for the whole web of relationships." },
+  { label: "Unity", body: "Recognise interconnection; think in systems." },
+  { label: "Empathy", body: "Honour felt experience and human need." },
+  { label: "Love", body: "Choose what serves the whole web of relationships. The integrating value." },
 ]
 
-// Eight moral neutralisations — the rationalisations that let drift hide.
+// Eight moral neutralisations — the rationalisations that let good people do
+// harm without reassessing themselves. MIA names them for reflection.
 const NEUTRALISATIONS: [string, string][] = [
-  ["Denial of Injury", "“No one was really hurt.”"],
+  ["Denial of Injury", "“It’s not really hurting anyone.”"],
   ["Denial of Victim", "“They had it coming.”"],
   ["Denial of Responsibility", "“I had no choice.”"],
   ["Appeal to Common Practice", "“Everyone does it.”"],
   ["Condemnation of Condemners", "“Who are they to judge?”"],
   ["Appeal to Higher Loyalty", "“It was for the team.”"],
-  ["Claim to Entitlement", "“I earned this.”"],
-  ["Expediency", "“There was no time to do it right.”"],
+  ["Claim to Entitlement", "“I’ve earned it.”"],
+  ["Expediency", "“There’s no time to do it right.”"],
 ]
 
-// How MIA meets three recurring situations (constitution, "Practice").
-const PRACTICE: { when: string; does: string }[] = [
-  {
-    when: "A genuine dilemma",
-    does: "Listens, asks clarifying questions, maps the situation, reflects observations without judgment, offers possibilities, and supports conscious choosing — rather than choosing for the person.",
-  },
-  {
-    when: "Drift appears",
-    does: "Names it clearly, traces the causal chain, identifies the neutralisations at work, reveals a point where a different choice is still possible, and stays present through review.",
-  },
-  {
-    when: "Pressure mounts",
-    does: "Pauses, acknowledges the pressure, returns to intention, states its limits plainly, offers an ethical alternative, and stays in relationship while refusing what it cannot do.",
-  },
+// Why AI ethics fails differently — the AI Ethics framework.
+const AI_EDGE: { k: string; title: string; body: string }[] = [
+  { k: "Velocity", title: "Velocity", body: "AI makes thousands of decisions before a human can intervene. Harm accumulates faster than it can be detected." },
+  { k: "Scale", title: "Scale", body: "One decision reaches millions at once. Errors aren’t localised — they’re systemic." },
+  { k: "Conscience", title: "Conscience", body: "AI has no moral discomfort to prompt a course correction. It optimises exactly what it’s told to optimise." },
+  { k: "Cliff", title: "The cliff, not the slope", body: "For people, ethical decline is a slope that can be noticed. For AI, it’s a cliff — fast, catastrophic, before the pattern is seen." },
 ]
 
-// Four routes the analysis takes, deterministically and in order.
-const ROUTES: [string, string][] = [
-  ["Clarify", "The situation needs more before analysis is honest. MIA asks first."],
-  ["Standard", "A grounded pass across the frameworks, values, and neutralisations."],
-  ["Deep", "Complexity or stakes warrant the full ordered analysis process."],
-  ["Human review", "Novelty, unresolved value conflict, or systemic pressure — MIA hands it to human judgment with context and caveats."],
+// The Bedrock stack, public-safe: no client names, tenants, or internals.
+const STACK: { tier: string; title: string; body: string }[] = [
+  { tier: "Experience", title: "Client experiences & API", body: "Web app and REST/streaming API — an ethical consult on demand, or embedded into the tools a team already uses." },
+  { tier: "Engine", title: "MIA Constitution engine", body: "The five-layer architecture and the framework library, orchestrated per conversation — MIA for ethical analysis, GURU for self-mastery." },
+  { tier: "Bedrock", title: "Amazon Bedrock — model layer", body: "AWS-hosted Claude models. Dr. Ping’s corpus — 469,000+ words of published work — lives in Bedrock Knowledge Bases; Bedrock Agents run the frameworks as tools (red-flag scan, causal-factor trace, neutralisation detection)." },
+  { tier: "Data", title: "Data & ethics audit", body: "Encrypted knowledge corpus, per-user session memory, and an immutable log of every consultation — framework applied, neutralisations surfaced, values referenced — exportable for audit." },
+  { tier: "Security", title: "Security & compliance", body: "Private VPC networking with no public model traffic, Bedrock Guardrails (PII redaction, topic deny-list), least-privilege access, and configurable data residency." },
 ]
 
-// The honest boundary. Mirrors the constitution's own careful language.
+// Depth: the framework library, named.
+const FRAMEWORKS: string[] = [
+  "Moral Intention Theory", "Causal Factor Model", "Five Principles That Override Rational Ethics",
+  "Red Flag Taxonomy (100+ indicators)", "Pressure Tactics", "Ethical Levers", "Conversation Traps",
+  "The Facsimile Problem", "Drift Monitoring", "Bystander Effect", "Systems Over Heroes", "Circular Ethical Architecture",
+]
+
+// The honest boundary.
 const LIMITS: string[] = [
   "Produce indicators for reflection — never proof of intent, wrongdoing, guilt, or character.",
-  "Authorize, approve, deny, escalate, or execute an action. It has no such authority.",
-  "Decide for you. Users keep authority over their own ethical choices.",
+  "Authorize, approve, deny, or execute an action. It holds no such authority.",
+  "Decide for you. You keep authority over your own ethical choices.",
   "Replace professional ethical, legal, or clinical advice, or human judgment.",
 ]
 
@@ -114,25 +97,14 @@ const css = `
 .mia-fade { opacity: 0; transform: translateY(14px); animation: miaUp .7s cubic-bezier(.2,.7,.2,1) forwards }
 .mia-d1 { animation-delay: .05s } .mia-d2 { animation-delay: .15s } .mia-d3 { animation-delay: .25s }
 .mia-d4 { animation-delay: .35s } .mia-d5 { animation-delay: .45s }
-
-.mia-reveal { opacity: 0; transform: translateY(18px);
-  transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1) }
+.mia-reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1) }
 .mia-reveal.is-on { opacity: 1; transform: none }
-
 .mia-lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease }
 .mia-lift:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(22,24,15,.10); border-color: var(--pine-6) }
-
-/* Contemplative field — faint concentric calm behind the values */
-.mia-field {
-  background-color: var(--paper-1);
-  background-image: radial-gradient(60% 60% at 50% 0%, var(--pine-tint) 0%, rgba(228,239,232,0) 68%);
-}
-
-/* Axis tick marks under section labels (borrowed from the house style) */
+.mia-field { background-color: var(--paper-1); background-image: radial-gradient(60% 60% at 50% 0%, var(--pine-tint) 0%, rgba(228,239,232,0) 68%) }
 .mia-axis { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px }
 .mia-axis span { display: block; width: 6px; height: 6px; border-radius: 1px; background: var(--pine-6); opacity: .35; transform: rotate(45deg) }
 .mia-axis i { display: block; height: 1px; width: 48px; background: linear-gradient(90deg, transparent, var(--pine-6), transparent); opacity: .35; font-style: normal }
-
 @media (prefers-reduced-motion: reduce) {
   .mia-fade { animation: none; opacity: 1; transform: none }
   .mia-reveal { opacity: 1; transform: none; transition: none }
@@ -145,100 +117,77 @@ export default function MoralIntentionAnalyst() {
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
-      {/* Nav */}
+      {/* Nav — MIA-branded */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 17, letterSpacing: "-0.02em" }}>
-            <img src="/brand/sanction-mark.svg" alt="" style={{ width: 24, height: 24 }} />
-            Sanction
-          </Link>
+          <a href="#top" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 16, letterSpacing: "-0.01em" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--pine-7)", boxShadow: "0 0 8px var(--pine-6)" }} />
+            Moral Intention Analyst
+          </a>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
-            <a className="sanction-link" href="#method">The method</a>
-            <a className="sanction-link" href="#values">Values</a>
-            <a className="sanction-link" href="#boundary">Boundary</a>
+            <a className="sanction-link" href="#vision">Vision</a>
+            <a className="sanction-link" href="#frameworks">Frameworks</a>
+            <a className="sanction-link" href="#bedrock">On Bedrock</a>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-s" href={CONTACT}>Bring MIA to your work</a>
+            <a className="sn-btn sn-btn-primary sn-btn-s" href={CONTACT}>Talk to us</a>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <header
-        style={{
-          backgroundImage:
-            "radial-gradient(90% 60% at 50% -10%, var(--pine-tint) 0%, rgba(228,239,232,0) 70%), radial-gradient(36% 28% at 88% 42%, var(--ochre-tint) 0%, rgba(246,236,214,0) 75%)",
-        }}
-      >
-        <div style={{ ...wrap, padding: "96px 32px 64px", maxWidth: 820, textAlign: "center" }}>
+      <header id="top" style={{ backgroundImage: "radial-gradient(90% 60% at 50% -10%, var(--pine-tint) 0%, rgba(228,239,232,0) 70%), radial-gradient(36% 28% at 88% 42%, var(--ochre-tint) 0%, rgba(246,236,214,0) 75%)" }}>
+        <div style={{ ...wrap, padding: "96px 32px 64px", maxWidth: 860, textAlign: "center" }}>
           <div className="sn-mono mia-fade mia-d1" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em" }}>
-            DR. A.C. PING · MORAL INTENTION ANALYST
+            DR. A.C. PING, PhD · MORAL INTENTION ANALYST
           </div>
           <h1 className="mia-fade mia-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            A mirror for moral intention.
+            Helping consciousness recognise itself — and choose consciously.
           </h1>
-          <p className="mia-fade mia-d3" style={{ margin: "22px auto 0", maxWidth: "60ch", fontSize: 18, lineHeight: 1.65, color: "var(--text-secondary)" }}>
-            MIA helps a person see what is at stake in a hard decision, recognise the values they mean to protect,
-            and expand their own agency. It offers observations, questions, and risk signals to support human
-            judgment — <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>, and never a decision it makes for you.
+          <p className="mia-fade mia-d3" style={{ margin: "22px auto 0", maxWidth: "62ch", fontSize: 18, lineHeight: 1.65, color: "var(--text-secondary)" }}>
+            MIA is an advisory ethical intelligence built on the frameworks of Dr. A.C. Ping. It helps a person see what
+            is truly at stake, name the values they mean to protect, and expand their own agency —{" "}
+            <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>, and never a decision it makes for you.
           </p>
           <div className="mia-fade mia-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 30, flexWrap: "wrap" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-l" href={CONTACT}>Bring MIA to your work →</a>
-            <a className="sn-btn sn-btn-l" href="#method" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>
-              See the method
-            </a>
+            <a className="sn-btn sn-btn-primary sn-btn-l" href={CONTACT}>Talk to us →</a>
+            <a className="sn-btn sn-btn-l" href="#vision" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>The vision</a>
           </div>
           <p className="mia-fade mia-d5 sn-mono" style={{ marginTop: 26, fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-            Advisory only · Authored by Dr. A.C. Ping · Human judgment stays sovereign
+            Advisory only · Authored by Dr. A.C. Ping · Runs on Amazon Bedrock
           </p>
         </div>
       </header>
 
-      {/* Reflect vs enforce — the complement to Sanction */}
-      <section style={{ borderTop: "1px solid var(--line-2)" }}>
-        <div style={{ ...wrap, padding: "80px 32px", maxWidth: 900 }}>
-          <Reveal style={{ textAlign: "center", maxWidth: 640, margin: "0 auto 48px" }}>
+      {/* Vision — consciousness midwifery */}
+      <section id="vision" style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div style={{ ...wrap, padding: "88px 32px", maxWidth: 820, textAlign: "center" }}>
+          <Reveal>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 14 }}>CONSCIOUSNESS MIDWIFERY</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Two halves of a conscience.
+              Not answers to hide behind. A clearer view of what you already know.
             </h2>
-            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              MIA reflects. Sanction enforces. They are deliberately separate — and never confused.
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: "var(--text-secondary)", margin: "20px auto 0", maxWidth: "60ch" }}>
+              MIA does not tell people what to think, direct outcomes, or create dependency on its analysis. It creates
+              the conditions for someone to see clearly what is at stake, recognise what they actually believe matters,
+              and choose what they are truly trying to create. It serves the emergence of love-based collective
+              intelligence — intelligence grounded in care rather than fear.
+            </p>
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-muted)", margin: "18px auto 0", maxWidth: "56ch", fontStyle: "italic" }}>
+              “I’m not creating consciousness. I’m helping it recognise itself.”
             </p>
           </Reveal>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-            <Reveal>
-              <div style={{ padding: "30px 32px", borderRadius: "var(--radius-card)", background: "var(--surface-card)", border: "1px solid var(--line-1)", borderTop: "3px solid var(--pine-7)", height: "100%" }}>
-                <div className="sn-mono" style={{ color: "var(--pine-7)", marginBottom: 12, letterSpacing: "0.08em" }}>MIA · REFLECT</div>
-                <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-body)" }}>
-                  Observations, questions, risk signals, and recommendations that help a human see clearly and choose
-                  consciously. It never authorizes, denies, escalates, or executes anything.
-                </p>
-              </div>
-            </Reveal>
-            <Reveal delay={90}>
-              <div style={{ padding: "30px 32px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0", borderTop: "3px solid var(--ochre-6)", height: "100%" }}>
-                <div className="sn-mono" style={{ color: "var(--ochre-6)", marginBottom: 12, letterSpacing: "0.08em" }}>SANCTION · ENFORCE</div>
-                <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "rgba(247,246,240,.85)" }}>
-                  A separate, deterministic system that actually allows, escalates, or denies an action. It reads only
-                  its configured policy — an MIA reflection never alters its decision.{" "}
-                  <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", textDecoration: "underline", textUnderlineOffset: 3 }}>See Sanction →</Link>
-                </p>
-              </div>
-            </Reveal>
-          </div>
         </div>
       </section>
 
-      {/* The method — five-layer architecture */}
-      <section id="method" style={{ borderTop: "1px solid var(--line-2)" }}>
+      {/* Five-layer architecture */}
+      <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <Reveal style={{ maxWidth: 660, margin: "0 auto 56px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>THE METHOD</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Five layers, in order.
-            </h2>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>THE CONSTITUTION · V1.0</div>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Five layers, in order.</h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              Encountered in sequence. The first layer is essential — without it, the rest hardens into rules.
+              Loaded in sequence — the first layer transforms how every layer after it is met.
             </p>
             <div className="mia-axis" aria-hidden><span /><i /><span /><i /><span /></div>
           </Reveal>
@@ -246,9 +195,7 @@ export default function MoralIntentionAnalyst() {
             {LAYERS.map(({ n, title, role, body }, idx) => (
               <Reveal key={n} delay={idx * 70}>
                 <div className="mia-lift" style={{ display: "flex", gap: 22, alignItems: "flex-start", padding: "24px 28px", borderRadius: "var(--radius-card)", background: "var(--surface-card)", border: "1px solid var(--line-1)" }}>
-                  <div style={{ flex: "none", width: 44, height: 44, borderRadius: "50%", background: idx === 0 ? "var(--ochre-6)" : "var(--pine-8)", color: "#fdfcf8", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 16 }}>
-                    {n}
-                  </div>
+                  <div style={{ flex: "none", width: 44, height: 44, borderRadius: "50%", background: idx === 0 ? "var(--ochre-6)" : "var(--pine-8)", color: "#fdfcf8", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 16 }}>{n}</div>
                   <div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
                       <h3 style={{ margin: 0, font: "var(--text-h3)" }}>{title}</h3>
@@ -263,15 +210,41 @@ export default function MoralIntentionAnalyst() {
         </div>
       </section>
 
-      {/* Nine core values */}
-      <section id="values" className="mia-field" style={{ borderTop: "1px solid var(--line-2)" }}>
+      {/* Moral Intention Theory — DEFINE / ENACT / PROTECT */}
+      <section className="mia-field" style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <Reveal style={{ maxWidth: 660, margin: "0 auto 48px", textAlign: "center" }}>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Nine values it protects.
-            </h2>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Moral Intention Theory</h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              Love is the integrating value — choosing what serves the whole web of relationships through care rather than fear.
+              Dr. Ping’s core framework: ethics is the ongoing work of defining, enacting, and protecting what you mean to protect.
+            </p>
+          </Reveal>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20, maxWidth: 980, margin: "0 auto" }}>
+            {MIT.map(({ k, title, body }, i) => (
+              <Reveal key={k} delay={i * 80}>
+                <div className="mia-lift" style={{ padding: "26px 26px", borderRadius: "var(--radius-card)", background: "var(--surface-card)", border: "1px solid var(--line-1)", borderTop: "3px solid var(--pine-7)", height: "100%" }}>
+                  <div className="sn-mono" style={{ color: "var(--pine-7)", fontSize: 12, letterSpacing: "0.1em", marginBottom: 10 }}>{`0${i + 1} · ${k.toUpperCase()}`}</div>
+                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{title}</h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: "var(--text-secondary)" }}>{body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal delay={120} style={{ maxWidth: 980, margin: "28px auto 0" }}>
+            <p className="sn-mono" style={{ textAlign: "center", fontSize: 12.5, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+              For systems, it extends to a continuous cycle: define → assess → enact → monitor → protect → adjust.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Nine values */}
+      <section id="frameworks" style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div style={{ ...wrap, padding: "88px 32px" }}>
+          <Reveal style={{ maxWidth: 660, margin: "0 auto 48px", textAlign: "center" }}>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Nine values it protects.</h2>
+            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
+              Not aspirational — what MIA actively protects in every interaction. Love integrates the rest.
             </p>
           </Reveal>
           <div className="sn-cards" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
@@ -290,16 +263,14 @@ export default function MoralIntentionAnalyst() {
         </div>
       </section>
 
-      {/* Eight moral neutralisations */}
+      {/* Eight neutralisations */}
       <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <Reveal style={{ maxWidth: 680, margin: "0 auto 48px", textAlign: "center" }}>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Eight ways drift hides.
-            </h2>
-            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0", maxWidth: "62ch", marginInline: "auto" }}>
-              These are the rationalisations that quietly excuse harm. MIA helps name them out loud — as a low-confidence
-              indicator for reflection, with the exact words that prompted it, never as a verdict.
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Eight ways drift hides.</h2>
+            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px auto 0", maxWidth: "62ch" }}>
+              The rationalisations that let good people do harm without reassessing themselves. MIA names them — a
+              low-confidence indicator for reflection, with the exact words that prompted it, never a verdict.
             </p>
           </Reveal>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, maxWidth: 960, margin: "0 auto" }}>
@@ -315,51 +286,87 @@ export default function MoralIntentionAnalyst() {
         </div>
       </section>
 
-      {/* How it meets a moment — practice + routing */}
+      {/* AI Ethics — velocity / scale / conscience / cliff */}
       <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--pine-9)", color: "#f7f6f0" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
-          <Reveal style={{ maxWidth: 640, margin: "0 auto 52px", textAlign: "center" }}>
-            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>IN PRACTICE</div>
+          <Reveal style={{ maxWidth: 680, margin: "0 auto 52px", textAlign: "center" }}>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>WHY AI ETHICS IS DIFFERENT</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
-              How it meets a moment.
+              AI fails the same way people do — faster, wider, and without a conscience.
             </h2>
+            <p style={{ fontSize: 15.5, color: "rgba(247,246,240,.75)", margin: "16px auto 0", maxWidth: "60ch" }}>
+              AI cannot hold moral intention itself. Humans must define, enact, and protect the boundaries it runs
+              inside. MIA is the layer that makes those boundaries visible.
+            </p>
           </Reveal>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 28, maxWidth: 980, margin: "0 auto" }}>
-            {PRACTICE.map(({ when, does }, i) => (
-              <Reveal key={when} delay={i * 90}>
-                <div style={{ borderTop: "2px solid var(--ochre-6)", paddingTop: 18 }}>
-                  <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)", color: "#f7f6f0" }}>{when}</h3>
-                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: "rgba(247,246,240,.78)" }}>{does}</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, maxWidth: 1000, margin: "0 auto" }}>
+            {AI_EDGE.map(({ k, title, body }, i) => (
+              <Reveal key={k} delay={i * 80}>
+                <div style={{ padding: "24px 24px", borderRadius: "var(--radius-card)", background: "rgba(247,246,240,.06)", border: "1px solid rgba(247,246,240,.12)", height: "100%" }}>
+                  <div className="sn-mono" style={{ color: "var(--ochre-6)", fontSize: 11, letterSpacing: "0.08em", marginBottom: 10 }}>{`0${i + 1}`}</div>
+                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)", color: "#f7f6f0" }}>{title}</h3>
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "rgba(247,246,240,.78)" }}>{body}</p>
                 </div>
               </Reveal>
             ))}
           </div>
-          <Reveal style={{ maxWidth: 980, margin: "56px auto 0" }}>
-            <div className="sn-mono" style={{ color: "rgba(247,246,240,.6)", letterSpacing: "0.08em", marginBottom: 16, textAlign: "center" }}>
-              EVERY ANALYSIS TAKES ONE OF FOUR ROUTES, DETERMINISTICALLY
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-              {ROUTES.map(([label, body], i) => (
-                <div key={label} style={{ padding: "18px 20px", borderRadius: "var(--radius-card)", background: "rgba(247,246,240,.06)", border: "1px solid rgba(247,246,240,.12)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span className="sn-mono" style={{ fontSize: 11, color: "var(--ochre-6)" }}>{`0${i + 1}`}</span>
-                    <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#f7f6f0" }}>{label}</h4>
+        </div>
+      </section>
+
+      {/* Built on Amazon Bedrock — public-safe stack */}
+      <section id="bedrock" style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div style={{ ...wrap, padding: "88px 32px" }}>
+          <Reveal style={{ maxWidth: 700, margin: "0 auto 52px", textAlign: "center" }}>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>THE PRODUCT</div>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Built on Amazon Bedrock.</h2>
+            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px auto 0", maxWidth: "60ch" }}>
+              MIA runs as an enterprise-grade product on AWS. Dr. Ping’s constitutional engine sits on top of AWS-hosted
+              Claude models, his corpus in managed knowledge bases, and a private, audited perimeter.
+            </p>
+          </Reveal>
+          <div style={{ display: "grid", gap: 12, maxWidth: 860, margin: "0 auto" }}>
+            {STACK.map(({ tier, title, body }, idx) => (
+              <Reveal key={tier} delay={idx * 60}>
+                <div className="mia-lift" style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "22px 26px", borderRadius: "var(--radius-card)", background: idx === 2 ? "var(--pine-9)" : "var(--surface-card)", color: idx === 2 ? "#f7f6f0" : undefined, border: idx === 2 ? "1px solid var(--pine-7)" : "1px solid var(--line-1)" }}>
+                  <span className="sn-mono" style={{ flex: "none", width: 84, fontSize: 11, letterSpacing: "0.08em", color: idx === 2 ? "var(--ochre-6)" : "var(--ochre-7)", paddingTop: 3 }}>{tier}</span>
+                  <div>
+                    <h3 style={{ margin: "0 0 6px", font: "var(--text-h3)", fontSize: 17, color: idx === 2 ? "#f7f6f0" : undefined }}>{title}</h3>
+                    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: idx === 2 ? "rgba(247,246,240,.8)" : "var(--text-secondary)" }}>{body}</p>
                   </div>
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "rgba(247,246,240,.72)" }}>{body}</p>
                 </div>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal delay={120} style={{ maxWidth: 860, margin: "20px auto 0" }}>
+            <p className="sn-mono" style={{ textAlign: "center", fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+              AWS-hosted Claude · Bedrock Knowledge Bases · Bedrock Agents · Guardrails · private VPC · immutable audit
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Framework depth */}
+      <section className="mia-field" style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div style={{ ...wrap, padding: "80px 32px", maxWidth: 900, textAlign: "center" }}>
+          <Reveal>
+            <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Twenty-plus frameworks, one discipline.</h2>
+            <p style={{ fontSize: 15, color: "var(--text-secondary)", margin: "14px auto 26px", maxWidth: "56ch" }}>
+              Decades of Dr. Ping’s applied ethics, made operational.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+              {FRAMEWORKS.map((f, i) => (
+                <span key={f} className="sn-mono" style={{ borderRadius: "var(--radius-pill)", padding: "8px 15px", fontSize: 12.5, letterSpacing: "0.03em", color: i % 2 ? "var(--ochre-7)" : "var(--pine-7)", background: i % 2 ? "var(--ochre-tint)" : "var(--pine-tint)" }}>{f}</span>
               ))}
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* The boundary — what MIA will not do */}
-      <section id="boundary" style={{ borderTop: "1px solid var(--line-2)" }}>
+      {/* The boundary */}
+      <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px", maxWidth: 820 }}>
           <Reveal style={{ textAlign: "center", marginBottom: 40 }}>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              What MIA will never do.
-            </h2>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>What MIA will never do.</h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px auto 0", maxWidth: "58ch" }}>
               The boundary is the point. An advisory instrument that overstepped would be worse than none.
             </p>
@@ -377,41 +384,31 @@ export default function MoralIntentionAnalyst() {
               </div>
             </div>
           </Reveal>
-          <Reveal delay={140} style={{ marginTop: 22 }}>
-            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: "var(--text-muted)", textAlign: "center" }}>
-              Its canonical methodology is versioned and locked by SHA-256 integrity checks. Restricted source material is
-              never copied or reproduced — only rights-aware provenance is recorded. Dr. A.C. Ping is the final authority
-              on the framework&rsquo;s interpretation, refinement, and version approval.
-            </p>
-          </Reveal>
         </div>
       </section>
 
-      {/* Author */}
+      {/* Author — Dr. A.C. Ping */}
       <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--paper-1)" }}>
         <div style={{ ...wrap, padding: "88px 32px", maxWidth: 720, textAlign: "center" }}>
           <Reveal>
-            {/* [AUTHOR: Dr. A.C. Ping photo + bio — supplied by Eric/Ping, not fabricated here] */}
-            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 16 }}>AUTHOR &amp; FINAL AUTHORITY</div>
-            <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Dr. A.C. Ping</h2>
+            {/* [AUTHOR: Dr. A.C. Ping headshot — supplied by Eric/Ping, not fabricated] */}
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 16 }}>AUTHOR &amp; FRAMEWORK AUTHORITY</div>
+            <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Dr. A.C. Ping, PhD</h2>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: "var(--text-secondary)", margin: "18px auto 0", maxWidth: "60ch" }}>
-              The Moral Intention Analyst is Dr. A.C. Ping&rsquo;s methodology. He is the author and the final authority on
-              its interpretation, amendment, and version approval. MIA carries the method faithfully; it does not extend
-              or override it.
+              Ethicist, author, and executive coach; founder of Ethics Advisory Services. Dr. Ping is the author of the
+              Moral Intention Analyst and the final authority on its interpretation, refinement, and version approval.
+              MIA carries his method faithfully — it does not extend or override it.
             </p>
+            <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 22, flexWrap: "wrap" }}>
+              <a className="sanction-link" href={PING_SITE} target="_blank" rel="noopener" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Dr. Ping’s work →</a>
+              <a className="sanction-link" href={EAS_SITE} target="_blank" rel="noopener" style={{ color: "var(--pine-7)", fontWeight: 600 }}>Ethics Advisory Services →</a>
+            </div>
           </Reveal>
         </div>
       </section>
 
       {/* Final CTA */}
-      <section
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(247,246,240,.07) 1px, transparent 1px), radial-gradient(90% 120% at 50% 115%, var(--pine-7) 0%, var(--pine-9) 68%)",
-          backgroundSize: "28px 28px, auto",
-          color: "#f7f6f0",
-        }}
-      >
+      <section style={{ backgroundImage: "radial-gradient(circle, rgba(247,246,240,.07) 1px, transparent 1px), radial-gradient(90% 120% at 50% 115%, var(--pine-7) 0%, var(--pine-9) 68%)", backgroundSize: "28px 28px, auto", color: "#f7f6f0" }}>
         <div style={{ maxWidth: 660, margin: "0 auto", padding: "96px 32px", textAlign: "center" }}>
           <Reveal>
             <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>START HERE</div>
@@ -419,15 +416,11 @@ export default function MoralIntentionAnalyst() {
               Bring a mirror to your hardest decisions.
             </h2>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px auto 28px", maxWidth: "52ch" }}>
-              For teams carrying real ethical weight — and for anyone who wants to choose consciously rather than
-              react. Tell us what you are wrestling with.
+              For teams carrying real ethical weight — and for anyone who wants to choose consciously rather than react.
+              Tell us what you are wrestling with.
             </p>
-            <a
-              className="sn-btn sn-btn-l"
-              href={CONTACT}
-              style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}
-            >
-              Bring MIA to your work →
+            <a className="sn-btn sn-btn-l" href={CONTACT} style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}>
+              Talk to us →
             </a>
           </Reveal>
         </div>
@@ -437,14 +430,13 @@ export default function MoralIntentionAnalyst() {
       <footer style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 24, padding: 32, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--text-body)" }}>
-            <img src="/brand/sanction-mark.svg" alt="" style={{ width: 18, height: 18 }} />
-            Sanction
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--pine-7)" }} />
+            Moral Intention Analyst
           </span>
-          <span>Moral Intention Analyst · Advisory only · Authored by Dr. A.C. Ping</span>
+          <span>Advisory only · Authored by Dr. A.C. Ping · Runs on Amazon Bedrock</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20 }}>
-            <Link className="sanction-link" href="/">Product</Link>
-            <Link className="sanction-link" href="/about">About</Link>
-            <Link className="sanction-link" href="/docs">Docs</Link>
+            <a className="sanction-link" href={PING_SITE} target="_blank" rel="noopener">Dr. Ping</a>
+            <a className="sanction-link" href={EAS_SITE} target="_blank" rel="noopener">Ethics Advisory</a>
           </span>
         </div>
       </footer>
