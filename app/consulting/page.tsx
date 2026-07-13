@@ -38,10 +38,6 @@ const PAIN_POINTS: [string, string][] = [
     "Your team is at capacity and the asks keep coming",
     "You don't need more headcount to deliver more. You need the repetitive half of the work to run itself so your people can spend their hours on judgment.",
   ],
-  [
-    "You're worried about what AI does with your data",
-    "You should be. Customer data ending up in tools, wrong answers reaching clients, nothing you could show an auditor. Those are solvable problems when you design for them from day one.",
-  ],
 ]
 
 const STEPS: [string, string, string][] = [
@@ -207,6 +203,12 @@ const css = `
 }
 .cx-reveal.is-on { opacity: 1; transform: none }
 
+/* Hand-drawn pain points — marker text writes on left→right, arrows draw in */
+.cx-write { display: inline-block; clip-path: inset(0 100% 0 -8%); transition: clip-path .85s cubic-bezier(.4,0,.2,1) .1s }
+.cx-reveal.is-on .cx-write { clip-path: inset(0 -8% 0 -8%) }
+.cx-hand path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .8s ease .25s }
+.cx-reveal.is-on .cx-hand path { stroke-dashoffset: 0 }
+
 /* Geometric corner ticks — mathematical frame accent */
 .cx-frame {
   position: relative;
@@ -250,6 +252,8 @@ const css = `
   .cx-lane { animation: none; stroke-dashoffset: 0 }
   .cx-lane-tip { animation: none; opacity: 1 }
   .cx-reveal { opacity: 1; transform: none; transition: none }
+  .cx-write { clip-path: none; transition: none }
+  .cx-hand path { stroke-dashoffset: 0; transition: none }
   .cx-step-node, .cx-step-node[data-lit="1"] { transition: none; transform: none }
 }
 `
@@ -388,10 +392,10 @@ export default function Consulting() {
       </section>
 
 
-      {/* You might be here because — numbered attention cards */}
+      {/* You might be here because — hand-drawn, marker font + drawn arrows */}
       <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
-          <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+          <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
               You might be here because&hellip;
             </h2>
@@ -399,16 +403,25 @@ export default function Consulting() {
               All of these are more common than you think. All of them are fixable.
             </p>
           </CxReveal>
-          <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-            {PAIN_POINTS.map(([t, d], i) => (
-              <CxReveal key={t} delay={i * 80}>
-                <div className="sn-card cx-lift" style={{ padding: 28, borderTop: "3px solid var(--ochre-6)", height: "100%" }}>
-                  <div className="sn-mono" style={{ color: "var(--ochre-7)", marginBottom: 10 }}>{`0${i + 1}`}</div>
-                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
-                </div>
-              </CxReveal>
-            ))}
+          <div style={{ maxWidth: 780, margin: "0 auto", display: "grid", gap: 44 }}>
+            {PAIN_POINTS.map(([t, d], i) => {
+              const c = i % 2 ? "var(--ochre-6)" : "var(--pine-7)"
+              return (
+                <CxReveal key={t} delay={i * 160}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
+                    <span className={`${marker.className} cx-write`} style={{ fontSize: 58, lineHeight: 1, color: c, flex: "none" }}>{i + 1}</span>
+                    <svg className="cx-hand" width={70} height={46} viewBox="0 0 70 46" fill="none" aria-hidden style={{ flex: "none", marginTop: 14 }}>
+                      <path pathLength={1} d="M4 34 C 24 34 33 13 57 15" stroke={c} strokeWidth={2.6} strokeLinecap="round" />
+                      <path pathLength={1} d="M47 7 L59 15 L47 23" stroke={c} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <div style={{ flex: "1 1 320px", minWidth: 260 }}>
+                      <p className={`${marker.className} cx-write`} style={{ margin: "4px 0 8px", fontSize: 25, lineHeight: 1.3, color: "var(--ink)" }}>{t}</p>
+                      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)" }}>{d}</p>
+                    </div>
+                  </div>
+                </CxReveal>
+              )
+            })}
           </div>
         </div>
       </section>
