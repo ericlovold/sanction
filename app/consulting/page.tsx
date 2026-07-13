@@ -5,6 +5,7 @@ import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
 import { PathTrail } from "./path-trail"
 import { CxReveal } from "./reveal"
+import { AnthropicCerts } from "@/components/anthropic-certs"
 
 // Playbook scrawl for the industries fan — loaded here only so no other page pays for it.
 const marker = Permanent_Marker({ weight: "400", subsets: ["latin"] })
@@ -128,20 +129,6 @@ const WONT: string[] = [
   "Automate your voice away. Anything a human reads as you stays written by you. AI makes you faster.",
   "Ship anything you can't see into. If it touches your data or your customers, you can audit what it did and turn it off.",
   "Build dependency. If you can't run it without me when I leave, I haven't finished the job.",
-]
-
-// Eric's Anthropic credentials (issued Mar 2026) — a light-touch trust strip
-// near the top of the page. Clio is called out separately below the row.
-const CERTS: string[] = [
-  "Claude in Amazon Bedrock",
-  "Claude Code in Action",
-  "MCP: Advanced Topics",
-  "Introduction to MCP",
-  "Introduction to Agent Skills",
-  "Building with the Claude API",
-  "AI Fluency: Framework & Foundations",
-  "AI Fluency for Educators",
-  "Claude 101",
 ]
 
 const css = `
@@ -328,24 +315,8 @@ export default function Consulting() {
         </div>
       </header>
 
-      {/* Credentials — light Anthropic-certified trust strip */}
-      <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--pine-tint)" }}>
-        <div style={{ ...wrap, padding: "26px 32px", textAlign: "center" }}>
-          <div className="sn-mono" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--pine-7)", letterSpacing: "0.12em", fontSize: 12, marginBottom: 14 }}>
-            <span aria-hidden style={{ color: "var(--ochre-6)" }}>◆</span> ANTHROPIC CERTIFIED
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-            {CERTS.map((c) => (
-              <span key={c} className="sn-mono" style={{ fontSize: 11.5, letterSpacing: "0.02em", color: "var(--text-secondary)", background: "var(--surface-card)", border: "1px solid var(--line-1)", borderRadius: "var(--radius-pill)", padding: "5px 12px" }}>
-                {c}
-              </span>
-            ))}
-          </div>
-          <p style={{ margin: "14px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>
-            Also certified: <span style={{ color: "var(--text-secondary)" }}>Clio Legal AI Fundamentals</span>
-          </p>
-        </div>
-      </section>
+      {/* Credentials — shared light Anthropic-certified trust strip */}
+      <AnthropicCerts />
 
       {/* The path — Indiana Jones dotted trail weaves through the steps */}
       <section id="how" className="cx-graph" style={{ borderTop: "1px solid var(--line-2)", overflow: "visible" }}>
