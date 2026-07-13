@@ -44,21 +44,6 @@ const PAIN_POINTS: [string, string][] = [
   ],
 ]
 
-const PHILOSOPHY: [string, string][] = [
-  [
-    "I meet you where you are.",
-    "We start with your workflows and this month's problems, and we put working AI on the highest-leverage one first.",
-  ],
-  [
-    "I build with your team.",
-    "I map workflow opportunities alongside my clients, and your people are in the room. The point is that they understand what got built and why.",
-  ],
-  [
-    "I leave you running it.",
-    "The engagement ends with your team operating the system without me. If you keep me around, it's because the value keeps compounding.",
-  ],
-]
-
 const STEPS: [string, string, string][] = [
   [
     "1",
@@ -370,32 +355,29 @@ export default function Consulting() {
       </section>
 
 
-      {/* Philosophy — open editorial columns, then the dark receipts panel */}
-      <section style={{ ...wrap, padding: "96px 32px 88px" }}>
-        <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Built with you. Run by you.
-          </h2>
-        </CxReveal>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
-          {PHILOSOPHY.map(([t, d], idx) => (
-            <CxReveal key={t} delay={idx * 90} style={{ borderLeft: `2px solid ${idx === 1 ? "var(--ochre-6)" : "var(--pine-6)"}`, paddingLeft: 22 }}>
-              <h3 style={{ margin: "0 0 10px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)" }}>{d}</p>
-            </CxReveal>
-          ))}
-        </div>
-        {/* Receipts — dark pine panel */}
-        <CxReveal delay={180} style={{ maxWidth: 780, margin: "64px auto 0" }}>
-          <div style={{ padding: "36px 40px", borderRadius: "var(--radius-card)", background: "var(--pine-9)", color: "#f7f6f0" }}>
-            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7 }}>
-              I built <Link className="sanction-link" href="/" style={{ color: "#f7f6f0", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4 }}>Sanction</Link>, a
-              SaaS governance platform for AI agents that is in production today.
-              I run my own operation on the same systems I build for clients. Before that, over a decade in
-              healthcare and technology, including years alongside benefits and claims operations.
+      {/* You might be here because — numbered attention cards */}
+      <section style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div style={{ ...wrap, padding: "88px 32px" }}>
+          <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+              You might be here because&hellip;
+            </h2>
+            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
+              All of these are more common than you think. All of them are fixable.
             </p>
+          </CxReveal>
+          <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
+            {PAIN_POINTS.map(([t, d], i) => (
+              <CxReveal key={t} delay={i * 80}>
+                <div className="sn-card cx-lift" style={{ padding: 28, borderTop: "3px solid var(--ochre-6)", height: "100%" }}>
+                  <div className="sn-mono" style={{ color: "var(--ochre-7)", marginBottom: 10 }}>{`0${i + 1}`}</div>
+                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
+                </div>
+              </CxReveal>
+            ))}
           </div>
-        </CxReveal>
+        </div>
       </section>
 
       {/* Final CTA — deep pine band */}
@@ -435,31 +417,6 @@ export default function Consulting() {
               Or email <a href="mailto:eric@getsanction.com" style={{ color: "#f7f6f0", textDecoration: "underline", textUnderlineOffset: 3 }}>eric@getsanction.com</a>.
             </p>
           </CxReveal>
-        </div>
-      </section>
-
-      {/* You might be here because — numbered attention cards */}
-      <section style={{ borderTop: "1px solid var(--line-2)" }}>
-        <div style={{ ...wrap, padding: "88px 32px" }}>
-          <CxReveal style={{ maxWidth: 620, margin: "0 auto 48px", textAlign: "center" }}>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              You might be here because&hellip;
-            </h2>
-            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-              All of these are more common than you think. All of them are fixable.
-            </p>
-          </CxReveal>
-          <div className="sn-cards" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
-            {PAIN_POINTS.map(([t, d], i) => (
-              <CxReveal key={t} delay={i * 80}>
-                <div className="sn-card cx-lift" style={{ padding: 28, borderTop: "3px solid var(--ochre-6)", height: "100%" }}>
-                  <div className="sn-mono" style={{ color: "var(--ochre-7)", marginBottom: 10 }}>{`0${i + 1}`}</div>
-                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>{d}</p>
-                </div>
-              </CxReveal>
-            ))}
-          </div>
         </div>
       </section>
 
