@@ -472,10 +472,13 @@ export default function Consulting() {
         <div style={{ ...wrap, padding: "96px 32px" }}>
         <CxReveal style={{ maxWidth: 640, margin: "0 auto 64px", textAlign: "center" }}>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Four ways in.
+            Engagements
           </h2>
           <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
-            Each one is a named, priced build. Start with the one that hurts most &mdash; it pays for the next.
+            Outcomes of working together, not a menu of deliverables &mdash;{" "}
+            <strong style={{ color: "var(--text-body)" }}>build</strong> the surface,{" "}
+            <strong style={{ color: "var(--text-body)" }}>deploy</strong> the agent that runs it, then{" "}
+            <strong style={{ color: "var(--text-body)" }}>extend</strong> what works.
           </p>
         </CxReveal>
         {/* Open on the graph paper — hand-drawn vignettes, no boxes */}
