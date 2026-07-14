@@ -352,7 +352,7 @@ export default function Consulting() {
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <CxReveal style={{ maxWidth: 620, margin: "0 auto 56px", textAlign: "center" }}>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              How this actually works.
+              From first call to running.
             </h2>
             <div className="cx-axis" aria-hidden>
               <span /><i /><span /><i /><span />
