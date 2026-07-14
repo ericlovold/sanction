@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { Card, CardContent } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
 import { ManagementKeyCard } from "@/components/management-key-card"
+import { WalletIdField } from "@/components/wallet-id-field"
 import { getViewWallet } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
@@ -38,6 +39,7 @@ export default async function ApiKeysPage() {
           Every key this account uses, in one place. Reset your master admin key here, and manage each agent&rsquo;s
           data-plane key below.
         </p>
+        <WalletIdField walletId={view.id} />
       </div>
 
       {/* The master key — the thing you must be able to reset yourself. */}
