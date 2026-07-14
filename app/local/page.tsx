@@ -70,7 +70,7 @@ export default function LocalOffering() {
           <div className="flex items-center gap-5 text-sm">
             <a href="#how" className="sanction-link hidden sm:inline">How it works</a>
             <a href="#install" className="sanction-link hidden sm:inline">Install package</a>
-            <a href="#engagements" className="sanction-link hidden sm:inline">Engagements</a>
+            <a href="#engagements" className="sanction-link hidden sm:inline">Outcomes Are Everything</a>
             <a href={CONTACT} className="sn-btn sn-btn-primary sn-btn-s">
               Book a fit call
             </a>
