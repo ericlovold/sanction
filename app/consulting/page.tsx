@@ -149,7 +149,7 @@ const ALSO: [string, string][] = [
     "Vet your AI hire",
     "A lot of companies find out five months in that their AI director can talk AI but can't ship it. I'll help you interview and evaluate candidates before the salary bet.",
   ],
-  ["Executive coaching", "Direct 1:1 work on AI tools, workflows, and judgment for leaders. Practical and current."],
+  ["Executive strategy", "Direct 1:1 work on your Q3 AI strategy."],
   ["Design sprints", "A focused week from problem to working prototype your team can evaluate with its own hands."],
 ]
 
@@ -499,7 +499,7 @@ export default function Consulting() {
 
         {/* Also in the kit — open row, diamond markers */}
         <CxReveal style={{ maxWidth: 620, margin: "72px auto 28px", textAlign: "center" }}>
-          <h3 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Also in the kit</h3>
+          <h3 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Other ways of working</h3>
         </CxReveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 36 }}>
           {ALSO.map(([t, d], idx) => (
