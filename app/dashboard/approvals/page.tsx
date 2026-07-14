@@ -95,20 +95,16 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   }))
   const now = new Date()
   const nowMs = now.getTime()
-  const expiringSoon = pending.filter((p) => p.expiresAt && new Date(p.expiresAt).getTime() - nowMs <= 15 * 60 * 1000).length
-  const oldestPendingMinutes = pending.length
-    ? Math.max(...pending.map((p) => Math.round((nowMs - new Date(p.createdAt).getTime()) / 60000)))
-    : 0
 
-  // Org-level visibility: escalations waiting in the pools BELOW this wallet.
-  // Read-only by design — each pool's own owner decides; the org owner sees
-  // that they're waiting (and where) instead of finding out at the invoice.
+  // Escalations waiting in the pools BELOW this wallet. The org owner can decide
+  // these too (the resolve action authorizes across the subtree), so they merge
+  // into one inbox below — each carrying a badge for the pool it came from.
   const { ids: subtreeIds } = await subtreeWalletIds(walletId)
   const descendantIds = subtreeIds.filter((id) => id !== walletId)
 
   // Runs after listPendingApprovals on purpose: that read settles expired
   // escalations, and the resolved list below should include them.
-  const [resolved, webhooks, orgPending] = await Promise.all([
+  const [resolved, webhooks, orgPendingRows] = await Promise.all([
     db.pendingApproval.findMany({
       where: { walletId, status: { in: ["approved", "denied", "expired"] } },
       orderBy: { updatedAt: "desc" },
@@ -137,6 +133,32 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       : [],
   ])
 
+  // Descendant escalations, in the same shape the queue renders, tagged with the
+  // pool they belong to. Merged with the wallet's own pending into one inbox and
+  // sorted oldest-first — the operator clears the whole subtree from one place,
+  // and the counts here match the (subtree-wide) sidebar badge.
+  const orgPending: PendingApproval[] = orgPendingRows.map((r) => ({
+    id: r.id,
+    sourceId: r.sourceId,
+    actionType: r.actionType,
+    reason: r.reason,
+    code: r.code,
+    subject: asRecord(r.subjectJson),
+    resource: asRecord(r.resourceJson),
+    constraints: r.constraintsJson ? asRecord(r.constraintsJson) : null,
+    agentName: r.agent.name,
+    createdAt: r.createdAt.toISOString(),
+    expiresAt: r.expiresAt?.toISOString() ?? null,
+    poolName: r.wallet.name,
+  }))
+  const allPending = [...pending, ...orgPending].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  )
+  const expiringSoon = allPending.filter((p) => p.expiresAt && new Date(p.expiresAt).getTime() - nowMs <= 15 * 60 * 1000).length
+  const oldestPendingMinutes = allPending.length
+    ? Math.max(...allPending.map((p) => Math.round((nowMs - new Date(p.createdAt).getTime()) / 60000)))
+    : 0
+
   // The email landing moment: resolve what the deep-linked decision is doing
   // right now, and say it plainly — waiting on you, already decided, waiting
   // on a pool below you, or not visible from this wallet.
@@ -147,7 +169,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     | { kind: "missing" }
   let focus: Focus | null = null
   if (review) {
-    if (pending.some((a) => a.id === review || a.sourceId === review)) {
+    if (allPending.some((a) => a.id === review || a.sourceId === review)) {
       focus = { kind: "pending" }
     } else {
       const row = await db.pendingApproval.findFirst({
@@ -253,8 +275,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Authorization inbox</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Requests that crossed your escalation line, paused and waiting on you. Approving one issues a single-use grant
-          the agent redeems on retry.
+          Requests that crossed an escalation line — on your wallet or any pool beneath it — paused and waiting on you.
+          Approving one issues a single-use grant the agent redeems on retry.
         </p>
       </div>
 
@@ -264,7 +286,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             <CardTitle className="text-xs font-normal text-muted-foreground">Pending</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold tabular-nums ${pending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{pending.length}</p>
+            <p className={`font-mono text-2xl font-semibold tabular-nums ${allPending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{allPending.length}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
@@ -296,42 +318,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-medium text-foreground">Pending</h2>
-        {pending.length > 0 && (
-          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{pending.length}</Badge>
+        {allPending.length > 0 && (
+          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{allPending.length}</Badge>
         )}
       </div>
-      <ApprovalQueue pending={pending} editable={view.isSession} focusId={review} />
-
-      {orgPending.length > 0 && (
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Waiting in your pools</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Escalations pending in wallets below this one. Read-only here — each pool&apos;s owner approves in their own inbox.
-            </p>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="space-y-2">
-              {orgPending.map((r) => (
-                <div key={r.id} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate text-foreground">
-                      {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {actionLabel(r.actionType)} · waiting since {new Date(r.createdAt).toLocaleString()}
-                      {r.expiresAt ? ` · expires ${new Date(r.expiresAt).toLocaleString()}` : ""}
-                    </p>
-                  </div>
-                  <span className="ml-3 shrink-0 rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-                    {r.wallet.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <ApprovalQueue pending={allPending} editable={view.isSession} focusId={review} />
 
       <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>

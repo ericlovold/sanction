@@ -5,6 +5,7 @@ import { after } from "next/server"
 import { db } from "@/lib/db"
 import { resolveApproval } from "@/lib/approvals"
 import { getSessionWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { generateWebhookSecret, deliverPing, isPublicHttpsUrl, KNOWN_EVENTS, DEFAULT_EVENTS } from "@/lib/webhooks"
 
 export type ApprovalActionState = { ok: boolean; message: string }
@@ -26,7 +27,12 @@ export async function resolveApprovalAction(
   // The signed-in human is the accountable actor (Art 14 oversight evidence).
   // For social sign-in ownerEmail is that person's email; for a management-key
   // session it's the wallet's owner account.
-  const result = await resolveApproval(wallet.id, approvalId, decision, note, wallet.ownerEmail)
+  //
+  // Authority spans the subtree: an org owner can clear an escalation waiting in
+  // any pool below their wallet, not only ones raised on their own wallet. The
+  // id set is the gate — resolveApproval refuses anything outside it.
+  const { ids: authorizedIds } = await subtreeWalletIds(wallet.id)
+  const result = await resolveApproval(authorizedIds, approvalId, decision, note, wallet.ownerEmail)
   if (!result.ok) return { ok: false, message: result.error }
 
   // Only the surfaces that show this decision revalidate on the critical path;

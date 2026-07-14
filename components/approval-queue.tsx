@@ -17,6 +17,10 @@ export type PendingApproval = {
   agentName: string
   createdAt: string
   expiresAt: string | null
+  /** Set when this escalation belongs to a pool below the viewer's wallet —
+   *  rendered as a provenance badge so a merged inbox still shows where it came
+   *  from. Null/absent for the viewer's own wallet. */
+  poolName?: string | null
 }
 
 const initial: ApprovalActionState = { ok: false, message: "" }
@@ -146,6 +150,11 @@ function ApprovalRow({
           <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
             {labelActionType(a.actionType)}
           </span>
+          {a.poolName ? (
+            <span className="rounded-sm border border-primary/25 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary">
+              {a.poolName}
+            </span>
+          ) : null}
           <span className="min-w-0 truncate text-sm font-medium text-foreground">{approvalTitle(a)}</span>
         </div>
         <p className="mt-1 font-mono text-xs text-muted-foreground">

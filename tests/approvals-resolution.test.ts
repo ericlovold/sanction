@@ -143,6 +143,40 @@ describe("resolveApproval — the owner decision", () => {
   })
 })
 
+describe("resolveApproval — subtree authority (org owner decides down the tree)", () => {
+  it("an ancestor owner resolves a descendant pool's approval; the grant is minted on that pool's wallet", async () => {
+    const POOL = "pool_9"
+    dbMock.pendingApproval.findFirst.mockResolvedValue(pendingApproval({ walletId: POOL }))
+    dbMock.pendingApproval.findUnique.mockResolvedValue({ ...pendingApproval({ walletId: POOL }), status: "approved", resolvedAt: new Date(), resolutionNote: "Approved by eric@acme.co" })
+
+    const result = await resolveApproval([WID, POOL], "pa_1", "approve", undefined, "eric@acme.co")
+    expect(result.ok).toBe(true)
+
+    // The authority set is the gate — the lookup is scoped to those wallet ids.
+    const where = dbMock.pendingApproval.findFirst.mock.calls[0][0].where
+    expect(where.walletId).toEqual({ in: [WID, POOL] })
+    // The approval resolves against its OWN wallet, not the caller's root: the
+    // guarded update and the minted grant both key on the pool, so the grant the
+    // agent redeems lives where the escalation was raised.
+    expect(dbMock.pendingApproval.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: "pa_1", walletId: POOL }) }),
+    )
+    expect(dbMock.grant.create.mock.calls[0][0].data).toMatchObject({ walletId: POOL, issuedBy: "eric@acme.co" })
+  })
+
+  it("refuses an approval outside the authorized set — no lateral reach across the tree", async () => {
+    // Not in the caller's subtree → the scoped findFirst misses, and the legacy
+    // fallback rejects because the request's wallet isn't authorized either.
+    dbMock.pendingApproval.findFirst.mockResolvedValue(null)
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_x", status: "escalated", agent: { walletId: "someone_elses_pool", name: "tenet" } })
+
+    const result = await resolveApproval([WID, "pool_9"], "req_x", "approve")
+    expect(result).toMatchObject({ ok: false, status: 404 })
+    expect(dbMock.grant.create).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.updateMany).not.toHaveBeenCalled()
+  })
+})
+
 describe("resolveApproval — legacy fallback (no PendingApproval row)", () => {
   beforeEach(() => {
     dbMock.pendingApproval.findFirst.mockResolvedValue(null)

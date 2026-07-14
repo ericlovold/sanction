@@ -261,7 +261,11 @@ export async function createSpendPendingApproval(
 // Resolving an approval = owner decision -> optional grant -> legacy spend row
 // terminal state. request_id remains accepted for old API clients.
 export async function resolveApproval(
-  walletId: string,
+  // Authority to decide. A single wallet (the API's owner-authenticated wallet)
+  // or a whole subtree of ids (the dashboard: an org owner clears escalations in
+  // any pool below them). The approval always resolves against its OWN wallet —
+  // this set only gates who is allowed to decide it.
+  authorizedWallets: string | string[],
   approvalOrRequestId: string,
   decision: ApprovalDecision,
   note?: string,
@@ -271,9 +275,10 @@ export async function resolveApproval(
   // caller supplies nothing, so evidence never silently loses the actor.
   resolvedBy: string = "owner",
 ) {
+  const authorizedWalletIds = Array.isArray(authorizedWallets) ? authorizedWallets : [authorizedWallets]
   const approval = await db.pendingApproval.findFirst({
     where: {
-      walletId,
+      walletId: { in: authorizedWalletIds },
       OR: [
         { id: approvalOrRequestId },
         { sourceType: SOURCE_AUTHORIZATION_REQUEST, sourceId: approvalOrRequestId },
@@ -282,7 +287,7 @@ export async function resolveApproval(
     include: { agent: { select: { name: true } } },
   })
 
-  if (!approval) return resolveLegacyAuthorizationRequest(walletId, approvalOrRequestId, decision, note, resolvedBy)
+  if (!approval) return resolveLegacyAuthorizationRequest(authorizedWalletIds, approvalOrRequestId, decision, note, resolvedBy)
 
   const wasExpired = await settlePendingApprovalIfExpired(approval)
   if (wasExpired) {
@@ -301,7 +306,7 @@ export async function resolveApproval(
   const result = await db.$transaction(async (tx) => {
     const client = tx as ApprovalWorkflowClient
     const updatedCount = await client.pendingApproval.updateMany({
-      where: { id: approval.id, walletId, status: "pending" },
+      where: { id: approval.id, walletId: approval.walletId, status: "pending" },
       data: { status: approvalStatus, resolvedAt, resolvedBy, resolutionNote },
     })
     if (updatedCount.count === 0) return { ok: false as const }
@@ -346,7 +351,7 @@ export async function resolveApproval(
 
   after(() =>
     Promise.all([
-      deliverEvent(walletId, "approval.resolved", {
+      deliverEvent(approval.walletId, "approval.resolved", {
         approval_id: result.approval.id,
         grant_id: result.grant?.id,
         request_id: result.request?.id ?? approval.sourceId,
@@ -357,7 +362,7 @@ export async function resolveApproval(
         resource: result.approval.resourceJson,
         note: result.approval.resolutionNote,
       }),
-      deliverEvent(walletId, "escalation.resolved", {
+      deliverEvent(approval.walletId, "escalation.resolved", {
         approval_id: result.approval.id,
         grant_id: result.grant?.id,
         request_id: result.request?.id ?? approval.sourceId,
@@ -374,7 +379,7 @@ export async function resolveApproval(
 }
 
 async function resolveLegacyAuthorizationRequest(
-  walletId: string,
+  authorizedWalletIds: string[],
   requestId: string,
   decision: ApprovalDecision,
   note?: string,
@@ -387,13 +392,14 @@ async function resolveLegacyAuthorizationRequest(
     include: { agent: { select: { walletId: true, name: true } } },
   })
 
-  if (!reqRow || reqRow.agent.walletId !== walletId) {
+  if (!reqRow || !authorizedWalletIds.includes(reqRow.agent.walletId)) {
     return { ok: false as const, error: "Request not found", status: 404 as const }
   }
   if (reqRow.status !== "escalated") {
     return { ok: false as const, error: `Request already ${reqRow.status}`, status: 409 as const }
   }
 
+  const walletId = reqRow.agent.walletId
   const status = decision === "approve" ? "approved" : "denied"
   const decisionNote = note?.trim() || (decision === "approve" ? `Approved by ${resolvedBy}` : `Rejected by ${resolvedBy}`)
 
