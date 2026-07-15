@@ -17,10 +17,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Badge needs a number, not rows. The full read (and expiry settling) runs
   // on the Approvals page itself, where timeouts are actually visible. Count
-  // across the subtree so the badge matches the (subtree-aware) Approvals page.
+  // across the subtree so the badge matches the (subtree-aware) Approvals page —
+  // and match its LIVE set: an escalation past its expiry is no longer
+  // actionable (the page filters it, and a sweep will settle it fail-closed), so
+  // counting it here would put a number on the badge the page can never clear.
+  const now = new Date()
   const { ids: walletIds } = await subtreeWalletIds(view.id)
   const [pendingCount, childWallets] = await Promise.all([
-    db.pendingApproval.count({ where: { walletId: { in: walletIds }, status: "pending" } }),
+    db.pendingApproval.count({
+      where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    }),
     db.wallet.count({ where: { parentId: view.id } }),
   ])
 
