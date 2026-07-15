@@ -33,6 +33,7 @@ const ICON = {
   tokens: "M4 7h16v10H4zM8 7V5h8v2M9 12h6",
   keys: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
   audit: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M9 13h6M9 17h6M9 9h1",
+  team: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6",
 }
 
 // Ordered by operator job priority: resolve approvals, check burn, manage
@@ -51,6 +52,7 @@ const items: Item[] = [
   { href: "/dashboard/audit", label: "Audit", icon: <Icon d={ICON.audit} /> },
   { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
+  { href: "/dashboard/team", label: "Team", icon: <Icon d={ICON.team} /> },
 ]
 
 function isActive(pathname: string, href: string): boolean {

@@ -61,6 +61,7 @@ provides a Postgres service so both gates run on every push/PR.
 | **KILL-1** | The owner's one-control stop: freezing a wallet pauses every data-plane action for it AND its whole subtree — enforcement walks ancestors (cycle-safe), so a frozen parent stops children that are themselves unfrozen — deleting nothing; unfreeze clears only THIS wallet's freeze (a frozen ancestor still blocks: tighten-never-loosen); freeze/unfreeze are owner-only (`POST /v1/wallets/{freeze,unfreeze}`) and the check gates all seven data-plane surfaces: authorize, tool, provision, capability, exec, tokens, and the LLM gateway | `lib/freeze.ts` (`walletFreezeState`, ancestor walk), `app/api/v1/wallets/{freeze,unfreeze}/route.ts`, enforcement in `app/api/v1/{authorize{,/tool,/provision,/capability},exec,tokens}/route.ts` + `app/api/gateway/**` | `freeze.test.ts` (ancestor walk blocks subtree, self-vs-parent note, cycle survival), `freeze.route.test.ts` (owner-only matrix, freeze-with-reason + subtree scope, unfreeze clears self only) | ✅ |
 | **REALLOC-1** | Budget moves between sibling pools without leaving evidence gaps: `POST /v1/wallets/reallocate` (owner-only) is atomic, both pools must sit in the caller's subtree (403 otherwise), the source cap can never be overdrawn (422, nothing written), and both cap writes flow through the revision-writing policy path (EVID-1) plus one `BudgetReallocation` audit row per move | `app/api/v1/wallets/reallocate/route.ts`, `prisma/schema.prisma` (`BudgetReallocation`) | `reallocate.route.test.ts` (owner + subtree auth, overdraw refusal writes nothing, cap move + two revisions + audit row) | ✅ |
 | **LOCAL-1** | Sanction Local install package (governance half): the `no-egress` policy pack (`channel: local`) allow-lists only exact on-box tools and blocks named cloud egress tools — denied tool calls persist as audit rows (the no-egress evidence shape already proven on `/authorize/tool`); the dashboard downloads the same AUDIT-1 signed hash-chained export via a cookie-authed route (`/dashboard/audit/export/signed`) so an assessor package is one click, not a curl with `sk_`; demo view fails closed | `lib/policyPacks.ts` (`no-egress`), `app/dashboard/audit/export/signed/route.ts`, `app/dashboard/audit/page.tsx` | `policyPacks.route.test.ts` (catalog includes `no-egress`, pack validates), `local-install.route.test.ts` (session 401, signing 503, range 400, attachment happy path, pack shape), `dataplane.route.test.ts` (no-egress allow-list deny persistence) | ✅ slice 1 (pack + assessor download) · runtime air-gap remains outside this repo |
+| **WALLET-MEMBERS** | A Wallet supports more than one human, each their own identity at their own role (`owner`/`admin`/`viewer`, `hasRole()` floor check): the wallet's own creator is implicitly `owner` (no row needed); additional members are invited by email (owner-only, rate-limited), accept via Better Auth (Google/GitHub only — never the shared `sk_`/magic-link session), single-use time-boxed token mirrors the `MagicLink` claim race-safety; a signed-in user who already owns a different wallet is blocked from activating a second membership rather than landing in an unreachable state | `prisma/schema.prisma` (`WalletMember`), `lib/session.ts` (`getSessionMember`, `resolveWalletForUser`), `lib/roles.ts`, `app/dashboard/team/{page,actions}.ts`, `app/invite/[token]/{page,actions}.ts` | `session-member.test.ts` (role resolution incl. fail-closed race), `invite-accept.test.ts` (email-match gate, collision guard, race-safe claim), `team-actions.test.ts` (owner-only invite/role-change/revoke, rate limit) | ✅ slice 1 (membership + roles + team page + invite flow) · the 9 pre-existing dashboard action files and their `view.isSession` UI gates don't enforce these roles yet (see Gaps) |
 
 ## SECURITY.md crosswalk
 
@@ -75,6 +76,21 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 1. **Dashboard pages are untested** (server components; excluded from coverage
    focus). Data comes from the same tested libs; rendering regressions are caught
    manually today.
+2. **WALLET-MEMBERS role-gating is not yet rolled out to existing mutations.**
+   The 9 pre-existing `app/dashboard/*/actions.ts` files (policy, agents,
+   keys, credentials, approvals, tokens, spend, pools, observe) still gate on
+   `getSessionWallet()` alone — any signed-in member, including a `viewer`,
+   can currently call them. Same for the `view.isSession` UI gates in
+   `keys/page.tsx`, `agents/page.tsx`, `policy/page.tsx`,
+   `credentials/page.tsx`, `tokens/page.tsx` (a viewer sees live mutation
+   controls that would work if submitted). Tracked as the WALLET-MEMBERS
+   follow-up — do not treat a wallet with invited members as safely
+   read-only for a `viewer` until this lands.
+3. **No wallet switcher.** Someone who owns their own Wallet and is also an
+   accepted member of a different one always resolves to the one they own
+   (`lib/session.ts`'s `resolveWalletForUser` precedence) — there's no UI to
+   pick the other. Invite-accept blocks this from producing an unreachable
+   membership; it doesn't yet make the membership reachable either.
 
 ## Test-suite map
 

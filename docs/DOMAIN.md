@@ -74,6 +74,7 @@ named in the discovery doc but not yet a first-class entity.
 | **Webhook** | Shipped | `Webhook` | Owner endpoint notified on approval/escalation/budget events; HMAC-SHA256 signed. |
 | **Audit Event** | Partial | *(distributed — see below)* | No unified `AuditEvent` table today. The decision stream exports as a signed, hash-chained, tamper-evident document (AUDIT-1: `GET /v1/audit/export`, verified self-contained via `POST /v1/audit/verify`); across-time chain anchors are AUDIT-2 (Later). |
 | **Organization** | Roadmap | *(the Wallet tree fills this role)* | No `Organization` model. Org → tenant → sub-tenant is modeled as a self-nesting `Wallet` hierarchy. |
+| **Team Member** | Shipped | `WalletMember` (WALLET-MEMBERS) | A second (or third) human's access to a Wallet, at a role: `owner` \| `admin` \| `viewer` (plain strings, not a DB enum — matches this schema's convention). Invited by email, accepted via Better Auth (Google/GitHub only — the legacy `sk_`/magic-link session is a single shared secret and can't represent a distinct human). The Wallet's own creator is implicitly `owner` with no row here — see Ownership below. |
 
 ---
 
@@ -87,10 +88,19 @@ there is no such model — **`Wallet` is the root, and it nests into itself**:
   down (`Policy.subtreeDailyCapUsd`, tracked by `WalletBudgetCounter`).
 - A `User` (Better Auth human identity) owns one or more Wallets; a Wallet is
   claimed by email on first social sign-in (`lib/session.ts`).
+- Beyond the one owning `User`, a Wallet can have additional human members via
+  `WalletMember` (WALLET-MEMBERS) — invited by email, each at their own role
+  (`owner`/`admin`/`viewer`), signed in with their own Google/GitHub account.
+  `lib/session.ts`'s `getSessionMember()` resolves *who* is acting and at what
+  role; `lib/roles.ts`'s `hasRole()` is the floor check dashboard mutations
+  enforce. No wallet switcher yet — someone who owns their own Wallet and is
+  *also* an accepted member of another one always lands on the one they own
+  (`resolveWalletForUser`'s documented precedence).
 
 So "who owns everything" is answered by **User → Wallet(root) → child Wallets →
-Agents**, not by an Organization entity. Use *Wallet tree* for the hierarchy;
-reserve *organization* for prose only.
+Agents**, plus **WalletMember → Wallet** for everyone else with access — not
+by an Organization entity. Use *Wallet tree* for the hierarchy; reserve
+*organization* for prose only.
 
 ---
 

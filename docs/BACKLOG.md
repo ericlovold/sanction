@@ -11,6 +11,18 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 1 (from Eric): roll the new
+      owner/admin/viewer role floor out to the 9 pre-existing
+      `app/dashboard/*/actions.ts` mutation files and the `view.isSession`
+      UI gates on `keys/agents/policy/credentials/tokens` pages — today a
+      `viewer` member's mutation attempts aren't blocked, only the new team
+      page's own actions are. See docs/TRACEABILITY.md's WALLET-MEMBERS row
+      and Gap #2.
+- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 2: a wallet switcher for
+      someone who owns their own wallet and is also an accepted member of a
+      different one — today the owned wallet always wins with no way to pick
+      the other (docs/TRACEABILITY.md Gap #3).
+
 - [ ] 2026-07-12 — EU AI Act readiness sprint (Aug 2, 2026) (direction from
       Eric): the Act goes fully applicable Aug 2 — GPAI enforcement + fines
       live; high-risk obligations deferred to Dec 2027 / Aug 2028 pending the

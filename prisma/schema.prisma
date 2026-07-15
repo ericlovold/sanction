@@ -87,10 +87,38 @@ model Wallet {
   outcomes         OutcomeEvent[]
   reallocationsFrom BudgetReallocation[] @relation("ReallocFrom")
   reallocationsTo   BudgetReallocation[] @relation("ReallocTo")
+  members          WalletMember[]
 
   @@index([parentId])
   @@index([userId])
   @@index([acqSource])
+}
+
+// A second (or third) human's access to a Wallet, beyond the implicit owner
+// (Wallet.userId, or a valid sk_ session — neither needs a row here). Created
+// pending by an owner's invite (tokenHash/tokenExpiresAt mirror MagicLink's
+// single-use-claim shape); userId is set once the invited email accepts via
+// Better Auth. role/status are plain strings, matching this schema's existing
+// convention (no enums) — validated at the app layer (lib/session.ts, lib/roles.ts).
+model WalletMember {
+  id       String @id @default(cuid())
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId   String?
+  user     User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  email           String // lowercase-normalized invite target
+  role            String    @default("viewer") // "owner" | "admin" | "viewer"
+  status          String    @default("pending") // "pending" | "active" | "revoked"
+  invitedByUserId String?
+  tokenHash       String?   @unique
+  tokenExpiresAt  DateTime?
+  createdAt       DateTime  @default(now())
+  acceptedAt      DateTime?
+
+  @@unique([walletId, email])
+  @@index([walletId])
+  @@index([userId])
 }
 
 // A business result the wallet's spend is accountable to — an enrollment, a
@@ -152,6 +180,7 @@ model User {
   sessions Session[]
   accounts Account[]
   wallets  Wallet[]
+  walletMemberships WalletMember[]
 
   @@map("user")
 }
