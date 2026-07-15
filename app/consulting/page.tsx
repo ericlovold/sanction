@@ -472,7 +472,7 @@ export default function Consulting() {
         <div style={{ ...wrap, padding: "96px 32px" }}>
         <CxReveal style={{ maxWidth: 640, margin: "0 auto 64px", textAlign: "center" }}>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Engagements
+            Engagement Outcomes
           </h2>
           <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px 0 0" }}>
             Outcomes of working together, not a menu of deliverables &mdash;{" "}
