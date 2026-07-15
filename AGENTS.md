@@ -110,6 +110,10 @@ See `.env.example` for the authoritative list (copy to `.env.local` for dev). Co
 - **Hosting:** Vercel (`lovold` team, project `sanction`); DB is Neon via Vercel integration
 - **Bedrock Agent:** `JXRNIJRMCX` (us-east-1), Action Group `sanction-api`
 - **npm:** `sanction-mcp` (published; `npx sanction-mcp`)
+- **Sanction MCP backlog/roadmap:** `docs/BACKLOG.md` + `lib/roadmap.ts` +
+  `docs/TRACEABILITY.md` are the source of truth (confirmed 2026-07-15).
+  Treat any external tracking tool/dashboard as a claim to verify via
+  `/zoomout` (live git + npm registry state), never as fact on its own.
 
 ## Session Skills
 
