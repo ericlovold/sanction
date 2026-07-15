@@ -112,7 +112,12 @@ async function seed(persona: Persona) {
     const pp = await call("/wallets/policy", {
       method: "PATCH",
       auth: { mgmt: pk.mgmtKey },
-      body: { wallet_id: pk.walletId, ...pool.policy },
+      // escalation_timeout_mins: 0 = never auto-settle. A demo stage is meant to
+      // sit with escalations WAITING until the operator approves them live; the
+      // default 60m timeout silently settles them fail-closed, so a demo left
+      // overnight comes back with a badge counting expired ghosts and nothing to
+      // approve. A persona can still override per pool.
+      body: { wallet_id: pk.walletId, escalation_timeout_mins: 0, ...pool.policy },
     })
     if (pp.status !== 200) fail(`pool policy "${pool.name}" → ${pp.status} ${JSON.stringify(pp.json)}`)
 
