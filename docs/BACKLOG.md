@@ -9,7 +9,31 @@ This file is public, like the repo — entries are phrased accordingly; the
 sensitive substance behind an entry, when there is any, lives in the working
 conversation, not here.
 
+This file (plus `lib/roadmap.ts` and `docs/TRACEABILITY.md`) is the source of
+truth for Sanction MCP's backlog and roadmap as of 2026-07-15 — not any
+external tracking dashboard. Claims from outside tools get cross-checked
+against live state (git, npm registry) via `/zoomout` before they're treated
+as fact here.
+
 ## Open
+
+- [ ] 2026-07-15 — "MCP directory/listing polish" (flagged in-progress by an
+      external tracking tool this repo is now the source of truth over — see
+      the note at the top of this file). /zoomout found no corresponding
+      branch, PR, commit, or prior backlog entry for it. Either it's tracked
+      somewhere not visible to the repo, or it's stale on that tool's side —
+      needs a human to say which before it's real work. (needs clarification)
+- [ ] 2026-07-15 — Verify sanction-mcp's npm download signal is real usage,
+      not mirror/scanner traffic: 28-day pull from api.npmjs.org shows 1,970
+      total downloads across 6 sharp spikes (2026-06-22, 06-23, 06-29, 07-02,
+      07-05, 07-07), each decaying to near-zero within 48h — a cadence
+      uncorrelated with any actual publish/launch event, the signature of
+      registry mirrors and dependency scanners rather than people installing
+      it. Cross-check against getsanction.com's own wallet-creation and
+      agent-provisioning call volume for the same window (not visible from
+      npm's public API) — near-zero real API calls despite the download
+      total would confirm mirror traffic over organic adoption. (finding,
+      from the npm registry)
 
 - [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 1 (from Eric): roll the new
       owner/admin/viewer role floor out to the 9 pre-existing
@@ -162,6 +186,12 @@ conversation, not here.
       copies → lib), and the readSpendState / notification-fanout /
       entity-schema / route-scaffold duplication across the three routes.
       (cleanup, from the AuthZEN code review)
+      · 2026-07-15: this is the scope candidate for **AuthZEN hardening
+      sprint 3** (sprint 1 = the original code-review findings; sprint 2 =
+      AUTHZEN-HARDEN, shipped 2026-07-09). Confirmed via /zoomout: nothing
+      here has been picked up since it was flagged — still open, still the
+      right starting scope for sprint 3 rather than a fresh audit. (roadmap
+      candidate)
 
 - [x] 2026-07-08 — Org-level console visibility across the subtree (extends
       the 07-05 console/API parity entry): the root owner's Approvals and
