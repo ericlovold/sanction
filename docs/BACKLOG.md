@@ -11,6 +11,15 @@ conversation, not here.
 
 ## Open
 
+- [ ] 2026-07-15 — Demo-org lifecycle: an archive/delete path for a demo
+      subtree (feature gap, surfaced while re-staging the demo under an owner
+      wallet). Today re-seeding a persona under an existing HQ creates
+      duplicate company/pool wallets — there's no delete-wallet path, and once
+      the seat keys are gone the existing tree is unreachable. Want (a) delete/
+      archive a wallet subtree via the management plane, and/or (b) an
+      idempotent re-seed that adopts an existing demo tree (stable owner-email
+      lookup → reuse) instead of 409-ing and duplicating. · needs an arc
+
 - [ ] 2026-07-12 — EU AI Act readiness sprint (Aug 2, 2026) (direction from
       Eric): the Act goes fully applicable Aug 2 — GPAI enforcement + fines
       live; high-risk obligations deferred to Dec 2027 / Aug 2028 pending the
