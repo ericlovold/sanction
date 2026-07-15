@@ -88,6 +88,40 @@ export async function sendMagicLinkEmail(to: string, link: string): Promise<void
   await send({ to, subject, html, text })
 }
 
+type Invite = {
+  walletName: string
+  role: string // display label, e.g. "Admin" — not the raw "owner"|"admin"|"viewer"
+  inviterName: string
+  link: string
+}
+
+// Invite a teammate into an existing wallet (WALLET-MEMBERS). Same shape as
+// sendMagicLinkEmail — a single link, short validity window, no account
+// existence implied either way (the invite already names the wallet, so
+// there's nothing to hide here).
+export async function sendInviteEmail(to: string, i: Invite): Promise<void> {
+  const subject = `${i.inviterName} invited you to ${i.walletName} on Sanction`
+  const text = [
+    `${i.inviterName} invited you to join ${i.walletName} on Sanction as ${i.role}.`,
+    "",
+    "Accept the invite (valid for 7 days):",
+    "",
+    i.link,
+    "",
+    "This signs you in with your Google or GitHub account — team members use their own login, not a shared key.",
+    "If you weren't expecting this, you can ignore this email.",
+  ].join("\n")
+  const html = `<!doctype html><html><body style="margin:0;background:#09090b;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e4e4e7">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:18px;font-weight:600;letter-spacing:-0.01em;margin:0 0 24px">Sanction</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 24px"><strong>${i.inviterName}</strong> invited you to join <strong>${i.walletName}</strong> as <strong>${i.role}</strong>.</p>
+    <a href="${i.link}" style="display:inline-block;background:#10b981;color:#09090b;font-weight:600;font-size:14px;text-decoration:none;padding:12px 20px;border-radius:8px">Accept invite</a>
+    <p style="font-size:13px;line-height:1.6;color:#a1a1aa;margin:24px 0 0">Signs you in with your Google or GitHub account — team members use their own login, not a shared key. If you weren't expecting this, ignore this email.</p>
+    <p style="font-size:12px;color:#52525b;margin:24px 0 0;word-break:break-all">${i.link}</p>
+  </div></body></html>`
+  await send({ to, subject, html, text })
+}
+
 type BudgetThreshold = {
   label: string
   pctUsed: number
