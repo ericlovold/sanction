@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { withTenant } from "@/lib/rls"
-import { requireSessionRole } from "@/lib/session"
+import { getSessionWallet } from "@/lib/session"
 
 const credentialType = z.enum(["api_key", "oauth_token", "certificate", "license", "password"])
 
@@ -15,7 +15,7 @@ const parseCsv = (value: FormDataEntryValue | null) =>
     .filter(Boolean)
 
 export async function createCredentialAction(form: FormData): Promise<void> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return
 
   const label = z.string().trim().min(1).max(64).safeParse(form.get("label"))
@@ -53,7 +53,7 @@ export async function createCredentialAction(form: FormData): Promise<void> {
 }
 
 export async function updateCredentialAccessAction(form: FormData): Promise<void> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return
   const id = String(form.get("id") ?? "")
   if (!id) return
@@ -82,7 +82,7 @@ export async function updateCredentialAccessAction(form: FormData): Promise<void
 }
 
 export async function revokeCredentialAction(form: FormData): Promise<void> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return
   const id = String(form.get("id") ?? "")
   if (!id) return

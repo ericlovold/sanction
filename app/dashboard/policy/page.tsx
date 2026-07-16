@@ -7,7 +7,6 @@ import { PackPicker } from "@/components/pack-picker"
 import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
-import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -89,10 +88,10 @@ export default async function PolicyPage() {
         </div>
       )}
 
-      <PackPicker editable={hasRole(view.role, "admin")} />
+      <PackPicker editable={view.isSession} />
 
       {wallet?.policy ? (
-        <PolicyEditor policy={policyToDollars(wallet.policy)} editable={hasRole(view.role, "admin")} />
+        <PolicyEditor policy={policyToDollars(wallet.policy)} editable={view.isSession} />
       ) : (
         <Card className="bg-card border-border">
           <CardContent className="px-5 py-5">

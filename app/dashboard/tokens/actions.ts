@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { requireSessionRole } from "@/lib/session"
+import { getSessionWallet } from "@/lib/session"
 
 export async function revokeExecutionTokenAction(form: FormData): Promise<void> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return
   const id = String(form.get("id") ?? "")
   if (!id) return

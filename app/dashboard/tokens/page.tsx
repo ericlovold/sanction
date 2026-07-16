@@ -5,7 +5,6 @@ import { NoWallet } from "@/components/no-wallet"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { revokeExecutionTokenAction } from "@/app/dashboard/tokens/actions"
 import { getViewWallet } from "@/lib/session"
-import { hasRole } from "@/lib/roles"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
@@ -100,7 +99,7 @@ export default async function TokensPage() {
                   >
                     {status}
                   </span>
-                  {hasRole(view.role, "admin") && status === "active" && (
+                  {view.isSession && status === "active" && (
                     <form action={revokeExecutionTokenAction}>
                       <input type="hidden" name="id" value={token.id} />
                       <button type="submit" className="rounded border border-red-500/40 px-2.5 py-1 text-xs text-red-300 hover:text-red-200">

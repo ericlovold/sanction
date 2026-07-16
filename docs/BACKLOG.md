@@ -35,37 +35,17 @@ as fact here.
       total would confirm mirror traffic over organic adoption. (finding,
       from the npm registry)
 
-- [x] 2026-07-15 — WALLET-MEMBERS follow-up, part 1 (from Eric): roll the new
+- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 1 (from Eric): roll the new
       owner/admin/viewer role floor out to the 9 pre-existing
       `app/dashboard/*/actions.ts` mutation files and the `view.isSession`
       UI gates on `keys/agents/policy/credentials/tokens` pages — today a
       `viewer` member's mutation attempts aren't blocked, only the new team
       page's own actions are. See docs/TRACEABILITY.md's WALLET-MEMBERS row
       and Gap #2.
-      · 2026-07-15: **shipped** — every mutation in the 9 action files (plus
-      `app/dashboard/actions.ts`'s agent creation) now calls
-      `requireSessionRole("admin")` (`lib/session.ts`); every corresponding
-      `editable`/mutation-control UI gate across `dashboard/agents/keys/
-      policy/credentials/tokens/approvals/pools/observe` pages now checks
-      `hasRole(view.role, "admin")` instead of `view.isSession`. The two
-      read-only policy simulate/preview actions were deliberately left open
-      to a `viewer` — visibility, not a mutation. 943→948 tests, coverage
-      ratchet still clears (90.3/83.13/94.31/90.3 vs 89/82/93/89). Flagged,
-      not fixed in this pass: a few components' denial copy still reads "Log
-      in" for an already-signed-in `viewer` (docs/TRACEABILITY.md Gap #3) —
-      cosmetic, the gate itself holds.
 - [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 2: a wallet switcher for
       someone who owns their own wallet and is also an accepted member of a
       different one — today the owned wallet always wins with no way to pick
-      the other (docs/TRACEABILITY.md Gap #2).
-- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 3 (found during part 1):
-      `components/management-key-card.tsx`, `components/policy-editor.tsx`,
-      `components/webhook-settings.tsx`, and `components/approval-queue.tsx`
-      show "Log in" as the reason a control is disabled even when the
-      visitor is an already-signed-in `viewer` member — misleading copy, not
-      a security gap (the role floor still blocks the mutation server-side).
-      Give each component a role-aware denial reason instead of one
-      `editable` boolean (docs/TRACEABILITY.md Gap #3).
+      the other (docs/TRACEABILITY.md Gap #3).
 
 - [ ] 2026-07-12 — EU AI Act readiness sprint (Aug 2, 2026) (direction from
       Eric): the Act goes fully applicable Aug 2 — GPAI enforcement + fines

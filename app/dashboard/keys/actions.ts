@@ -4,13 +4,12 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
 import { generateApiKey, generateManagementKey } from "@/lib/apiKey"
-import { requireSessionRole, setSession } from "@/lib/session"
+import { getSessionWallet, setSession } from "@/lib/session"
 
-// Resolve an agent only if it belongs to the logged-in wallet, at an admin-or-
-// higher role — same management-plane trust model as the REST endpoints
-// (x-mgmt-key), plus the WALLET-MEMBERS role floor (a viewer can look but not touch).
+// Resolve an agent only if it belongs to the logged-in wallet. Session-gated —
+// same management-plane trust model as the REST endpoints (x-mgmt-key).
 async function ownedAgent(agentId: string) {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return null
   const agent = await db.agent.findUnique({ where: { id: agentId } })
   if (!agent || agent.walletId !== wallet.id) return null
@@ -51,7 +50,7 @@ export type MgmtKeyState = { ok: boolean; error: string; newKey?: string }
 // The old key stops working the instant the new hash is stored; we re-set the
 // session to the new key so the current login survives the rotation. Shown once.
 export async function resetManagementKeyAction(_prev: MgmtKeyState, _form: FormData): Promise<MgmtKeyState> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return { ok: false, error: "Log in to reset your management key." }
 
   const key = generateManagementKey()

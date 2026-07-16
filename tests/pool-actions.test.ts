@@ -75,7 +75,7 @@ const { apiKeyMock, dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() =>
     dbMock: db,
     revalidatePathMock: vi.fn(),
     sessionMock: {
-      requireSessionRole: vi.fn(),
+      getSessionWallet: vi.fn(),
     },
   }
 })
@@ -211,7 +211,7 @@ beforeEach(() => {
   setupWalletLookups()
   setupAgentLookups()
 
-  sessionMock.requireSessionRole.mockResolvedValue(rootWallet)
+  sessionMock.getSessionWallet.mockResolvedValue(rootWallet)
   apiKeyMock.generateManagementKey.mockReturnValue({
     raw: "sk_pool_once",
     hash: "hash_pool_once",
@@ -236,7 +236,7 @@ beforeEach(() => {
 
 describe("createDelegatedPoolAction", () => {
   it("rejects anonymous dashboard mutations without creating a pool", async () => {
-    sessionMock.requireSessionRole.mockResolvedValueOnce(null)
+    sessionMock.getSessionWallet.mockResolvedValueOnce(null)
 
     const result = await createDelegatedPoolAction(
       { ok: false, message: "" },
@@ -248,21 +248,6 @@ describe("createDelegatedPoolAction", () => {
     expect(dbMock.wallet.create).not.toHaveBeenCalled()
     expect(dbMock.policy.upsert).not.toHaveBeenCalled()
     expect(revalidatePathMock).not.toHaveBeenCalled()
-  })
-
-  // A viewer member also resolves to null here (the WALLET-MEMBERS role floor
-  // lives in lib/session.ts's requireSessionRole) — same denial as no session.
-  it("rejects a viewer member the same way as no session", async () => {
-    sessionMock.requireSessionRole.mockResolvedValueOnce(null)
-
-    const result = await createDelegatedPoolAction(
-      { ok: false, message: "" },
-      form({ name: "Research", owner_email: "research@acme.test", subtree_daily_cap_usd: "125" }),
-    )
-
-    expect(result.ok).toBe(false)
-    expect(dbMock.wallet.create).not.toHaveBeenCalled()
-    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
   })
 
   it("creates a direct child pool, stores only the management-key hash, writes cap cents, and revalidates pools", async () => {

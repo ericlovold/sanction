@@ -12,7 +12,7 @@ vi.mock("next/server", async (orig) => {
   const mod = await orig<typeof import("next/server")>()
   return { ...mod, after: () => {} }
 })
-vi.mock("@/lib/session", () => ({ requireSessionRole: vi.fn(async () => ({ id: "wallet_1", name: "Acme" })) }))
+vi.mock("@/lib/session", () => ({ getSessionWallet: vi.fn(async () => ({ id: "wallet_1", name: "Acme" })) }))
 vi.mock("@/lib/webhooks", async (orig) => {
   const mod = await orig<typeof import("@/lib/webhooks")>()
   return { ...mod, deliverPing: vi.fn(async () => {}) }

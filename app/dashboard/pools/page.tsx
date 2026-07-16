@@ -9,7 +9,6 @@ import { PoolControls } from "@/components/pool-controls"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getViewWallet } from "@/lib/session"
-import { hasRole } from "@/lib/roles"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { dailyPace } from "@/lib/burn"
 
@@ -518,7 +517,7 @@ export default async function PoolsPage() {
           <CardTitle className="text-sm font-medium text-muted-foreground">Authority controls</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
-          {hasRole(view.role, "admin") ? (
+          {view.isSession ? (
             <PoolControls
               pools={pools.rows.map((pool) => ({
                 id: pool.id,
@@ -541,16 +540,12 @@ export default async function PoolsPage() {
               {["Create delegated pool", "Apply allocation", "Set pool cap", "Move agent"].map((label) => (
                 <div key={label} className="rounded-md border border-border bg-card/35 p-4">
                   <p className="text-sm font-medium text-muted-foreground">{label}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {view.isSession ? "Your role can view authority but not edit it." : "Log in to edit authority."}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Log in to edit authority.</p>
                 </div>
               ))}
-              {!view.isSession && (
-                <Link href="/login" className="inline-flex w-fit rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 lg:col-span-2 xl:col-span-4">
-                  Log in
-                </Link>
-              )}
+              <Link href="/login" className="inline-flex w-fit rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 lg:col-span-2 xl:col-span-4">
+                Log in
+              </Link>
             </div>
           )}
         </CardContent>

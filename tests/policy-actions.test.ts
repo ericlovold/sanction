@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 // closed with no write on no-session and on an invalid capability payload.
 const { applyMock, sessionMock, revalidateMock } = vi.hoisted(() => ({
   applyMock: vi.fn(),
-  sessionMock: { requireSessionRole: vi.fn(), getSessionWallet: vi.fn() },
+  sessionMock: { getSessionWallet: vi.fn() },
   revalidateMock: vi.fn(),
 }))
 vi.mock("@/lib/policy", async (orig) => {
@@ -44,7 +44,7 @@ const FULL = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMock.requireSessionRole.mockResolvedValue({ id: "wallet_1" })
+  sessionMock.getSessionWallet.mockResolvedValue({ id: "wallet_1" })
   applyMock.mockResolvedValue({ ok: true, policy: {} })
 })
 
@@ -82,21 +82,11 @@ describe("updatePolicyAction", () => {
   })
 
   it("fails closed with no write when there is no session", async () => {
-    sessionMock.requireSessionRole.mockResolvedValue(null)
+    sessionMock.getSessionWallet.mockResolvedValue(null)
     const res = await updatePolicyAction({ ok: false, message: "" }, form(FULL))
     expect(res.ok).toBe(false)
     expect(applyMock).not.toHaveBeenCalled()
     expect(revalidateMock).not.toHaveBeenCalled()
-  })
-
-  // A viewer member also resolves to null (the WALLET-MEMBERS role floor lives
-  // in lib/session.ts's requireSessionRole) — same denial as no session.
-  it("refuses a viewer member the same way as no session", async () => {
-    sessionMock.requireSessionRole.mockResolvedValue(null)
-    const res = await updatePolicyAction({ ok: false, message: "" }, form(FULL))
-    expect(res.ok).toBe(false)
-    expect(applyMock).not.toHaveBeenCalled()
-    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
   })
 
   it("rejects a malformed capability payload before writing", async () => {

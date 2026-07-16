@@ -7,7 +7,6 @@ import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue
 import { WebhookSettings } from "@/components/webhook-settings"
 import { listPendingApprovals } from "@/lib/approvals"
 import { getViewWallet } from "@/lib/session"
-import { hasRole } from "@/lib/roles"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
@@ -323,7 +322,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{allPending.length}</Badge>
         )}
       </div>
-      <ApprovalQueue pending={allPending} editable={hasRole(view.role, "admin")} focusId={review} />
+      <ApprovalQueue pending={allPending} editable={view.isSession} focusId={review} />
 
       <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
@@ -361,7 +360,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </CardContent>
       </Card>
 
-      <WebhookSettings webhooks={webhooks} editable={hasRole(view.role, "admin")} />
+      <WebhookSettings webhooks={webhooks} editable={view.isSession} />
     </div>
   )
 }

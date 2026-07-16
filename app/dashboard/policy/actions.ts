@@ -5,7 +5,7 @@ import { applyPolicyUpdate, type PolicyInput } from "@/lib/policy"
 import { findPack } from "@/lib/policyPacks"
 import { runSimulation } from "@/lib/simulationRun"
 import { rangeUtc } from "@/lib/reporting"
-import { getSessionWallet, requireSessionRole } from "@/lib/session"
+import { getSessionWallet } from "@/lib/session"
 
 export type PolicyActionState = { ok: boolean; message: string }
 
@@ -88,7 +88,7 @@ export async function updatePolicyAction(
   _prev: PolicyActionState,
   form: FormData,
 ): Promise<PolicyActionState> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return { ok: false, message: "Log in to edit your policy." }
 
   const parsed = parsePolicyForm(form)
@@ -115,8 +115,7 @@ function windowEndingToday(daysBack: number): { start: Date; end: Date } {
 
 // Preview a pack's effect on the recorded history — read + compute, NO write.
 // The conversion moment: see what a curated baseline would have done to your
-// last 30 days before committing to it. Left on getSessionWallet (no role
-// floor): this is read-only, matching exactly what a viewer's role is for.
+// last 30 days before committing to it.
 export async function previewPackAction(
   _prev: SimActionState,
   form: FormData,
@@ -139,7 +138,7 @@ export async function applyPackAction(
   _prev: PolicyActionState,
   form: FormData,
 ): Promise<PolicyActionState> {
-  const wallet = await requireSessionRole("admin")
+  const wallet = await getSessionWallet()
   if (!wallet) return { ok: false, message: "Log in to apply a pack." }
 
   const pack = findPack(String(form.get("pack_id") ?? ""))
@@ -160,8 +159,7 @@ export async function applyPackAction(
 // (applied_fields) and which it ignored (tool/provision ladders), so the report
 // stays honest without a separate guard here — the editor always posts the
 // category arrays, so there is always at least one simulatable field (unlike
-// the JSON API route, whose body can omit them all). Read + compute, NO write
-// — left on getSessionWallet like previewPackAction, no role floor.
+// the JSON API route, whose body can omit them all). Read + compute, NO write.
 export async function simulateDraftAction(
   _prev: SimActionState,
   form: FormData,

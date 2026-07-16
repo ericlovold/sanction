@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
-import { hasRole } from "@/lib/roles"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
@@ -204,7 +203,7 @@ export default async function Dashboard() {
               </Link>
             ))}
           </div>
-          {hasRole(view.role, "admin") && (
+          {view.isSession && (
             <div className="mt-4 border-t border-border pt-4">
               <p className="mb-2 text-xs text-muted-foreground">Add an agent — get a scoped key + a test call:</p>
               <AgentCreator />
