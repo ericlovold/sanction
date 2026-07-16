@@ -6,6 +6,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { ManagementKeyCard } from "@/components/management-key-card"
 import { WalletIdField } from "@/components/wallet-id-field"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -22,12 +23,22 @@ export default async function ApiKeysPage() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
+  // "Every key this account uses" means the subtree, not just this wallet —
+  // an org whose seats all live in pools must not read "No agent keys yet."
+  const { ids: subtreeIds } = await subtreeWalletIds(view.id)
   const [wallet, agents] = await Promise.all([
     db.wallet.findUnique({ where: { id: view.id }, select: { mgmtKeyPrefix: true } }),
     db.agent.findMany({
-      where: { walletId: view.id },
+      where: { walletId: { in: subtreeIds } },
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, apiKeyPrefix: true, isActive: true, holder: true },
+      select: {
+        id: true,
+        name: true,
+        apiKeyPrefix: true,
+        isActive: true,
+        holder: true,
+        wallet: { select: { id: true, name: true } },
+      },
     }),
   ])
 
@@ -77,6 +88,11 @@ export default async function ApiKeysPage() {
                   <p className="truncate text-sm font-medium text-foreground">
                     {a.name}
                     {a.holder && <span className="ml-2 text-xs text-muted-foreground">· {a.holder}</span>}
+                    {a.wallet.id !== view.id && (
+                      <span className="ml-2 rounded-sm border border-primary/25 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary">
+                        {a.wallet.name}
+                      </span>
+                    )}
                   </p>
                   <p className="font-mono text-xs text-muted-foreground">{a.apiKeyPrefix}••••••••</p>
                 </div>
