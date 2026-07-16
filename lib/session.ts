@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers"
 import { db } from "./db"
 import { hashApiKey, generateApiKey } from "./apiKey"
 import { auth } from "./auth-config"
-import type { WalletRole } from "./roles"
+import { hasRole, type WalletRole } from "./roles"
 
 // Two ways to be signed in, bridged here so the rest of the app never cares:
 //   1. Better Auth session (Google/GitHub) → a User → the Wallet it owns.
@@ -135,6 +135,20 @@ export async function getSessionMember(): Promise<
     if (wallet) return { wallet, role: "owner", actor: { type: "key" } }
   }
   return null
+}
+
+/**
+ * Like getSessionWallet, but enforces a role floor (WALLET-MEMBERS follow-up,
+ * part 1): returns null — the same denial a mutating action already gives an
+ * anonymous visitor — when the signed-in member's role doesn't meet `min`, so
+ * every "if (!wallet) return ..." early-return in the dashboard actions keeps
+ * working unchanged. A `viewer` member gets the same no-op/"log in" response
+ * as someone not signed in at all; they never reach the write.
+ */
+export async function requireSessionRole(min: WalletRole) {
+  const member = await getSessionMember()
+  if (!member || !hasRole(member.role, min)) return null
+  return member.wallet
 }
 
 /**

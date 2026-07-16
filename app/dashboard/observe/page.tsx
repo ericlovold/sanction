@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { EnforcementToggle } from "@/components/enforcement-toggle"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
+import { hasRole } from "@/lib/roles"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
@@ -223,7 +224,7 @@ export default async function ObservePage() {
                   </div>
                 </div>
 
-                <EnforcementToggle walletId={pool.id} poolName={pool.name} mode={pool.mode} editable={view.isSession} />
+                <EnforcementToggle walletId={pool.id} poolName={pool.name} mode={pool.mode} editable={hasRole(view.role, "admin")} />
               </div>
             ))}
           </div>

@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const { applyMock, simMock, sessionMock, revalidateMock } = vi.hoisted(() => ({
   applyMock: vi.fn(),
   simMock: vi.fn(),
-  sessionMock: { getSessionWallet: vi.fn() },
+  sessionMock: { getSessionWallet: vi.fn(), requireSessionRole: vi.fn() },
   revalidateMock: vi.fn(),
 }))
 vi.mock("@/lib/policy", async (orig) => {
@@ -52,6 +52,7 @@ const DRAFT = form({
 beforeEach(() => {
   vi.clearAllMocks()
   sessionMock.getSessionWallet.mockResolvedValue({ id: "wallet_1" })
+  sessionMock.requireSessionRole.mockResolvedValue({ id: "wallet_1" })
   applyMock.mockResolvedValue({ ok: true, policy: {} })
   simMock.mockResolvedValue(REPORT)
 })
@@ -103,11 +104,21 @@ describe("applyPackAction", () => {
   })
 
   it("fails closed with no write when there is no session", async () => {
-    sessionMock.getSessionWallet.mockResolvedValue(null)
+    sessionMock.requireSessionRole.mockResolvedValue(null)
     const res = await applyPackAction({ ok: false, message: "" }, form({ pack_id: "startup-defaults" }))
     expect(res.ok).toBe(false)
     expect(applyMock).not.toHaveBeenCalled()
     expect(revalidateMock).not.toHaveBeenCalled()
+  })
+
+  // A viewer member also resolves to null (the WALLET-MEMBERS role floor
+  // lives in lib/session.ts's requireSessionRole) — same denial as no session.
+  it("refuses a viewer member the same way as no session", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(null)
+    const res = await applyPackAction({ ok: false, message: "" }, form({ pack_id: "startup-defaults" }))
+    expect(res.ok).toBe(false)
+    expect(applyMock).not.toHaveBeenCalled()
+    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
   })
 
   it("surfaces an applyPolicyUpdate failure as an error state", async () => {

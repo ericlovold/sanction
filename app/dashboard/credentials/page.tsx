@@ -9,6 +9,7 @@ import {
   updateCredentialAccessAction,
 } from "@/app/dashboard/credentials/actions"
 import { getViewWallet } from "@/lib/session"
+import { hasRole } from "@/lib/roles"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
@@ -80,7 +81,7 @@ export default async function CredentialsPage() {
         </Card>
       </div>
 
-      {view.isSession && (
+      {hasRole(view.role, "admin") && (
         <Card className="border-border bg-muted">
           <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm text-muted-foreground">Add credential</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
@@ -138,7 +139,7 @@ export default async function CredentialsPage() {
                 {credential.allowedAgentIds.length === 0 ? "all seats" : `${credential.allowedAgentIds.length} allowlisted`}
                 {credential.expiresAt ? ` · expires ${credential.expiresAt.toLocaleDateString()}` : ""}
               </p>
-              {view.isSession && !credential.revokedAt && credential.walletId === view.id && (
+              {hasRole(view.role, "admin") && !credential.revokedAt && credential.walletId === view.id && (
                 <div className="space-y-2">
                   <form action={updateCredentialAccessAction} className="grid gap-2 md:grid-cols-3">
                     <input type="hidden" name="id" value={credential.id} />

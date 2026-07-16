@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { walletSubtreeIds } from "@/lib/poolAccess"
 import { upsertPolicyWithRevision } from "@/lib/policy"
-import { getSessionWallet } from "@/lib/session"
+import { requireSessionRole } from "@/lib/session"
 
 export type ObserveActionState = { ok: boolean; message: string }
 
@@ -15,7 +15,7 @@ export async function setEnforcementModeAction(
   _prev: ObserveActionState,
   form: FormData,
 ): Promise<ObserveActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to change enforcement." }
 
   const walletId = String(form.get("wallet_id") ?? "")

@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { getViewWallet } from "@/lib/session"
+import { hasRole } from "@/lib/roles"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { ApiKeysTable, type ConsoleAgent } from "@/components/api-keys-table"
@@ -267,17 +268,23 @@ export default async function AgentsPage({
         </Card>
       </div>
 
-      {view.isSession ? (
+      {hasRole(view.role, "admin") ? (
         <div className="rounded-lg border border-border bg-muted p-4">
           <AgentCreator />
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link> to create and manage agents.
+          {view.isSession ? (
+            "Your role can view agents but not create or edit them."
+          ) : (
+            <>
+              <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link> to create and manage agents.
+            </>
+          )}
         </p>
       )}
 
-      <ApiKeysTable agents={filteredAgents} editable={view.isSession} />
+      <ApiKeysTable agents={filteredAgents} editable={hasRole(view.role, "admin")} />
     </div>
   )
 }

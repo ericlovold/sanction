@@ -6,6 +6,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { ManagementKeyCard } from "@/components/management-key-card"
 import { WalletIdField } from "@/components/wallet-id-field"
 import { getViewWallet } from "@/lib/session"
+import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -43,7 +44,7 @@ export default async function ApiKeysPage() {
       </div>
 
       {/* The master key — the thing you must be able to reset yourself. */}
-      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={view.isSession} />
+      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={hasRole(view.role, "admin")} />
 
       {/* Agent (data-plane) keys */}
       <Card className="border-border bg-card">
