@@ -28,7 +28,7 @@
         },
         {
           "name": "SANCTION_WALLET_ID",
-          "description": "Wallet id, used by the sanction_wallet_status tool.",
+          "description": "Optional override for sanction_wallet_status; by default the wallet derives from the agent key.",
           "isRequired": false
         },
         {

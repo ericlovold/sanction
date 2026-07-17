@@ -31,8 +31,8 @@ curl -s -X POST https://getsanction.com/api/v1/agents \
   -d '{"wallet_id":"REPLACE_WITH_WALLET_ID","name":"My Agent"}'
 ```
 
-You now have a `pxy_...` agent key (→ `SANCTION_API_KEY`) and a wallet id
-(→ `SANCTION_WALLET_ID`).
+You now have a `pxy_...` agent key (→ `SANCTION_API_KEY`) — the only
+configuration the server needs.
 
 ### 2. Add to your MCP host
 
@@ -42,10 +42,7 @@ You now have a `pxy_...` agent key (→ `SANCTION_API_KEY`) and a wallet id
     "sanction": {
       "command": "npx",
       "args": ["sanction-mcp"],
-      "env": {
-        "SANCTION_API_KEY": "pxy_...",
-        "SANCTION_WALLET_ID": "<wallet_id>"
-      }
+      "env": { "SANCTION_API_KEY": "pxy_..." }
     }
   }
 }
@@ -73,7 +70,7 @@ fetches it on first run.
 | Env | Required | Default |
 |-----|----------|---------|
 | `SANCTION_API_KEY` | yes | — |
-| `SANCTION_WALLET_ID` | no (needed for `sanction_wallet_status`) | — |
+| `SANCTION_WALLET_ID` | no — `sanction_wallet_status` derives the wallet from the agent key; set only to override | — |
 | `SANCTION_API_URL` | no | `https://getsanction.com/api/v1` |
 
 ## Set a spend policy

@@ -449,4 +449,13 @@ describe("wallets/stats — membership required (owner or in-wallet agent)", () 
     const res = await getStats(req("GET", `/api/v1/wallets/stats?wallet_id=${WID}`, { headers: agentH }))
     expect(res.status).toBe(200)
   })
+
+  it("derives the wallet from the agent key when wallet_id is omitted", async () => {
+    const res = await getStats(req("GET", "/api/v1/wallets/stats", { headers: agentH }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // Scoped to the key's own wallet — same read the explicit wallet_id form gets.
+    expect(body.today).toMatchObject({ token_cost_usd: 1.5, spend_usd: 20 })
+    expect(body.scope).toBe("wallet")
+  })
 })

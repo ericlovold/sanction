@@ -8,7 +8,8 @@
  * Configuration (env vars):
  *   SANCTION_API_URL   — Sanction API base URL (default: https://getsanction.com/api/v1)
  *   SANCTION_API_KEY   — Agent API key (pxy_...)
- *   SANCTION_WALLET_ID — Wallet ID for status queries
+ *   SANCTION_WALLET_ID — Optional; wallet ID for status queries. When unset,
+ *                        status derives the wallet from the agent key.
  *
  * Usage:
  *   npx sanction-mcp
@@ -20,10 +21,7 @@
  *     "sanction": {
  *       "command": "npx",
  *       "args": ["sanction-mcp"],
- *       "env": {
- *         "SANCTION_API_KEY": "pxy_...",
- *         "SANCTION_WALLET_ID": "<wallet_id>"
- *       }
+ *       "env": { "SANCTION_API_KEY": "pxy_..." }
  *     }
  *   }
  * }
@@ -50,11 +48,11 @@ if (!API_KEY) {
       '  "sanction": {',
       '    "command": "npx",',
       '    "args": ["sanction-mcp"],',
-      '    "env": { "SANCTION_API_KEY": "pxy_...", "SANCTION_WALLET_ID": "..." }',
+      '    "env": { "SANCTION_API_KEY": "pxy_..." }',
       "  }",
       "",
       "Or run it directly to test:",
-      "  SANCTION_API_KEY=pxy_... SANCTION_WALLET_ID=... npx sanction-mcp",
+      "  SANCTION_API_KEY=pxy_... npx sanction-mcp",
       "",
       "No keys yet? Create a wallet free at https://getsanction.com/start",
       "",
@@ -323,10 +321,9 @@ server.tool(
   "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
   {},
   async () => {
-    if (!WALLET_ID) {
-      return { content: [{ type: "text" as const, text: "SANCTION_WALLET_ID not configured" }], isError: true }
-    }
-    const result = await callSanction(`/wallets/stats?wallet_id=${WALLET_ID}`, "GET")
+    // The agent key names its wallet, so wallet_id is optional — the API
+    // derives it server-side. SANCTION_WALLET_ID stays as an explicit override.
+    const result = await callSanction(WALLET_ID ? `/wallets/stats?wallet_id=${WALLET_ID}` : "/wallets/stats", "GET")
     const status = renderWalletStatus(result)
     if (!status.ok) {
       return { content: [{ type: "text" as const, text: status.text }], isError: true }
