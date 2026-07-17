@@ -8,6 +8,7 @@ import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -81,7 +82,7 @@ export default async function PolicyPage() {
           <Card className="bg-card border-border">
             <CardContent className="px-4 py-4">
               <p className="text-xs text-muted-foreground">Token cost month</p>
-              <p className="mt-1 font-mono text-sm text-muted-foreground">${(tokenMonth._sum.costUsd ?? 0).toFixed(2)}</p>
+              <p className="mt-1 font-mono text-sm text-muted-foreground">{fmtUsd(tokenMonth._sum.costUsd ?? 0)}</p>
             </CardContent>
           </Card>
           <Card className="bg-card border-border">

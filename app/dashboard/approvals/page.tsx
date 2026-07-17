@@ -10,6 +10,7 @@ import { getViewWallet } from "@/lib/session"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -41,7 +42,7 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
   if (resource.kind === "spend") {
     const amount = numberValue(resource.amount_usd)
     const merchant = stringValue(resource.merchant) ?? "Unknown merchant"
-    return amount === null ? merchant : `$${amount.toFixed(2)} ${merchant}`
+    return amount === null ? merchant : `${fmtUsd(amount)} ${merchant}`
   }
   if (resource.kind === "provision") {
     const quantity = numberValue(resource.quantity)
@@ -49,7 +50,7 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
     const amount = numberValue(resource.amount_usd)
     const res = stringValue(resource.resource)
     const head = quantity === null ? lineItem : `${quantity} × ${lineItem}`
-    return `${head}${amount === null ? "" : ` — $${amount.toFixed(2)}`}${res ? ` (${res})` : ""}`
+    return `${head}${amount === null ? "" : ` — ${fmtUsd(amount)}`}${res ? ` (${res})` : ""}`
   }
   return (
     stringValue(resource.label) ??

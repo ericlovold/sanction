@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { EnforcementToggle } from "@/components/enforcement-toggle"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 // Enforcement mode, as a section of Pools: observe/enforce is a property of a
 // pool, not a place of its own. Formerly the /dashboard/observe page — that
@@ -16,10 +17,6 @@ import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 const WINDOW_DAYS = 7
 const MAX_ROWS = 2000
-
-function dollars(n: number) {
-  return `$${n.toFixed(2)}`
-}
 
 function utc(d: Date) {
   return `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`
@@ -147,13 +144,13 @@ export async function EnforcementSection({ rootWalletId, editable }: { rootWalle
                     <div>
                       <p className="text-muted-foreground">Would deny</p>
                       <p className={`mt-1 font-mono ${pool.tally.wouldDeny > 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                        {pool.tally.wouldDeny} · {dollars(pool.tally.deniedUsd)}
+                        {pool.tally.wouldDeny} · {fmtUsd(pool.tally.deniedUsd)}
                       </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Would escalate</p>
                       <p className={`mt-1 font-mono ${pool.tally.wouldEscalate > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
-                        {pool.tally.wouldEscalate} · {dollars(pool.tally.escalatedUsd)}
+                        {pool.tally.wouldEscalate} · {fmtUsd(pool.tally.escalatedUsd)}
                       </p>
                     </div>
                     <div>
@@ -190,7 +187,7 @@ export async function EnforcementSection({ rootWalletId, editable }: { rootWalle
                         {code && <span className="font-mono text-[10px] text-muted-foreground">{code}</span>}
                         <span className="text-sm text-foreground">
                           {row.merchant}
-                          {row.amountUsd > 0 ? ` · ${dollars(row.amountUsd)}` : ""}
+                          {row.amountUsd > 0 ? ` · ${fmtUsd(row.amountUsd)}` : ""}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">

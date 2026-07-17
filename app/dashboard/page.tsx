@@ -7,6 +7,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { getViewWallet } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -49,9 +50,7 @@ async function getStats(walletId: string) {
 }
 
 
-function usd(n: number) {
-  return `$${n.toFixed(4)}`
-}
+
 
 
 
@@ -159,13 +158,13 @@ export default async function Dashboard() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Token cost</p>
-                <p className="mt-1 text-xl font-mono font-semibold">{usd(tokenDay._sum.costUsd ?? 0)}</p>
+                <p className="mt-1 text-xl font-mono font-semibold">{fmtUsd(tokenDay._sum.costUsd ?? 0)}</p>
                 <p className="text-xs text-muted-foreground mt-1">{((tokenDay._sum.tokensIn ?? 0) + (tokenDay._sum.tokensOut ?? 0)).toLocaleString()} tokens</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Approved spend</p>
-                <p className="mt-1 text-xl font-mono font-semibold">{usd(spendDay._sum.amountUsd ?? 0)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{usd(spendMonth._sum.amountUsd ?? 0)} month</p>
+                <p className="mt-1 text-xl font-mono font-semibold">{fmtUsd(spendDay._sum.amountUsd ?? 0)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{fmtUsd(spendMonth._sum.amountUsd ?? 0)} month</p>
               </div>
               <div className="col-span-2">
                 <Link href="/dashboard/spend" className="text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-muted-foreground hover:underline">
