@@ -101,10 +101,10 @@ as fact here.
       part 1: roll the owner/admin/viewer role floor out to the pre-existing
       mutation actions and UI gates (see docs/TRACEABILITY.md WALLET-MEMBERS
       row).
-- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 2: a wallet switcher for
-      someone who owns their own wallet and is also an accepted member of a
-      different one — today the owned wallet always wins with no way to pick
-      the other (docs/TRACEABILITY.md Gap #3).
+- [x] 2026-07-15 — promoted: shipped 2026-07-17 (wallet-switcher PR) — a
+      validated active-wallet cookie + sidebar switcher; invite-accept
+      unblocked for existing owners. — WALLET-MEMBERS follow-up, part 2:
+      wallet switcher.
 
 - [ ] 2026-07-12 — EU AI Act readiness sprint (Aug 2, 2026) (direction from
       Eric): the Act goes fully applicable Aug 2 — GPAI enforcement + fines

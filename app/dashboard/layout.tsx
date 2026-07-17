@@ -1,8 +1,9 @@
-import { getViewWallet } from "@/lib/session"
+import { getViewWallet, listSessionWallets } from "@/lib/session"
 import { db } from "@/lib/db"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { AccountControl } from "@/components/account-control"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
+import { WalletSwitcher } from "@/components/wallet-switcher"
 import { SwRegister } from "@/components/sw-register"
 
 export const dynamic = "force-dynamic"
@@ -23,11 +24,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // counting it here would put a number on the badge the page can never clear.
   const now = new Date()
   const { ids: walletIds } = await subtreeWalletIds(view.id)
-  const [pendingCount, childWallets] = await Promise.all([
+  const [pendingCount, childWallets, sessionWallets] = await Promise.all([
     db.pendingApproval.count({
       where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
     }),
     db.wallet.count({ where: { parentId: view.id } }),
+    view.isSession ? listSessionWallets() : Promise.resolve([]),
   ])
 
   return (
@@ -37,6 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         pendingCount={pendingCount}
         hasPools={childWallets > 0}
         account={<AccountControl view={view} />}
+        switcher={sessionWallets.length > 1 ? <WalletSwitcher wallets={sessionWallets} activeId={view.id} /> : undefined}
       />
       <main className="min-w-0 flex-1">{children}</main>
       <SwRegister />

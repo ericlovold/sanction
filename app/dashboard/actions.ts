@@ -1,10 +1,11 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
-import { requireSessionRole } from "@/lib/session"
+import { listSessionWallets, requireSessionRole, setActiveWallet } from "@/lib/session"
 
 export type CreateAgentState = { ok: boolean; error: string; agentKey?: string; agentName?: string }
 export type BatchSeatResult = { id: string; name: string; holder: string | null; agentKey: string; apiKeyPrefix: string }
@@ -150,4 +151,19 @@ export async function createBatchAgentsAction(
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/agents")
   return { ok: true, error: "", seats, templateName: templateId }
+}
+
+// WALLET-MEMBERS part 2: act as a different wallet this session can already
+// reach. Selection, not mutation — a viewer may switch too, so this validates
+// against listSessionWallets (ownership or active membership) rather than a
+// role floor. Anything off that list is a no-op redirect back to the dashboard.
+export async function switchWalletAction(form: FormData) {
+  const walletId = String(form.get("wallet_id") ?? "").trim()
+  if (walletId) {
+    const wallets = await listSessionWallets()
+    if (wallets.some((w) => w.id === walletId)) {
+      await setActiveWallet(walletId)
+    }
+  }
+  redirect("/dashboard")
 }
