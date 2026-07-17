@@ -17,6 +17,44 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-07-16 — Dashboard zero-noise pass (from the Meridian demo walk):
+      hide zero-value stat cards and zero rows by default ("show all" to
+      expand) — Approvals shows 3 zero cards + "oldest pending 0m" when empty,
+      Spend "By agent" lists 18 all-zero rows, Seats shows 4 zero counters per
+      seat. (UX)
+- [ ] 2026-07-16 — Seats page density: 25 seats × (4 stat boxes + 3 chips +
+      5 action buttons) as cards — switch default view to a compact table
+      (name, holder, pool, key, last seen, status) with actions on expand.
+      (UX)
+- [ ] 2026-07-16 — Cut internal narration from UI copy ("additive leadership
+      surface inside the same dashboard/PWA shell" on Credentials, "extends
+      the current token/key management flow" on Execution) — customer-facing
+      pages shouldn't narrate architecture decisions. (copy)
+- [ ] 2026-07-16 — Naming split: nav "Seats" / URL /agents / title "Seats
+      (Agents)" / Overview "Active agents" / Approvals titled "Authorization
+      inbox". One word per concept, nav label = page title; DOMAIN.md is the
+      arbiter. (copy/IA)
+- [ ] 2026-07-16 — Shared money/number formatter in lib: 9 dashboard pages
+      hand-roll toFixed — Overview renders $61.9000 (toFixed(4)), Spend
+      $61.90, zero rows $0.0000, Audit "24091000 tokens" without separators.
+      One formatter, used everywhere. (consistency)
+- [ ] 2026-07-16 — Policy page shape: group the 16-field flat form into
+      collapsible Budgets / Approvals / Tools / Capability sections; group
+      the 11 policy packs by their existing ladder tags (Metering →
+      Authorization → Governance → Evidence). Content is right, needs shape.
+      (UX)
+- [ ] 2026-07-16 — Credentials add-form: 7 placeholder-only fields including
+      "allowed agent ids (csv, blank = all)" and an unlabeled clearance
+      number — add real labels, fold advanced fields behind a disclosure.
+      (UX)
+- [ ] 2026-07-16 — MCP: sanction_wallet_status should derive the wallet from
+      the agent key instead of requiring SANCTION_WALLET_ID to be set.
+      (MCP DX)
+- [ ] 2026-07-16 — Outcomes + Observe as top-level nav: both render all-zero
+      for a fully seeded org — fold Outcomes into Spend (tab or
+      appears-when-reported), fold Observe into Pools as the per-pool
+      observe/enforce switch. Part of the larger nav consolidation arc; queued
+      separately in case that arc lands without them. (IA)
 - [ ] 2026-07-15 — "MCP directory/listing polish" (flagged in-progress by an
       external tracking tool this repo is now the source of truth over — see
       the note at the top of this file). /zoomout found no corresponding

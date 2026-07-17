@@ -106,11 +106,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   // escalations, and the resolved list below should include them.
   const [resolved, webhooks, orgPendingRows] = await Promise.all([
     db.pendingApproval.findMany({
-      where: { walletId, status: { in: ["approved", "denied", "expired"] } },
+      // Subtree-wide, like the pending inbox above it: a decision made here on
+      // a pool's escalation must not vanish from the page that made it.
+      where: { walletId: { in: subtreeIds }, status: { in: ["approved", "denied", "expired"] } },
       orderBy: { updatedAt: "desc" },
       take: 20,
       include: {
         agent: { select: { name: true } },
+        wallet: { select: { id: true, name: true } },
         // The fold: a grant is the receipt of an approval — show it on the row.
         grants: { select: { id: true, status: true, expiresAt: true, consumedAt: true }, take: 1, orderBy: { createdAt: "desc" } },
       },
@@ -252,8 +255,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {focus.resolved
-                    ? "Its owner settled it — sign in with that pool's key to see the full record."
-                    : 'Each pool\u2019s own owner decides — you can see it waiting under "Waiting in your pools" below, but the approve belongs to that pool\u2019s inbox. Sign in with that pool\u2019s key to decide.'}
+                    ? "It’s settled — the full record is in the Resolved list below."
+                    : "It’s merged into the pending inbox below, badged with the pool it came from — you can decide it from here."}
                 </p>
               </>
             )}
@@ -337,6 +340,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
               <div key={r.id} className="flex items-center justify-between text-sm">
                 <div className="min-w-0">
                   <p className="truncate text-foreground">
+                    {r.wallet.id !== walletId && (
+                      <span className="mr-1.5 rounded-sm border border-primary/25 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary">
+                        {r.wallet.name}
+                      </span>
+                    )}
                     {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
                   </p>
                   <p className="text-[11px] text-muted-foreground">
