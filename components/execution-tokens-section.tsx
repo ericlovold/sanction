@@ -2,6 +2,7 @@ import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { revokeExecutionTokenAction } from "@/app/dashboard/tokens/actions"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 // Execution tokens, as a section of Seats (they ARE seat activity: the
 // short-lived JWT a seat holds for one run). Formerly its own page at
@@ -46,7 +47,7 @@ export async function ExecutionTokensSection({ rootWalletId, editable }: { rootW
                   <p className="truncate font-mono text-xs text-muted-foreground">{token.id}</p>
                   <p className="mt-1 text-sm text-foreground">
                     {token.agent.name}
-                    {multiPool && <span className="text-muted-foreground"> · {token.agent.wallet.name}</span>} · ${token.spentUsd.toFixed(2)} / ${token.budgetUsd.toFixed(2)} · clearance {token.clearance}
+                    {multiPool && <span className="text-muted-foreground"> · {token.agent.wallet.name}</span>} · {fmtUsd(token.spentUsd)} / {fmtUsd(token.budgetUsd)} · clearance {token.clearance}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     issued {token.issuedAt.toLocaleString()} · expires {token.expiresAt.toLocaleString()}

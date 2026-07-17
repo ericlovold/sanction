@@ -3,16 +3,13 @@ import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { walletWindowOutcomes, walletWindowSpendUsd, windowStart } from "@/lib/outcomes"
 import { subtreeWalletIds, frozenSubtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 // Outcomes, as a section of Spend: cost-per-outcome is a spend lens (what the
 // spend WAS FOR), not a place of its own. Formerly the /dashboard/outcomes
 // page — that URL still lands here via redirect. Until anything reports an
 // outcome the section is a single explainer line; the per-pool CPO read and
 // recent-outcomes table appear once there's data to show.
-
-function dollars(n: number) {
-  return `$${n.toFixed(2)}`
-}
 
 type PoolRow = {
   id: string
@@ -95,7 +92,7 @@ function CpoBar({ row }: { row: PoolRow }) {
         <div className={`h-full rounded-full ${over ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${p}%` }} />
       </div>
       <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-        {dollars(row.cpoUsd)} per {row.kind} · ceiling {dollars(row.ceilingUsd)}
+        {fmtUsd(row.cpoUsd)} per {row.kind} · ceiling {fmtUsd(row.ceilingUsd)}
       </p>
     </div>
   )
@@ -162,8 +159,8 @@ export async function OutcomesSection({ rootWalletId }: { rootWalletId: string }
               </div>
               <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-muted-foreground">
                 <span>{row.outcomes.toLocaleString()} {row.kind ?? "outcomes"} / {row.windowDays}d</span>
-                <span>{dollars(row.spendUsd)} spend</span>
-                {row.cpoUsd !== null && <span className="text-muted-foreground">{dollars(row.cpoUsd)} each</span>}
+                <span>{fmtUsd(row.spendUsd)} spend</span>
+                {row.cpoUsd !== null && <span className="text-muted-foreground">{fmtUsd(row.cpoUsd)} each</span>}
               </div>
               <CpoBar row={row} />
             </div>
@@ -191,7 +188,7 @@ export async function OutcomesSection({ rootWalletId }: { rootWalletId: string }
                   <td className="py-2 pr-4 text-muted-foreground">{nameOf.get(e.walletId) ?? e.walletId}</td>
                   <td className="py-2 pr-4">{e.kind}</td>
                   <td className="py-2 pr-4">{e.playLabel ?? "—"}</td>
-                  <td className="py-2">{e.valueUsd == null ? "—" : dollars(e.valueUsd)}</td>
+                  <td className="py-2">{e.valueUsd == null ? "—" : fmtUsd(e.valueUsd)}</td>
                 </tr>
               ))}
             </tbody>

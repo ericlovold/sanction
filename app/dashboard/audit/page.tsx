@@ -7,6 +7,7 @@ import { rangeUtc } from "@/lib/reporting"
 import { buildPeriodSummary } from "@/lib/reportingSummary"
 import { buildAuditFeed, type AuditEvent } from "@/lib/auditFeed"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd, fmtCount } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -17,12 +18,6 @@ export const metadata: Metadata = {
 
 const FEED_LIMIT = 50
 
-function dollars(n: number) {
-  return `$${n.toFixed(2)}`
-}
-function cost(n: number) {
-  return `$${n.toFixed(n < 1 ? 4 : 2)}`
-}
 function isoDay(offsetDays: number) {
   return new Date(Date.now() - offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
@@ -30,7 +25,7 @@ function isoDay(offsetDays: number) {
 // Pull a human detail + a headline value off a loosely-typed audit event.
 function eventDetail(e: AuditEvent): { detail: string; value: string; tone: string } {
   if (e.type === "token.logged") {
-    return { detail: String(e.model ?? "model"), value: cost(Number(e.cost_usd ?? 0)), tone: "text-muted-foreground" }
+    return { detail: String(e.model ?? "model"), value: fmtUsd(Number(e.cost_usd ?? 0)), tone: "text-muted-foreground" }
   }
   if (e.type === "vault.injection") {
     return { detail: `secret · ${String(e.credential_label ?? "")}`, value: "—", tone: "text-violet-400" }
@@ -40,7 +35,7 @@ function eventDetail(e: AuditEvent): { detail: string; value: string; tone: stri
   const status = String(e.status ?? "")
   const tone =
     status === "approved" ? "text-emerald-400" : status === "denied" ? "text-red-400" : status === "escalated" ? "text-amber-400" : "text-muted-foreground"
-  return { detail: merchant, value: e.amount_usd != null ? dollars(Number(e.amount_usd)) : "—", tone }
+  return { detail: merchant, value: e.amount_usd != null ? fmtUsd(Number(e.amount_usd)) : "—", tone }
 }
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -140,8 +135,8 @@ export default async function AuditPage({
 
       {/* Period KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Kpi label="Approved spend" value={dollars(totals.spend_usd)} sub={`${from} → ${to}`} />
-        <Kpi label="Token cost" value={cost(totals.token_cost_usd)} sub={`${totals.tokens_in + totals.tokens_out} tokens`} />
+        <Kpi label="Approved spend" value={fmtUsd(totals.spend_usd)} sub={`${from} → ${to}`} />
+        <Kpi label="Token cost" value={fmtUsd(totals.token_cost_usd)} sub={`${fmtCount(totals.tokens_in + totals.tokens_out)} tokens`} />
         <Kpi label="Approved" value={String(totals.decisions.approved ?? 0)} sub="decisions" />
         <Kpi
           label="Denied · escalated"
@@ -199,11 +194,11 @@ export default async function AuditPage({
                     <tr key={a.agent_id} className="border-t border-border">
                       <td className="py-1.5 pr-3 font-sans text-foreground">{a.agent_name ?? a.agent_id.slice(0, 8)}</td>
                       {multiPool && <td className="py-1.5 pr-3 font-sans text-muted-foreground">{a.pool ?? "—"}</td>}
-                      <td className="py-1.5 pr-3 text-right">{dollars(a.spend_usd)}</td>
+                      <td className="py-1.5 pr-3 text-right">{fmtUsd(a.spend_usd)}</td>
                       <td className="py-1.5 pr-3 text-right text-emerald-400">{a.approved}</td>
                       <td className="py-1.5 pr-3 text-right text-red-400">{a.denied}</td>
                       <td className="py-1.5 pr-3 text-right text-amber-400">{a.escalated}</td>
-                      <td className="py-1.5 text-right">{cost(a.token_cost_usd)}</td>
+                      <td className="py-1.5 text-right">{fmtUsd(a.token_cost_usd)}</td>
                     </tr>
                   ))}
                 </tbody>

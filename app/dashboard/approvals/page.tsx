@@ -10,6 +10,7 @@ import { getViewWallet } from "@/lib/session"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd } from "@/lib/format"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -41,7 +42,7 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
   if (resource.kind === "spend") {
     const amount = numberValue(resource.amount_usd)
     const merchant = stringValue(resource.merchant) ?? "Unknown merchant"
-    return amount === null ? merchant : `$${amount.toFixed(2)} ${merchant}`
+    return amount === null ? merchant : `${fmtUsd(amount)} ${merchant}`
   }
   if (resource.kind === "provision") {
     const quantity = numberValue(resource.quantity)
@@ -49,7 +50,7 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
     const amount = numberValue(resource.amount_usd)
     const res = stringValue(resource.resource)
     const head = quantity === null ? lineItem : `${quantity} × ${lineItem}`
-    return `${head}${amount === null ? "" : ` — $${amount.toFixed(2)}`}${res ? ` (${res})` : ""}`
+    return `${head}${amount === null ? "" : ` — ${fmtUsd(amount)}`}${res ? ` (${res})` : ""}`
   }
   return (
     stringValue(resource.label) ??
@@ -283,6 +284,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </p>
       </div>
 
+      {/* Zero-noise: Pending and Recently resolved are the page's pulse and
+          always show; Expiring-in-15m only exists while something is actually
+          about to expire. Webhook count lives on the webhook card below, not
+          in a stat. */}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-1">
@@ -290,6 +295,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className={`font-mono text-2xl font-semibold tabular-nums ${allPending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{allPending.length}</p>
+            {allPending.length > 0 && <p className="text-xs text-muted-foreground">oldest waiting {oldestPendingMinutes}m</p>}
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
@@ -300,23 +306,16 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             <p className="font-mono text-2xl font-semibold tabular-nums">{resolved.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Notification routes</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold tabular-nums">{webhooks.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 15m</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold tabular-nums ${expiringSoon > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{expiringSoon}</p>
-            <p className="text-xs text-muted-foreground">oldest pending {oldestPendingMinutes}m</p>
-          </CardContent>
-        </Card>
+        {expiringSoon > 0 && (
+          <Card className="bg-card border-border">
+            <CardHeader className="px-4 pt-4 pb-1">
+              <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 15m</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <p className="font-mono text-2xl font-semibold tabular-nums text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]">{expiringSoon}</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

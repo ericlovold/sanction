@@ -8,6 +8,7 @@ import { getViewWallet } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
 import { dailyPace } from "@/lib/burn"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { fmtUsd, fmtCount } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -16,12 +17,6 @@ export const metadata: Metadata = {
   description: "Token and spend usage across every agent, model, and task.",
 }
 
-function cost(n: number) {
-  return `$${n.toFixed(n < 1 ? 4 : 2)}`
-}
-function dollars(n: number) {
-  return `$${n.toFixed(2)}`
-}
 function pct(actual: number, budget: number) {
   if (budget <= 0) return 0
   return Math.min(999, Math.round((actual / budget) * 100))
@@ -178,16 +173,16 @@ export default async function SpendPage() {
           <CardTitle className="text-sm font-medium text-muted-foreground">Today against budget</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5 pt-3 grid gap-5 sm:grid-cols-2">
-          <BudgetBar label="Token cost" actual={s.tokDay._sum.costUsd ?? 0} budget={tokenBudget} format={cost} />
-          <BudgetBar label="Authorized spend" actual={s.spendDay._sum.amountUsd ?? 0} budget={spendBudget} format={dollars} />
+          <BudgetBar label="Token cost" actual={s.tokDay._sum.costUsd ?? 0} budget={tokenBudget} format={fmtUsd} />
+          <BudgetBar label="Authorized spend" actual={s.spendDay._sum.amountUsd ?? 0} budget={spendBudget} format={fmtUsd} />
         </CardContent>
       </Card>
 
       {/* KPI row — this month */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Token cost (month)", value: cost(s.tokMonth._sum.costUsd ?? 0), sub: `${tokensMonth.toLocaleString()} tokens` },
-          { label: "Authorized spend (month)", value: dollars(s.spendMonth._sum.amountUsd ?? 0), sub: `${s.mix.approved ?? 0} approved` },
+          { label: "Token cost (month)", value: fmtUsd(s.tokMonth._sum.costUsd ?? 0), sub: `${tokensMonth.toLocaleString()} tokens` },
+          { label: "Authorized spend (month)", value: fmtUsd(s.spendMonth._sum.amountUsd ?? 0), sub: `${s.mix.approved ?? 0} approved` },
           { label: "Denied (month)", value: `${s.mix.denied ?? 0}`, sub: "blocked by policy" },
           { label: "Escalated (month)", value: `${s.mix.escalated ?? 0}`, sub: "awaiting a human" },
         ].map((k) => (
@@ -212,7 +207,7 @@ export default async function SpendPage() {
           <div className="flex h-32 items-end gap-1.5">
             {s.days.map((d, i) => (
               <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="text-[9px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{cost(d.cost)}</span>
+                <span className="text-[9px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{fmtUsd(d.cost)}</span>
                 <div
                   className="w-full rounded-sm bg-emerald-500/70 group-hover:bg-emerald-400 transition-colors"
                   style={{ height: `${Math.max(2, (d.cost / s.trendMax) * 100)}%` }}
@@ -242,7 +237,7 @@ export default async function SpendPage() {
                     <p className="truncate font-mono text-xs text-muted-foreground">{m.model}</p>
                     <p className="text-[11px] text-muted-foreground">{m._count._all} calls · {((m._sum.tokensIn ?? 0) + (m._sum.tokensOut ?? 0)).toLocaleString()} tok</p>
                   </div>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{cost(m._sum.costUsd ?? 0)}</span>
+                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(m._sum.costUsd ?? 0)}</span>
                 </div>
               ))}
             </div>
@@ -260,7 +255,9 @@ export default async function SpendPage() {
               />
             )}
             <div className="space-y-2">
-              {s.agentList.map((a) => (
+              {/* Zero-noise: seats with no activity this month collapse into
+                  one summary line instead of a wall of $0.00 rows. */}
+              {s.agentList.filter((a) => a.tokens > 0 || a.approved > 0 || a.denied > 0 || a.escalated > 0 || a.spend > 0 || a.tokenCost > 0).map((a) => (
                 <div key={a.name} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
                     <p className="flex items-center gap-1.5 truncate text-muted-foreground">
@@ -278,11 +275,19 @@ export default async function SpendPage() {
                     </p>
                   </div>
                   <div className="ml-3 shrink-0 text-right">
-                    <p className="font-mono text-xs text-muted-foreground">{cost(a.tokenCost)}</p>
-                    {a.spend > 0 && <p className="text-[11px] text-muted-foreground">+{dollars(a.spend)} spend</p>}
+                    <p className="font-mono text-xs text-muted-foreground">{fmtUsd(a.tokenCost)}</p>
+                    {a.spend > 0 && <p className="text-[11px] text-muted-foreground">+{fmtUsd(a.spend)} spend</p>}
                   </div>
                 </div>
               ))}
+              {(() => {
+                const idle = s.agentList.filter((a) => a.tokens === 0 && a.approved === 0 && a.denied === 0 && a.escalated === 0 && a.spend === 0 && a.tokenCost === 0).length
+                return idle > 0 ? (
+                  <p className="pt-1 text-[11px] text-muted-foreground">
+                    + {idle} seat{idle === 1 ? "" : "s"} with no activity this month
+                  </p>
+                ) : null
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -301,7 +306,7 @@ export default async function SpendPage() {
               {s.byTask.map((t) => (
                 <div key={t.taskLabel ?? "unlabeled"} className="flex items-center justify-between text-sm">
                   <p className="truncate text-muted-foreground">{t.taskLabel ?? "unlabeled"}</p>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{cost(t._sum.costUsd ?? 0)} <span className="text-muted-foreground">· {t._count._all}</span></span>
+                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(t._sum.costUsd ?? 0)} <span className="text-muted-foreground">· {t._count._all}</span></span>
                 </div>
               ))}
             </div>
@@ -317,7 +322,7 @@ export default async function SpendPage() {
               {s.byCategory.map((c) => (
                 <div key={c.category} className="flex items-center justify-between text-sm">
                   <p className="truncate text-muted-foreground">{c.category}</p>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{dollars(c._sum.amountUsd ?? 0)} <span className="text-muted-foreground">· {c._count}</span></span>
+                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(c._sum.amountUsd ?? 0)} <span className="text-muted-foreground">· {c._count}</span></span>
                 </div>
               ))}
             </div>
