@@ -94,13 +94,13 @@ as fact here.
       total would confirm mirror traffic over organic adoption. (finding,
       from the npm registry)
 
-- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 1 (from Eric): roll the new
-      owner/admin/viewer role floor out to the 9 pre-existing
-      `app/dashboard/*/actions.ts` mutation files and the `view.isSession`
-      UI gates on `keys/agents/policy/credentials/tokens` pages — today a
-      `viewer` member's mutation attempts aren't blocked, only the new team
-      page's own actions are. See docs/TRACEABILITY.md's WALLET-MEMBERS row
-      and Gap #2.
+- [x] 2026-07-15 — promoted: re-landed 2026-07-17 as the role-gating v2 PR
+      after the 2026-07-16 revert; role matrix confirmed with Eric (admin
+      floor everywhere incl. mgmt-key reset; pack preview/simulation open to
+      viewers; team management stays owner-only). — WALLET-MEMBERS follow-up,
+      part 1: roll the owner/admin/viewer role floor out to the pre-existing
+      mutation actions and UI gates (see docs/TRACEABILITY.md WALLET-MEMBERS
+      row).
 - [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 2: a wallet switcher for
       someone who owns their own wallet and is also an accepted member of a
       different one — today the owned wallet always wins with no way to pick
