@@ -35,7 +35,7 @@ type PolicyDollars = {
 
 // Every hint states what the engine actually does (verified against
 // lib/rules/spend.ts) — what the field governs and what happens at the line.
-const dollarFields = [
+const budgetFields = [
   {
     name: "daily_token_budget_usd",
     label: "Daily token budget",
@@ -63,6 +63,9 @@ const dollarFields = [
     label: "Per-transaction max",
     hint: "The most one request may spend. Above this is denied outright — it can't even ask for approval.",
   },
+] as const
+
+const approvalFields = [
   {
     name: "auto_approve_under_usd",
     label: "Auto-approve under",
@@ -74,6 +77,8 @@ const dollarFields = [
     hint: "Above this, spend pauses in your approvals inbox until you decide.",
   },
 ] as const
+
+type MoneyField = (typeof budgetFields)[number] | (typeof approvalFields)[number]
 
 const initial: PolicyActionState = { ok: false, message: "" }
 const simInitial: SimActionState = { ok: false, message: "" }
@@ -97,6 +102,33 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
 
   const setRule = (i: number, patch: Partial<CapabilityRule>) =>
     setRules((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+
+  const moneyField = (f: MoneyField) => (
+    <label key={f.name} className="block">
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.label}</span>
+      <div className="mt-1 flex items-center rounded-md border border-border bg-card focus-within:border-border">
+        <span className="pl-2.5 font-mono text-sm text-muted-foreground">$</span>
+        <input
+          type="number"
+          name={f.name}
+          step="0.01"
+          min="0"
+          disabled={!editable}
+          defaultValue={policy[f.name] ?? ""}
+          placeholder={"optional" in f && f.optional ? "No cap" : undefined}
+          onChange={
+            f.name === "per_transaction_max_usd"
+              ? (e) => setPerTxn(Number(e.target.value))
+              : f.name === "escalate_over_usd"
+                ? (e) => setEscalate(Number(e.target.value))
+                : undefined
+          }
+          className="w-full bg-transparent px-2 py-1.5 font-mono text-sm text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+      </div>
+      <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">{f.hint}</span>
+    </label>
+  )
 
   const listInput = (name: string, label: string, value: string[], hint: string, danger?: boolean) => (
     <label className="block">
@@ -122,44 +154,34 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
               capabilityRules zod is the single validator. */}
           <input type="hidden" name="capability_rules" value={JSON.stringify(rules)} />
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-            {dollarFields.map((f) => (
-              <label key={f.name} className="block">
-                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                <div className="mt-1 flex items-center rounded-md border border-border bg-card focus-within:border-border">
-                  <span className="pl-2.5 font-mono text-sm text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    name={f.name}
-                    step="0.01"
-                    min="0"
-                    disabled={!editable}
-                    defaultValue={policy[f.name] ?? ""}
-                    placeholder={"optional" in f && f.optional ? "No cap" : undefined}
-                    onChange={
-                      f.name === "per_transaction_max_usd"
-                        ? (e) => setPerTxn(Number(e.target.value))
-                        : f.name === "escalate_over_usd"
-                          ? (e) => setEscalate(Number(e.target.value))
-                          : undefined
-                    }
-                    className="w-full bg-transparent px-2 py-1.5 font-mono text-sm text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                </div>
-                <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">{f.hint}</span>
-              </label>
-            ))}
-          </div>
+          {/* Budgets — the hard money lines. */}
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Budgets</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Hard spending lines, checked before every action.</p>
+            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+              {budgetFields.map(moneyField)}
+            </div>
+          </section>
+
+          {/* Human approval — where spend pauses for a person. */}
+          <section className="border-t border-border pt-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Human approval</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              The escalation window: silent below one line, paused for a person above the other.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4">
+              {approvalFields.map(moneyField)}
+            </div>
 
           {escalationDead && (
-            <p className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
+            <p className="mt-4 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
               Escalation will never trigger: a charge has to clear &ldquo;Per-transaction max&rdquo; before it can
               escalate, so set &ldquo;Escalate over&rdquo; below it for human approval to be reachable.
             </p>
           )}
 
           {/* Escalation timeout */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Escalation timeout (min)</span>
               <input
@@ -189,8 +211,15 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
               </select>
             </label>
           </div>
+          </section>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Categories & tools — what agents may buy and call. */}
+          <section className="border-t border-border pt-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Categories &amp; tools</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              What agents may buy and which tools they may call — blocked always wins.
+            </p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {listInput(
               "allowed_categories",
               "Allowed categories",
@@ -206,7 +235,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
             {listInput(
               "allowed_tools",
               "Allowed tools",
@@ -227,9 +256,10 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
               "These tools pause for your approval on every call.",
             )}
           </div>
+          </section>
 
           {/* Capability rules — ordered block → allow-list → escalate */}
-          <div>
+          <section className="border-t border-border pt-5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                 Capability rules ({rules.length}/{MAX_CAPABILITY_RULES})
@@ -288,7 +318,7 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
           {editable ? (
             <div className="space-y-3">
