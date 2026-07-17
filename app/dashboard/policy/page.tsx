@@ -7,6 +7,7 @@ import { PackPicker } from "@/components/pack-picker"
 import { PolicyEditor } from "@/components/policy-editor"
 import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export const dynamic = "force-dynamic"
 
@@ -25,19 +26,26 @@ export default async function PolicyPage() {
   const monthStart = new Date()
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
-  const [wallet, walletChildren] = await Promise.all([
-    db.wallet.findUnique({ where: { id: view.id }, include: { policy: true } }),
-    db.wallet.count({ where: { parentId: view.id } }),
-  ])
+  const now = new Date()
+  // The editor below is wallet-local (it edits THIS wallet's policy), but the
+  // activity cards measure the org like every other surface: subtree-wide, so
+  // they agree with Overview instead of reading $0.00 at an HQ whose agents
+  // all live in pools.
+  const { ids: subtreeIds } = await subtreeWalletIds(view.id)
+  const wallet = await db.wallet.findUnique({ where: { id: view.id }, include: { policy: true } })
   const agentIds = (
     await db.agent.findMany({
-      where: { walletId: view.id },
+      where: { walletId: { in: subtreeIds } },
       select: { id: true },
     })
   ).map((a) => a.id)
   const [tokenMonth, pendingApprovals, escalatedMonth] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: monthStart } }, _sum: { costUsd: true } }),
-    db.pendingApproval.count({ where: { walletId: view.id, status: "pending" } }),
+    // Live pending, like the sidebar badge: an expired escalation is no longer
+    // actionable, so it doesn't count as pressure.
+    db.pendingApproval.count({
+      where: { walletId: { in: subtreeIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    }),
     db.authorizationRequest.count({
       where: { agentId: { in: agentIds }, status: "escalated", createdAt: { gte: monthStart } },
     }),
@@ -80,9 +88,6 @@ export default async function PolicyPage() {
             <CardContent className="px-4 py-4">
               <p className="text-xs text-muted-foreground">Approval pressure</p>
               <p className="mt-1 text-sm text-muted-foreground">{pendingApprovals} pending · {escalatedMonth} escalated</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Scope: current wallet{walletChildren > 0 ? ` (+${walletChildren} child pools managed in Pools)` : ""}
-              </p>
             </CardContent>
           </Card>
         </div>
