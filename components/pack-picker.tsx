@@ -15,12 +15,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 const previewInitial: SimActionState = { ok: false, message: "" }
 const applyInitial: PolicyActionState = { ok: false, message: "" }
 
-const maturityLabel: Record<PolicyPack["maturity"], string> = {
-  metering: "Metering",
-  authorization: "Authorization",
-  governance: "Governance",
-  evidence: "Evidence",
-}
+// The governance ladder, in the order an org climbs it. Grouping the catalog
+// by stage turns eleven tiles into four questions: where are you on the ladder?
+const LADDER: Array<{ stage: PolicyPack["maturity"]; label: string; meaning: string }> = [
+  { stage: "metering", label: "Metering", meaning: "Watch first — everything passes, everything is measured." },
+  { stage: "authorization", label: "Authorization", meaning: "Ceilings — hard limits without a committee." },
+  { stage: "governance", label: "Governance", meaning: "Humans in the loop where it matters." },
+  { stage: "evidence", label: "Evidence", meaning: "Fail closed, prove everything." },
+]
 
 // The pack catalog as a conversion surface: preview replays a curated baseline
 // over your recorded history (no write); apply installs it (confirm-gated,
@@ -41,15 +43,16 @@ export function PackPicker({ editable }: { editable: boolean }) {
           commit; applying replaces the current policy.
         </p>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {POLICY_PACKS.map((pack) => (
+        {LADDER.map(({ stage, label, meaning }) => (
+          <div key={stage}>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">{label}</h3>
+              <p className="text-[11px] text-muted-foreground">{meaning}</p>
+            </div>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          {POLICY_PACKS.filter((pack) => pack.maturity === stage).map((pack) => (
             <div key={pack.id} className="flex flex-col gap-2 rounded-md border border-border bg-muted p-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-medium text-foreground">{pack.name}</span>
-                <span className="rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {maturityLabel[pack.maturity]}
-                </span>
-              </div>
+              <span className="text-sm font-medium text-foreground">{pack.name}</span>
               <p className="text-[11px] leading-relaxed text-muted-foreground">{pack.tagline}</p>
               <p className="text-[11px] leading-relaxed text-muted-foreground">{pack.audience}</p>
               <div className="mt-auto flex gap-2 pt-1">
@@ -83,7 +86,9 @@ export function PackPicker({ editable }: { editable: boolean }) {
               </div>
             </div>
           ))}
-        </div>
+            </div>
+          </div>
+        ))}
 
         {/* Applying is the completed task — announce it, then revert to default. */}
         <ActionFlash state={applyState} />

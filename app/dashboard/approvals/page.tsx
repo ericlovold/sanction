@@ -277,7 +277,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </Card>
       )}
       <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Authorization inbox</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Approvals</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Requests that crossed an escalation line — on your wallet or any pool beneath it — paused and waiting on you.
           Approving one issues a single-use grant the agent redeems on retry.

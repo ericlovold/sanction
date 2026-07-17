@@ -17,9 +17,9 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-07-16 — Policy packs: group the 11 packs by their existing ladder
-      tags (Metering → Authorization → Governance → Evidence) — split out of
-      the policy-shape item when the form half shipped in #222. (UX)
+- [x] 2026-07-16 — promoted: packs grouped under the four ladder stages,
+      each with a one-line meaning (backlog-tail PR, 2026-07-16). — Policy
+      packs by ladder tag
 - [x] 2026-07-16 — promoted, with a corrected diagnosis: the stale-bundle
       hydration mismatches hit during local verification were dev-only — sw.js
       is cache-first for /_next/static/*, immutable in production
@@ -46,10 +46,10 @@ as fact here.
       surface inside the same dashboard/PWA shell" on Credentials, "extends
       the current token/key management flow" on Execution) — customer-facing
       pages shouldn't narrate architecture decisions. (copy)
-- [ ] 2026-07-16 — Naming split, remainder: Seats standardized in #218
-      (title, Overview cards; /agents URL kept). Still open: Approvals page
-      titled "Authorization inbox" vs nav "Approvals" — pick one; DOMAIN.md is
-      the arbiter. (copy/IA)
+- [x] 2026-07-16 — promoted: Approvals page retitled to match the nav —
+      DOMAIN.md's term is Pending Approval, "authorization inbox" appears
+      nowhere in the glossary; the inbox metaphor stays in the subtitle
+      (backlog-tail PR, 2026-07-16). — Naming split, remainder
 - [x] 2026-07-16 — promoted: lib/format.ts shipped (formatter PR,
       2026-07-16) — Shared money/number formatter in lib: 9 dashboard pages
       hand-roll toFixed — Overview renders $61.9000 (toFixed(4)), Spend
