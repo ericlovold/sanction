@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import { Activity, CheckCircle2, Clipboard, Clock3, KeyRound, Power, RotateCw, Shield, SlidersHorizontal } from "lucide-react"
+import { Activity, CheckCircle2, ChevronDown, Clipboard, Clock3, KeyRound, Power, RotateCw, Shield, SlidersHorizontal } from "lucide-react"
 import {
   rotateKeyAction,
   setAgentActiveAction,
@@ -110,64 +110,93 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
   const [rotate, rotateAction, rotating] = useActionState(rotateKeyAction, rotateInit)
   const [limits, limitsFormAction, savingLimits] = useActionState(updateLimitsAction, limitsInit)
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [connectOpen, setConnectOpen] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
   const justRotated = rotate.ok && rotate.agentId === agent.id && rotate.newKey
   const overrides = hasOverrides(agent)
   const act = agent.activity
 
+  const state = seatState(agent)
+  const stateDot = state === "active" ? "bg-emerald-400" : state === "expired" ? "bg-amber-400" : "bg-red-400"
+
   return (
-    <div className="rounded-lg border border-border bg-muted p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-foreground">{agent.name}</p>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] ${seatState(agent) === "active" ? "bg-emerald-500/10 text-emerald-400" : seatState(agent) === "expired" ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
-              {seatState(agent)}
+    <div className="rounded-lg border border-border bg-muted">
+      {/* Compact row — the fleet scans as a list; anything non-zero surfaces as
+          a chip here, and one click opens the seat's full controls. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((o) => !o)}
+        aria-expanded={expanded}
+        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-4 py-2.5 text-left transition-colors hover:bg-card/60"
+      >
+        <span className={`size-1.5 shrink-0 rounded-full ${stateDot}`} title={state} />
+        <span className="min-w-0 truncate font-medium text-foreground">{agent.name}</span>
+        {agent.holder ? <span className="hidden text-xs text-muted-foreground sm:inline">{agent.holder}</span> : null}
+        <span className="hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline">
+          {agent.walletName}
+        </span>
+        <span className="hidden font-mono text-[11px] text-muted-foreground lg:inline">{agent.apiKeyPrefix}••••••••</span>
+        <span className="hidden text-[11px] text-muted-foreground lg:inline">last used {rel(agent.lastUsedAt)}</span>
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {state !== "active" && (
+            <span className={`rounded-full px-2 py-0.5 text-[11px] ${state === "expired" ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
+              {state}
             </span>
-            {agent.holder ? (
-              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground" title="Seat holder">
-                {agent.holder}
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 font-mono">
-              <KeyRound className="size-3" />
-              {agent.apiKeyPrefix}••••••••
-            </span>
-            <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {agent.walletName}
-            </span>
-            <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
-            <span>last used {rel(agent.lastUsedAt)}</span>
-            {agent.expiresAt ? (
-              <span
-                className={new Date(agent.expiresAt) <= new Date() ? "text-amber-400" : undefined}
-                title={new Date(agent.expiresAt).toLocaleString()}
-              >
-                {new Date(agent.expiresAt) <= new Date() ? "expired" : "expires"} {relFuture(agent.expiresAt)}
-              </span>
-            ) : null}
-          </div>
+          )}
+          {agent.pendingApprovals > 0 && (
+            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.pendingApprovals, "amber")}`}>{agent.pendingApprovals} pending</span>
+          )}
+          {agent.escalatedMonth > 0 && (
+            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.escalatedMonth, "amber")}`}>{agent.escalatedMonth} escalated</span>
+          )}
+          {agent.deniedMonth > 0 && (
+            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.deniedMonth, "red")}`}>{agent.deniedMonth} denied</span>
+          )}
+          {agent.activeGrants > 0 && (
+            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.activeGrants, "emerald")}`}>{agent.activeGrants} grant{agent.activeGrants === 1 ? "" : "s"}</span>
+          )}
+          <ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+
+      {expanded && (
+      <div className="border-t border-border p-4">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1 font-mono">
+          <KeyRound className="size-3" />
+          {agent.apiKeyPrefix}••••••••
+        </span>
+        <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          {agent.walletName}
+        </span>
+        <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
+        <span>last used {rel(agent.lastUsedAt)}</span>
+        {agent.expiresAt ? (
+          <span
+            className={new Date(agent.expiresAt) <= new Date() ? "text-amber-400" : undefined}
+            title={new Date(agent.expiresAt).toLocaleString()}
+          >
+            {new Date(agent.expiresAt) <= new Date() ? "expired" : "expires"} {relFuture(agent.expiresAt)}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-lg">
+        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.pendingApprovals, "amber")}`}>
+          <p className="text-[10px] uppercase tracking-wide opacity-70">Pending</p>
+          <p className="mt-0.5 font-mono text-sm">{agent.pendingApprovals}</p>
         </div>
-        <div className="grid min-w-[260px] grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-lg">
-          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.pendingApprovals, "amber")}`}>
-            <p className="text-[10px] uppercase tracking-wide opacity-70">Pending</p>
-            <p className="mt-0.5 font-mono text-sm">{agent.pendingApprovals}</p>
-          </div>
-          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.activeGrants, "emerald")}`}>
-            <p className="text-[10px] uppercase tracking-wide opacity-70">Grants</p>
-            <p className="mt-0.5 font-mono text-sm">{agent.activeGrants}</p>
-          </div>
-          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.deniedMonth, "red")}`}>
-            <p className="text-[10px] uppercase tracking-wide opacity-70">Denied</p>
-            <p className="mt-0.5 font-mono text-sm">{agent.deniedMonth}</p>
-          </div>
-          <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.escalatedMonth, "amber")}`}>
-            <p className="text-[10px] uppercase tracking-wide opacity-70">Escalated</p>
-            <p className="mt-0.5 font-mono text-sm">{agent.escalatedMonth}</p>
-          </div>
+        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.activeGrants, "emerald")}`}>
+          <p className="text-[10px] uppercase tracking-wide opacity-70">Grants</p>
+          <p className="mt-0.5 font-mono text-sm">{agent.activeGrants}</p>
+        </div>
+        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.deniedMonth, "red")}`}>
+          <p className="text-[10px] uppercase tracking-wide opacity-70">Denied</p>
+          <p className="mt-0.5 font-mono text-sm">{agent.deniedMonth}</p>
+        </div>
+        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.escalatedMonth, "amber")}`}>
+          <p className="text-[10px] uppercase tracking-wide opacity-70">Escalated</p>
+          <p className="mt-0.5 font-mono text-sm">{agent.escalatedMonth}</p>
         </div>
       </div>
 
@@ -331,6 +360,8 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
             </div>
           </div>
         </form>
+      )}
+      </div>
       )}
     </div>
   )
