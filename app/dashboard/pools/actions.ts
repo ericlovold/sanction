@@ -23,7 +23,6 @@ function revalidatePools() {
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/spend")
   revalidatePath("/dashboard/agents")
-  revalidatePath("/dashboard/keys")
 }
 
 function p2002(e: unknown) {

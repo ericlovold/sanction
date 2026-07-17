@@ -109,7 +109,7 @@ export default async function Dashboard() {
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-muted-foreground font-normal">Active agents</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Active seats</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="text-2xl font-mono font-semibold">{activeAgents}</p>
@@ -181,7 +181,7 @@ export default async function Dashboard() {
       {/* Agents */}
       <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Agents</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Seats</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {agents.length === 0 && (

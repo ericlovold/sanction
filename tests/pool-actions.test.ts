@@ -428,7 +428,7 @@ describe("moveAgentToPoolAction", () => {
     const clearanceUpdateMany = dbMock.agentClearance.updateMany.mock.calls.at(-1)?.[0]
     expect(clearanceUpdate?.data?.walletId ?? clearanceUpdateMany?.data?.walletId).toBe("pool_grandchild")
     expect(revalidatedPaths()).toEqual(
-      expect.arrayContaining(["/dashboard", "/dashboard/agents", "/dashboard/keys", "/dashboard/pools"]),
+      expect.arrayContaining(["/dashboard", "/dashboard/agents", "/dashboard/pools"]),
     )
   })
 

@@ -9,6 +9,7 @@ import { PoolControls } from "@/components/pool-controls"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getViewWallet } from "@/lib/session"
+import { EnforcementSection } from "@/components/enforcement-section"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { dailyPace } from "@/lib/burn"
 
@@ -657,6 +658,8 @@ export default async function PoolsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EnforcementSection rootWalletId={view.id} editable={view.isSession} />
     </div>
   )
 }

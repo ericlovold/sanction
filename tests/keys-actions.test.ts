@@ -45,6 +45,6 @@ describe("resetManagementKeyAction", () => {
 
     // The current login survives the rotation.
     expect(sessionMock.setSession).toHaveBeenCalledWith(res.newKey)
-    expect(revalidateMock).toHaveBeenCalledWith("/dashboard/keys")
+    expect(revalidateMock).toHaveBeenCalledWith("/dashboard/team")
   })
 })

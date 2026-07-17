@@ -37,7 +37,7 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
     },
   })
   revalidatePath("/dashboard/agents")
-  revalidatePath("/dashboard/keys")
+  revalidatePath("/dashboard/team")
   return { ok: true, error: "", agentId, newKey: key.raw }
 }
 
@@ -62,7 +62,7 @@ export async function resetManagementKeyAction(_prev: MgmtKeyState, _form: FormD
   // holds the raw key; Better Auth sessions are unaffected but this is harmless).
   await setSession(key.raw)
 
-  revalidatePath("/dashboard/keys")
+  revalidatePath("/dashboard/team")
   return { ok: true, error: "", newKey: key.raw }
 }
 
@@ -75,7 +75,7 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   if (!owned) return
   await db.agent.update({ where: { id: agentId }, data: { isActive: active } })
   revalidatePath("/dashboard/agents")
-  revalidatePath("/dashboard/keys")
+  revalidatePath("/dashboard/team")
 }
 
 // Empty string = inherit the wallet policy (null); a number = a per-agent
@@ -125,6 +125,6 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
   }
 
   revalidatePath("/dashboard/agents")
-  revalidatePath("/dashboard/keys")
+  revalidatePath("/dashboard/team")
   return { ok: true, error: "" }
 }
