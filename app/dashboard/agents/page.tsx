@@ -5,12 +5,13 @@ import { getViewWallet } from "@/lib/session"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { ApiKeysTable, type ConsoleAgent } from "@/components/api-keys-table"
+import { ExecutionTokensSection } from "@/components/execution-tokens-section"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Agents — Sanction",
+  title: "Seats — Sanction",
   description: "Manage agent identities, capability keys, and live authorization posture.",
 }
 
@@ -194,7 +195,7 @@ export default async function AgentsPage({
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
-      <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Seats (Agents)</h1>
+      <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Seats</h1>
       <p className="-mt-4 text-sm text-muted-foreground">
         Each seat is an agent identity with its own key, limits, and audit trail. The key is the runtime identity; seat
         holder and expiry are operator controls.
@@ -226,7 +227,7 @@ export default async function AgentsPage({
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Active agents</CardTitle>
+            <CardTitle className="text-xs font-normal text-muted-foreground">Active seats</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{activeAgents}</p>
@@ -278,6 +279,8 @@ export default async function AgentsPage({
       )}
 
       <ApiKeysTable agents={filteredAgents} editable={view.isSession} />
+
+      <ExecutionTokensSection rootWalletId={view.id} editable={view.isSession} />
     </div>
   )
 }

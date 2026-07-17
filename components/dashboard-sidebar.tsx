@@ -25,34 +25,29 @@ const ICON = {
   agents: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   pools: "M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5",
   spend: "M3 3v18h18M7 14l3-3 3 3 5-6",
-  outcomes: "M20 6 9 17l-5-5M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
   policy: "M9 12l2 2 4-4M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z",
-  observe: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
   credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
-  tokens: "M4 7h16v10H4zM8 7V5h8v2M9 12h6",
-  keys: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
   audit: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M9 13h6M9 17h6M9 9h1",
   team: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6",
 }
 
-// Ordered by operator job priority: resolve approvals, check burn, manage
-// seats — browsing (Overview/Pools) trails. On the mobile strip this
-// keeps Approvals first and always on-screen.
+// Consolidated nav (2026-07-16): 9 items, one home per job. Overview leads
+// (the org pulse), Approvals right behind it (the #1 operator job, badge
+// always near the top of the mobile strip). Former top-level pages live as
+// sections now: API Keys → Team & access (mgmt key) + Seats (agent keys),
+// Execution → Seats, Observe → Pools, Outcomes → Spend — each old URL
+// redirects to its new home.
 const items: Item[] = [
+  { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
   { href: "/dashboard/agents", label: "Seats", icon: <Icon d={ICON.agents} /> },
-  { href: "/dashboard/keys", label: "API Keys", icon: <Icon d={ICON.keys} /> },
-  { href: "/dashboard/credentials", label: "Credentials", icon: <Icon d={ICON.credentials} /> },
-  { href: "/dashboard/tokens", label: "Execution", icon: <Icon d={ICON.tokens} /> },
-  { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
-  { href: "/dashboard/observe", label: "Observe", icon: <Icon d={ICON.observe} /> },
-  { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
-  { href: "/dashboard/outcomes", label: "Outcomes", icon: <Icon d={ICON.outcomes} /> },
-  { href: "/dashboard/audit", label: "Audit", icon: <Icon d={ICON.audit} /> },
-  { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
-  { href: "/dashboard/team", label: "Team", icon: <Icon d={ICON.team} /> },
+  { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
+  { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
+  { href: "/dashboard/audit", label: "Audit", icon: <Icon d={ICON.audit} /> },
+  { href: "/dashboard/credentials", label: "Credentials", icon: <Icon d={ICON.credentials} /> },
+  { href: "/dashboard/team", label: "Team & access", icon: <Icon d={ICON.team} /> },
 ]
 
 function isActive(pathname: string, href: string): boolean {

@@ -3,14 +3,16 @@ import { db } from "@/lib/db"
 import { Card, CardContent } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
 import { TeamInviteForm } from "@/components/team-invite-form"
+import { ManagementKeyCard } from "@/components/management-key-card"
+import { WalletIdField } from "@/components/wallet-id-field"
 import { getViewWallet } from "@/lib/session"
 import { changeRoleAction, revokeMemberAction } from "./actions"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Team — Sanction",
-  description: "Who has access to this wallet, and at what role.",
+  title: "Team & access — Sanction",
+  description: "Who has access to this wallet, at what role — and the management key that anchors it.",
 }
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", admin: "Admin", viewer: "Viewer" }
@@ -30,7 +32,7 @@ export default async function TeamPage() {
   if (!view) return <NoWallet />
 
   const [wallet, members] = await Promise.all([
-    db.wallet.findUnique({ where: { id: view.id }, select: { ownerEmail: true } }),
+    db.wallet.findUnique({ where: { id: view.id }, select: { ownerEmail: true, mgmtKeyPrefix: true } }),
     db.walletMember.findMany({ where: { walletId: view.id, status: { not: "revoked" } }, orderBy: { createdAt: "asc" } }),
   ])
 
@@ -39,10 +41,11 @@ export default async function TeamPage() {
   return (
     <div className="mx-auto min-h-screen max-w-4xl space-y-6 p-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">Team</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">Team &amp; access</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Everyone with access to this wallet, and what they can do. Only the owner can invite, change roles, or revoke access.
         </p>
+        <WalletIdField walletId={view.id} />
       </div>
 
       <Card className="border-border bg-card">
@@ -113,6 +116,10 @@ export default async function TeamPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* The root credential — the sk_ key that authorizes the management
+          plane. It lives with the humans who hold it; agent keys are on Seats. */}
+      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={view.isSession} />
     </div>
   )
 }

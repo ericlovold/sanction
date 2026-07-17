@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
+import { OutcomesSection } from "@/components/outcomes-section"
 import { dailyPace } from "@/lib/burn"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 
@@ -323,6 +324,8 @@ export default async function SpendPage() {
           </CardContent>
         </Card>
       </div>
+
+      <OutcomesSection rootWalletId={view.id} />
 
       {/* Policy authoring lives on its own page now. */}
       <Card className="bg-card border-border">
