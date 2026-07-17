@@ -27,10 +27,12 @@ export default defineConfig({
       // Ratchet floor — set just below current so coverage can't silently
       // regress. Raise as coverage grows; never lower.
       thresholds: {
-        statements: 89,
-        lines: 89,
-        functions: 93,
-        branches: 82,
+        // Ratchet (2026-07-17): measured 89.87 / 89.87 / 93.86 / 83.22 after
+        // the role-gating + wallet-switcher suites — raise, never lower.
+        statements: 89.5,
+        lines: 89.5,
+        functions: 93.5,
+        branches: 83,
       },
     },
   },
