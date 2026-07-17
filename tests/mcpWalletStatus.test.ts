@@ -14,8 +14,8 @@ describe("MCP wallet status guard", () => {
     expect(renderWalletStatus(VALID_STATS)).toEqual({
       ok: true,
       text: [
-        "Today - tokens: $1.2346 | spend: $12.30",
-        "Month - tokens: $4.5000 | spend: $67.00",
+        "Today - tokens: $1.23 | spend: $12.30",
+        "Month - tokens: $4.50 | spend: $67.00",
         "Attention: 2 pending approval(s)",
       ].join("\n"),
     })
@@ -25,7 +25,7 @@ describe("MCP wallet status guard", () => {
     const rendered = renderWalletStatus({ ...VALID_STATS, pending_approvals: 0 })
     expect(rendered.ok).toBe(true)
     expect(rendered.text).toContain("No pending approvals")
-    expect(rendered.text).toContain("Today - tokens: $1.2346")
+    expect(rendered.text).toContain("Today - tokens: $1.23")
   })
 
   it("turns JSON API errors into status-unknown errors, not empty healthy status", () => {
