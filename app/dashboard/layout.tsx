@@ -40,6 +40,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
       <main className="min-w-0 flex-1">{children}</main>
       <SwRegister />
+      {process.env.NODE_ENV !== "production" && (
+        // Dev-only self-heal for a browser poisoned by the (production) service
+        // worker: dev chunks aren't immutable, so a cache-first SW serves stale
+        // bundles and the page hydration-mismatches. This must be INLINE in the
+        // document — navigations are the one thing the SW never caches — because
+        // a stale SW would serve the old version of any static chunk that tried
+        // to carry this fix. Reloads once after unregistering so the page picks
+        // up fresh chunks; no registrations → no reload → no loop.
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "if('serviceWorker'in navigator){var wipe=function(){return'caches'in window?caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}):Promise.resolve()};navigator.serviceWorker.getRegistrations().then(function(rs){if(rs.length){Promise.all(rs.map(function(r){return r.unregister()})).then(wipe).then(function(){location.reload()})}else{wipe()}})}",
+          }}
+        />
+      )}
     </div>
   )
 }

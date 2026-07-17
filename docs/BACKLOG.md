@@ -20,11 +20,14 @@ as fact here.
 - [ ] 2026-07-16 — Policy packs: group the 11 packs by their existing ladder
       tags (Metering → Authorization → Governance → Evidence) — split out of
       the policy-shape item when the form half shipped in #222. (UX)
-- [ ] 2026-07-16 — PWA service worker serves stale bundles after deploys: the
-      old client hydrates against new server HTML (hydration mismatch, old
-      nav) until the SW update cycle runs. Hit repeatedly during local
-      verification. Consider skipWaiting + reload-on-controllerchange so
-      dashboard deploys reach installed PWAs promptly. (infra)
+- [x] 2026-07-16 — promoted, with a corrected diagnosis: the stale-bundle
+      hydration mismatches hit during local verification were dev-only — sw.js
+      is cache-first for /_next/static/*, immutable in production
+      (content-hashed per deploy, and the SW already skipWaiting+claims) but
+      not under Turbopack HMR, which reuses chunk URLs across rebuilds. Fixed
+      by registering the SW in production only and self-unregistering any
+      leftover dev SW (sw-register PR, 2026-07-16). — original: PWA service
+      worker serves stale bundles after deploys (infra)
 - [x] 2026-07-16 — Dashboard zero-noise pass · promoted: shipped across
       the seats compact rows (#221), Spend idle-seat collapse, and the
       Approvals/Seats stat cards (zero-noise PR, 2026-07-16)
