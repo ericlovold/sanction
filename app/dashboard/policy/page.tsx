@@ -9,6 +9,7 @@ import { policyToDollars } from "@/lib/policy"
 import { getViewWallet } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd } from "@/lib/format"
+import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -94,10 +95,18 @@ export default async function PolicyPage() {
         </div>
       )}
 
-      <PackPicker editable={view.isSession} />
+      <PackPicker editable={hasRole(view.role, "admin")} previewable={view.isSession} />
 
       {wallet?.policy ? (
-        <PolicyEditor policy={policyToDollars(wallet.policy)} editable={view.isSession} />
+        <PolicyEditor
+          policy={policyToDollars(wallet.policy)}
+          editable={hasRole(view.role, "admin")}
+          readOnlyNote={
+            view.isSession
+              ? "Your role can view this policy but not change it — ask the wallet owner for admin access."
+              : undefined
+          }
+        />
       ) : (
         <Card className="bg-card border-border">
           <CardContent className="px-5 py-5">

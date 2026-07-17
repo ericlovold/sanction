@@ -92,7 +92,7 @@ function toRules(value: unknown): CapabilityRule[] {
   )
 }
 
-export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; editable: boolean }) {
+export function PolicyEditor({ policy, editable, readOnlyNote }: { policy: PolicyDollars; editable: boolean; readOnlyNote?: string }) {
   const [state, formAction, pending] = useActionState(updatePolicyAction, initial)
   const [simState, simAction, simulating] = useActionState(simulateDraftAction, simInitial)
   const [perTxn, setPerTxn] = useState(policy.per_transaction_max_usd)
@@ -346,10 +346,14 @@ export function PolicyEditor({ policy, editable }: { policy: PolicyDollars; edit
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">Viewing the demo — log in to edit your own policy.</span>
-              <a href="/login" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-                Log in
-              </a>
+              <span className="text-xs text-muted-foreground">
+                {readOnlyNote ?? "Viewing the demo — log in to edit your own policy."}
+              </span>
+              {!readOnlyNote && (
+                <a href="/login" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+                  Log in
+                </a>
+              )}
             </div>
           )}
         </form>

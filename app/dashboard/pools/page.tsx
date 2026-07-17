@@ -13,6 +13,7 @@ import { EnforcementSection } from "@/components/enforcement-section"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { dailyPace } from "@/lib/burn"
 import { fmtUsd } from "@/lib/format"
+import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -517,7 +518,7 @@ export default async function PoolsPage() {
           <CardTitle className="text-sm font-medium text-muted-foreground">Authority controls</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
-          {view.isSession ? (
+          {hasRole(view.role, "admin") ? (
             <PoolControls
               pools={pools.rows.map((pool) => ({
                 id: pool.id,
@@ -658,7 +659,7 @@ export default async function PoolsPage() {
         </Card>
       </div>
 
-      <EnforcementSection rootWalletId={view.id} editable={view.isSession} />
+      <EnforcementSection rootWalletId={view.id} editable={hasRole(view.role, "admin")} />
     </div>
   )
 }

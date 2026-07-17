@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { after } from "next/server"
 import { db } from "@/lib/db"
 import { resolveApproval } from "@/lib/approvals"
-import { getSessionWallet } from "@/lib/session"
+import { requireSessionRole } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { generateWebhookSecret, deliverPing, isPublicHttpsUrl, KNOWN_EVENTS, DEFAULT_EVENTS } from "@/lib/webhooks"
 
@@ -16,7 +16,7 @@ export async function resolveApprovalAction(
   _prev: ApprovalActionState,
   form: FormData,
 ): Promise<ApprovalActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to manage approvals." }
 
   const approvalId = String(form.get("approval_id") ?? form.get("request_id") ?? "")
@@ -42,7 +42,7 @@ export async function resolveApprovalAction(
 }
 
 export async function addWebhookAction(_prev: WebhookActionState, form: FormData): Promise<WebhookActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to add a webhook." }
 
   const url = String(form.get("url") ?? "").trim()
@@ -70,7 +70,7 @@ export async function addWebhookAction(_prev: WebhookActionState, form: FormData
 }
 
 export async function removeWebhookAction(form: FormData): Promise<void> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return
   const id = String(form.get("id") ?? "")
   const hook = await db.webhook.findUnique({ where: { id } })

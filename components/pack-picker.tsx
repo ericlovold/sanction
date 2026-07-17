@@ -28,7 +28,9 @@ const LADDER: Array<{ stage: PolicyPack["maturity"]; label: string; meaning: str
 // over your recorded history (no write); apply installs it (confirm-gated,
 // because a pack replaces the whole ladder). Both server actions re-check the
 // session, so demo view stays read-only even if the buttons are reached.
-export function PackPicker({ editable }: { editable: boolean }) {
+// `editable` gates Apply (a write — admin+); `previewable` gates Preview (a
+// read-only replay — any signed-in role, viewers included).
+export function PackPicker({ editable, previewable = editable }: { editable: boolean; previewable?: boolean }) {
   const [previewState, previewFormAction, previewing] = useActionState(previewPackAction, previewInitial)
   const [applyState, applyFormAction, applying] = useActionState(applyPackAction, applyInitial)
 
@@ -60,7 +62,7 @@ export function PackPicker({ editable }: { editable: boolean }) {
                   <input type="hidden" name="pack_id" value={pack.id} />
                   <button
                     type="submit"
-                    disabled={!editable || previewing}
+                    disabled={!previewable || previewing}
                     className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border disabled:opacity-40"
                   >
                     {previewing ? "Previewing…" : "Preview"}

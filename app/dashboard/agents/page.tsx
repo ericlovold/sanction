@@ -7,6 +7,7 @@ import { AgentCreator } from "@/components/agent-creator"
 import { ApiKeysTable, type ConsoleAgent } from "@/components/api-keys-table"
 import { ExecutionTokensSection } from "@/components/execution-tokens-section"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -280,19 +281,25 @@ export default async function AgentsPage({
         )}
       </div>
 
-      {view.isSession ? (
+      {hasRole(view.role, "admin") ? (
         <div className="rounded-lg border border-border bg-muted p-4">
           <AgentCreator />
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link> to create and manage agents.
+          {view.isSession ? (
+            "Your role can view seats but not create or edit them — ask the wallet owner for admin access."
+          ) : (
+            <>
+              <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link> to create and manage agents.
+            </>
+          )}
         </p>
       )}
 
-      <ApiKeysTable agents={filteredAgents} editable={view.isSession} />
+      <ApiKeysTable agents={filteredAgents} editable={hasRole(view.role, "admin")} />
 
-      <ExecutionTokensSection rootWalletId={view.id} editable={view.isSession} />
+      <ExecutionTokensSection rootWalletId={view.id} editable={hasRole(view.role, "admin")} />
     </div>
   )
 }

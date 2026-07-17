@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
-import { getSessionWallet } from "@/lib/session"
+import { requireSessionRole } from "@/lib/session"
 
 export type CreateAgentState = { ok: boolean; error: string; agentKey?: string; agentName?: string }
 export type BatchSeatResult = { id: string; name: string; holder: string | null; agentKey: string; apiKeyPrefix: string }
@@ -45,7 +45,7 @@ const SEAT_TEMPLATES: Record<string, SeatTemplate> = {
 // Create a new agent under the logged-in wallet and return its key once.
 // Session-gated (management plane) — same trust model as POST /api/v1/agents.
 export async function createAgentAction(_prev: CreateAgentState, form: FormData): Promise<CreateAgentState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, error: "Log in to create agents." }
 
   const parsed = z.string().trim().min(1).max(64).safeParse(form.get("name"))
@@ -79,7 +79,7 @@ export async function createBatchAgentsAction(
   _prev: CreateBatchAgentState,
   form: FormData,
 ): Promise<CreateBatchAgentState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, error: "Log in to create seats." }
 
   const count = z.coerce.number().int().min(1).max(50).safeParse(form.get("count"))
