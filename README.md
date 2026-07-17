@@ -148,8 +148,7 @@ Full schemas: [`/api/openapi.json`](https://getsanction.com/api/openapi.json).
       "args": ["sanction-mcp"],
       "env": {
         "SANCTION_API_URL": "https://getsanction.com/api/v1",
-        "SANCTION_API_KEY": "pxy_...",
-        "SANCTION_WALLET_ID": "wallet_..."
+        "SANCTION_API_KEY": "pxy_..."
       }
     }
   }

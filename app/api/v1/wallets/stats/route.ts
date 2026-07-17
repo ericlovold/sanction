@@ -6,19 +6,32 @@ import { monthlyPace, dailyPace } from "@/lib/burn"
 import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 export async function GET(req: NextRequest) {
-  const walletId = req.nextUrl.searchParams.get("wallet_id")
-  if (!walletId) return NextResponse.json({ error: "wallet_id required" }, { status: 400 })
+  let walletId = req.nextUrl.searchParams.get("wallet_id")
+  let ownerWallet: Awaited<ReturnType<typeof authenticateOwner>>["wallet"] = null
 
-  // Readable by the wallet owner (x-mgmt-key) OR any active agent in the wallet
-  // (x-api-key). Both prove membership; neither is satisfiable by knowing the
-  // wallet_id alone — closing the unauthenticated-read hole while keeping the
-  // MCP sanction_wallet_status tool working.
-  const owner = await authenticateOwner(req, walletId)
-  if (!owner.wallet) {
-    const { agent } = await authenticateAgent(req)
-    if (!agent || agent.walletId !== walletId) {
-      return NextResponse.json({ error: "Unauthorized: management key or wallet agent key required" }, { status: 401 })
+  if (walletId) {
+    // Readable by the wallet owner (x-mgmt-key) OR any active agent in the wallet
+    // (x-api-key). Both prove membership; neither is satisfiable by knowing the
+    // wallet_id alone — closing the unauthenticated-read hole while keeping the
+    // MCP sanction_wallet_status tool working.
+    const owner = await authenticateOwner(req, walletId)
+    ownerWallet = owner.wallet
+    if (!owner.wallet) {
+      const { agent } = await authenticateAgent(req)
+      if (!agent || agent.walletId !== walletId) {
+        return NextResponse.json({ error: "Unauthorized: management key or wallet agent key required" }, { status: 401 })
+      }
     }
+  } else {
+    // No wallet_id: an agent key already names its wallet — derive it, so MCP
+    // callers don't need SANCTION_WALLET_ID configured. Management keys are
+    // per-wallet credentials verified AGAINST a wallet id, so they still pass
+    // wallet_id explicitly.
+    const { agent } = await authenticateAgent(req)
+    if (!agent) {
+      return NextResponse.json({ error: "wallet_id required (or authenticate with an agent key to use its wallet)" }, { status: 400 })
+    }
+    walletId = agent.walletId
   }
 
   const dayStart = new Date()
@@ -30,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   // Owner-only subtree widening; an agent key stays scoped to its own wallet.
   // The budget/projection stays on the root wallet's own policy (the envelope).
-  const scope = owner.wallet ? readScope(req) : "wallet"
+  const scope = ownerWallet ? readScope(req) : "wallet"
   const { walletIds, truncated } = await scopedWalletIds(walletId, scope)
   const agents = await db.agent.findMany({ where: { walletId: { in: walletIds } }, select: { id: true } })
   const agentIds = agents.map((a) => a.id)

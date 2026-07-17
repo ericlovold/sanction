@@ -1661,7 +1661,7 @@ export const spec = {
         description: "Returns today and month-to-date token cost, real-money spend, and count of pending approvals for a wallet. ?scope=subtree (management key only) rolls the numbers up across every pool beneath the wallet.",
         security: [{ AgentApiKey: [] }],
         parameters: [
-          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "wallet_id", required: false, schema: { type: "string" }, description: "Optional with an agent key — the key's own wallet is used. Required with a management key." },
           { in: "query", name: "scope", schema: { type: "string", enum: ["wallet", "subtree"], default: "wallet" }, description: "subtree rolls up this wallet + all pools beneath it (management key only)" },
         ],
         responses: {
