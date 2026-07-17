@@ -224,6 +224,9 @@ export default async function AgentsPage({
         ))}
       </div>
 
+      {/* Zero-noise: Active seats is the page's headline and always shows;
+          the health counters (grants, pending, expiring, inactive) only exist
+          while they're non-zero — a healthy fleet shows one number, not five. */}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-border bg-card">
           <CardHeader className="px-4 pt-4 pb-1">
@@ -231,41 +234,50 @@ export default async function AgentsPage({
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p className="font-mono text-2xl font-semibold">{activeAgents}</p>
+            <p className="text-xs text-muted-foreground">{agents.length} registered</p>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Active grants</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{activeGrants}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Pending approvals</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{pendingApprovals}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 7d</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{expiringSoon}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Inactive / expired</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{inactiveAgents + expiredAgents}</p>
-            <p className="text-xs text-muted-foreground">{inactiveAgents} inactive · {expiredAgents} expired</p>
-          </CardContent>
-        </Card>
+        {activeGrants > 0 && (
+          <Card className="border-border bg-card">
+            <CardHeader className="px-4 pt-4 pb-1">
+              <CardTitle className="text-xs font-normal text-muted-foreground">Active grants</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <p className="font-mono text-2xl font-semibold">{activeGrants}</p>
+            </CardContent>
+          </Card>
+        )}
+        {pendingApprovals > 0 && (
+          <Card className="border-border bg-card">
+            <CardHeader className="px-4 pt-4 pb-1">
+              <CardTitle className="text-xs font-normal text-muted-foreground">Pending approvals</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <p className="font-mono text-2xl font-semibold">{pendingApprovals}</p>
+            </CardContent>
+          </Card>
+        )}
+        {expiringSoon > 0 && (
+          <Card className="border-border bg-card">
+            <CardHeader className="px-4 pt-4 pb-1">
+              <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 7d</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <p className="font-mono text-2xl font-semibold">{expiringSoon}</p>
+            </CardContent>
+          </Card>
+        )}
+        {inactiveAgents + expiredAgents > 0 && (
+          <Card className="border-border bg-card">
+            <CardHeader className="px-4 pt-4 pb-1">
+              <CardTitle className="text-xs font-normal text-muted-foreground">Inactive / expired</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <p className="font-mono text-2xl font-semibold">{inactiveAgents + expiredAgents}</p>
+              <p className="text-xs text-muted-foreground">{inactiveAgents} inactive · {expiredAgents} expired</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {view.isSession ? (

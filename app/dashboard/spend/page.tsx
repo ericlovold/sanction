@@ -255,7 +255,9 @@ export default async function SpendPage() {
               />
             )}
             <div className="space-y-2">
-              {s.agentList.map((a) => (
+              {/* Zero-noise: seats with no activity this month collapse into
+                  one summary line instead of a wall of $0.00 rows. */}
+              {s.agentList.filter((a) => a.tokens > 0 || a.approved > 0 || a.denied > 0 || a.escalated > 0 || a.spend > 0 || a.tokenCost > 0).map((a) => (
                 <div key={a.name} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
                     <p className="flex items-center gap-1.5 truncate text-muted-foreground">
@@ -278,6 +280,14 @@ export default async function SpendPage() {
                   </div>
                 </div>
               ))}
+              {(() => {
+                const idle = s.agentList.filter((a) => a.tokens === 0 && a.approved === 0 && a.denied === 0 && a.escalated === 0 && a.spend === 0 && a.tokenCost === 0).length
+                return idle > 0 ? (
+                  <p className="pt-1 text-[11px] text-muted-foreground">
+                    + {idle} seat{idle === 1 ? "" : "s"} with no activity this month
+                  </p>
+                ) : null
+              })()}
             </div>
           </CardContent>
         </Card>

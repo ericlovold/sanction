@@ -17,40 +17,58 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-07-16 — Dashboard zero-noise pass (from the Meridian demo walk):
+- [ ] 2026-07-16 — Policy packs: group the 11 packs by their existing ladder
+      tags (Metering → Authorization → Governance → Evidence) — split out of
+      the policy-shape item when the form half shipped in #222. (UX)
+- [ ] 2026-07-16 — PWA service worker serves stale bundles after deploys: the
+      old client hydrates against new server HTML (hydration mismatch, old
+      nav) until the SW update cycle runs. Hit repeatedly during local
+      verification. Consider skipWaiting + reload-on-controllerchange so
+      dashboard deploys reach installed PWAs promptly. (infra)
+- [x] 2026-07-16 — Dashboard zero-noise pass · promoted: shipped across
+      the seats compact rows (#221), Spend idle-seat collapse, and the
+      Approvals/Seats stat cards (zero-noise PR, 2026-07-16)
+      — original: Dashboard zero-noise pass (from the Meridian demo walk):
       hide zero-value stat cards and zero rows by default ("show all" to
       expand) — Approvals shows 3 zero cards + "oldest pending 0m" when empty,
       Spend "By agent" lists 18 all-zero rows, Seats shows 4 zero counters per
       seat. (UX)
-- [ ] 2026-07-16 — Seats page density: 25 seats × (4 stat boxes + 3 chips +
+- [x] 2026-07-16 — promoted: shipped as compact expandable rows in #221 —
+      Seats page density: 25 seats × (4 stat boxes + 3 chips +
       5 action buttons) as cards — switch default view to a compact table
       (name, holder, pool, key, last seen, status) with actions on expand.
       (UX)
-- [ ] 2026-07-16 — Cut internal narration from UI copy ("additive leadership
+- [x] 2026-07-16 — promoted: Credentials line cut in #220, Execution page
+      (and its line) folded away in #218 — Cut internal narration from UI copy ("additive leadership
       surface inside the same dashboard/PWA shell" on Credentials, "extends
       the current token/key management flow" on Execution) — customer-facing
       pages shouldn't narrate architecture decisions. (copy)
-- [ ] 2026-07-16 — Naming split: nav "Seats" / URL /agents / title "Seats
-      (Agents)" / Overview "Active agents" / Approvals titled "Authorization
-      inbox". One word per concept, nav label = page title; DOMAIN.md is the
-      arbiter. (copy/IA)
-- [ ] 2026-07-16 — Shared money/number formatter in lib: 9 dashboard pages
+- [ ] 2026-07-16 — Naming split, remainder: Seats standardized in #218
+      (title, Overview cards; /agents URL kept). Still open: Approvals page
+      titled "Authorization inbox" vs nav "Approvals" — pick one; DOMAIN.md is
+      the arbiter. (copy/IA)
+- [x] 2026-07-16 — promoted: lib/format.ts shipped (formatter PR,
+      2026-07-16) — Shared money/number formatter in lib: 9 dashboard pages
       hand-roll toFixed — Overview renders $61.9000 (toFixed(4)), Spend
       $61.90, zero rows $0.0000, Audit "24091000 tokens" without separators.
       One formatter, used everywhere. (consistency)
-- [ ] 2026-07-16 — Policy page shape: group the 16-field flat form into
+- [x] 2026-07-16 — promoted: form grouped into four titled sections in
+      #222; pack-grouping by ladder tag still open below — Policy page shape:
+      group the 16-field flat form into
       collapsible Budgets / Approvals / Tools / Capability sections; group
       the 11 policy packs by their existing ladder tags (Metering →
       Authorization → Governance → Evidence). Content is right, needs shape.
       (UX)
-- [ ] 2026-07-16 — Credentials add-form: 7 placeholder-only fields including
+- [x] 2026-07-16 — promoted: shipped in #220 (labels, disclosure fold,
+      masked secret) — Credentials add-form: 7 placeholder-only fields including
       "allowed agent ids (csv, blank = all)" and an unlabeled clearance
       number — add real labels, fold advanced fields behind a disclosure.
       (UX)
-- [ ] 2026-07-16 — MCP: sanction_wallet_status should derive the wallet from
+- [x] 2026-07-16 — promoted: shipped in #219 — MCP: sanction_wallet_status should derive the wallet from
       the agent key instead of requiring SANCTION_WALLET_ID to be set.
       (MCP DX)
-- [ ] 2026-07-16 — Outcomes + Observe as top-level nav: both render all-zero
+- [x] 2026-07-16 — promoted: shipped in #218 (nav 13→9) — Outcomes +
+      Observe as top-level nav: both render all-zero
       for a fully seeded org — fold Outcomes into Spend (tab or
       appears-when-reported), fold Observe into Pools as the per-pool
       observe/enforce switch. Part of the larger nav consolidation arc; queued
