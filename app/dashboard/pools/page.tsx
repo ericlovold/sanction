@@ -12,6 +12,7 @@ import { getViewWallet } from "@/lib/session"
 import { EnforcementSection } from "@/components/enforcement-section"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { dailyPace } from "@/lib/burn"
+import { fmtUsd } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -112,12 +113,10 @@ const moveToneClass = {
   zinc: "border-border bg-card/40",
 }
 
-function dollars(n: number) {
-  return `$${n.toFixed(n < 1 && n > 0 ? 4 : 2)}`
-}
+
 
 function capLabel(capUsd: number | null) {
-  return capUsd === null ? "Unset" : `${dollars(capUsd)} / day`
+  return capUsd === null ? "Unset" : `${fmtUsd(capUsd)} / day`
 }
 
 function pct(n: number) {
@@ -355,8 +354,8 @@ function CapMeter({ pool }: { pool: PoolRow }) {
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-xs text-muted-foreground">Effective cap</span>
         <span className="font-mono text-xs text-muted-foreground">
-          <span className={meta.text}>{dollars(pool.spendTodayUsd)}</span>
-          {pool.capUsd !== null ? ` / ${dollars(pool.capUsd)}` : " / uncapped"}
+          <span className={meta.text}>{fmtUsd(pool.spendTodayUsd)}</span>
+          {pool.capUsd !== null ? ` / ${fmtUsd(pool.capUsd)}` : " / uncapped"}
         </span>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
@@ -364,7 +363,7 @@ function CapMeter({ pool }: { pool: PoolRow }) {
       </div>
       {pace.onPace !== null && pool.status !== "over_cap" && (
         <p className={`mt-1.5 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-muted-foreground"}`}>
-          on pace for {dollars(pace.onPace)} today
+          on pace for {fmtUsd(pace.onPace)} today
           {pace.exhaustAt && ` · cap hit ~${pace.exhaustAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
         </p>
       )}
@@ -401,15 +400,15 @@ function PoolLedgerRow({ pool, rootId }: { pool: PoolRow; rootId: string }) {
       <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 lg:grid-cols-2">
         <div>
           <p className="text-muted-foreground">Delegated</p>
-          <p className="mt-1 font-mono text-muted-foreground">{dollars(pool.delegatedDailyUsd)}</p>
+          <p className="mt-1 font-mono text-muted-foreground">{fmtUsd(pool.delegatedDailyUsd)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Tokens</p>
-          <p className="mt-1 font-mono text-muted-foreground">{dollars(pool.tokenTodayUsd)}</p>
+          <p className="mt-1 font-mono text-muted-foreground">{fmtUsd(pool.tokenTodayUsd)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Grants</p>
-          <p className="mt-1 font-mono text-muted-foreground">{pool.activeGrantCount} · {dollars(pool.activeGrantUsd)}</p>
+          <p className="mt-1 font-mono text-muted-foreground">{pool.activeGrantCount} · {fmtUsd(pool.activeGrantUsd)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Approvals</p>
@@ -483,8 +482,8 @@ export default async function PoolsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{dollars(rootPool?.delegatedDailyUsd ?? 0)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{dollars(totalTokenBudget)} token budget</p>
+            <p className="font-mono text-2xl font-semibold">{fmtUsd(rootPool?.delegatedDailyUsd ?? 0)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{fmtUsd(totalTokenBudget)} token budget</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
@@ -495,7 +494,7 @@ export default async function PoolsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{dollars(rootPool?.spendTodayUsd ?? 0)}</p>
+            <p className="font-mono text-2xl font-semibold">{fmtUsd(rootPool?.spendTodayUsd ?? 0)}</p>
             <p className="mt-1 text-xs text-muted-foreground">{pressure === null ? "no cap pressure" : `${pct(pressure)} of cap`}</p>
           </CardContent>
         </Card>
@@ -616,7 +615,7 @@ export default async function PoolsPage() {
                   <div key={model.model}>
                     <div className="flex items-center justify-between gap-3">
                       <p className="truncate font-mono text-xs text-muted-foreground">{model.model}</p>
-                      <span className="shrink-0 font-mono text-xs text-muted-foreground">{dollars(cost)} · {pct(share)}</span>
+                      <span className="shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(cost)} · {pct(share)}</span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
                       <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.round(share * 100)}%` }} />
@@ -636,13 +635,13 @@ export default async function PoolsPage() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Active grant exposure</p>
-                <p className="mt-1 font-mono text-lg text-foreground">{dollars(rootPool?.activeGrantUsd ?? 0)}</p>
+                <p className="mt-1 font-mono text-lg text-foreground">{fmtUsd(rootPool?.activeGrantUsd ?? 0)}</p>
                 <p className="text-xs text-muted-foreground">{rootPool?.activeGrantCount ?? 0} active grants</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Month approved spend</p>
-                <p className="mt-1 font-mono text-lg text-foreground">{dollars(rootPool?.spendMonthUsd ?? 0)}</p>
-                <p className="text-xs text-muted-foreground">{dollars(rootPool?.tokenTodayUsd ?? 0)} tokens today</p>
+                <p className="mt-1 font-mono text-lg text-foreground">{fmtUsd(rootPool?.spendMonthUsd ?? 0)}</p>
+                <p className="text-xs text-muted-foreground">{fmtUsd(rootPool?.tokenTodayUsd ?? 0)} tokens today</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pending approvals</p>
