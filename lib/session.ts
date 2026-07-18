@@ -10,6 +10,12 @@ import { hasRole, type WalletRole } from "./roles"
 // Both resolve to the same Prisma Wallet. New social users get a wallet
 // provisioned on first sign-in; existing wallets are claimed by matching email.
 export const SESSION_COOKIE = "sanction_session"
+// Which of the session's reachable wallets to act as (WALLET-MEMBERS part 2,
+// the wallet switcher). Holds a walletId — non-secret by convention — and only
+// ever SELECTS among wallets the session can already reach: every resolve
+// re-validates ownership-or-active-membership, so a stale or forged value
+// falls back to the default precedence instead of granting anything.
+export const ACTIVE_WALLET_COOKIE = "sanction_active_wallet"
 const MAX_AGE = 60 * 60 * 24 * 30
 
 export async function setSession(managementKey: string) {
@@ -22,7 +28,18 @@ export async function setSession(managementKey: string) {
   })
 }
 
+export async function setActiveWallet(walletId: string) {
+  ;(await cookies()).set(ACTIVE_WALLET_COOKIE, walletId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: MAX_AGE,
+  })
+}
+
 export async function clearSession() {
+  ;(await cookies()).delete(ACTIVE_WALLET_COOKIE)
   ;(await cookies()).delete(SESSION_COOKIE)
   // Also end any Better Auth session (nextCookies clears its cookie here).
   try {
@@ -36,14 +53,28 @@ export async function clearSession() {
 // pre-existing wallet (legacy/magic-link customer now using social login) to the
 // User exactly once; otherwise provision a fresh wallet like /start does.
 //
-// Precedence: owning a wallet outright always wins. This means someone who
-// already owns their own wallet and is ALSO an accepted WalletMember of a
-// different one will only ever land on the one they own here — there's no
-// wallet switcher yet (WALLET-MEMBERS follow-up). The invite-accept flow
-// (app/invite/[token]/actions.ts) refuses to activate a membership for
-// someone who already owns a different wallet, specifically so this
-// precedence rule can never produce an unreachable "active" membership.
-async function resolveWalletForUser(user: { id: string; email: string; name?: string | null }) {
+// Precedence: an explicitly selected wallet (the switcher cookie, validated
+// against ownership-or-active-membership on every resolve) wins; otherwise
+// owning a wallet outright wins over memberships. Someone who owns their own
+// wallet AND holds memberships reaches the others through the switcher
+// (WALLET-MEMBERS part 2).
+async function resolveWalletForUser(
+  user: { id: string; email: string; name?: string | null },
+  preferredWalletId?: string | null,
+) {
+  if (preferredWalletId) {
+    const preferred = await db.wallet.findUnique({ where: { id: preferredWalletId } })
+    if (preferred) {
+      if (preferred.userId === user.id) return preferred
+      const membership = await db.walletMember.findFirst({
+        where: { walletId: preferred.id, userId: user.id, status: "active" },
+      })
+      if (membership) return preferred
+    }
+    // Stale or foreign selection — ignore it and fall through to the default
+    // precedence rather than erroring the whole session.
+  }
+
   const linked = await db.wallet.findFirst({ where: { userId: user.id } })
   if (linked) return linked
 
@@ -80,7 +111,10 @@ export async function getSessionWallet() {
   // env on a fresh deploy) can never break the legacy key / magic-link login.
   try {
     const session = await auth.api.getSession({ headers: await headers() })
-    if (session?.user) return resolveWalletForUser(session.user)
+    if (session?.user) {
+      const preferred = (await cookies()).get(ACTIVE_WALLET_COOKIE)?.value ?? null
+      return resolveWalletForUser(session.user, preferred)
+    }
   } catch {
     // fall through to the management-key path
   }
@@ -106,7 +140,8 @@ export async function getSessionMember(): Promise<
   try {
     const session = await auth.api.getSession({ headers: await headers() })
     if (session?.user) {
-      const wallet = await resolveWalletForUser(session.user)
+      const preferred = (await cookies()).get(ACTIVE_WALLET_COOKIE)?.value ?? null
+      const wallet = await resolveWalletForUser(session.user, preferred)
       if (!wallet) return null
       const actor: SessionActor = {
         type: "user",
@@ -152,6 +187,47 @@ export async function requireSessionRole(min: WalletRole) {
   const member = await getSessionMember()
   if (!member || !hasRole(member.role, min)) return null
   return member.wallet
+}
+
+/**
+ * Every wallet the current session may act as: owned wallets at "owner", plus
+ * active memberships at their stored role. A legacy sk_ session is exactly one
+ * wallet (the key IS the wallet) — no switching. Drives the sidebar switcher
+ * and validates switchWalletAction; anything not in this list is unreachable.
+ */
+export async function listSessionWallets(): Promise<Array<{ id: string; name: string; role: WalletRole }>> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() })
+    if (session?.user) {
+      const [owned, memberships] = await Promise.all([
+        db.wallet.findMany({ where: { userId: session.user.id }, select: { id: true, name: true } }),
+        db.walletMember.findMany({
+          where: { userId: session.user.id, status: "active" },
+          select: { role: true, wallet: { select: { id: true, name: true } } },
+        }),
+      ])
+      const out: Array<{ id: string; name: string; role: WalletRole }> = owned.map((w) => ({
+        id: w.id,
+        name: w.name,
+        role: "owner" as const,
+      }))
+      for (const m of memberships) {
+        if (!out.some((w) => w.id === m.wallet.id)) {
+          out.push({ id: m.wallet.id, name: m.wallet.name, role: m.role as WalletRole })
+        }
+      }
+      return out
+    }
+  } catch {
+    // fall through to the management-key path
+  }
+
+  const raw = (await cookies()).get(SESSION_COOKIE)?.value
+  if (raw) {
+    const wallet = await db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
+    if (wallet) return [{ id: wallet.id, name: wallet.name, role: "owner" }]
+  }
+  return []
 }
 
 /**

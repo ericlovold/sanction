@@ -80,6 +80,7 @@ export function DashboardSidebar({
   pendingCount,
   hasPools = true,
   account,
+  switcher,
 }: {
   view: { name: string; isSession: boolean }
   pendingCount: number
@@ -87,6 +88,9 @@ export function DashboardSidebar({
   // the wallet actually has children. The page stays reachable by URL.
   hasPools?: boolean
   account: ReactNode
+  // WALLET-MEMBERS part 2: rendered instead of the static name line when the
+  // session can act as more than one wallet.
+  switcher?: ReactNode
 }) {
   const pathname = usePathname()
   const visible = hasPools ? items : items.filter((it) => it.href !== "/dashboard/pools")
@@ -99,10 +103,12 @@ export function DashboardSidebar({
             <span className="size-1.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_var(--sidebar-primary)]" />
             <span className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground">Sanction</span>
           </Link>
-          <p className="mt-2 truncate font-mono text-[11px] text-sidebar-foreground/45">
-            {view.name}
-            {!view.isSession && <span className="ml-1.5 rounded-sm border border-sidebar-border px-1 py-px text-[9px]">demo</span>}
-          </p>
+          {switcher ?? (
+            <p className="mt-2 truncate font-mono text-[11px] text-sidebar-foreground/45">
+              {view.name}
+              {!view.isSession && <span className="ml-1.5 rounded-sm border border-sidebar-border px-1 py-px text-[9px]">demo</span>}
+            </p>
+          )}
         </div>
         <nav className="flex flex-1 flex-col py-2">
           {visible.map((it) => (

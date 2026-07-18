@@ -76,12 +76,16 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 1. **Dashboard pages are untested** (server components; excluded from coverage
    focus). Data comes from the same tested libs; rendering regressions are caught
    manually today.
-2. **No wallet switcher.** Someone who owns their own Wallet and is also an
-   accepted member of a different one always resolves to the one they own
-   (`lib/session.ts`'s `resolveWalletForUser` precedence) — there's no UI to
-   pick the other. Invite-accept blocks this from producing an unreachable
-   membership; it doesn't yet make the membership reachable either. Tracked
-   as WALLET-MEMBERS follow-up, part 2 (`docs/BACKLOG.md`).
+2. ~~No wallet switcher.~~ Closed by WALLET-MEMBERS part 2 (2026-07-17): a
+   validated `sanction_active_wallet` cookie selects among the session's
+   reachable wallets (ownership or active membership, re-checked on every
+   resolve — a stale or forged value falls back to the default precedence);
+   the sidebar renders a switcher when more than one wallet is reachable;
+   invite-accept no longer blocks invitees who own another wallet and lands
+   them in the workspace they joined (`lib/session.ts`
+   `resolveWalletForUser`/`listSessionWallets`, `switchWalletAction`,
+   `components/wallet-switcher.tsx`; `session-member.test.ts`,
+   `dashboard-actions.test.ts`, `invite-accept.test.ts`).
 3. **Some WALLET-MEMBERS role-gate denial copy still says "Log in"** to an
    already-signed-in `viewer` in a few shared components
    (`components/management-key-card.tsx`, `components/webhook-settings.tsx`,

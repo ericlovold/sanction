@@ -24,7 +24,7 @@ const SK = "sk_ownertestkey"
 const WALLET = { id: "wallet_1", name: "Meridian", ownerEmail: "cto@meridian.com", userId: "user_owner" }
 const USER = { id: "user_owner", email: "cto@meridian.com", name: "CTO" }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => vi.resetAllMocks())
 
 describe("getSessionMember", () => {
   it("returns null with no session at all", async () => {
@@ -35,7 +35,7 @@ describe("getSessionMember", () => {
 
   it("legacy sk_ cookie session resolves to owner", async () => {
     sessionMock.getSession.mockResolvedValue(null)
-    cookieStore.get.mockReturnValue({ value: SK })
+    cookieStore.get.mockImplementation((name: string) => (name === "sanction_session" ? { value: SK } : undefined))
     dbMock.wallet.findUnique.mockResolvedValue(WALLET)
 
     const result = await getSessionMember()
@@ -79,5 +79,49 @@ describe("getSessionMember", () => {
       .mockResolvedValueOnce(null) // gone by the time getSessionMember re-checks (e.g. revoked mid-request)
 
     expect(await getSessionMember()).toBeNull()
+  })
+})
+
+// WALLET-MEMBERS part 2: the switcher cookie is a SELECTION, validated on
+// every resolve — it can pick any reachable wallet but can never grant one.
+describe("getSessionMember — active-wallet preference", () => {
+  const WALLET2 = { id: "wallet_2", name: "Client Co", ownerEmail: "ceo@client.co", userId: "user_other" }
+  const prefCookie = (id: string) => (name: string) =>
+    name === "sanction_active_wallet" ? { value: id } : undefined
+
+  it("selects an active membership over the owned wallet, at the membership's role", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: USER })
+    cookieStore.get.mockImplementation(prefCookie("wallet_2"))
+    dbMock.wallet.findUnique.mockResolvedValue(WALLET2)
+    dbMock.walletMember.findFirst.mockResolvedValue({ walletId: "wallet_2", userId: USER.id, status: "active", role: "admin" })
+
+    const result = await getSessionMember()
+    expect(result?.wallet.id).toBe("wallet_2")
+    expect(result?.role).toBe("admin")
+    // Never consulted the owned-wallet precedence path.
+    expect(dbMock.wallet.findFirst).not.toHaveBeenCalled()
+  })
+
+  it("falls back to the owned wallet when the preferred id is foreign", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: USER })
+    cookieStore.get.mockImplementation(prefCookie("wallet_forged"))
+    dbMock.wallet.findUnique.mockResolvedValue(null) // preferred id resolves to nothing
+    dbMock.wallet.findFirst.mockResolvedValue(WALLET) // owned-wallet precedence takes over
+
+    const result = await getSessionMember()
+    expect(result?.wallet.id).toBe("wallet_1")
+    expect(result?.role).toBe("owner")
+  })
+
+  it("falls back when the preferred membership was revoked — a stale cookie grants nothing", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: USER })
+    cookieStore.get.mockImplementation(prefCookie("wallet_2"))
+    dbMock.wallet.findUnique.mockResolvedValue(WALLET2)
+    dbMock.walletMember.findFirst.mockResolvedValue(null) // membership no longer active
+    dbMock.wallet.findFirst.mockResolvedValue(WALLET)
+
+    const result = await getSessionMember()
+    expect(result?.wallet.id).toBe("wallet_1")
+    expect(result?.role).toBe("owner")
   })
 })

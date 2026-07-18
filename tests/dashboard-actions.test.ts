@@ -4,17 +4,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // (single + batch seat) now sit behind requireSessionRole("admin") instead
 // of the bare getSessionWallet — a viewer resolves to the same null as no
 // session, same denial.
-const { dbMock, sessionMock, revalidateMock } = vi.hoisted(() => ({
+const { dbMock, sessionMock, revalidateMock, redirectMock } = vi.hoisted(() => ({
   dbMock: { agent: { create: vi.fn() }, $transaction: vi.fn() },
-  sessionMock: { requireSessionRole: vi.fn() },
+  sessionMock: { requireSessionRole: vi.fn(), listSessionWallets: vi.fn(), setActiveWallet: vi.fn() },
   revalidateMock: vi.fn(),
+  redirectMock: vi.fn((path: string) => {
+    throw new Error(`REDIRECT:${path}`)
+  }),
 }))
 dbMock.$transaction.mockImplementation((fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/session", () => sessionMock)
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
+vi.mock("next/navigation", () => ({ redirect: redirectMock }))
 
-import { createAgentAction, createBatchAgentsAction } from "../app/dashboard/actions"
+import { createAgentAction, createBatchAgentsAction, switchWalletAction } from "../app/dashboard/actions"
 
 const WALLET = { id: "wallet_1" }
 
@@ -55,5 +59,40 @@ describe("createBatchAgentsAction — role floor", () => {
     )
     expect(res.ok).toBe(false)
     expect(dbMock.agent.create).not.toHaveBeenCalled()
+  })
+})
+
+// WALLET-MEMBERS part 2: switching is selection, not mutation — validated
+// against listSessionWallets (what the session can already reach), no role
+// floor, and anything off the list is a silent no-op back to the dashboard.
+describe("switchWalletAction", () => {
+  it("sets the active wallet and redirects when the target is reachable", async () => {
+    sessionMock.listSessionWallets.mockResolvedValue([
+      { id: "wallet_1", name: "Mine", role: "owner" },
+      { id: "wallet_2", name: "Theirs", role: "viewer" },
+    ])
+    await expect(switchWalletAction(form({ wallet_id: "wallet_2" }))).rejects.toThrow("REDIRECT:/dashboard")
+    expect(sessionMock.setActiveWallet).toHaveBeenCalledWith("wallet_2")
+  })
+
+  it("ignores a wallet the session cannot reach — no cookie write, still redirects", async () => {
+    sessionMock.listSessionWallets.mockResolvedValue([{ id: "wallet_1", name: "Mine", role: "owner" }])
+    await expect(switchWalletAction(form({ wallet_id: "wallet_forged" }))).rejects.toThrow("REDIRECT:/dashboard")
+    expect(sessionMock.setActiveWallet).not.toHaveBeenCalled()
+  })
+
+  it("a viewer membership is switchable — reachability is the only gate", async () => {
+    sessionMock.listSessionWallets.mockResolvedValue([
+      { id: "wallet_1", name: "Mine", role: "owner" },
+      { id: "wallet_2", name: "Theirs", role: "viewer" },
+    ])
+    await expect(switchWalletAction(form({ wallet_id: "wallet_2" }))).rejects.toThrow("REDIRECT:/dashboard")
+    expect(sessionMock.requireSessionRole).not.toHaveBeenCalled()
+  })
+
+  it("a blank wallet_id is a no-op redirect", async () => {
+    await expect(switchWalletAction(form({}))).rejects.toThrow("REDIRECT:/dashboard")
+    expect(sessionMock.setActiveWallet).not.toHaveBeenCalled()
+    expect(sessionMock.listSessionWallets).not.toHaveBeenCalled()
   })
 })
