@@ -8,7 +8,7 @@ import { getViewWallet } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
 import { dailyPace } from "@/lib/burn"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
-import { fmtUsd } from "@/lib/format"
+import { fmtUsd, fmtCount } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
