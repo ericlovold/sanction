@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { applyPolicyUpdate } from "@/lib/policy"
-import { getSessionWallet } from "@/lib/session"
+import { requireSessionRole } from "@/lib/session"
 
 export type PolicyActionState = { ok: boolean; message: string }
 
@@ -29,7 +29,7 @@ export async function updatePolicyAction(
   _prev: PolicyActionState,
   form: FormData,
 ): Promise<PolicyActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to edit your policy." }
 
   const input = {

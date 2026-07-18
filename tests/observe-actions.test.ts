@@ -13,7 +13,7 @@ const { dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() => {
   db.$transaction.mockImplementation((arg: ((client: typeof db) => unknown) | Promise<unknown>[]) =>
     typeof arg === "function" ? arg(db) : Promise.all(arg),
   )
-  return { dbMock: db, revalidatePathMock: vi.fn(), sessionMock: { getSessionWallet: vi.fn() } }
+  return { dbMock: db, revalidatePathMock: vi.fn(), sessionMock: { requireSessionRole: vi.fn() } }
 })
 
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }))
@@ -44,7 +44,7 @@ function setupSubtree() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sessionMock.getSessionWallet.mockResolvedValue({ id: "wallet_root" })
+  sessionMock.requireSessionRole.mockResolvedValue({ id: "wallet_root" })
   setupSubtree()
   dbMock.policy.findUnique.mockResolvedValue({ id: "pol_child" })
   dbMock.policy.upsert.mockImplementation(async ({ where, update }: { where: { walletId: string }; update: Record<string, unknown> }) => ({
@@ -58,10 +58,20 @@ beforeEach(() => {
 
 describe("setEnforcementModeAction", () => {
   it("requires a session", async () => {
-    sessionMock.getSessionWallet.mockResolvedValue(null)
+    sessionMock.requireSessionRole.mockResolvedValue(null)
     const result = await setEnforcementModeAction(prev, form({ wallet_id: "pool_child", mode: "enforce" }))
     expect(result.ok).toBe(false)
     expect(dbMock.policy.upsert).not.toHaveBeenCalled()
+  })
+
+  // A viewer member resolves to the same null as no-session (the WALLET-MEMBERS
+  // role floor lives in lib/session.ts's requireSessionRole, not here).
+  it("refuses a viewer member the same way as no session", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(null)
+    const result = await setEnforcementModeAction(prev, form({ wallet_id: "pool_child", mode: "enforce" }))
+    expect(result.ok).toBe(false)
+    expect(dbMock.policy.upsert).not.toHaveBeenCalled()
+    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
   })
 
   it("rejects a mode outside enforce|observe", async () => {

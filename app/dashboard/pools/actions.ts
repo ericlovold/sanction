@@ -7,7 +7,7 @@ import { allocatePoolCaps, parseAllocationStrategy, type AllocationChildInput } 
 import { parseOwnerEmail, parsePoolCapDollars, parsePoolName } from "@/lib/poolForms"
 import { agentIsInWalletSet, walletSubtreeIds } from "@/lib/poolAccess"
 import { upsertPolicyWithRevision } from "@/lib/policy"
-import { getSessionWallet } from "@/lib/session"
+import { requireSessionRole } from "@/lib/session"
 
 export type CreatePoolState = {
   ok: boolean
@@ -33,7 +33,7 @@ export async function createDelegatedPoolAction(
   _prev: CreatePoolState,
   form: FormData,
 ): Promise<CreatePoolState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to create pools." }
 
   const name = parsePoolName(form.get("name"))
@@ -78,7 +78,7 @@ export async function updatePoolCapAction(
   _prev: PoolActionState,
   form: FormData,
 ): Promise<PoolActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to update pools." }
 
   const walletId = String(form.get("wallet_id") ?? "")
@@ -167,7 +167,7 @@ export async function applyPoolAllocationAction(
   _prev: PoolActionState,
   form: FormData,
 ): Promise<PoolActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to allocate pools." }
 
   const parentWalletId = String(form.get("parent_wallet_id") ?? "")
@@ -196,7 +196,7 @@ export async function moveAgentToPoolAction(
   _prev: PoolActionState,
   form: FormData,
 ): Promise<PoolActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to move agents." }
 
   const agentId = String(form.get("agent_id") ?? "")

@@ -30953,6 +30953,13 @@ var StdioServerTransport = class {
   }
 };
 
+// lib/format.ts
+function fmtUsd(n) {
+  const abs = Math.abs(n);
+  const decimals = abs > 0 && abs < 0.01 ? 4 : 2;
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
 // lib/mcpWalletStatus.ts
 function isRecord(value) {
   return typeof value === "object" && value !== null;
@@ -30983,8 +30990,8 @@ function renderWalletStatus(result) {
   return {
     ok: true,
     text: [
-      `Today - tokens: $${result.today.token_cost_usd.toFixed(4)} | spend: $${result.today.spend_usd.toFixed(2)}`,
-      `Month - tokens: $${result.month.token_cost_usd.toFixed(4)} | spend: $${result.month.spend_usd.toFixed(2)}`,
+      `Today - tokens: ${fmtUsd(result.today.token_cost_usd)} | spend: ${fmtUsd(result.today.spend_usd)}`,
+      `Month - tokens: ${fmtUsd(result.month.token_cost_usd)} | spend: ${fmtUsd(result.month.spend_usd)}`,
       result.pending_approvals > 0 ? `Attention: ${result.pending_approvals} pending approval(s)` : "No pending approvals"
     ].join("\n")
   };

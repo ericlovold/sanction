@@ -5,6 +5,7 @@ import { headers } from "next/headers"
 import { db } from "@/lib/db"
 import { hashApiKey } from "@/lib/apiKey"
 import { auth } from "@/lib/auth-config"
+import { setActiveWallet } from "@/lib/session"
 
 export type AcceptInviteState = { error: string }
 
@@ -28,20 +29,18 @@ export async function acceptInviteAction(_prev: AcceptInviteState, form: FormDat
     return { error: `This invite was sent to ${invite.email}. Sign out and accept it with that account.` }
   }
 
-  // Collision guard: someone who already owns a different wallet can't also
-  // land here through normal login (lib/session.ts's resolveWalletForUser
-  // precedence — owning a wallet always wins), so an "active" membership
-  // would be permanently unreachable. Block instead of creating dead state.
-  const owned = await db.wallet.findFirst({ where: { userId: session.user.id } })
-  if (owned && owned.id !== invite.walletId) {
-    return { error: "You already have a Sanction workspace — multi-workspace switching isn't supported yet. Contact us if you need this." }
-  }
-
+  // Owning another wallet is no longer a blocker: the wallet switcher
+  // (WALLET-MEMBERS part 2) makes every active membership reachable, so the
+  // old collision guard — which existed only to prevent unreachable "active"
+  // rows under the owned-wallet-always-wins precedence — is gone.
   const claimed = await db.walletMember.updateMany({
     where: { id: invite.id, status: "pending" },
     data: { status: "active", userId: session.user.id, acceptedAt: new Date(), tokenHash: null, tokenExpiresAt: null },
   })
   if (claimed.count === 0) return { error: "This invite was already used. Ask for a new one." }
 
+  // Land them in the workspace they just joined, not whatever the default
+  // precedence would pick.
+  await setActiveWallet(invite.walletId)
   redirect("/dashboard")
 }

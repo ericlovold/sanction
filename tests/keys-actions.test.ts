@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // key" recovery. The old key dies on write; the session is re-set to the new one.
 const { dbMock, sessionMock, revalidateMock } = vi.hoisted(() => ({
   dbMock: { wallet: { update: vi.fn() }, agent: { findUnique: vi.fn(), update: vi.fn() }, agentClearance: { upsert: vi.fn() } },
-  sessionMock: { getSessionWallet: vi.fn(), setSession: vi.fn(async () => {}) },
+  sessionMock: { requireSessionRole: vi.fn(), setSession: vi.fn(async () => {}) },
   revalidateMock: vi.fn(),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
@@ -22,19 +22,31 @@ beforeEach(() => {
 
 describe("resetManagementKeyAction", () => {
   it("refuses without a session and never touches the key", async () => {
-    sessionMock.getSessionWallet.mockResolvedValue(null)
+    sessionMock.requireSessionRole.mockResolvedValue(null)
     const res = await resetManagementKeyAction({ ok: false, error: "" }, new FormData())
     expect(res.ok).toBe(false)
     expect(dbMock.wallet.update).not.toHaveBeenCalled()
     expect(sessionMock.setSession).not.toHaveBeenCalled()
   })
 
+  // A viewer member also resolves to null here (WALLET-MEMBERS role floor —
+  // lib/session.ts's requireSessionRole), so this is the same denial path as
+  // no-session: the action can't tell, and doesn't need to.
+  it("refuses a viewer member the same way as no session", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(null)
+    const res = await resetManagementKeyAction({ ok: false, error: "" }, new FormData())
+    expect(res.ok).toBe(false)
+    expect(dbMock.wallet.update).not.toHaveBeenCalled()
+  })
+
   it("mints a fresh sk_ key, stores only its hash, and re-sets the session to it", async () => {
-    sessionMock.getSessionWallet.mockResolvedValue({ id: "wallet_1" })
+    sessionMock.requireSessionRole.mockResolvedValue({ id: "wallet_1" })
     const res = await resetManagementKeyAction({ ok: false, error: "" }, new FormData())
 
     expect(res.ok).toBe(true)
     expect(res.newKey).toMatch(/^sk_[0-9a-f]{64}$/)
+    // Enforces the admin-or-higher floor (WALLET-MEMBERS follow-up, part 1).
+    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
 
     // Persisted the new hash/prefix for wallet_1 — never the raw key.
     const data = dbMock.wallet.update.mock.calls[0][0].data

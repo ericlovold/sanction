@@ -5,7 +5,7 @@ import { applyPolicyUpdate, type PolicyInput } from "@/lib/policy"
 import { findPack } from "@/lib/policyPacks"
 import { runSimulation } from "@/lib/simulationRun"
 import { rangeUtc } from "@/lib/reporting"
-import { getSessionWallet } from "@/lib/session"
+import { getSessionWallet, requireSessionRole } from "@/lib/session"
 
 export type PolicyActionState = { ok: boolean; message: string }
 
@@ -88,7 +88,7 @@ export async function updatePolicyAction(
   _prev: PolicyActionState,
   form: FormData,
 ): Promise<PolicyActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to edit your policy." }
 
   const parsed = parsePolicyForm(form)
@@ -120,7 +120,7 @@ export async function previewPackAction(
   _prev: SimActionState,
   form: FormData,
 ): Promise<SimActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await getSessionWallet() // read-only replay — any session role, viewers included
   if (!wallet) return { ok: false, message: "Log in to preview a pack." }
 
   const pack = findPack(String(form.get("pack_id") ?? ""))
@@ -138,7 +138,7 @@ export async function applyPackAction(
   _prev: PolicyActionState,
   form: FormData,
 ): Promise<PolicyActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in to apply a pack." }
 
   const pack = findPack(String(form.get("pack_id") ?? ""))
@@ -164,7 +164,7 @@ export async function simulateDraftAction(
   _prev: SimActionState,
   form: FormData,
 ): Promise<SimActionState> {
-  const wallet = await getSessionWallet()
+  const wallet = await getSessionWallet() // read-only replay — any session role, viewers included
   if (!wallet) return { ok: false, message: "Log in to simulate a policy." }
 
   const parsed = parsePolicyForm(form)

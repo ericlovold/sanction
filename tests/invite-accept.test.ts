@@ -2,14 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { hashApiKey } from "../lib/apiKey"
 
 // Invite-accept (WALLET-MEMBERS) — mirrors app/login/actions.ts's MagicLink
-// single-use-claim test shape: email-match gate, the pre-existing-wallet
-// collision guard, and the race-safe updateMany claim.
-const { dbMock, sessionMock, redirectMock } = vi.hoisted(() => ({
+// single-use-claim test shape: email-match gate and the race-safe updateMany
+// claim. The pre-existing-wallet collision guard is gone as of part 2: the
+// wallet switcher makes every active membership reachable, and acceptance
+// lands the member in the workspace they just joined.
+const { dbMock, sessionMock, redirectMock, setActiveWalletMock } = vi.hoisted(() => ({
   dbMock: {
     walletMember: { findUnique: vi.fn(), updateMany: vi.fn() },
     wallet: { findFirst: vi.fn() },
   },
   sessionMock: { getSession: vi.fn() },
+  setActiveWalletMock: vi.fn(async () => {}),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`)
   }),
@@ -18,6 +21,7 @@ vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }))
 vi.mock("next/navigation", () => ({ redirect: redirectMock }))
 vi.mock("@/lib/auth-config", () => ({ auth: { api: { getSession: sessionMock.getSession } } }))
+vi.mock("@/lib/session", () => ({ setActiveWallet: setActiveWalletMock }))
 
 import { acceptInviteAction } from "../app/invite/[token]/actions"
 
@@ -68,21 +72,13 @@ describe("acceptInviteAction", () => {
     expect(dbMock.wallet.findFirst).not.toHaveBeenCalled()
   })
 
-  it("blocks acceptance if the invitee already owns a different wallet", async () => {
+  it("accepts even when the invitee already owns a different wallet — the switcher makes it reachable (part 2 regression)", async () => {
     sessionMock.getSession.mockResolvedValue({ user: { id: "u1", email: "cfo@meridian.com" } })
     dbMock.walletMember.findUnique.mockResolvedValue(INVITE)
     dbMock.wallet.findFirst.mockResolvedValue({ id: "wallet_other", userId: "u1" })
-    const res = await acceptInviteAction({ error: "" }, form())
-    expect(res.error).toMatch(/already have a sanction workspace/i)
-    expect(dbMock.walletMember.updateMany).not.toHaveBeenCalled()
-  })
-
-  it("does not block when the invitee owns the SAME wallet already (re-accepting)", async () => {
-    sessionMock.getSession.mockResolvedValue({ user: { id: "u1", email: "cfo@meridian.com" } })
-    dbMock.walletMember.findUnique.mockResolvedValue(INVITE)
-    dbMock.wallet.findFirst.mockResolvedValue({ id: "wallet_1", userId: "u1" })
     dbMock.walletMember.updateMany.mockResolvedValue({ count: 1 })
     await expect(acceptInviteAction({ error: "" }, form())).rejects.toThrow("REDIRECT:/dashboard")
+    expect(setActiveWalletMock).toHaveBeenCalledWith("wallet_1")
   })
 
   it("claims the invite and redirects to /dashboard on success", async () => {
@@ -93,6 +89,8 @@ describe("acceptInviteAction", () => {
 
     await expect(acceptInviteAction({ error: "" }, form())).rejects.toThrow("REDIRECT:/dashboard")
 
+    // Lands the member in the workspace they just joined.
+    expect(setActiveWalletMock).toHaveBeenCalledWith("wallet_1")
     const call = dbMock.walletMember.updateMany.mock.calls[0][0]
     expect(call.where).toEqual({ id: INVITE.id, status: "pending" })
     expect(call.data.status).toBe("active")

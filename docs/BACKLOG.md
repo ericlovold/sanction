@@ -17,14 +17,17 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-07-16 — Policy packs: group the 11 packs by their existing ladder
-      tags (Metering → Authorization → Governance → Evidence) — split out of
-      the policy-shape item when the form half shipped in #222. (UX)
-- [ ] 2026-07-16 — PWA service worker serves stale bundles after deploys: the
-      old client hydrates against new server HTML (hydration mismatch, old
-      nav) until the SW update cycle runs. Hit repeatedly during local
-      verification. Consider skipWaiting + reload-on-controllerchange so
-      dashboard deploys reach installed PWAs promptly. (infra)
+- [x] 2026-07-16 — promoted: packs grouped under the four ladder stages,
+      each with a one-line meaning (backlog-tail PR, 2026-07-16). — Policy
+      packs by ladder tag
+- [x] 2026-07-16 — promoted, with a corrected diagnosis: the stale-bundle
+      hydration mismatches hit during local verification were dev-only — sw.js
+      is cache-first for /_next/static/*, immutable in production
+      (content-hashed per deploy, and the SW already skipWaiting+claims) but
+      not under Turbopack HMR, which reuses chunk URLs across rebuilds. Fixed
+      by registering the SW in production only and self-unregistering any
+      leftover dev SW (sw-register PR, 2026-07-16). — original: PWA service
+      worker serves stale bundles after deploys (infra)
 - [x] 2026-07-16 — Dashboard zero-noise pass · promoted: shipped across
       the seats compact rows (#221), Spend idle-seat collapse, and the
       Approvals/Seats stat cards (zero-noise PR, 2026-07-16)
@@ -43,10 +46,10 @@ as fact here.
       surface inside the same dashboard/PWA shell" on Credentials, "extends
       the current token/key management flow" on Execution) — customer-facing
       pages shouldn't narrate architecture decisions. (copy)
-- [ ] 2026-07-16 — Naming split, remainder: Seats standardized in #218
-      (title, Overview cards; /agents URL kept). Still open: Approvals page
-      titled "Authorization inbox" vs nav "Approvals" — pick one; DOMAIN.md is
-      the arbiter. (copy/IA)
+- [x] 2026-07-16 — promoted: Approvals page retitled to match the nav —
+      DOMAIN.md's term is Pending Approval, "authorization inbox" appears
+      nowhere in the glossary; the inbox metaphor stays in the subtitle
+      (backlog-tail PR, 2026-07-16). — Naming split, remainder
 - [x] 2026-07-16 — promoted: lib/format.ts shipped (formatter PR,
       2026-07-16) — Shared money/number formatter in lib: 9 dashboard pages
       hand-roll toFixed — Overview renders $61.9000 (toFixed(4)), Spend
@@ -91,17 +94,17 @@ as fact here.
       total would confirm mirror traffic over organic adoption. (finding,
       from the npm registry)
 
-- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 1 (from Eric): roll the new
-      owner/admin/viewer role floor out to the 9 pre-existing
-      `app/dashboard/*/actions.ts` mutation files and the `view.isSession`
-      UI gates on `keys/agents/policy/credentials/tokens` pages — today a
-      `viewer` member's mutation attempts aren't blocked, only the new team
-      page's own actions are. See docs/TRACEABILITY.md's WALLET-MEMBERS row
-      and Gap #2.
-- [ ] 2026-07-15 — WALLET-MEMBERS follow-up, part 2: a wallet switcher for
-      someone who owns their own wallet and is also an accepted member of a
-      different one — today the owned wallet always wins with no way to pick
-      the other (docs/TRACEABILITY.md Gap #3).
+- [x] 2026-07-15 — promoted: re-landed 2026-07-17 as the role-gating v2 PR
+      after the 2026-07-16 revert; role matrix confirmed with Eric (admin
+      floor everywhere incl. mgmt-key reset; pack preview/simulation open to
+      viewers; team management stays owner-only). — WALLET-MEMBERS follow-up,
+      part 1: roll the owner/admin/viewer role floor out to the pre-existing
+      mutation actions and UI gates (see docs/TRACEABILITY.md WALLET-MEMBERS
+      row).
+- [x] 2026-07-15 — promoted: shipped 2026-07-17 (wallet-switcher PR) — a
+      validated active-wallet cookie + sidebar switcher; invite-accept
+      unblocked for existing owners. — WALLET-MEMBERS follow-up, part 2:
+      wallet switcher.
 
 - [ ] 2026-07-12 — EU AI Act readiness sprint (Aug 2, 2026) (direction from
       Eric): the Act goes fully applicable Aug 2 — GPAI enforcement + fines

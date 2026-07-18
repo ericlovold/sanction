@@ -11,6 +11,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd } from "@/lib/format"
+import { hasRole } from "@/lib/roles"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -277,7 +278,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </Card>
       )}
       <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Authorization inbox</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Approvals</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Requests that crossed an escalation line — on your wallet or any pool beneath it — paused and waiting on you.
           Approving one issues a single-use grant the agent redeems on retry.
@@ -324,7 +325,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{allPending.length}</Badge>
         )}
       </div>
-      <ApprovalQueue pending={allPending} editable={view.isSession} focusId={review} />
+      <ApprovalQueue pending={allPending} editable={hasRole(view.role, "admin")} focusId={review} />
 
       <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
@@ -367,7 +368,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </CardContent>
       </Card>
 
-      <WebhookSettings webhooks={webhooks} editable={view.isSession} />
+      <WebhookSettings webhooks={webhooks} editable={hasRole(view.role, "admin")} />
     </div>
   )
 }

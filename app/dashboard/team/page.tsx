@@ -7,6 +7,7 @@ import { ManagementKeyCard } from "@/components/management-key-card"
 import { WalletIdField } from "@/components/wallet-id-field"
 import { getViewWallet } from "@/lib/session"
 import { changeRoleAction, revokeMemberAction } from "./actions"
+import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -119,7 +120,7 @@ export default async function TeamPage() {
 
       {/* The root credential — the sk_ key that authorizes the management
           plane. It lives with the humans who hold it; agent keys are on Seats. */}
-      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={view.isSession} />
+      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={hasRole(view.role, "admin")} />
     </div>
   )
 }
