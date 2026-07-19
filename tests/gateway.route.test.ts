@@ -233,7 +233,7 @@ describe("gateway provider-key injection (Providers page)", () => {
     global.fetch = fetchMock as never
     const res = await gateway(req("anthropic", "v1/messages", { providerAuth: false }), params("anthropic", "v1/messages"))
     expect(res.status).toBe(200)
-    const sent = fetchMock.mock.calls[0]![1]! as RequestInit
+    const sent = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
     const h = new Headers(sent.headers as HeadersInit)
     expect(h.get("x-api-key")).toBe("vaulted-provider-key")
     expect(h.get("x-sanction-key")).toBeNull() // sanction auth still never leaks upstream
