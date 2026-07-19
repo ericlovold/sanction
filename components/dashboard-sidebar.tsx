@@ -61,6 +61,7 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
     <Link
       href={item.href}
       onClick={onNavigate}
+      data-tour={item.href.replace("/dashboard/", "nav-").replace("/dashboard", "nav-overview")}
       className={`group flex items-center gap-3 border-l-2 py-2 pl-3 pr-3 text-sm transition-colors ${
         active
           ? "border-sidebar-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"

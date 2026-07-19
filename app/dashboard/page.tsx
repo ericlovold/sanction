@@ -10,6 +10,7 @@ import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd, fmtCount } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
 import { decideDemoApprovalAction } from "./demo-actions"
+import { OnboardingTour, TourLauncher } from "./onboarding-tour"
 
 export const dynamic = "force-dynamic"
 
@@ -253,8 +254,11 @@ export default async function Dashboard() {
         </Card>
       )}
 
+      <OnboardingTour autoStart={isDemo || !o.hasActivity} />
+
       {/* The sentence — what happened this month, in one read */}
-      <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
         <h1 className="text-xl font-semibold tracking-tight">
           Your agents asked to do <span className="font-mono">{fmtCount(asked)}</span> things this month.
         </h1>
@@ -263,6 +267,8 @@ export default async function Dashboard() {
           {o.counts.pendingTotal > 0 && <>, paused <span className="text-amber-400 font-medium">{o.counts.pendingTotal}</span> for your decision</>}
           , and blocked {fmtCount(o.counts.denied)} — every one on the signed record.
         </p>
+        </div>
+        <TourLauncher />
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -285,7 +291,7 @@ export default async function Dashboard() {
       </div>
 
       {/* Decisions waiting — the product's dramatic moment, promoted to hero */}
-      <Card className={`bg-card border-border ${o.decisions.length > 0 ? "border-amber-500/30" : ""}`}>
+      <Card data-tour="decisions-card" className={`bg-card border-border ${o.decisions.length > 0 ? "border-amber-500/30" : ""}`}>
         <CardHeader className="px-4 pt-4 pb-2 flex-row items-baseline justify-between">
           <CardTitle className="text-sm font-medium text-muted-foreground">Decisions waiting on you</CardTitle>
           {o.counts.pendingTotal > 0 && (
@@ -346,7 +352,7 @@ export default async function Dashboard() {
 
       {/* Where you are on AI spend */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="bg-card border-border">
+        <Card data-tour="budget-card" className="bg-card border-border">
           <CardHeader className="px-4 pt-4 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Where you are on AI spend — this month</CardTitle>
           </CardHeader>
