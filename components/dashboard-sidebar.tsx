@@ -46,6 +46,7 @@ const items: Item[] = [
   { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
   { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
   { href: "/dashboard/audit", label: "Audit", icon: <Icon d={ICON.audit} /> },
+  { href: "/dashboard/providers", label: "Providers", icon: <Icon d={ICON.spend} /> },
   { href: "/dashboard/credentials", label: "Credentials", icon: <Icon d={ICON.credentials} /> },
   { href: "/dashboard/team", label: "Team & access", icon: <Icon d={ICON.team} /> },
 ]

@@ -4,6 +4,8 @@ import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
 import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
+import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
+import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
 
 export const dynamic = "force-dynamic"
@@ -100,6 +102,38 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   const url = `${cfg.baseUrl}/${path.join("/")}${req.nextUrl.search}`
   const method = req.method
   const body = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer()
+
+  // Provider-key injection (Providers page): when the caller sends NO provider
+  // auth of its own, fall back to the wallet's vaulted provider:<id> key —
+  // decrypted server-side, injected into the right header, never returned to
+  // the caller. Callers that bring their own auth are untouched. No vaulted
+  // key either → fail closed with a pointer, before any upstream call.
+  const outHeaders = upstreamHeaders(req)
+  if (!hasProviderAuth(outHeaders)) {
+    const providerId = provider as ProviderId
+    const cred = await db.credentialVault.findFirst({
+      where: { walletId: agent.walletId, label: `provider:${providerId}`, revokedAt: null },
+    })
+    if (!cred) {
+      return NextResponse.json(
+        {
+          error: `No ${provider} credential: send your own auth header, or connect ${provider} once under Dashboard → Providers`,
+          code: "PROVIDER_NOT_CONNECTED",
+        },
+        { status: 401, headers: noStore },
+      )
+    }
+    try {
+      const key = await decryptCredentialEnvelope(cred)
+      const h = providerAuthHeader(providerId, key)
+      outHeaders.set(h.name, h.value)
+    } catch {
+      return NextResponse.json(
+        { error: `Stored ${provider} credential could not be decrypted; reconnect it under Dashboard → Providers`, code: "PROVIDER_KEY_UNREADABLE" },
+        { status: 502, headers: noStore },
+      )
+    }
+  }
   const notifyThreshold = async (cost: number) => {
     try {
       await notifyTokenBudgetThreshold({
@@ -141,7 +175,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
 
   let upstream: Response
   try {
-    upstream = await fetch(url, { method, headers: upstreamHeaders(req), body })
+    upstream = await fetch(url, { method, headers: outHeaders, body })
   } catch {
     return NextResponse.json({ error: "Upstream provider unreachable" }, { status: 502, headers: noStore })
   }

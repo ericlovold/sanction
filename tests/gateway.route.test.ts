@@ -10,10 +10,12 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     wallet: { findUnique: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn() },
+    credentialVault: { findFirst: vi.fn() },
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/thresholds", () => ({ notifyTokenBudgetThreshold: vi.fn(async () => {}) }))
+vi.mock("@/lib/credentialCrypto", () => ({ decryptCredentialEnvelope: vi.fn(async () => "vaulted-provider-key") }))
 // Budget state + metering write paths have their own tests; stub the db-touchers
 // and keep provider configs/parsers real.
 vi.mock("@/lib/gateway", async (orig) => {
@@ -41,8 +43,9 @@ const AGENT = {
 
 const realFetch = global.fetch
 
-function req(provider: string, path: string, opts: { key?: string | null; body?: unknown } = {}) {
+function req(provider: string, path: string, opts: { key?: string | null; body?: unknown; providerAuth?: boolean } = {}) {
   const headers: Record<string, string> = { "content-type": "application/json" }
+  if (opts.providerAuth !== false) headers["authorization"] = "Bearer caller-own-key"
   if (opts.key !== null) headers["x-sanction-key"] = opts.key ?? KEY
   return new NextRequest(`https://test.local/api/gateway/${provider}/${path}`, {
     method: "POST",
@@ -210,5 +213,36 @@ describe("gateway proxy — forwarding and metering", () => {
     expect(res.status).toBe(200)
     expect(await res.text()).toBe(SSE_WITH_USAGE)
     expect(meterUsage).toHaveBeenCalledTimes(3) // bounded retries
+  })
+})
+
+describe("gateway provider-key injection (Providers page)", () => {
+  it("401s PROVIDER_NOT_CONNECTED when caller sends no auth and nothing is vaulted", async () => {
+    dbMock.credentialVault.findFirst.mockResolvedValueOnce(null)
+    global.fetch = vi.fn() as never
+    const res = await gateway(req("anthropic", "v1/messages", { providerAuth: false }), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(401)
+    const body = await res.json()
+    expect(body.code).toBe("PROVIDER_NOT_CONNECTED")
+    expect(global.fetch).not.toHaveBeenCalled() // fail closed BEFORE any upstream call
+  })
+
+  it("injects the vaulted key in the provider's native header when caller sends none", async () => {
+    dbMock.credentialVault.findFirst.mockResolvedValueOnce({ id: "cred_1", walletId: "wallet_1", label: "provider:anthropic", encryptedValue: "x", keyId: "k" })
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }))
+    global.fetch = fetchMock as never
+    const res = await gateway(req("anthropic", "v1/messages", { providerAuth: false }), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    const sent = fetchMock.mock.calls[0]![1]! as RequestInit
+    const h = new Headers(sent.headers as HeadersInit)
+    expect(h.get("x-api-key")).toBe("vaulted-provider-key")
+    expect(h.get("x-sanction-key")).toBeNull() // sanction auth still never leaks upstream
+  })
+
+  it("caller-supplied auth wins — vault is not consulted", async () => {
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as never
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
   })
 })

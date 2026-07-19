@@ -52,6 +52,14 @@ function startOfQuarter(): Date {
 function daysAgo(n: number): Date {
   return new Date(Date.now() - n * 86400_000)
 }
+// "9238m" is unreadable — waiting time renders at the largest sensible unit.
+function humanAge(ms: number): string {
+  const m = Math.max(1, Math.round(ms / 60000))
+  if (m < 60) return `${m}m`
+  const h = Math.round(m / 60)
+  if (h < 48) return `${h}h`
+  return `${Math.round(h / 24)}d`
+}
 
 async function getOverview(walletId: string) {
   const monthStart = startOfMonth()
@@ -139,7 +147,7 @@ async function getOverview(walletId: string) {
       reason: p.reason,
       merchant,
       amount,
-      ageMin: Math.max(1, Math.round((Date.now() - p.createdAt.getTime()) / 60000)),
+      age: humanAge(Date.now() - p.createdAt.getTime()),
     }
   })
 
@@ -297,7 +305,7 @@ export default async function Dashboard() {
                 </p>
                 {d.reason && <p className="truncate text-xs text-muted-foreground mt-0.5">{d.reason}</p>}
               </div>
-              <span className="shrink-0 text-xs text-muted-foreground font-mono">{d.ageMin}m</span>
+              <span className="shrink-0 text-xs text-muted-foreground font-mono">{d.age}</span>
             </Link>
           ))}
         </CardContent>
