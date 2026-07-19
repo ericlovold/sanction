@@ -15,7 +15,7 @@ strings, so the funnel in the Vercel dashboard and the firing code can't drift.
 |---|---|---|---|
 | Landing engagement | `landing_cta` | `components/track-cta.tsx` on hero + nav CTAs | `location` (hero/nav), `target` (start/talk) |
 | Demo opened | `demo_view` | `components/funnel-beacon.tsx`, mounted on the demo dashboard | — |
-| Demo engaged | `demo_decision` | `app/dashboard/demo-actions.ts` (server) when a visitor approves/denies a live escalation | `decision` (approve/reject) |
+| Demo engaged | `demo_decision` | `app/dashboard/demo-actions.ts` (server) when a visitor approves/denies a live escalation — from the demo dashboard OR the interactive landing hero | `decision` (approve/reject), `surface` (dashboard/landing) |
 | Tour started | `tour_started` | `app/dashboard/onboarding-tour.tsx` | `trigger` (auto/relaunch) |
 | Tour completed | `tour_completed` | same, "Done — it's yours" only (not Skip) | `via` (done) |
 | **Conversion** | `wallet_created` | `components/create-wallet.tsx` + `app/start/actions.ts` + API (pre-existing) | `source`, `channel` |

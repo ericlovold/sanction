@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 import { TrackCTA } from "@/components/track-cta"
+import { LiveEscalation } from "@/components/live-escalation"
+import { getDemoEscalation } from "@/lib/demo"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 
@@ -186,7 +188,11 @@ function DecisionPill({ decision }: { decision: keyof typeof DECISIONS }) {
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
 
-export default function Landing() {
+export default async function Landing() {
+  // The interactive hero shows a REAL pending escalation from the demo wallet;
+  // absent demo data (e.g. a preview env with no SANCTION_WALLET_ID) it falls
+  // back to the static access-key visual.
+  const escalation = await getDemoEscalation()
   return (
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
@@ -231,7 +237,11 @@ export default function Landing() {
           <MonoLabel mt={28} color="var(--text-faint)">MCP · AWS Bedrock · REST</MonoLabel>
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
-          <div className="sn-key"><AccessKeyCard width={400} /></div>
+          {escalation ? (
+            <LiveEscalation initial={escalation} startHref="/start" />
+          ) : (
+            <div className="sn-key"><AccessKeyCard width={400} /></div>
+          )}
         </div>
       </header>
 
