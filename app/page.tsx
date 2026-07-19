@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
+import { TrackCTA } from "@/components/track-cta"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 
@@ -208,7 +209,7 @@ export default function Landing() {
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
             <Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link>
-            <Link className="sn-btn sn-btn-primary sn-btn-s" href="/start">Start free</Link>
+            <TrackCTA className="sn-btn sn-btn-primary sn-btn-s" href="/start" location="nav" target="start">Start free</TrackCTA>
           </div>
         </div>
       </nav>
@@ -224,8 +225,8 @@ export default function Landing() {
             Where your AI spend is going, who&apos;s cleared to spend it, and the calls big enough to need your sign-off — in one place, above whatever gateway your engineers run. Every decision on a signed record.
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Start free</Link>
-            <a className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener">Talk to us →</a>
+            <TrackCTA className="sn-btn sn-btn-primary sn-btn-l" href="/start" location="hero" target="start">Start free</TrackCTA>
+            <TrackCTA className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} location="hero" target="talk">Talk to us →</TrackCTA>
           </div>
           <MonoLabel mt={28} color="var(--text-faint)">MCP · AWS Bedrock · REST</MonoLabel>
         </div>

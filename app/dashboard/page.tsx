@@ -11,6 +11,8 @@ import { fmtUsd, fmtCount } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
 import { decideDemoApprovalAction } from "./demo-actions"
 import { OnboardingTour, TourLauncher } from "./onboarding-tour"
+import { FunnelBeacon } from "@/components/funnel-beacon"
+import { FUNNEL } from "@/lib/funnel"
 
 export const dynamic = "force-dynamic"
 
@@ -254,6 +256,7 @@ export default async function Dashboard() {
         </Card>
       )}
 
+      {isDemo && <FunnelBeacon event={FUNNEL.demoView} />}
       <OnboardingTour autoStart={isDemo || !o.hasActivity} />
 
       {/* The sentence — what happened this month, in one read */}

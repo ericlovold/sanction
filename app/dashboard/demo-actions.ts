@@ -2,9 +2,11 @@
 
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
+import { track } from "@vercel/analytics/server"
 import { db } from "@/lib/db"
 import { resolveApproval } from "@/lib/approvals"
 import { rateLimit, ipFromHeaders } from "@/lib/rateLimit"
+import { FUNNEL } from "@/lib/funnel"
 
 // The public demo's one interactive moment: a visitor decides a REAL pending
 // escalation on the demo wallet — approval mints a real grant on the record —
@@ -35,6 +37,9 @@ export async function decideDemoApprovalAction(form: FormData): Promise<void> {
 
   const result = await resolveApproval([demoWalletId], approvalId, decision, undefined, "demo visitor")
   if (!result.ok) return
+
+  // The funnel's engagement moment: a visitor governed a live agent on the demo.
+  void track(FUNNEL.demoDecision, { decision }).catch(() => {})
 
   // Replenish: the same agent raises the same request again, fresh timestamp.
   // Never expires on its own — the queue is the demo's heartbeat.

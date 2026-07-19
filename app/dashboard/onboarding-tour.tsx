@@ -7,6 +7,8 @@
 // positioned beside the target, Back/Next/Skip.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { track } from "@vercel/analytics"
+import { FUNNEL } from "@/lib/funnel"
 
 type Step = {
   target: string // data-tour value
@@ -66,6 +68,11 @@ export function OnboardingTour({ autoStart }: { autoStart: boolean }) {
     const forced = new URLSearchParams(window.location.search).get("tour") === "1"
     const done = localStorage.getItem(DONE_KEY)
     if (!(forced || (autoStart && !done))) return
+    try {
+      track(FUNNEL.tourStarted, { trigger: forced ? "relaunch" : "auto" })
+    } catch {
+      /* best-effort */
+    }
     const raf = requestAnimationFrame(() => open(0))
     return () => cancelAnimationFrame(raf)
   }, [autoStart, open])
@@ -89,6 +96,17 @@ export function OnboardingTour({ autoStart }: { autoStart: boolean }) {
     localStorage.setItem(DONE_KEY, "1")
     setStep(null)
   }, [])
+
+  // Distinct from Skip/dismiss: the visitor walked to the end. This is the
+  // tour's assist signal — did completing it lift wallet creation?
+  const complete = useCallback(() => {
+    try {
+      track(FUNNEL.tourCompleted, { via: "done" })
+    } catch {
+      /* best-effort */
+    }
+    finish()
+  }, [finish])
 
   const card = useMemo(() => {
     if (step === null || !rect) return null
@@ -143,7 +161,7 @@ export function OnboardingTour({ autoStart }: { autoStart: boolean }) {
                   Next
                 </button>
               ) : (
-                <button onClick={finish} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
+                <button onClick={complete} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
                   Done — it&apos;s yours
                 </button>
               )}
