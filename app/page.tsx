@@ -221,8 +221,8 @@ export default function Landing() {
           <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
             Autonomy for your agents. Authority for your team.
           </h1>
-          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "46ch", margin: "24px 0 32px" }}>
-            One key governs what an agent may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record.
+          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "48ch", margin: "24px 0 32px" }}>
+            Where your AI spend is going, who&apos;s cleared to spend it, and the calls big enough to need your sign-off — in one place, above whatever gateway your engineers run. Every decision on a signed record.
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Start free</Link>
@@ -237,6 +237,32 @@ export default function Landing() {
 
       {/* Anthropic-certified trust strip */}
       <AnthropicCerts />
+
+      {/* Who opens Sanction — the seat above the stack (not another gateway) */}
+      <section style={{ ...wrap, padding: "96px 32px 112px" }}>
+        <div style={{ maxWidth: 620, marginBottom: 48 }}>
+          <MonoLabel mb={16}>The seat above the stack</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+            Your gateway routes the calls. Sanction is where you answer for them.
+          </h2>
+          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "58ch", margin: "20px 0 0" }}>
+            LiteLLM, Bedrock, Vercel — let them route, cache, and log. Sanction sits above whatever you run: the one place the people accountable for the spend can see it, set the budget, and sign off on the calls that cross the line.
+          </p>
+        </div>
+        <div className="sn-cards">
+          {[
+            ["For the CFO", "The monthly number", "Where AI spend went this month — by team, by provider — and whether you're on budget. The one figure that rolls up across every agent, in every division."],
+            ["For the CTO", "Who can do what", "Which agents are cleared for which actions, the line where a human takes over, and a signed record of every call. Set the policy once; it holds across providers."],
+            ["For the CMO", "My team's usage", "Your department's agent spend and budget at a glance — no ticket to engineering to find out what your team's AI actually costs this month."],
+          ].map(([k, t, d]) => (
+            <div key={k} className="sn-card" style={{ padding: 28 }}>
+              <MonoLabel color="var(--pine-7)">{k}</MonoLabel>
+              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Pillars */}
       <section style={{ ...wrap, padding: "0 32px 112px" }}>
