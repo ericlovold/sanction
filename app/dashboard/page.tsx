@@ -9,6 +9,7 @@ import { getViewWallet } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd, fmtCount } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
+import { decideDemoApprovalAction } from "./demo-actions"
 
 export const dynamic = "force-dynamic"
 
@@ -222,8 +223,18 @@ export default async function Dashboard() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
+  // Demo groom (public demo wallet only, idempotent): give the demo policy
+  // monthly caps once so the budget bars tell the % story to visitors.
+  if (!view.isSession && process.env.SANCTION_WALLET_ID === view.id) {
+    await db.policy.updateMany({
+      where: { walletId: view.id, monthlyTokenBudgetUsd: null },
+      data: { monthlyTokenBudgetUsd: 100_000, monthlySpendBudgetUsd: 1_000_000 },
+    })
+  }
+
   const o = await getOverview(view.id)
   const asked = o.counts.approved + o.counts.denied + o.counts.escalated
+  const isDemo = !view.isSession && process.env.SANCTION_WALLET_ID === view.id
   const segments = donutSegments(o.providers)
   const maxDept = Math.max(1, ...o.departments.map((d) => d.tokens + d.spend))
 
@@ -291,12 +302,11 @@ export default async function Dashboard() {
             />
           )}
           {o.decisions.map((d) => (
-            <Link
+            <div
               key={d.id}
-              href="/dashboard/approvals"
-              className="flex items-center justify-between gap-3 rounded-md border border-amber-500/20 bg-amber-500/[0.04] px-3 py-2.5 text-sm transition-colors hover:border-amber-500/40"
+              className="flex items-center justify-between gap-3 rounded-md border border-amber-500/20 bg-amber-500/[0.04] px-3 py-2.5 text-sm"
             >
-              <div className="min-w-0">
+              <Link href="/dashboard/approvals" className="min-w-0 flex-1">
                 <p className="truncate">
                   <span className="text-amber-200 font-medium">{d.agent}</span>
                   <span className="text-muted-foreground"> wants </span>
@@ -304,10 +314,33 @@ export default async function Dashboard() {
                   {d.amount !== null && <span className="font-mono"> · {fmtUsd(d.amount)}</span>}
                 </p>
                 {d.reason && <p className="truncate text-xs text-muted-foreground mt-0.5">{d.reason}</p>}
-              </div>
+              </Link>
               <span className="shrink-0 text-xs text-muted-foreground font-mono">{d.age}</span>
-            </Link>
+              {isDemo && (
+                <span className="flex shrink-0 gap-1.5">
+                  <form action={decideDemoApprovalAction}>
+                    <input type="hidden" name="approval_id" value={d.id} />
+                    <input type="hidden" name="decision" value="approve" />
+                    <button type="submit" className="rounded-md border border-emerald-500/40 px-2.5 py-1 text-xs text-emerald-400 hover:bg-emerald-500/[0.08]">
+                      Approve
+                    </button>
+                  </form>
+                  <form action={decideDemoApprovalAction}>
+                    <input type="hidden" name="approval_id" value={d.id} />
+                    <input type="hidden" name="decision" value="reject" />
+                    <button type="submit" className="rounded-md border border-red-500/40 px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/[0.08]">
+                      Deny
+                    </button>
+                  </form>
+                </span>
+              )}
+            </div>
           ))}
+          {isDemo && o.decisions.length > 0 && (
+            <p className="pt-1 text-[11px] text-muted-foreground">
+              Live demo: your decision mints a real single-use grant on the signed record — and the agent asks again, so the queue never runs dry.
+            </p>
+          )}
         </CardContent>
       </Card>
 
