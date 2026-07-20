@@ -6,7 +6,7 @@ import { POLICY_PACKS } from "@/lib/policyPacks"
 export const metadata: Metadata = {
   title: "Compatibility — Sanction",
   description:
-    "Compatibility badges, channel policy packs, and adapter paths for MCP hosts, agent frameworks, LLM gateways, and payment-agent pilots.",
+    "How Sanction composes with metering and observability gateways: they meter and trace the model call, Sanction authorizes the agent's action. Plus compatibility badges, channel policy packs, and adapter paths for MCP hosts, agent frameworks, LLM gateways, and payment-agent pilots.",
 }
 
 const badges = [
@@ -15,6 +15,33 @@ const badges = [
   { label: "AARP approval loop", proof: "Escalation opens an access request" },
   { label: "Gateway metered", proof: "Model calls are budgeted before/after use" },
   { label: "Evidence replay ready", proof: "Decision context can reproduce the call" },
+]
+
+const layers = [
+  {
+    role: "Metering & observability gateways",
+    examples: "LangSmith, Portkey, Helicone, LiteLLM",
+    accent: false,
+    owns: [
+      "Meter and cap model-call spend",
+      "Redact PII and secrets in prompts and responses",
+      "Route and fail over across model providers",
+      "Trace, evaluate, and monitor every call",
+    ],
+    boundary: "Governs what the model says and what it costs.",
+  },
+  {
+    role: "Sanction",
+    examples: "The authorization plane",
+    accent: true,
+    owns: [
+      "Authorize the action before the agent takes it — tool, MCP, spend, provisioning",
+      "Escalate to a human and hold the request for approval, then mint a single-use grant",
+      "Custody credentials and inject them scoped and short-lived — never handed to the agent",
+      "Produce deterministic, replayable, hash-chained evidence of every decision",
+    ],
+    boundary: "Governs what the agent is allowed to do.",
+  },
 ]
 
 const channels = [
@@ -73,6 +100,54 @@ export default function CompatibilityPage() {
               <p className="mt-2 text-xs text-zinc-500">{badge.proof}</p>
             </div>
           ))}
+        </section>
+
+        <section className="mt-14">
+          <h2 className="font-display text-2xl font-semibold tracking-tight">Governance layers compose</h2>
+          <p className="mt-2 max-w-2xl text-zinc-400">
+            Metering a model call and authorizing an agent&apos;s action are different boundaries. A gateway can
+            cap spend and redact data on the way to the provider; it doesn&apos;t decide whether the agent may take
+            the action, hold it for a human, or hand it a credential. Sanction sits at that second boundary, and
+            the two stack cleanly.
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {layers.map((layer) => (
+              <div
+                key={layer.role}
+                className={
+                  layer.accent
+                    ? "rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] p-5"
+                    : "rounded-xl border border-zinc-800 bg-zinc-900/45 p-5"
+                }
+              >
+                <p
+                  className={
+                    layer.accent
+                      ? "text-[11px] font-medium uppercase tracking-wide text-emerald-400/90"
+                      : "text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                  }
+                >
+                  {layer.examples}
+                </p>
+                <h3 className="mt-2 font-display text-xl font-semibold tracking-tight">{layer.role}</h3>
+                <ul className="mt-3 space-y-2">
+                  {layer.owns.map((item) => (
+                    <li key={item} className="flex gap-2 text-sm leading-6 text-zinc-400">
+                      <span className={layer.accent ? "mt-1 text-emerald-400" : "mt-1 text-zinc-600"}>&rsaquo;</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 border-t border-zinc-800 pt-3 text-sm font-medium text-zinc-300">
+                  {layer.boundary}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 max-w-2xl text-sm text-zinc-500">
+            Keep your metering gateway pointed at the model. Point your agent at Sanction before it acts. One meters
+            the call; the other authorizes the action.
+          </p>
         </section>
 
         <section className="mt-14">
