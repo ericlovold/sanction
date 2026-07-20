@@ -16,7 +16,7 @@ const CONTACT = "mailto:eric@getsanction.com?subject=Moral%20Intention%20Analyst
 // The live MIA app (analyst chat, scenarios, checklists, Ethics Hours). Served
 // on the getsanction subdomain that points at the moral-intention-analyst
 // Vercel project.
-const APP_URL = "https://moral-intention.getsanction.com"
+const APP_URL = "https://mia.getsanction.com"
 const PING_SITE = "https://www.acping.net"
 const EAS_SITE = "https://www.ethicsadvisoryservices.com.au"
 
