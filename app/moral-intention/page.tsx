@@ -13,6 +13,10 @@ const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "
 
 // Go-to-market contact. Swap to a dedicated MIA intake once decided.
 const CONTACT = "mailto:eric@getsanction.com?subject=Moral%20Intention%20Analyst"
+// The live MIA app (analyst chat, scenarios, checklists, Ethics Hours). Served
+// on the getsanction subdomain that points at the moral-intention-analyst
+// Vercel project.
+const APP_URL = "https://moral-intention.getsanction.com"
 const PING_SITE = "https://www.acping.net"
 const EAS_SITE = "https://www.ethicsadvisoryservices.com.au"
 
@@ -80,7 +84,8 @@ export default function MoralIntentionAnalyst() {
             <a className="sanction-link" href="#bedrock">Enterprise</a>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-s" href={CONTACT}>Talk to us</a>
+            <a className="sn-btn sn-btn-s" href={CONTACT} style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>Talk to us</a>
+            <a className="sn-btn sn-btn-primary sn-btn-s" href={APP_URL}>Open the analyst →</a>
           </div>
         </div>
       </nav>
@@ -100,8 +105,8 @@ export default function MoralIntentionAnalyst() {
             <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>, and never a decision it makes for you.
           </p>
           <div className="mia-fade mia-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 30, flexWrap: "wrap" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-l" href={CONTACT}>Talk to us →</a>
-            <a className="sn-btn sn-btn-l" href="#vision" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>The vision</a>
+            <a className="sn-btn sn-btn-primary sn-btn-l" href={APP_URL}>Open the analyst →</a>
+            <a className="sn-btn sn-btn-l" href={CONTACT} style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>Talk to us →</a>
           </div>
           <p className="mia-fade mia-d5 sn-mono" style={{ marginTop: 26, fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
             Advisory only · Authored by Dr. A.C. Ping · Runs on Claude
@@ -293,9 +298,14 @@ export default function MoralIntentionAnalyst() {
               For teams carrying real ethical weight — and for anyone who wants to choose consciously rather than react.
               Tell us what you are wrestling with.
             </p>
-            <a className="sn-btn sn-btn-l" href={CONTACT} style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}>
-              Talk to us →
-            </a>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <a className="sn-btn sn-btn-l" href={APP_URL} style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}>
+                Open the analyst →
+              </a>
+              <a className="sn-btn sn-btn-l" href={CONTACT} style={{ color: "#f7f6f0", border: "1px solid rgba(247,246,240,.35)", background: "transparent" }}>
+                Talk to us →
+              </a>
+            </div>
           </Reveal>
         </div>
       </section>
