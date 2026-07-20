@@ -17,6 +17,35 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-07-20 — LangChain / LangSmith LLM Gateway competitive response
+      (market event; blog vouched by Eric, verified at primary sources):
+      LangSmith LLM Gateway is in private beta/waitlist — a base_url-swap proxy
+      with spend caps at org/workspace/user/API-key level (402 on cap), PII +
+      secrets redaction, model routing/fallback, and every proxied call becomes
+      a LangSmith trace with policy violations surfaced as traceable events.
+      Read: an incumbent with a large installed base entered the runtime-
+      governance category and bundled the *metering* half into the observability
+      platform teams already use — validating Sanction's whole thesis while
+      commoditizing the gateway's easy half. Their enforcement is the **Metering**
+      rung of our own ladder (spend + redaction + routing). The blog itself
+      names the frontier it does NOT ship: "which tools an agent can call, which
+      credentials it receives, and when a human must approve a decision." That
+      frontier is Sanction's engine — escalate→approval→single-use grant (AARP),
+      the SEC-1/SEC-3 credential vault + scoped injection, and tool/MCP/
+      provision/capability authorization (AuthZEN PDP): action governance, not
+      just model-call metering. Position: **hold the mandate, not the rail** —
+      don't compete on tracing/eval (theirs); own the decision, the approval
+      loop, credential custody, deterministic replayable evidence, and
+      portability across runtimes (their gateway's value is being *inside* their
+      platform; ours is governing agents wherever they run — MCP, Bedrock, REST,
+      any SDK). Accelerates existing roadmap ("hold the mandate, not the rail,"
+      "governed in every runtime," distribution-by-channel → LLM gateways).
+      Candidate slices, each a founder-voice call (do NOT ship unilaterally):
+      a compatibility/"composes-with" note (Sanction authorizes actions;
+      observability gateways meter + trace model calls); sharpen /why +
+      /compatibility on action-vs-model-call + approval/credential/portability;
+      a comparison doc that rides the "LLM gateway governance" search term while
+      it's hot. (market event → competitive arc, from Eric)
 - [ ] 2026-07-20 — Self-serve on-ramp + real /pricing page (from an external
       GTM review): bare `/pricing` 404s (only `/#pricing` → "Talk to us"
       exists), and there is no self-serve path from "interested" to "paying" —
