@@ -17,6 +17,25 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-07-20 — Self-serve on-ramp + real /pricing page (from an external
+      GTM review): bare `/pricing` 404s (only `/#pricing` → "Talk to us"
+      exists), and there is no self-serve path from "interested" to "paying" —
+      the only buy path is an enterprise conversation. The review recommends a
+      low-price self-serve tier; that is in tension with the confirmed model
+      ("free for individuals, or a negotiated agreement — not a tier sheet",
+      AGENTS.md § Business Context). Decision for Eric before any build: does a
+      real `/pricing` page just make the *existing* model legible
+      (free-for-individuals / enterprise agreement — a trust signal
+      security buyers expect to see), or do we actually add a self-serve tier?
+      Page-that-explains is a clean on-model slice; a self-serve tier is a
+      model change, not a code task. (decision, from external GTM review)
+- [ ] 2026-07-20 — Sweep public routes for guess-a-URL 404s before driving
+      discovery traffic (same GTM review): bare `/pricing` 404s from a
+      plausible guessed URL; `/consulting` had the same issue (now redirects
+      → /about, backlog 2026-07-08). Audit doc/link-referenced paths for 404s
+      before HN / MCP-registry / social traffic lands — a 404 on a security
+      product's own linked path is an avoidable trust ding. (hygiene, from
+      external GTM review)
 - [x] 2026-07-16 — promoted: packs grouped under the four ladder stages,
       each with a one-line meaning (backlog-tail PR, 2026-07-16). — Policy
       packs by ladder tag
