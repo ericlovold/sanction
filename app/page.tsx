@@ -216,6 +216,7 @@ export default async function Landing() {
             <Link className="sanction-link" href="/readiness">Readiness check</Link>
             <Link className="sanction-link" href="/compatibility">Compatibility</Link>
             <Link className="sanction-link" href="/consulting">Consulting</Link>
+            <Link className="sanction-link" href="/moral-intention">Moral Intention Analyst</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>

@@ -6,7 +6,7 @@ import { Reveal } from "./reveal"
 export const metadata: Metadata = {
   title: "Moral Intention Analyst — Dr. A.C. Ping | An advisory ethical intelligence",
   description:
-    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, PhD, is an advisory ethical intelligence. It helps people see what is at stake, name the values they mean to protect, and choose consciously — indicators for reflection, never proof of intent, and never a decision it makes for you. Runs on Amazon Bedrock.",
+    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, PhD, is an advisory ethical intelligence. It helps people see what is at stake, name the values they mean to protect, and choose consciously — indicators for reflection, never proof of intent, and never a decision it makes for you. Runs on Claude, with private Amazon Bedrock deployment for enterprise.",
 }
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
@@ -77,7 +77,7 @@ export default function MoralIntentionAnalyst() {
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <a className="sanction-link" href="#vision">Vision</a>
             <a className="sanction-link" href="#approach">Approach</a>
-            <a className="sanction-link" href="#bedrock">On Bedrock</a>
+            <a className="sanction-link" href="#bedrock">Enterprise</a>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
             <a className="sn-btn sn-btn-primary sn-btn-s" href={CONTACT}>Talk to us</a>
@@ -104,7 +104,7 @@ export default function MoralIntentionAnalyst() {
             <a className="sn-btn sn-btn-l" href="#vision" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>The vision</a>
           </div>
           <p className="mia-fade mia-d5 sn-mono" style={{ marginTop: 26, fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-            Advisory only · Authored by Dr. A.C. Ping · Runs on Amazon Bedrock
+            Advisory only · Authored by Dr. A.C. Ping · Runs on Claude
           </p>
         </div>
       </header>
@@ -187,15 +187,15 @@ export default function MoralIntentionAnalyst() {
         </div>
       </section>
 
-      {/* Built on Amazon Bedrock — public-safe stack */}
+      {/* Two tiers: public product on Claude, private enterprise on Bedrock */}
       <section id="bedrock" style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <Reveal style={{ maxWidth: 700, margin: "0 auto 52px", textAlign: "center" }}>
             <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>THE PRODUCT</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Built on Amazon Bedrock.</h2>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Public web app. Private-cloud enterprise.</h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px auto 0", maxWidth: "60ch" }}>
-              MIA runs as an enterprise-grade product on AWS — Dr. Ping’s engine on AWS-hosted Claude models, his corpus
-              held privately, behind an audited perimeter.
+              MIA runs publicly on Claude — an ethical consult anyone can use. For enterprise, the same engine deploys
+              privately on Amazon Bedrock: Dr. Ping’s corpus held in your cloud, behind an audited VPC perimeter.
             </p>
           </Reveal>
           <div style={{ display: "grid", gap: 12, maxWidth: 860, margin: "0 auto" }}>
@@ -307,7 +307,7 @@ export default function MoralIntentionAnalyst() {
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--pine-7)" }} />
             Moral Intention Analyst
           </span>
-          <span>Advisory only · Authored by Dr. A.C. Ping · Runs on Amazon Bedrock</span>
+          <span>Advisory only · Authored by Dr. A.C. Ping · Runs on Claude</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20 }}>
             <a className="sanction-link" href={PING_SITE} target="_blank" rel="noopener">Dr. Ping</a>
             <a className="sanction-link" href={EAS_SITE} target="_blank" rel="noopener">Ethics Advisory</a>
