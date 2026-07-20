@@ -8,6 +8,7 @@ import { resolveApproval } from "@/lib/approvals"
 import { rateLimit, ipFromHeaders } from "@/lib/rateLimit"
 import { FUNNEL } from "@/lib/funnel"
 import { getDemoEscalation, type DemoEscalation } from "@/lib/demo"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 // The public demo's one interactive moment: a visitor decides a REAL pending
 // escalation on the demo wallet — approval mints a real grant on the record —
@@ -29,13 +30,18 @@ async function runDemoDecision(approvalId: string, decision: string, surface: st
 
   if (!approvalId || (decision !== "approve" && decision !== "reject")) return false
 
+  // Escalations sit on the demo wallet's department children — scope both the
+  // lookup and the authority set to the whole demo subtree (never wider). A
+  // forged id outside the demo's own tree still resolves to "not found".
+  const { ids: subtree } = await subtreeWalletIds(demoWalletId)
+
   // Snapshot the row before deciding — it is the template for the replenish.
   const row = await db.pendingApproval.findFirst({
-    where: { id: approvalId, walletId: demoWalletId, status: "pending" },
+    where: { id: approvalId, walletId: { in: subtree }, status: "pending" },
   })
   if (!row) return false
 
-  const result = await resolveApproval([demoWalletId], approvalId, decision, undefined, "demo visitor")
+  const result = await resolveApproval(subtree, approvalId, decision, undefined, "demo visitor")
   if (!result.ok) return false
 
   // The funnel's engagement moment: a visitor governed a live agent. `surface`

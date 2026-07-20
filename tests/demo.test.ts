@@ -10,6 +10,12 @@ const dbMock = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 
+// getDemoEscalation resolves the demo subtree; stub it to the demo wallet id so
+// the pendingApproval mock drives the test (the where-clause is a no-op on a mock).
+vi.mock("@/lib/walletSubtree", () => ({
+  subtreeWalletIds: vi.fn(async (id: string) => ({ ids: [id], truncated: false })),
+}))
+
 import { getDemoEscalation } from "@/lib/demo"
 
 const OLD_ENV = process.env.SANCTION_WALLET_ID

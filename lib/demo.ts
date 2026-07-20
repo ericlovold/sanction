@@ -1,5 +1,6 @@
 import "server-only"
 import { db } from "@/lib/db"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 // One pending escalation from the public demo wallet, shaped for a human-facing
 // card. Shared by the demo dashboard and the landing hero so both show the same
@@ -18,8 +19,12 @@ export async function getDemoEscalation(): Promise<DemoEscalation | null> {
   const demoWalletId = process.env.SANCTION_WALLET_ID
   if (!demoWalletId) return null
 
+  // Escalations live on the demo wallet's department children, not the root —
+  // query the whole subtree, exactly as the dashboard does, or the hero finds
+  // nothing and falls back to the static card.
+  const { ids } = await subtreeWalletIds(demoWalletId)
   const rows = await db.pendingApproval.findMany({
-    where: { walletId: demoWalletId, status: "pending" },
+    where: { walletId: { in: ids }, status: "pending" },
     orderBy: { createdAt: "asc" },
     select: { id: true, agentId: true, actionType: true, reason: true, resourceJson: true },
     take: 8,
