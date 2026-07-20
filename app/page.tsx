@@ -17,6 +17,11 @@ export const metadata: Metadata = {
     "One key governs what an agent may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record. Across MCP, REST, and AWS Bedrock.",
 }
 
+// The hero shows a LIVE pending escalation from the demo wallet, so the page
+// must render per request — not be statically prerendered at build (where the
+// demo DB/env isn't available, which froze the fallback card in place).
+export const dynamic = "force-dynamic"
+
 const structuredData = [
   {
     "@context": "https://schema.org",
