@@ -34,7 +34,6 @@ export default function About() {
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <Link className="sanction-link" href="/">Product</Link>
-            <Link className="sanction-link" href="/consulting">Consulting</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>

@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
         destination: "https://getsanction.com/:path*",
         permanent: true,
       },
+      // The consulting practice moved to ericlovold.com (2026-07-29). Sanction is the
+      // product; the SMB/executive consulting buyer is a different person entirely.
+      // Kept as a redirect rather than a delete so existing inbound links survive.
+      {
+        source: "/consulting",
+        destination: "https://ericlovold.com",
+        permanent: true,
+      },
     ];
   },
   // Standard security headers — a clean posture helps reputation/scanner scores.
