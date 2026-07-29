@@ -106,6 +106,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "The web now charges agents per request (402 + crawler-price, x402 settlement). sanctionedFetch turns every quote into a governed spend decision — budgets, escalation, and audit instead of a static max-price header.",
   },
+  "mcp-2026-07-28": {
+    file: "MCP-2026-07-28.md",
+    title: "Sanction and the MCP 2026-07-28 specification",
+    description:
+      "Where sanction-mcp stands against MCP's largest revision since launch — stateless core, deprecated Roots/Sampling/Logging, JSON Schema 2020-12, and W3C trace context — plus why the revision's auth hardening is authentication, not the policy layer.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",

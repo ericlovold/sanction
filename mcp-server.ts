@@ -29,8 +29,11 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+import { realpathSync } from "fs"
+import { pathToFileURL } from "url"
 import { z } from "zod"
 import { renderWalletStatus } from "./lib/mcpWalletStatus"
+import { extractTraceContext, traceHeaders, type TraceContext } from "./lib/traceContext"
 
 const API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1"
 const API_KEY = process.env.SANCTION_API_KEY ?? ""
@@ -61,10 +64,28 @@ if (!API_KEY) {
   process.exit(1)
 }
 
-async function callSanction(path: string, method: "GET" | "POST", body?: unknown, bearerToken?: string) {
+// MCP 2026-07-28 reserves `traceparent`/`tracestate`/`baggage` in `_meta` for
+// W3C trace context, replacing deprecated protocol Logging as the sanctioned
+// observability path. Every tool handler pulls them off its own request — the
+// protocol is stateless, so trace context is per-request input, never
+// connection state (spec § Statelessness, which binds stdio too).
+const traceOf = (extra: { _meta?: unknown } | undefined): TraceContext => extractTraceContext(extra?._meta)
+
+async function callSanction(
+  path: string,
+  method: "GET" | "POST",
+  body?: unknown,
+  bearerToken?: string,
+  trace: TraceContext = {},
+) {
   // x-api-key identifies the agent on every call; a Bearer token (execution JWT)
   // is additive — used by inject and to enforce an execution's spend cap.
-  const headers: Record<string, string> = { "Content-Type": "application/json", "x-api-key": API_KEY }
+  // Trace headers are diagnostic only and never participate in authorization.
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-api-key": API_KEY,
+    ...traceHeaders(trace),
+  }
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`
   }
@@ -154,8 +175,8 @@ server.tool(
     grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact request. Retry with the identical action/amount/merchant/category/description plus this grant_id to consume it. Any field mismatch is denied GRANT_MISMATCH."),
     execution_jwt: z.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap."),
   },
-  async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }) => {
-    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt)
+  async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
+    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra))
     return renderAuthResult(result, { success: `Authorized — ${merchant} $${amount_usd}`, verb: "proceed" })
   }
 )
@@ -175,12 +196,13 @@ server.tool(
     grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact provision. Retry with identical fields plus this grant_id to consume it."),
     execution_jwt: z.string().optional().describe("If part of an execution, pass the JWT to additionally enforce that execution's hard spend cap."),
   },
-  async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }) => {
+  async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }, extra) => {
     const result = await callSanction(
       "/authorize/provision",
       "POST",
       { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
       execution_jwt,
+      traceOf(extra),
     )
     return renderAuthResult(result, {
       success: `Authorized — ${quantity} × ${line_item} (${resource}) $${amount_usd}`,
@@ -199,8 +221,8 @@ server.tool(
     arguments: z.record(z.string(), z.unknown()).optional().describe("The arguments the tool would be called with — surfaced to the owner on escalation"),
     grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it"),
   },
-  async ({ tool, server: srv, arguments: args, grant_id }) => {
-    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id })
+  async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
+    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, undefined, traceOf(extra))
     return renderAuthResult(result, { success: `Authorized — ${tool}`, verb: "invoke" })
   }
 )
@@ -214,8 +236,8 @@ server.tool(
     arguments: z.record(z.string(), z.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) — surfaced to the owner on escalation, not policy-evaluated"),
     grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact capability. Retry with the identical capability plus this grant_id to consume it."),
   },
-  async ({ capability, arguments: args, grant_id }) => {
-    const result = await callSanction("/authorize/capability", "POST", { capability, arguments: args, grant_id })
+  async ({ capability, arguments: args, grant_id }, extra) => {
+    const result = await callSanction("/authorize/capability", "POST", { capability, arguments: args, grant_id }, undefined, traceOf(extra))
     return renderAuthResult(result, { success: `Authorized — ${capability}`, verb: "acquire" })
   }
 )
@@ -231,8 +253,8 @@ server.tool(
     cost_usd: z.number().nonnegative().describe("Actual dollar cost of this call — compute from provider pricing or read from API response if available"),
     task: z.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' — used in spend reports"),
   },
-  async ({ model, tokens_in, tokens_out, cost_usd, task }) => {
-    const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task })
+  async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
+    const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, undefined, traceOf(extra))
     if (result.error) {
       return { content: [{ type: "text" as const, text: `Budget error: ${result.error}` }], isError: true }
     }
@@ -252,8 +274,8 @@ server.tool(
     play: z.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
     dedupe_key: z.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted."),
   },
-  async ({ kind, value_usd, play, dedupe_key }) => {
-    const result = await callSanction("/outcomes", "POST", { kind, value_usd, play, dedupe_key })
+  async ({ kind, value_usd, play, dedupe_key }, extra) => {
+    const result = await callSanction("/outcomes", "POST", { kind, value_usd, play, dedupe_key }, undefined, traceOf(extra))
     if (result.error) {
       return { content: [{ type: "text" as const, text: `Outcome error: ${result.error}` }], isError: true }
     }
@@ -272,8 +294,8 @@ server.tool(
     budget_usd: z.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
     ttl_seconds: z.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs."),
   },
-  async ({ scope, budget_usd, ttl_seconds }) => {
-    const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds })
+  async ({ scope, budget_usd, ttl_seconds }, extra) => {
+    const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds }, undefined, traceOf(extra))
     if (result.error) {
       return { content: [{ type: "text" as const, text: `Error: ${result.error}` }], isError: true }
     }
@@ -301,8 +323,8 @@ server.tool(
     jwt: z.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
     credential_label: z.string().describe("Exact label of the credential to retrieve — must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive."),
   },
-  async ({ jwt, credential_label }) => {
-    const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt)
+  async ({ jwt, credential_label }, extra) => {
+    const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt, traceOf(extra))
     if (result.error) {
       return { content: [{ type: "text" as const, text: `Error: ${result.error}` }], isError: true }
     }
@@ -320,10 +342,16 @@ server.tool(
   "sanction_wallet_status",
   "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
   {},
-  async () => {
+  async (_args, extra) => {
     // The agent key names its wallet, so wallet_id is optional — the API
     // derives it server-side. SANCTION_WALLET_ID stays as an explicit override.
-    const result = await callSanction(WALLET_ID ? `/wallets/stats?wallet_id=${WALLET_ID}` : "/wallets/stats", "GET")
+    const result = await callSanction(
+      WALLET_ID ? `/wallets/stats?wallet_id=${WALLET_ID}` : "/wallets/stats",
+      "GET",
+      undefined,
+      undefined,
+      traceOf(extra),
+    )
     const status = renderWalletStatus(result)
     if (!status.ok) {
       return { content: [{ type: "text" as const, text: status.text }], isError: true }
@@ -344,8 +372,8 @@ server.tool(
   {
     request_id: z.string().describe("The request_id from an escalated authorize/provision/tool response"),
   },
-  async ({ request_id }) => {
-    const result = await callSanction(`/authorize/${encodeURIComponent(request_id)}`, "GET")
+  async ({ request_id }, extra) => {
+    const result = await callSanction(`/authorize/${encodeURIComponent(request_id)}`, "GET", undefined, undefined, traceOf(extra))
     const status = typeof result.status === "string" ? result.status : undefined
     const grantId = typeof result.grant_id === "string" ? result.grant_id : undefined
     if (status === "approved" && grantId) {
@@ -372,5 +400,56 @@ server.tool(
   }
 )
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
+export { server }
+
+// The server object is constructed at import time so the conformance tests can
+// inspect the tool surface (tests/mcpConformance.test.ts) without a transport.
+// Only the real entrypoint checks configuration and opens stdio.
+async function main() {
+  if (!API_KEY) {
+    process.stderr.write(
+      [
+        "",
+        "Sanction MCP — SANCTION_API_KEY is not set.",
+        "",
+        "This server is started by your MCP host (Claude Desktop, agent runtimes),",
+        "not run directly. Add it to your host config with your keys:",
+        "",
+        '  "sanction": {',
+        '    "command": "npx",',
+        '    "args": ["sanction-mcp"],',
+        '    "env": { "SANCTION_API_KEY": "pxy_...", "SANCTION_WALLET_ID": "..." }',
+        "  }",
+        "",
+        "Or run it directly to test:",
+        "  SANCTION_API_KEY=pxy_... SANCTION_WALLET_ID=... npx sanction-mcp",
+        "",
+        "No keys yet? Create a wallet free at https://getsanction.com/start",
+        "",
+      ].join("\n") + "\n",
+    )
+    process.exit(1)
+  }
+  await server.connect(new StdioServerTransport())
+}
+
+// Hosts launch this through npm's bin shim, which is a SYMLINK
+// (node_modules/.bin/sanction-mcp → packages/sanction-mcp/mcp-server.js).
+// `process.argv[1]` is then the symlink path while `import.meta.url` is the
+// resolved real path, so a naive comparison silently fails to start the server
+// — the process would exit 0 having served nothing. Resolve before comparing,
+// and fall back to running: for a bin whose only job is to serve stdio, a
+// false negative (dead server, no output) is far worse than a false positive.
+function isEntrypoint(): boolean {
+  const invoked = process.argv[1]
+  if (!invoked) return false
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(invoked)).href
+  } catch {
+    return false
+  }
+}
+
+if (isEntrypoint()) {
+  await main()
+}

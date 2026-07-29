@@ -28239,13 +28239,13 @@ var zodToJsonSchema = (schema, options) => {
     }, true) ?? parseAnyDef(refs)
   }), {}) : void 0;
   const name = typeof options === "string" ? options : options?.nameStrategy === "title" ? void 0 : options?.name;
-  const main = parseDef(schema._def, name === void 0 ? refs : {
+  const main2 = parseDef(schema._def, name === void 0 ? refs : {
     ...refs,
     currentPath: [...refs.basePath, refs.definitionPath, name]
   }, false) ?? parseAnyDef(refs);
   const title = typeof options === "object" && options.name !== void 0 && options.nameStrategy === "title" ? options.name : void 0;
   if (title !== void 0) {
-    main.title = title;
+    main2.title = title;
   }
   if (refs.flags.hasReferencedOpenAiAnyType) {
     if (!definitions) {
@@ -28266,9 +28266,9 @@ var zodToJsonSchema = (schema, options) => {
     }
   }
   const combined = name === void 0 ? definitions ? {
-    ...main,
+    ...main2,
     [refs.definitionPath]: definitions
-  } : main : {
+  } : main2 : {
     $ref: [
       ...refs.$refStrategy === "relative" ? [] : refs.basePath,
       refs.definitionPath,
@@ -28276,7 +28276,7 @@ var zodToJsonSchema = (schema, options) => {
     ].join("/"),
     [refs.definitionPath]: {
       ...definitions,
-      [name]: main
+      [name]: main2
     }
   };
   if (refs.target === "jsonSchema7") {
@@ -28508,11 +28508,11 @@ var Protocol = class {
    *
    * The Protocol object assumes ownership of the Transport, replacing any callbacks that have already been set, and expects that it is the only user of the Transport instance going forward.
    */
-  async connect(transport2) {
+  async connect(transport) {
     if (this._transport) {
       throw new Error("Already connected to a transport. Call close() before connecting to a new transport, or use a separate Protocol instance per connection.");
     }
-    this._transport = transport2;
+    this._transport = transport;
     const _onclose = this.transport?.onclose;
     this._transport.onclose = () => {
       _onclose?.();
@@ -30102,8 +30102,8 @@ var McpServer = class {
    *
    * The `server` object assumes ownership of the Transport, replacing any callbacks that have already been set, and expects that it is the only user of the Transport instance going forward.
    */
-  async connect(transport2) {
-    return await this.server.connect(transport2);
+  async connect(transport) {
+    return await this.server.connect(transport);
   }
   /**
    * Closes the connection.
@@ -30953,6 +30953,10 @@ var StdioServerTransport = class {
   }
 };
 
+// mcp-server.ts
+import { realpathSync } from "fs";
+import { pathToFileURL } from "url";
+
 // lib/format.ts
 function fmtUsd(n) {
   const abs = Math.abs(n);
@@ -30997,6 +31001,51 @@ function renderWalletStatus(result) {
   };
 }
 
+// lib/traceContext.ts
+var TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
+var TRACESTATE_MEMBER = /^[ \t]*[!-+\--<>-~]+=[ \t]*[!-+\--:<-~]*[ \t]*$/;
+var TRACESTATE_MAX_MEMBERS = 32;
+var BAGGAGE_MEMBER = /^[ \t]*[\x21-\x2b\x2d-\x3c\x3e-\x7e]+=[\x21-\x2b\x2d-\x3a\x3c-\x7e]*[ \t]*$/;
+var BAGGAGE_MAX_MEMBERS = 64;
+var BAGGAGE_MAX_BYTES = 8192;
+function validTraceparent(value) {
+  const m = TRACEPARENT.exec(value);
+  if (!m) return false;
+  return !/^0+$/.test(m[1]) && !/^0+$/.test(m[2]);
+}
+function validList(value, member, maxMembers) {
+  if (value.length === 0) return false;
+  const members = value.split(",");
+  if (members.length > maxMembers) return false;
+  return members.every((m) => member.test(m));
+}
+function extractTraceContext(meta3) {
+  if (!meta3 || typeof meta3 !== "object") return {};
+  const m = meta3;
+  const ctx = {};
+  const traceparent = m.traceparent;
+  if (typeof traceparent === "string" && validTraceparent(traceparent)) {
+    ctx.traceparent = traceparent;
+  }
+  if (!ctx.traceparent) return ctx;
+  const tracestate = m.tracestate;
+  if (typeof tracestate === "string" && validList(tracestate, TRACESTATE_MEMBER, TRACESTATE_MAX_MEMBERS)) {
+    ctx.tracestate = tracestate;
+  }
+  const baggage = m.baggage;
+  if (typeof baggage === "string" && Buffer.byteLength(baggage, "utf8") <= BAGGAGE_MAX_BYTES && validList(baggage, BAGGAGE_MEMBER, BAGGAGE_MAX_MEMBERS)) {
+    ctx.baggage = baggage;
+  }
+  return ctx;
+}
+function traceHeaders(ctx) {
+  const headers = {};
+  if (ctx.traceparent) headers["traceparent"] = ctx.traceparent;
+  if (ctx.tracestate) headers["tracestate"] = ctx.tracestate;
+  if (ctx.baggage) headers["baggage"] = ctx.baggage;
+  return headers;
+}
+
 // mcp-server.ts
 var API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1";
 var API_KEY = process.env.SANCTION_API_KEY ?? "";
@@ -31025,8 +31074,13 @@ if (!API_KEY) {
   );
   process.exit(1);
 }
-async function callSanction(path, method, body, bearerToken) {
-  const headers = { "Content-Type": "application/json", "x-api-key": API_KEY };
+var traceOf = (extra) => extractTraceContext(extra?._meta);
+async function callSanction(path, method, body, bearerToken, trace = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": API_KEY,
+    ...traceHeaders(trace)
+  };
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`;
   }
@@ -31095,8 +31149,8 @@ server.tool(
     grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact request. Retry with the identical action/amount/merchant/category/description plus this grant_id to consume it. Any field mismatch is denied GRANT_MISMATCH."),
     execution_jwt: external_exports.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap.")
   },
-  async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }) => {
-    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt);
+  async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
+    const result = await callSanction("/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra));
     return renderAuthResult(result, { success: `Authorized \u2014 ${merchant} $${amount_usd}`, verb: "proceed" });
   }
 );
@@ -31114,12 +31168,13 @@ server.tool(
     grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact provision. Retry with identical fields plus this grant_id to consume it."),
     execution_jwt: external_exports.string().optional().describe("If part of an execution, pass the JWT to additionally enforce that execution's hard spend cap.")
   },
-  async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }) => {
+  async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }, extra) => {
     const result = await callSanction(
       "/authorize/provision",
       "POST",
       { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
-      execution_jwt
+      execution_jwt,
+      traceOf(extra)
     );
     return renderAuthResult(result, {
       success: `Authorized \u2014 ${quantity} \xD7 ${line_item} (${resource}) $${amount_usd}`,
@@ -31136,8 +31191,8 @@ server.tool(
     arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation"),
     grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it")
   },
-  async ({ tool, server: srv, arguments: args, grant_id }) => {
-    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id });
+  async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
+    const result = await callSanction("/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, void 0, traceOf(extra));
     return renderAuthResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
   }
 );
@@ -31149,8 +31204,8 @@ server.tool(
     arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) \u2014 surfaced to the owner on escalation, not policy-evaluated"),
     grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact capability. Retry with the identical capability plus this grant_id to consume it.")
   },
-  async ({ capability, arguments: args, grant_id }) => {
-    const result = await callSanction("/authorize/capability", "POST", { capability, arguments: args, grant_id });
+  async ({ capability, arguments: args, grant_id }, extra) => {
+    const result = await callSanction("/authorize/capability", "POST", { capability, arguments: args, grant_id }, void 0, traceOf(extra));
     return renderAuthResult(result, { success: `Authorized \u2014 ${capability}`, verb: "acquire" });
   }
 );
@@ -31164,8 +31219,8 @@ server.tool(
     cost_usd: external_exports.number().nonnegative().describe("Actual dollar cost of this call \u2014 compute from provider pricing or read from API response if available"),
     task: external_exports.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' \u2014 used in spend reports")
   },
-  async ({ model, tokens_in, tokens_out, cost_usd, task }) => {
-    const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task });
+  async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
+    const result = await callSanction("/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, void 0, traceOf(extra));
     if (result.error) {
       return { content: [{ type: "text", text: `Budget error: ${result.error}` }], isError: true };
     }
@@ -31183,8 +31238,8 @@ server.tool(
     play: external_exports.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
     dedupe_key: external_exports.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted.")
   },
-  async ({ kind, value_usd, play, dedupe_key }) => {
-    const result = await callSanction("/outcomes", "POST", { kind, value_usd, play, dedupe_key });
+  async ({ kind, value_usd, play, dedupe_key }, extra) => {
+    const result = await callSanction("/outcomes", "POST", { kind, value_usd, play, dedupe_key }, void 0, traceOf(extra));
     if (result.error) {
       return { content: [{ type: "text", text: `Outcome error: ${result.error}` }], isError: true };
     }
@@ -31201,8 +31256,8 @@ server.tool(
     budget_usd: external_exports.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
     ttl_seconds: external_exports.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs.")
   },
-  async ({ scope, budget_usd, ttl_seconds }) => {
-    const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds });
+  async ({ scope, budget_usd, ttl_seconds }, extra) => {
+    const result = await callSanction("/exec", "POST", { scope, budget_usd, ttl_seconds }, void 0, traceOf(extra));
     if (result.error) {
       return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
     }
@@ -31228,8 +31283,8 @@ server.tool(
     jwt: external_exports.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
     credential_label: external_exports.string().describe("Exact label of the credential to retrieve \u2014 must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive.")
   },
-  async ({ jwt: jwt2, credential_label }) => {
-    const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt2);
+  async ({ jwt: jwt2, credential_label }, extra) => {
+    const result = await callSanction("/credentials/inject", "POST", { credential_label }, jwt2, traceOf(extra));
     if (result.error) {
       return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
     }
@@ -31245,8 +31300,14 @@ server.tool(
   "sanction_wallet_status",
   "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
   {},
-  async () => {
-    const result = await callSanction(WALLET_ID ? `/wallets/stats?wallet_id=${WALLET_ID}` : "/wallets/stats", "GET");
+  async (_args, extra) => {
+    const result = await callSanction(
+      WALLET_ID ? `/wallets/stats?wallet_id=${WALLET_ID}` : "/wallets/stats",
+      "GET",
+      void 0,
+      void 0,
+      traceOf(extra)
+    );
     const status = renderWalletStatus(result);
     if (!status.ok) {
       return { content: [{ type: "text", text: status.text }], isError: true };
@@ -31265,8 +31326,8 @@ server.tool(
   {
     request_id: external_exports.string().describe("The request_id from an escalated authorize/provision/tool response")
   },
-  async ({ request_id }) => {
-    const result = await callSanction(`/authorize/${encodeURIComponent(request_id)}`, "GET");
+  async ({ request_id }, extra) => {
+    const result = await callSanction(`/authorize/${encodeURIComponent(request_id)}`, "GET", void 0, void 0, traceOf(extra));
     const status = typeof result.status === "string" ? result.status : void 0;
     const grantId = typeof result.grant_id === "string" ? result.grant_id : void 0;
     if (status === "approved" && grantId) {
@@ -31292,5 +31353,45 @@ server.tool(
     };
   }
 );
-var transport = new StdioServerTransport();
-await server.connect(transport);
+async function main() {
+  if (!API_KEY) {
+    process.stderr.write(
+      [
+        "",
+        "Sanction MCP \u2014 SANCTION_API_KEY is not set.",
+        "",
+        "This server is started by your MCP host (Claude Desktop, agent runtimes),",
+        "not run directly. Add it to your host config with your keys:",
+        "",
+        '  "sanction": {',
+        '    "command": "npx",',
+        '    "args": ["sanction-mcp"],',
+        '    "env": { "SANCTION_API_KEY": "pxy_...", "SANCTION_WALLET_ID": "..." }',
+        "  }",
+        "",
+        "Or run it directly to test:",
+        "  SANCTION_API_KEY=pxy_... SANCTION_WALLET_ID=... npx sanction-mcp",
+        "",
+        "No keys yet? Create a wallet free at https://getsanction.com/start",
+        ""
+      ].join("\n") + "\n"
+    );
+    process.exit(1);
+  }
+  await server.connect(new StdioServerTransport());
+}
+function isEntrypoint() {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(invoked)).href;
+  } catch {
+    return false;
+  }
+}
+if (isEntrypoint()) {
+  await main();
+}
+export {
+  server
+};

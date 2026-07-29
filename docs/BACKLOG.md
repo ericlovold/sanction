@@ -76,6 +76,101 @@ as fact here.
       appears-when-reported), fold Observe into Pools as the per-pool
       observe/enforce switch. Part of the larger nav consolidation arc; queued
       separately in case that arc lands without them. (IA)
+- [ ] 2026-07-28 — **Gateway model pricing is stale — Opus metered at 3x, and
+      unknown models meter as free.** `PRICING` in `lib/gateway.ts` maps
+      `claude-opus` → $15/$75 per Mtok. Current Opus (5 / 4.8 / 4.7 / 4.6 / 4.5)
+      is **$5/$25** — every Opus call through the gateway burns budget at 3x
+      actual cost, so agents hit 402 far earlier than policy intends. Separately,
+      `costUsd` returns **0** on no prefix match (`if (!hit) return 0`), so any
+      model outside the table — newer Claude tiers, GPT-5.x, Kimi — meters as
+      free and is invisible to every token budget and pooled cap. That second
+      one fails *open* on a hard-enforcement path, which contradicts the
+      fail-closed principle in AGENTS.md. Fix: refresh the table (Sonnet list
+      $3/$15 with a $2/$10 introductory rate through 2026-08-31; Haiku 4.5
+      $1/$5), and replace the silent 0 with a conservative fallback plus a
+      logged warning so an unpriced model can't bypass the meter. Verified
+      against the Claude pricing reference 2026-07-28. (bug, money path)
+- [ ] 2026-07-28 — Sept 1 run-rate view for the CFO surface (from the morning
+      briefing). Sonnet 5's introductory $2/$10 per Mtok reverts to $3/$15 on
+      2026-09-01 — a 50% jump on a date already known, confirmed against the
+      Claude pricing reference (not just the newsletter). A "what your run rate
+      does on Sept 1" projection over each wallet's actual metered usage is the
+      monthly number the storefront already promises, with a deadline attached.
+      Depends on the pricing-table fix above — projecting from a 3x-wrong Opus
+      rate would be worse than not shipping it. (feature, roadmap candidate)
+- [ ] 2026-07-28 — Cite the NSA/DoD MCP Cybersecurity Information Sheet (2 June
+      2026) on `/security`. A defense-agency document advising organizations not
+      to rely on MCP's own documented security suggestions — add deliberate
+      external safeguards, isolate automation, verify tool provenance — is the
+      most citable third-party argument for an external governance layer.
+      Quote it, link the PDF, and keep our own claims narrower than the
+      quote. Verify the PDF and its date at the primary source first; pair with
+      the MCP-as-attack-surface stats only if they can be sourced beyond
+      aggregators (the 36.7% SSRF / 492-server figures are single-source).
+      (positioning, from the morning briefing)
+- [ ] 2026-07-28 — Multi-jurisdiction audit export (from the morning briefing):
+      109 US state AI laws and 28 data-center laws enacted as of 1 July 2026,
+      with no federal preemption — buyers face a fragmenting compliance map.
+      Our audit export is framed EU-first (`docs/EU-AI-ACT.md`); a
+      jurisdiction-parameterized export framing would make the same signed
+      evidence answer more than one regime. (arc, roadmap candidate)
+- [ ] 2026-07-28 — Watch the agentic-payment standards, do not chase them:
+      Mastercard AP4M "Verifiable Intent", Visa Trusted Agent Protocol, Google
+      AP2 (in the FIDO Agentic Authentication TWG), x402 Foundation under the
+      Linux Foundation. These standardize **credential delegation** — proving an
+      agent may transact. Sanction does **policy and accountability** — whether
+      it should, under whose budget, who signs. Adjacent, not identical, and
+      chasing rail parity is a losing race against their distribution; the
+      defensible ground is cross-provider policy, budget ownership by
+      department, and a signed record spanning every rail. Also: the A-Comm
+      Evidence Protocol draft is open for public comment through **2026-08-14** —
+      decide whether to file. (positioning + dated action)
+
+- [ ] 2026-07-28 — MCP Tasks-native escalation (from the 2026-07-28 spec
+      revision). The Tasks extension (`io.modelcontextprotocol/tasks`) is a
+      near-exact match for Sanction's escalated state: a `CreateTaskResult`
+      with `resultType: "task"`, an `input_required` status carrying an
+      `inputRequests` map, resolution via `tasks/update`, and terminal
+      `completed`/`failed`. The spec names approval gates as a primary use
+      case. Implementing escalation as a first-class Task would replace the
+      `sanction_check_authorization` poll loop with the protocol's own and make
+      it work natively in every compliant host. Blocked on the v2 TypeScript
+      SDK (beta as of today). (arc, from the MCP spec)
+- [ ] 2026-07-28 — MCP Apps approval card (from the 2026-07-28 spec revision).
+      MCP Apps lets a server return sandboxed, server-rendered UI. Escalation
+      today pulls the human out to the console; an in-host card showing amount,
+      agent, category, and approve/deny puts the decision where they already
+      are. The metric this moves is approval latency, which is what decides
+      whether a team leaves enforcement switched on. Pairs with the Tasks arc
+      above and shares its v2-SDK blocker. (arc, from the MCP spec)
+- [ ] 2026-07-28 — Signed trace context in the audit chain (AUDIT-v2). The MCP
+      slice shipped today *carries* the caller's W3C `traceparent` to the API
+      but does not sign it: `CanonicalDecision` in `lib/auditChain.ts` is an
+      explicit allowlist, and anything off it is display-only by design. A
+      signed audit record carrying the customer's trace id is materially more
+      valuable to an assessor than an unsigned one — but adding a field changes
+      the hash of every decision and invalidates previously issued exports, so
+      it needs a versioned format (`sanction-audit-v2`) with verifier support
+      for both. Sequence with AUDIT-2 (periodic chain anchors) rather than
+      bumping the format twice. Also needs the API side: a `traceparent` column
+      on `AuthorizationRequest` plus header extraction in the five authorize
+      routes. (arc, from the MCP spec)
+- [ ] 2026-07-28 — Migrate sanction-mcp to the v2 TypeScript SDK
+      (`@modelcontextprotocol/server`, currently `@beta`; a
+      `npx @modelcontextprotocol/codemod@beta v1-to-v2` exists). Unblocks the
+      Tasks and MCP Apps arcs, and fixes the schema-dialect gap: SDK 1.29
+      hard-codes a draft-07 `$schema` tag on every emitted tool schema with no
+      override (`server/zod-json-schema-compat.js`), which a strict 2020-12-only
+      client may reject. Our schema *bodies* are already 2020-12-clean and
+      tested; only the tag is wrong. Consider an upstream SDK issue/PR in the
+      meantime — this affects every server on the v1 SDK, not just ours. Do not
+      ship a beta dependency in the published package. (arc, from the MCP spec)
+- [ ] 2026-07-28 — Emit `ttlMs`/`cacheScope` on `tools/list` once the SDK
+      supports it. The 2026-07-28 revision makes list results cacheable, and
+      our tool surface is static and deterministically ordered — genuinely
+      cacheable, no server work beyond declaring it. Rides the v2 migration.
+      (small, from the MCP spec)
+
 - [ ] 2026-07-15 — "MCP directory/listing polish" (flagged in-progress by an
       external tracking tool this repo is now the source of truth over — see
       the note at the top of this file). /zoomout found no corresponding

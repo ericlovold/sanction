@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-28",
+    title: "MCP checks the badge. Sanction decides what the badge opens.",
+    tags: ["mcp", "conformance", "observability", "audit"],
+    body: "MCP shipped its largest revision since launch today: the protocol core goes stateless, the `initialize` handshake is gone, Roots/Sampling/Logging enter a formal deprecation lifecycle, and authorization gets hardened. If you read \"MCP hardens authorization\" and reached for the alarm — don't. That work is **authentication**: RFC 9207 issuer validation, credentials bound to their issuing server, metadata documents replacing dynamic registration. It proves who is calling. It says nothing about whether this agent may spend $4,000 with an unfamiliar merchant at 2am, under whose budget, or who signs when it crosses the line. The spec is not moving into the policy layer.\n\n`sanction-mcp` is conformant, and the parts that were ours are done. The stateless core is a tailwind — our authorize call was already a self-contained POST, and the escalation loop already threads state the way the revision prescribes, as an explicit `request_id` then a one-use `grant_id` the caller passes back. Zero dependencies on the three deprecated features. Tool schema bodies verified clean under a strict JSON Schema 2020-12 validator. And the deprecation of protocol Logging is now a feature: Sanction reads the revision's reserved **W3C trace context** keys off every tool call and forwards them to the API, so a governed decision correlates with the agent run that requested it — one story across your traces and our audit log. Tracing is diagnostic and never load-bearing; every value is validated against its W3C grammar before it becomes an outbound header, because host input that turns into headers is how you get header injection. All of it is a CI gate, not a claim: `tests/mcpConformance.test.ts` fails the build if the surface drifts. Next, and deliberately not this week: Tasks maps almost exactly onto escalation — a request that pauses for a human and mints a grant on approval *is* a resumable task — and MCP Apps can render the approve/deny card where the human already is. Both need the v2 SDK, which is beta. This package governs real money in other people's stacks; it doesn't take a beta dependency on release week. [Conformance details](/docs/mcp-2026-07-28).",
+  },
+  {
     date: "2026-07-12",
     title: "v0.7.0 — adopt first, enforce when the numbers say so",
     version: "0.7.0",

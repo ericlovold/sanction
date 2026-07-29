@@ -9,18 +9,27 @@ compliant. It gives you signed, replayable proof of how your agents were governe
 
 On **2 August 2026** the AI Act becomes fully applicable: the Commission's
 enforcement powers over general-purpose AI (GPAI) models — including **fines** —
-come into force, and the governance and penalties framework goes live.
+come into force, and the governance and penalties framework goes live. The
+**Article 50 transparency** obligations (§§1, 3, 4 — chatbot disclosure,
+synthetic-content marking, deepfake labelling) also apply from that date to any
+AI system placed on the EU market.
 
-The **high-risk** obligations most teams brace for were *pushed back* by the May
-2026 **Digital Omnibus**: high-risk Annex III (standalone) systems to **2 Dec
-2027**, and Annex I (embedded in regulated products) to **2 Aug 2028** — taking
-legal effect on the Omnibus's formal publication, expected just before Aug 2,
-2026. GPAI models placed on the market before Aug 2, 2025 have until Aug 2, 2027.
+The **high-risk** obligations most teams brace for were *pushed back* by the
+**Digital Omnibus on AI**, now law as **Regulation (EU) 2026/1744** — published
+in the Official Journal 24 July 2026, in force 27 July 2026: high-risk Annex III
+(standalone) systems move to **2 Dec 2027**, and Annex I (embedded in regulated
+products) to **2 Aug 2028**. GPAI models placed on the market before Aug 2, 2025
+have until Aug 2, 2027. Content-marking transition and the CSAM/NCII prohibition
+land 2 Dec 2026.
+
+**Aug 2, 2026 did not move.** The Omnibus delayed the high-risk clock; it left
+general application and Article 50 transparency where they were. Reports that
+Aug 2 was postponed are wrong.
 
 **So:** Aug 2, 2026 is the enforcement-goes-live milestone and the moment every
 enterprise deploying AI starts asking "can we evidence oversight and logging for
-our AI?" The hard high-risk clock now runs to 2027–2028, but the question — and
-the buying urgency — is here now.
+our AI?" The hard high-risk clock now runs to 2027–2028, but transparency and
+the audit trail are live obligations — and the question is here now.
 
 ## Where Sanction fits
 
@@ -79,9 +88,9 @@ record-keeping durability Art 12 is asking for.
 
 - Sanction gives you **evidence to support** Art 12/13/14 obligations. It is not
   a compliance certification, a conformity assessment, or legal advice.
-- The high-risk timeline is **2027–2028** pending the Digital Omnibus; the Aug 2,
-  2026 date is enforcement-live + GPAI. We say "helps you demonstrate," never
-  "makes you compliant."
+- The high-risk timeline is **2027–2028** under Regulation (EU) 2026/1744 (in
+  force 27 July 2026); the Aug 2, 2026 date is enforcement-live + GPAI + Art 50
+  transparency. We say "helps you demonstrate," never "makes you compliant."
 - Talk to your own counsel about which obligations apply to your systems.
 
 Primary sources: the [AI Act text and Commission guidance](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai).

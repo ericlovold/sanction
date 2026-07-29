@@ -10,6 +10,8 @@
 import { spawn } from "node:child_process"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
+import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -148,6 +150,16 @@ const env = {
 
 console.log("\nMCP stdio handshake:")
 await mcpHandshake({ command: "node", args: [LOCAL_MCP], env, label: "local bundle" })
+
+// Hosts never invoke the bundle by its real path — npm installs `sanction-mcp`
+// as a SYMLINK in node_modules/.bin and dispatches through that. The bundle's
+// entrypoint check must resolve the link, or the server starts nothing and
+// exits 0: a silent dead server, which no import-level test can catch (found
+// 2026-07-28, while adding the MCP 2026-07-28 conformance gate).
+const binLink = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "sanction-bin-")), "sanction-mcp")
+fs.symlinkSync(LOCAL_MCP, binLink)
+await mcpHandshake({ command: "node", args: [binLink], env, label: "local bundle via bin symlink" })
+
 await mcpHandshake({ command: "npx", args: ["-y", "sanction-mcp"], env, label: "npx sanction-mcp" })
 
 console.log(`\n${pass} passed, ${fail} failed`)
