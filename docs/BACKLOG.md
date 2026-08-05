@@ -17,6 +17,30 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-05 — Docker AI Governance (GA 2026-05-12) enters the agentic
+      governance space — verified at its product page and blog: four control
+      surfaces (network/filesystem allow-deny at the sandbox proxy/mount
+      layer, session-scoped credential access, org-wide MCP tool allow-deny at
+      the MCP Gateway, RBAC via SAML/SCIM) plus SIEM-exportable audit. No
+      dollar spend limits, budgets, or cost-based controls anywhere on the
+      page — confirmed absent, not just unmentioned. Enforcement sits at the
+      runtime (sandbox + MCP Gateway), ours sits at the decision (PDP);
+      complementary, not competing, and it validates the "hold the mandate,
+      not the rail" stance already in this file. Shipped same-day: a
+      Runtime governance section in `docs/COMPATIBILITY.md` stating the
+      boundary and pointing at the existing AuthZEN PDP as the integration
+      point. NOT shipped: exact Docker MCP Gateway interceptor wiring —
+      docs.docker.com 403'd our fetch (bot-blocked) and the `docker/mcp-gateway`
+      GitHub README doesn't document interceptor config; third-party posts
+      (ajeetraina.com, dasroot.net) describe interceptors as programmable
+      tool-call middleware but neither confirms outbound-HTTP authorization
+      calls first-hand. Next: get real access to Docker's interceptor docs
+      (authenticated fetch or a local `docker mcp gateway run --help` /
+      interceptor example) and, if it supports an external allow/deny
+      callout, ship `docs/DOCKER-MCP-GATEWAY.md` with a verified recipe
+      wiring the interceptor to `/access/v1/evaluation`. (arc, roadmap
+      candidate, from the 2026-08-05 Docker announcement)
+
 - [x] 2026-07-16 — promoted: packs grouped under the four ladder stages,
       each with a one-line meaning (backlog-tail PR, 2026-07-16). — Policy
       packs by ladder tag

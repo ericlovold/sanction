@@ -69,6 +69,28 @@ Use the **Gateway token budget** pack for the first pilot: model calls are
 metered with a hard daily token budget, while broader spend/tool governance can
 come next.
 
+## Runtime governance (Docker, sandboxes)
+
+Docker AI Governance (GA 2026-05-12) governs a different layer than Sanction:
+network/filesystem access, credential scoping, and MCP tool allow-lists,
+enforced at the sandbox and MCP Gateway themselves — a runtime chokepoint, not
+a policy decision. Its product page lists no dollar spend limits, budgets, or
+cost-based controls; it decides *can this agent reach this domain or tool at
+all*, not *should this $40 charge, or this approval-gated tool call, proceed*.
+That's the gap Sanction fills, not competes on — Sanction is the PDP, not
+another runtime.
+
+Sanction's AuthZEN PDP was built PEP-agnostic on purpose (`lib/authzen.ts`
+names "an MCP gateway" as a reference caller). Wiring Docker's MCP Gateway
+interceptor chain to call `/access/v1/evaluation` before a tool call proceeds
+is the natural integration once Docker's interceptor extension API is
+confirmed to support outbound authorization calls — tracked in the backlog
+pending that verification (`docs/BACKLOG.md`).
+
+Use the same **MCP tool governance** or **Gateway token budget** packs as any
+other MCP host; Docker's sandbox/network/filesystem controls and Sanction's
+spend/approval controls are additive, not overlapping.
+
 ## Payments and mandates
 
 Payment standards such as AP2 and x402 are rails and mandate formats. Sanction's
