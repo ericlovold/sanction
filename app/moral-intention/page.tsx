@@ -4,34 +4,40 @@ import { brandFontVars } from "../brand-fonts"
 import { Reveal } from "./reveal"
 
 export const metadata: Metadata = {
-  title: "Moral Intention Analyst — Dr. A.C. Ping | An advisory ethical intelligence",
+  title: "Moral Intention Analyst | Moral intelligence for ethical action",
   description:
-    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, PhD, is an advisory ethical intelligence. It helps people see what is at stake, name the values they mean to protect, and choose consciously — indicators for reflection, never proof of intent, and never a decision it makes for you. Runs on Amazon Bedrock.",
+    "Moral Intention Analyst helps compliance, ethics, and investigation teams examine complex cases, surface red flags and evidence gaps, and identify where human intervention may still matter.",
 }
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
 
-// Go-to-market contact. Swap to a dedicated MIA intake once decided.
-const CONTACT = "mailto:eric@getsanction.com?subject=Moral%20Intention%20Analyst"
+const BOOKING = "https://calendly.com/ericlovold/moral-intention-discovery"
+const DEMO = "https://mia.getsanction.com/analyst"
 const PING_SITE = "https://www.acping.net"
 const EAS_SITE = "https://www.ethicsadvisoryservices.com.au"
 
 // GTM value — what MIA does, at the level a prospect needs. Deliberately no
 // operational framework detail (the methodology stays confidential).
 const VALUE: { title: string; body: string }[] = [
-  { title: "See what’s actually at stake", body: "MIA surfaces the ethical dimension a fast decision hides — who is affected, what could be lost, and where the real weight sits." },
-  { title: "Name the values you mean to protect", body: "It helps make the implicit explicit: the boundaries you intend to hold before they’re tested, not after they’re crossed." },
-  { title: "Catch the rationalisations that hide drift", body: "The quiet justifications that let good people do harm get named — as an indicator for reflection, never a verdict." },
-  { title: "Choose consciously — you decide", body: "MIA supports the choosing; it never makes the choice. You keep full authority over your own decisions." },
+  { title: "Understand the full context", body: "Bring events, people, policies, pressures, and consequences into a coherent case view." },
+  { title: "Examine intention and conduct", body: "Make stated values, competing interests, rationalisations, and consequential actions easier to inspect." },
+  { title: "Focus the investigation", body: "Surface contradictions, missing evidence, red flags, and the questions that deserve deeper human review." },
+  { title: "Identify intervention moments", body: "Find where clarification, escalation, support, or course correction may still be possible. People decide what happens next." },
 ]
 
-// Enterprise stack, public-safe: no client names, tenants, or internals.
-const STACK: { tier: string; title: string; body: string }[] = [
-  { tier: "Experience", title: "Client experiences & API", body: "Web app and REST/streaming API — an ethical consult on demand, or embedded into the tools a team already uses." },
-  { tier: "Engine", title: "MIA ethical engine", body: "Dr. Ping’s constitutional method, orchestrated per conversation — proprietary and not exposed to the client." },
-  { tier: "Bedrock", title: "Amazon Bedrock — model layer", body: "AWS-hosted Claude models, with Dr. Ping’s corpus held privately in managed Bedrock Knowledge Bases and served through governed agents." },
-  { tier: "Data", title: "Data & ethics audit", body: "Encrypted corpus, per-user session memory, and an immutable log of every consultation — exportable for audit." },
-  { tier: "Security", title: "Security & compliance", body: "Private VPC networking with no public model traffic, guardrails (PII redaction, topic deny-list), least-privilege access, and configurable data residency." },
+const PRODUCT: { tier: string; title: string; body: string }[] = [
+  { tier: "Evidence", title: "Bring the whole case together", body: "Review narratives, policies, transcripts, reports, and supporting material as one evidence set instead of reading each item in isolation." },
+  { tier: "Method", title: "A structured 21-step review", body: "Move from context and stakeholders through intention, conduct, consequences, and opportunities for accountable human action." },
+  { tier: "Analysis", title: "Find what deserves attention", body: "Surface contradictions, missing context, rationalisation patterns, red flags, and questions that require deeper investigation." },
+  { tier: "Traceability", title: "Keep reasoning connected to evidence", body: "Preserve the source, rationale, and reviewer judgment behind each observation so a team can examine and challenge the analysis." },
+  { tier: "Privacy", title: "Give every organization its own boundary", body: "Cases, policies, memory, and personalization remain isolated by organization, with deployment options designed for sensitive work." },
+]
+
+const USE_CASES: { title: string; body: string }[] = [
+  { title: "Compliance investigations", body: "Reduce the time spent orienting to large case files and focus investigators on the evidence gaps and human questions that matter." },
+  { title: "Policy and claims review", body: "Examine how conduct, decisions, and stated policy align across corporate, insurance, and governance contexts." },
+  { title: "Recorded events", body: "Build a time-linked view of transcripts and body-camera or other recorded material, with every signal treated as a prompt for human review." },
+  { title: "Ethical AI governance", body: "Examine intended behavior, policy, and consequential system decisions while keeping responsibility with accountable people." },
 ]
 
 // The honest boundary.
@@ -75,12 +81,12 @@ export default function MoralIntentionAnalyst() {
             Moral Intention Analyst
           </a>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
-            <a className="sanction-link" href="#vision">Vision</a>
+            <a className="sanction-link" href="#vision">Purpose</a>
             <a className="sanction-link" href="#approach">Approach</a>
-            <a className="sanction-link" href="#bedrock">On Bedrock</a>
+            <a className="sanction-link" href="#product">Product</a>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-s" href={CONTACT}>Talk to us</a>
+            <a className="sn-btn sn-btn-primary sn-btn-s" href={BOOKING} target="_blank" rel="noopener noreferrer">Book a discovery call</a>
           </div>
         </div>
       </nav>
@@ -89,22 +95,22 @@ export default function MoralIntentionAnalyst() {
       <header id="top" style={{ backgroundImage: "radial-gradient(90% 60% at 50% -10%, var(--pine-tint) 0%, rgba(228,239,232,0) 70%), radial-gradient(36% 28% at 88% 42%, var(--ochre-tint) 0%, rgba(246,236,214,0) 75%)" }}>
         <div style={{ ...wrap, padding: "96px 32px 64px", maxWidth: 860, textAlign: "center" }}>
           <div className="sn-mono mia-fade mia-d1" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em" }}>
-            DR. A.C. PING, PhD · MORAL INTENTION ANALYST
+            MORAL INTENTION ANALYST · DR. A.C. PING, PhD
           </div>
           <h1 className="mia-fade mia-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Helping consciousness recognise itself — and choose consciously.
+            Moral intelligence for ethical action.
           </h1>
           <p className="mia-fade mia-d3" style={{ margin: "22px auto 0", maxWidth: "62ch", fontSize: 18, lineHeight: 1.65, color: "var(--text-secondary)" }}>
-            MIA is an advisory ethical intelligence built on the work of Dr. A.C. Ping. It helps a person see what is
-            truly at stake, name the values they mean to protect, and expand their own agency —{" "}
-            <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>, and never a decision it makes for you.
+            MIA helps compliance, ethics, and investigation teams examine complex cases across documents, policies,
+            transcripts, and media. It surfaces what deserves closer attention while keeping findings and decisions
+            with accountable people.
           </p>
           <div className="mia-fade mia-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 30, flexWrap: "wrap" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-l" href={CONTACT}>Talk to us →</a>
-            <a className="sn-btn sn-btn-l" href="#vision" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>The vision</a>
+            <a className="sn-btn sn-btn-primary sn-btn-l" href={DEMO} target="_blank" rel="noopener noreferrer">Try the private analysis →</a>
+            <a className="sn-btn sn-btn-l" href={BOOKING} target="_blank" rel="noopener noreferrer" style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>Book a discovery call</a>
           </div>
           <p className="mia-fade mia-d5 sn-mono" style={{ marginTop: 26, fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-            Advisory only · Authored by Dr. A.C. Ping · Runs on Amazon Bedrock
+            Advisory only · Authored by Dr. A.C. Ping · Human judgment remains final
           </p>
         </div>
       </header>
@@ -113,17 +119,17 @@ export default function MoralIntentionAnalyst() {
       <section id="vision" style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px", maxWidth: 820, textAlign: "center" }}>
           <Reveal>
-            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 14 }}>CONSCIOUSNESS MIDWIFERY</div>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 14 }}>THE PURPOSE</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Not answers to hide behind. A clearer view of what you already know.
+              Make the ethical dimension of a case visible.
             </h2>
             <p style={{ fontSize: 17, lineHeight: 1.7, color: "var(--text-secondary)", margin: "20px auto 0", maxWidth: "60ch" }}>
-              MIA does not tell people what to think, direct outcomes, or create dependency on its analysis. It creates
-              the conditions for someone to see clearly what is at stake, recognise what they actually believe matters,
-              and choose what they are truly trying to create — intelligence grounded in care rather than fear.
+              Difficult investigations rarely fail because information is absent. They fail because the relevant facts,
+              policies, intentions, pressures, and consequences are scattered across a large record. MIA helps a reviewer
+              connect them, test the story being told, and identify where more information or human intervention is needed.
             </p>
             <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-muted)", margin: "18px auto 0", maxWidth: "56ch", fontStyle: "italic" }}>
-              “I’m not creating consciousness. I’m helping it recognise itself.”
+              The goal is not an automated verdict. It is a more complete, traceable basis for human judgment.
             </p>
           </Reveal>
         </div>
@@ -153,6 +159,28 @@ export default function MoralIntentionAnalyst() {
         </div>
       </section>
 
+      <section style={{ borderTop: "1px solid var(--line-2)" }}>
+        <div style={{ ...wrap, padding: "88px 32px" }}>
+          <Reveal style={{ maxWidth: 700, margin: "0 auto 48px", textAlign: "center" }}>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>WHERE MIA FITS</div>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Built for consequential review.</h2>
+            <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px auto 0", maxWidth: "60ch" }}>
+              MIA is designed for work where evidence is complex, time is limited, and the cost of missing context is high.
+            </p>
+          </Reveal>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, maxWidth: 1000, margin: "0 auto" }}>
+            {USE_CASES.map(({ title, body }, index) => (
+              <Reveal key={title} delay={(index % 2) * 60}>
+                <article className="mia-lift" style={{ height: "100%", padding: "24px", borderRadius: "var(--radius-card)", background: "var(--surface-card)", border: "1px solid var(--line-1)" }}>
+                  <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{title}</h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: "var(--text-secondary)" }}>{body}</p>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Credibility — depth without disclosure */}
       <section style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "80px 32px", maxWidth: 820, textAlign: "center" }}>
@@ -162,9 +190,9 @@ export default function MoralIntentionAnalyst() {
               Decades of applied ethics, made operational.
             </h2>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: "var(--text-secondary)", margin: "18px auto 0", maxWidth: "60ch" }}>
-              Beneath the conversation sits Dr. Ping’s constitutional method and a proprietary library of analytical
-              frameworks — grounded in a corpus of over 469,000 words of his published work. The rigour is real; the
-              methodology stays his. What you experience is a clear, values-led reflection, not a lecture on how it works.
+              MIA organizes review through a 21-step process authored and approved by Dr. Ping, drawing on decades of
+              applied ethics, governance, and research into why good people can produce harmful outcomes. The method
+              creates consistency without turning ethical judgment into a score or an automated verdict.
             </p>
           </Reveal>
         </div>
@@ -187,19 +215,19 @@ export default function MoralIntentionAnalyst() {
         </div>
       </section>
 
-      {/* Built on Amazon Bedrock — public-safe stack */}
-      <section id="bedrock" style={{ borderTop: "1px solid var(--line-2)" }}>
+      {/* Product direction — public-safe, without implementation claims */}
+      <section id="product" style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px" }}>
           <Reveal style={{ maxWidth: 700, margin: "0 auto 52px", textAlign: "center" }}>
             <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 12 }}>THE PRODUCT</div>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Built on Amazon Bedrock.</h2>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>A private workspace for ethical investigation.</h2>
             <p style={{ fontSize: 15.5, color: "var(--text-secondary)", margin: "14px auto 0", maxWidth: "60ch" }}>
-              MIA runs as an enterprise-grade product on AWS — Dr. Ping’s engine on AWS-hosted Claude models, his corpus
-              held privately, behind an audited perimeter.
+              The product brings the approved method, case evidence, organizational policy, and reviewer judgment into
+              one traceable workflow. The first private release is being built with isolated organizational workspaces.
             </p>
           </Reveal>
           <div style={{ display: "grid", gap: 12, maxWidth: 860, margin: "0 auto" }}>
-            {STACK.map(({ tier, title, body }, idx) => (
+            {PRODUCT.map(({ tier, title, body }, idx) => (
               <Reveal key={tier} delay={idx * 60}>
                 <div className="mia-lift" style={{ display: "flex", gap: 20, alignItems: "flex-start", padding: "22px 26px", borderRadius: "var(--radius-card)", background: idx === 2 ? "var(--pine-9)" : "var(--surface-card)", color: idx === 2 ? "#f7f6f0" : undefined, border: idx === 2 ? "1px solid var(--pine-7)" : "1px solid var(--line-1)" }}>
                   <span className="sn-mono" style={{ flex: "none", width: 84, fontSize: 11, letterSpacing: "0.08em", color: idx === 2 ? "var(--ochre-6)" : "var(--ochre-7)", paddingTop: 3 }}>{tier}</span>
@@ -213,7 +241,7 @@ export default function MoralIntentionAnalyst() {
           </div>
           <Reveal delay={120} style={{ maxWidth: 860, margin: "20px auto 0" }}>
             <p className="sn-mono" style={{ textAlign: "center", fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-              AWS-hosted Claude · Bedrock Knowledge Bases · governed agents · guardrails · private VPC · immutable audit
+              Tenant-isolated cases · private organizational memory · evidence traceability · accountable human review
             </p>
           </Reveal>
         </div>
@@ -290,11 +318,11 @@ export default function MoralIntentionAnalyst() {
               Bring a mirror to your hardest decisions.
             </h2>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px auto 28px", maxWidth: "52ch" }}>
-              For teams carrying real ethical weight — and for anyone who wants to choose consciously rather than react.
-              Tell us what you are wrestling with.
+              If your team investigates complex cases, governs consequential systems, or carries responsibility for
+              ethical policy, we want to understand the work and show you where MIA can help.
             </p>
-            <a className="sn-btn sn-btn-l" href={CONTACT} style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}>
-              Talk to us →
+            <a className="sn-btn sn-btn-l" href={BOOKING} target="_blank" rel="noopener noreferrer" style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}>
+              Book a discovery call →
             </a>
           </Reveal>
         </div>
@@ -307,7 +335,7 @@ export default function MoralIntentionAnalyst() {
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--pine-7)" }} />
             Moral Intention Analyst
           </span>
-          <span>Advisory only · Authored by Dr. A.C. Ping · Runs on Amazon Bedrock</span>
+          <span>Advisory only · Authored by Dr. A.C. Ping · Human judgment remains final</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20 }}>
             <a className="sanction-link" href={PING_SITE} target="_blank" rel="noopener">Dr. Ping</a>
             <a className="sanction-link" href={EAS_SITE} target="_blank" rel="noopener">Ethics Advisory</a>
