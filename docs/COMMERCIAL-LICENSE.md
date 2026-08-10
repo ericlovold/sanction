@@ -12,7 +12,7 @@ This document is a plain-language guide for procurement, legal, and partners.
 It is **not** a contract. Your signed agreement and the FSL govern.
 
 **Contact:** [Talk to us](https://getsanction.com/#pricing) ·
-[Book a call](https://calendly.com/eric-getsanction/30min)
+[Book a call](https://calendly.com/ericlovold/30min)
 
 ---
 
@@ -171,7 +171,7 @@ multi-tenant, hosted vs on-prem). We’ll confirm whether you’re already cover
 by the FSL or scope a Commercial License.
 
 **[Talk to us](https://getsanction.com/#pricing)** ·
-**[Book 30 minutes](https://calendly.com/eric-getsanction/30min)**
+**[Book 30 minutes](https://calendly.com/ericlovold/30min)**
 
 ---
 

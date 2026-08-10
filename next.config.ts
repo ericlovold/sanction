@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
         destination: "https://getsanction.com/:path*",
         permanent: true,
       },
+      // 2026-08 reposition: the homepage IS the services page now, so the old
+      // consulting page redirects into it. Kept permanent for link equity.
+      {
+        source: "/consulting",
+        destination: "/",
+        permanent: true,
+      },
     ];
   },
   // Standard security headers — a clean posture helps reputation/scanner scores.

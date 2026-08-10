@@ -9,7 +9,7 @@ import { brandFontVars } from "../brand-fonts"
 
 // "Talk to us" → book a call. NEXT_PUBLIC_CALENDLY_URL overrides at build time;
 // defaults to Eric's scheduling link so the CTA always books (no dead-end).
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/ericlovold/30min"
 
 export const metadata: Metadata = {
   title: "Sanction Platform — Authorization for autonomous AI agents",
@@ -213,7 +213,7 @@ export default async function Landing() {
             <a className="sanction-link" href="#how">How it works</a>
             <a className="sanction-link" href="#security">Security</a>
             <a className="sanction-link" href="#pricing">Pricing</a>
-            <Link className="sanction-link" href="/consulting">Consulting</Link>
+            <Link className="sanction-link" href="/">Services</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
@@ -411,7 +411,7 @@ export default async function Landing() {
           </span>
           <span>Authorize · Protect · Govern</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <Link className="sanction-link" href="/consulting">Consulting</Link>
+            <Link className="sanction-link" href="/">Services</Link>
             <Link className="sanction-link" href="/why">Why Sanction</Link>
             <Link className="sanction-link" href="/architecture">Architecture</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>

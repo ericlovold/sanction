@@ -65,7 +65,7 @@ const APPROVALS: { id: ApprovalInstinct; label: string }[] = [
 const STEPS = ["Environment", "What AI does", "Data involved", "Approvals", "Your map"] as const
 
 // Same default + override as the homepage's "Talk to us" CTA (app/page.tsx).
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/ericlovold/30min"
 
 function Card({
   selected,

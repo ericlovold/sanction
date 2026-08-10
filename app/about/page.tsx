@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 // "Book" → Eric's Calendly. NEXT_PUBLIC_CALENDLY_URL overrides at build time.
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
+const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/ericlovold/30min"
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
 
@@ -34,7 +34,7 @@ export default function About() {
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <Link className="sanction-link" href="/">Product</Link>
-            <Link className="sanction-link" href="/consulting">Consulting</Link>
+            <Link className="sanction-link" href="/">Services</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
