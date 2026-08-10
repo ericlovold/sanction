@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
 import { Reveal } from "./reveal"
+import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 
 export const metadata: Metadata = {
   title: "Moral Intention Analyst — Dr. A.C. Ping | An advisory ethical intelligence",
@@ -81,6 +82,7 @@ export default function MoralIntentionAnalyst() {
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <a className="sanction-link" href="#vision">Vision</a>
             <a className="sanction-link" href="#approach">Approach</a>
+            <a className="sanction-link" href="#try">Try it</a>
             <a className="sanction-link" href="#bedrock">Enterprise</a>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
@@ -105,7 +107,7 @@ export default function MoralIntentionAnalyst() {
             <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>, and never a decision it makes for you.
           </p>
           <div className="mia-fade mia-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 30, flexWrap: "wrap" }}>
-            <a className="sn-btn sn-btn-primary sn-btn-l" href={APP_URL}>Open the analyst →</a>
+            <a className="sn-btn sn-btn-primary sn-btn-l" href="#try">Try it free →</a>
             <a className="sn-btn sn-btn-l" href={CONTACT} style={{ border: "1px solid var(--line-1)", background: "var(--surface-card)" }}>Talk to us →</a>
           </div>
           <p className="mia-fade mia-d5 sn-mono" style={{ marginTop: 26, fontSize: 12, letterSpacing: "0.06em", color: "var(--text-muted)" }}>
@@ -129,6 +131,31 @@ export default function MoralIntentionAnalyst() {
             </p>
             <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-muted)", margin: "18px auto 0", maxWidth: "56ch", fontStyle: "italic" }}>
               “I’m not creating consciousness. I’m helping it recognise itself.”
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Try it — free demo behind a light email capture. The analyst itself
+          stays un-gated (no dead ends); the capture is the path to it. */}
+      <section id="try" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "80px 32px", textAlign: "center" }}>
+          <Reveal>
+            <div className="sn-mono" style={{ color: "var(--pine-7)", letterSpacing: "0.1em", marginBottom: 14 }}>TRY THE ANALYST — FREE</div>
+            <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
+              Bring it a decision that carries weight.
+            </h2>
+            <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "12px 0 26px" }}>
+              Leave an email and step straight in. We&apos;ll send occasional notes on MIA as it
+              evolves — no spam, unsubscribe anytime.
+            </p>
+            <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
+              <MarketingLeadCapture source="mia" />
+            </div>
+            <p style={{ margin: "18px 0 0" }}>
+              <a className="sanction-link" href={APP_URL} style={{ fontSize: 13.5, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                Or open the analyst directly →
+              </a>
             </p>
           </Reveal>
         </div>

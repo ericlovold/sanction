@@ -109,6 +109,23 @@ export default function Landing() {
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
+      {/* Launch ribbon — MIA showtime window. Remove after the launch cycle. */}
+      <Link
+        href="/moral-intention"
+        style={{
+          display: "block",
+          background: "var(--pine-9)",
+          color: "#EDE9DC",
+          textAlign: "center",
+          padding: "10px 16px",
+          fontSize: 13.5,
+          letterSpacing: "0.01em",
+        }}
+      >
+        <span className="sn-mono" style={{ color: "#78E0B2", letterSpacing: "0.1em", marginRight: 10 }}>NEW</span>
+        Moral Intention Analyst — the advisor that can&apos;t say yes. Try it free →
+      </Link>
+
       {/* Nav */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
@@ -230,6 +247,17 @@ export default function Landing() {
           </div>
           <div className="sn-pair">
             <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
+              <MonoLabel color="#2CC08D">Moral Intention Analyst</MonoLabel>
+              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
+                An advisor that cannot approve anything
+              </h3>
+              <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
+                Authored with Dr. A.C. Ping, PhD. It surfaces observations, questions, and risk
+                signals — and by architecture it cannot issue an approval. Free to try.
+              </p>
+              <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/moral-intention">Try the analyst →</Link>
+            </div>
+            <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
               <MonoLabel color="#2CC08D">Sanction Platform</MonoLabel>
               <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
                 Authorization for autonomous AI agents
@@ -239,17 +267,6 @@ export default function Landing() {
                 Live in production — REST, AWS Bedrock, and MCP.
               </p>
               <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/platform">Explore the platform →</Link>
-            </div>
-            <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
-              <MonoLabel color="#2CC08D">Moral Intention Analyst</MonoLabel>
-              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
-                An advisor that cannot approve anything
-              </h3>
-              <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
-                Built with an outside framework authority. It surfaces observations, questions, and
-                risk signals — and by architecture it cannot issue an approval.
-              </p>
-              <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/moral-intention">See the analyst →</Link>
             </div>
           </div>
         </div>
