@@ -63,8 +63,15 @@ export const GATEWAY_PROVIDERS: Record<
 
 // Approximate USD per 1M tokens [input, output]. Longest prefix match wins.
 // These are estimates for cost tracking; tune as provider pricing changes.
+// Per-MTok [input, output] USD. Verified against the Claude pricing reference
+// 2026-08-01: Opus 5/4.8/4.7/4.6 are $5/$25 (the old $15/$75 metered Opus at
+// 3x actual). Sonnet 5 lists $3/$15 — its $2/$10 introductory rate ends
+// 2026-08-31, so we meter at list and never under-enforce. Fable/Mythos 5
+// are the $10/$50 tier.
 const PRICING: Array<[string, number, number]> = [
-  ["claude-opus", 15, 75],
+  ["claude-fable", 10, 50],
+  ["claude-mythos", 10, 50],
+  ["claude-opus", 5, 25],
   ["claude-sonnet", 3, 15],
   ["claude-haiku", 1, 5],
   ["gpt-4o-mini", 0.15, 0.6],
@@ -84,11 +91,29 @@ const PRICING: Array<[string, number, number]> = [
   ["gemini", 0.075, 0.3],
 ]
 
+// An unpriced model must never meter as free — this sits on a hard-enforcement
+// path, and `return 0` here made every model outside the table invisible to
+// budgets and pooled caps (fail-open, against the atomic-authorization
+// principle). Unknown models meter at the highest rate in the table instead:
+// over-charging a budget is recoverable; a bypassed cap is not.
+const FALLBACK_RATE: [number, number] = PRICING.reduce(
+  (max, [, tin, tout]) => (tin + tout > max[0] + max[1] ? [tin, tout] : max),
+  [0, 0] as [number, number],
+)
+
+const warnedUnpricedModels = new Set<string>()
+
 export function costUsd(model: string, tokensIn: number, tokensOut: number): number {
   const m = model.toLowerCase()
   const hit = PRICING.filter(([k]) => m.includes(k)).sort((a, b) => b[0].length - a[0].length)[0]
-  if (!hit) return 0
-  return Number((((tokensIn * hit[1]) + (tokensOut * hit[2])) / 1e6).toFixed(6))
+  const [rateIn, rateOut] = hit ? [hit[1], hit[2]] : FALLBACK_RATE
+  if (!hit && !warnedUnpricedModels.has(m)) {
+    warnedUnpricedModels.add(m)
+    console.warn(
+      `[gateway] no pricing entry for model "${model}" — metering at the conservative fallback rate ($${rateIn}/$${rateOut} per MTok). Add it to PRICING in lib/gateway.ts.`,
+    )
+  }
+  return Number((((tokensIn * rateIn) + (tokensOut * rateOut)) / 1e6).toFixed(6))
 }
 
 export function dayStart(): Date {

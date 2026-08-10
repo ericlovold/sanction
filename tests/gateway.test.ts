@@ -20,13 +20,25 @@ describe("costUsd — longest-prefix pricing match", () => {
     expect(costUsd("Claude-Opus-4", 1000, 1000)).toBe(costUsd("claude-opus-4", 1000, 1000))
   })
 
-  it("returns 0 for an unknown model (never guesses a price)", () => {
-    expect(costUsd("totally-unknown-model", 1_000_000, 1_000_000)).toBe(0)
+  it("meters an unknown model at the conservative fallback, never as free", () => {
+    // Fail closed on the money path: an unpriced model bills at the most
+    // expensive rate in the table (currently o1 at 15/60) instead of
+    // bypassing every budget. Derived, so it tracks the table.
+    expect(costUsd("totally-unknown-model", 1_000_000, 1_000_000)).toBe(75)
+    expect(costUsd("gpt-5.2-turbo", 1_000_000, 0)).toBe(15)
+  })
+
+  it("prices the current Claude tiers", () => {
+    // Verified against the Claude pricing reference 2026-08-01
+    expect(costUsd("claude-fable-5", 1_000_000, 1_000_000)).toBe(60) // 10 + 50
+    expect(costUsd("claude-opus-5", 1_000_000, 1_000_000)).toBe(30) // 5 + 25
+    expect(costUsd("claude-sonnet-5", 1_000_000, 1_000_000)).toBe(18) // 3 + 15
+    expect(costUsd("claude-haiku-4-5", 1_000_000, 1_000_000)).toBe(6) // 1 + 5
   })
 
   it("computes a mixed in/out charge", () => {
-    // claude-opus = [15, 75]; 1000 in + 1000 out = (15000 + 75000)/1e6 = 0.09
-    expect(costUsd("claude-opus-4", 1000, 1000)).toBe(0.09)
+    // claude-opus = [5, 25]; 1000 in + 1000 out = (5000 + 25000)/1e6 = 0.03
+    expect(costUsd("claude-opus-4", 1000, 1000)).toBe(0.03)
   })
 })
 

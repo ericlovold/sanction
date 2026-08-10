@@ -76,7 +76,12 @@ as fact here.
       appears-when-reported), fold Observe into Pools as the per-pool
       observe/enforce switch. Part of the larger nav consolidation arc; queued
       separately in case that arc lands without them. (IA)
-- [ ] 2026-07-28 — **Gateway model pricing is stale — Opus metered at 3x, and
+- [x] 2026-08-01 — fixed: Opus rows corrected to $5/$25, Fable/Mythos tier
+      added at $10/$50, and the silent `return 0` replaced with a conservative
+      fallback (most expensive table rate) plus a once-per-model logged
+      warning — an unpriced model now over-meters instead of bypassing every
+      budget. Pricing re-verified against the Claude pricing reference
+      2026-08-01. — original: **Gateway model pricing is stale — Opus metered at 3x, and
       unknown models meter as free.** `PRICING` in `lib/gateway.ts` maps
       `claude-opus` → $15/$75 per Mtok. Current Opus (5 / 4.8 / 4.7 / 4.6 / 4.5)
       is **$5/$25** — every Opus call through the gateway burns budget at 3x
