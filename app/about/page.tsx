@@ -88,10 +88,12 @@ export default function About() {
         </h1>
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px 0 0", maxWidth: "58ch" }}>
           Everything we build and install holds one thesis: a human stays accountable. The Sanction
-          Platform answers whether an agent <em>may</em> act — budgets, sign-off, a signed audit
-          trail. The Moral Intention Analyst helps a person see whether they <em>should</em> —
-          and by architecture it cannot approve anything. Our services practice is the same idea
-          applied by hand: working AI, installed on real workflows, with your team in charge of it.
+          Platform governs what autonomous agents may do — budgets, sign-off, a signed audit trail.
+          The Moral Intention Analyst works the human side: it reads the documents, decisions, and
+          processes people are responsible for and surfaces their ethical dimension, so whoever
+          holds the call can see what&apos;s at stake before they make it. Our services practice is
+          the same idea applied by hand: working AI, installed on real workflows, with your team in
+          charge of it.
         </p>
       </header>
 

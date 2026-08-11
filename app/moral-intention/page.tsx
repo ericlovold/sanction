@@ -5,9 +5,9 @@ import { Reveal } from "./reveal"
 import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 
 export const metadata: Metadata = {
-  title: "Moral Intention Analyst — Dr. A.C. Ping | An advisory ethical intelligence",
+  title: "Moral Intention Analyst — ethical analysis of documents, decisions, and processes",
   description:
-    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, PhD, is an advisory ethical intelligence. It helps people see what is at stake, name the values they mean to protect, and choose consciously — indicators for reflection, never proof of intent, and never a decision it makes for you. Runs on Claude, with private Amazon Bedrock deployment for enterprise.",
+    "The Moral Intention Analyst (MIA), authored by Dr. A.C. Ping, PhD, analyses the documents, decisions, and processes people are responsible for and surfaces their ethical dimension: what is at stake, whose interests are affected, which values are in tension, and where reasoning drifts. Indicators for reflection, never proof of intent — the decision stays with the person making it. Runs on Claude, with private Amazon Bedrock deployment for enterprise.",
 }
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
@@ -99,12 +99,14 @@ export default function MoralIntentionAnalyst() {
             DR. A.C. PING, PhD · MORAL INTENTION ANALYST
           </div>
           <h1 className="mia-fade mia-d2" style={{ margin: "20px 0 0", font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Helping consciousness recognise itself — and choose consciously.
+            Ethical analysis of documents, decisions, and processes.
           </h1>
           <p className="mia-fade mia-d3" style={{ margin: "22px auto 0", maxWidth: "62ch", fontSize: 18, lineHeight: 1.65, color: "var(--text-secondary)" }}>
-            MIA is an advisory ethical intelligence built on the work of Dr. A.C. Ping. It helps a person see what is
-            truly at stake, name the values they mean to protect, and expand their own agency —{" "}
-            <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>, and never a decision it makes for you.
+            Bring MIA a contract, a policy, a process you&apos;re designing, or a decision you&apos;re
+            weighing. It surfaces the ethical dimension — what is at stake, whose interests are
+            affected, which values are in tension, and where the reasoning starts to drift. Built on
+            the work of Dr. A.C. Ping:{" "}
+            <strong style={{ color: "var(--text-body)" }}>indicators for reflection, never proof of intent</strong>. The decision stays yours.
           </p>
           <div className="mia-fade mia-d4" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 30, flexWrap: "wrap" }}>
             <a className="sn-btn sn-btn-primary sn-btn-l" href="#try">Try it free →</a>
@@ -143,7 +145,7 @@ export default function MoralIntentionAnalyst() {
           <Reveal>
             <div className="sn-mono" style={{ color: "var(--pine-7)", letterSpacing: "0.1em", marginBottom: 14 }}>TRY THE ANALYST — FREE</div>
             <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
-              Bring it a decision that carries weight.
+              Bring it a document, a process, or a decision.
             </h2>
             <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--text-secondary)", margin: "12px 0 26px" }}>
               Leave an email and step straight in. We&apos;ll send occasional notes on MIA as it

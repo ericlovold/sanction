@@ -123,7 +123,7 @@ export default function Landing() {
         }}
       >
         <span className="sn-mono" style={{ color: "#78E0B2", letterSpacing: "0.1em", marginRight: 10 }}>NEW</span>
-        Moral Intention Analyst — the advisor that can&apos;t say yes. Try it free →
+        Moral Intention Analyst — ethical analysis of documents, decisions, and processes. Try it free →
       </Link>
 
       {/* Nav */}
@@ -249,11 +249,12 @@ export default function Landing() {
             <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
               <MonoLabel color="#2CC08D">Moral Intention Analyst</MonoLabel>
               <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
-                An advisor that cannot approve anything
+                Ethical analysis of documents, decisions, and processes
               </h3>
               <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
-                Authored with Dr. A.C. Ping, PhD. It surfaces observations, questions, and risk
-                signals — and by architecture it cannot issue an approval. Free to try.
+                Authored with Dr. A.C. Ping, PhD. Bring it a contract, a policy, a decision you&apos;re
+                weighing — it surfaces what&apos;s at stake, who&apos;s affected, and where the reasoning
+                drifts. Built for the calls a person has to make. Free to try.
               </p>
               <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/moral-intention">Try the analyst →</Link>
             </div>
