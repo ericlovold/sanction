@@ -22,6 +22,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "New skills, plugins, and APIs are governed like money: one ordered rule list, block → allow-list → escalate precedence, the same approval inbox and one-use grants.",
   },
+  "agent-wallet": {
+    file: "AGENT-WALLET.md",
+    title: "The agent wallet",
+    description:
+      "Sanction is the wallet an AI agent carries: carry, present, verify. MCP, A2A, and payment rails are transports. What is shipped, what is Next, and the honesty contract.",
+  },
   compatibility: {
     file: "COMPATIBILITY.md",
     title: "Compatibility & badges",

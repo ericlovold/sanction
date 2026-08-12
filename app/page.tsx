@@ -261,11 +261,11 @@ export default function Landing() {
             <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
               <MonoLabel color="#2CC08D">Sanction Platform</MonoLabel>
               <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
-                Authorization for autonomous AI agents
+                The wallet an AI agent carries
               </h3>
               <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
-                Budgets, human sign-off, and a signed audit trail for what agents spend and do.
-                Live in production — REST, AWS Bedrock, and MCP.
+                Budgets, human sign-off, and a signed record of what agents spend and do.
+                MCP, REST, Bedrock — the wallet travels with the agent.
               </p>
               <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/platform">Explore the platform →</Link>
             </div>

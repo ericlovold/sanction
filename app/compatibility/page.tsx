@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 const badges = [
-  { label: "Sanction-governed MCP", proof: "MCP tools ask before risky work" },
+  { label: "Sanction-governed MCP", proof: "The agent carries a Sanction wallet" },
   { label: "AuthZEN PDP compatible", proof: "Standard PEP/PDP evaluation wire" },
   { label: "AARP approval loop", proof: "Escalation opens an access request" },
   { label: "Gateway metered", proof: "Model calls are budgeted before/after use" },
@@ -20,7 +20,7 @@ const badges = [
 const channels = [
   {
     title: "MCP hosts",
-    body: "Cursor, Claude Desktop, Claude Code, Windsurf, Codex, and custom MCP hosts can add `npx sanction-mcp` as the governance tool server.",
+    body: "Cursor, Claude Desktop, Claude Code, Windsurf, Codex, and custom MCP hosts add `npx sanction-mcp` as the agent's wallet — not another tool server.",
     pack: "mcp-tool-governance",
   },
   {
@@ -63,7 +63,7 @@ export default function CompatibilityPage() {
         <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">Compatibility</h1>
         <p className="mt-4 max-w-2xl text-lg text-zinc-400">
           Sanction fits where agents already run: MCP hosts, coding agents, framework runtimes, LLM gateways, and
-          payment-agent pilots. The common contract is simple: authorize before the agent acts.
+          payment-agent pilots. The common contract is simple: the agent carries a wallet. Counterparties check it.
         </p>
 
         <section className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

@@ -18,7 +18,7 @@ One policy decision engine governs every kind of agent action:
 |---|---|
 | **Spend** (`/authorize`) | Auto-approve floor, human-escalation band, per-transaction hard cap, daily and monthly budgets — checked and debited atomically. |
 | **Tools** (`/authorize/tool`) | Block/allow/escalate lists for any MCP tool or external action. Escalations reach the approval inbox like spend does. |
-| **Credentials** (`/exec` + `/credentials/inject`) | AES-256-GCM envelope-encrypted vault (KMS-wrapped, rotating keys). Injection requires a scoped 15-minute execution JWT and clearance ≥ the credential's bar. Every access audit-logged. |
+| **Credentials** (`/exec` + `/mandate/verify` + `/credentials/inject`) | AES-256-GCM envelope-encrypted vault (KMS-wrapped, rotating keys). Injection requires a scoped 15-minute mandate JWT and clearance ≥ the credential's bar. Counterparties verify the mandate with no API key. Every access audit-logged. |
 | **Provisioning** (`/authorize/provision`) | Seats, licenses, infrastructure — resource, line item, quantity, and dollars authorized in one call. |
 | **Capability** (`/authorize/capability`) | Skills, plugins, new APIs — acquiring capability is governed like spending money. One ordered rule list (block / allow / escalate, prefix-glob patterns) gates new power before it lands in an agent. |
 
@@ -68,14 +68,15 @@ coverage gate, including concurrency and Postgres row-level-security suites.
 Platform vendors govern agents inside their own walls. Sanction authorizes
 agents wherever they run:
 
-- **MCP server** — `npx sanction-mcp` in any MCP host (Claude Desktop, etc.)
+- **MCP (agent wallet)** — `npx sanction-mcp` in any MCP host. The agent carries the wallet. [Wallet Card](https://getsanction.com/.well-known/wallet-card.json) · [guide](docs/AGENT-WALLET.md)
 - **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
 - **TypeScript SDK** — `npm install @sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane), plus framework adapters (`SanctionMiddleware`, `sanctionTool`)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
 - **AWS Bedrock Action Group** — enterprise agent orchestration ([setup guide](docs/BEDROCK.md))
 - **LLM gateway** — cross-provider metering with no code changes
 
-Guides: [Quickstart](docs/QUICKSTART.md) ·
+[Agent wallet](docs/AGENT-WALLET.md) ·
+[Quickstart](docs/QUICKSTART.md) ·
 [Starter kit](docs/STARTER-KIT.md) ·
 [LangChain](docs/LANGCHAIN.md) · [CrewAI](docs/CREWAI.md) ·
 [Vercel AI SDK](docs/VERCEL-AI-SDK.md) ·
@@ -100,7 +101,8 @@ POST  /authorize/capability     — Authorize acquiring capability (skill/plugin
 GET   /authorize/{id}           — Poll an escalated decision (grant receipt included)
 GET   /authorize/{id}/evidence  — Replay a decision over its stored context (match verdict)
 POST  /tokens                   — Log LLM token consumption against the daily budget
-POST  /exec                     — Issue a scoped execution JWT (15-min TTL)
+POST  /exec                     — Mint a scoped mandate JWT (15-min TTL)
+POST  /mandate/verify           — Counterparty checks a presented mandate (no API key)
 POST  /credentials/inject       — Inject a decrypted credential (Bearer JWT)
 GET   /audit-events             — Unified audit feed (decisions, tokens, secret access; ?format=csv)
 GET   /reporting/summary        — Any range ≤92 days: totals, day buckets, per-agent
@@ -139,6 +141,9 @@ Full schemas: [`/api/openapi.json`](https://getsanction.com/api/openapi.json).
 ---
 
 ## MCP setup
+
+The agent carries a Sanction wallet. Discovery: `GET /.well-known/wallet-card.json`.
+stdio MCP is cooperative — the host must ask before acting.
 
 ```json
 {

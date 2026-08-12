@@ -14,7 +14,7 @@ const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.c
 export const metadata: Metadata = {
   title: "Sanction Platform — Authorization for autonomous AI agents",
   description:
-    "One key governs what an agent may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record. Across MCP, REST, and AWS Bedrock.",
+    "The wallet an AI agent carries. One key governs what it may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record.",
 }
 
 // The hero shows a LIVE pending escalation from the demo wallet, so the page
@@ -31,7 +31,7 @@ const structuredData = [
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Web, API",
     description:
-      "Sanction governs human authorization workflows for autonomous systems — spend and provisioning authorization, tool governance, scoped credential injection, and an audit trail. It is not a sanctions-screening, watchlist, or AML compliance tool.",
+      "Sanction is the wallet an AI agent carries — spend and tool authorization, scoped mandates, and an audit trail. It is not a sanctions-screening, watchlist, or AML compliance tool.",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   },
   {
@@ -237,7 +237,7 @@ export default async function Landing() {
             <TrackCTA className="sn-btn sn-btn-primary sn-btn-l" href="/start" location="hero" target="start">Start free</TrackCTA>
             <TrackCTA className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} location="hero" target="talk">Talk to us →</TrackCTA>
           </div>
-          <MonoLabel mt={28} color="var(--text-faint)">MCP · AWS Bedrock · REST</MonoLabel>
+          <MonoLabel mt={28} color="var(--text-faint)">Agent wallet · MCP · REST</MonoLabel>
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
           {escalation ? (
@@ -279,7 +279,7 @@ export default async function Landing() {
         <div className="sn-cards">
           {[
             ["Authorize", "Agent Wallet", "Budgets and policy on every spend and provisioning action. Auto-approve under threshold, escalate over it, deny what's blocked."],
-            ["Protect", "Credential Vault", "AES-256-GCM at rest under a rotating KMS-wrapped key, tenant-isolated at the database. Scoped 15-minute execution tokens gate every injection."],
+            ["Protect", "Credential Vault", "AES-256-GCM at rest under a rotating KMS-wrapped key, tenant-isolated at the database. A 15-minute mandate gates every injection; counterparties verify it without a Sanction key."],
             ["Govern", "Clearance Levels", "A 1–5 clearance system. Agents only ever touch what they're explicitly cleared for. Fail-closed by default."],
           ].map(([k, t, d]) => (
             <div key={k} className="sn-card" style={{ padding: 28 }}>
@@ -318,9 +318,9 @@ export default async function Landing() {
             <MonoLabel color="#2CC08D" mb={16}>For the builders</MonoLabel>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#F2F1EA" }}>Three calls. Governed agent.</h2>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "#C4C7BB", maxWidth: "44ch", margin: "20px 0 28px" }}>
-              Register an agent, set a policy, authorize in real time. Real REST, real MCP — no SDK lock-in, nothing to babysit.
+              Register an agent, set a policy, authorize in real time. The agent carries a wallet over MCP; counterparties verify a mandate with no API key. No SDK lock-in.
             </p>
-            <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/docs/starter-kit">Read the docs →</Link>
+            <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/docs/agent-wallet">The agent wallet →</Link>
           </div>
           <div
             style={{

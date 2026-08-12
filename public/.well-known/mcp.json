@@ -1,8 +1,8 @@
 {
   "name": "sanction",
-  "display_name": "Sanction — Agent Wallet & Governance",
-  "description": "The permission stack for autonomous AI agents. Sanction enforces spend policy before transactions, tracks LLM token budgets, issues scoped execution credentials, and maintains a full audit trail. Integrates via MCP (stdio), REST API, or AWS Bedrock Action Groups.",
-  "version": "1.0.0",
+  "display_name": "Sanction — Agent Wallet",
+  "description": "The wallet an AI agent carries. Policy, budget, clearance, and evidence travel with the agent. Counterparties verify a mandate before they work, sell, or settle. Integrates via MCP (stdio), REST, or AWS Bedrock.",
+  "version": "0.7.0",
   "homepage": "https://getsanction.com",
   "repository": "https://github.com/ericlovold/sanction",
   "license": "MIT",
@@ -11,6 +11,7 @@
     "npm": "sanction-mcp",
     "command": "npx sanction-mcp"
   },
+  "wallet_card": "https://getsanction.com/.well-known/wallet-card.json",
   "configuration": {
     "required": ["SANCTION_API_KEY"],
     "optional": ["SANCTION_API_URL", "SANCTION_WALLET_ID"],
@@ -34,32 +35,57 @@
   "tools": [
     {
       "name": "sanction_authorize",
-      "description": "Check spend authorization before any purchase, subscription, or transfer. Returns approved/denied/escalated with machine-readable codes for agent replanning.",
+      "description": "Ask before any purchase, subscription, or transfer.",
       "tags": ["finance", "governance", "authorization"]
     },
     {
+      "name": "sanction_authorize_provision",
+      "description": "Ask before provisioning seats, licenses, or infrastructure.",
+      "tags": ["provisioning", "governance"]
+    },
+    {
+      "name": "sanction_authorize_tool",
+      "description": "Ask before invoking another tool, shell command, deploy, or send.",
+      "tags": ["tools", "governance"]
+    },
+    {
+      "name": "sanction_authorize_capability",
+      "description": "Ask before acquiring a skill, plugin, or new API.",
+      "tags": ["capability", "governance"]
+    },
+    {
+      "name": "sanction_check_authorization",
+      "description": "Poll an escalated request for its one-use grant.",
+      "tags": ["approvals", "grants"]
+    },
+    {
       "name": "sanction_log_tokens",
-      "description": "Record LLM token consumption and cost against the wallet's daily budget. Returns budget status after each call.",
-      "tags": ["tokens", "budget", "observability"]
+      "description": "Record LLM token usage against the wallet's budgets.",
+      "tags": ["tokens", "budget"]
+    },
+    {
+      "name": "sanction_log_outcome",
+      "description": "Record a confirmed business outcome for cost-per-outcome ceilings.",
+      "tags": ["outcomes", "governance"]
     },
     {
       "name": "sanction_request_execution",
-      "description": "Issue a short-lived scoped JWT for credential access within a hard spend cap. Required for secure secret injection into subprocesses or delegated agents.",
-      "tags": ["credentials", "security", "execution"]
+      "description": "Mint a short-lived mandate (execution JWT) for a child agent or counterparty.",
+      "tags": ["mandate", "credentials", "delegation"]
     },
     {
       "name": "sanction_inject_credential",
-      "description": "Retrieve a decrypted credential using a scoped execution JWT. AES-256-GCM encrypted at rest. Every injection is audit-logged.",
-      "tags": ["credentials", "vault", "secrets"]
+      "description": "Retrieve a vaulted secret under that mandate. Audit-logged.",
+      "tags": ["credentials", "vault"]
     },
     {
       "name": "sanction_wallet_status",
-      "description": "Check today and MTD spend, token cost, and pending human approval count for the configured wallet.",
-      "tags": ["budget", "observability", "status"]
+      "description": "Today and month-to-date spend, token cost, and pending approvals.",
+      "tags": ["budget", "status"]
     }
   ],
   "categories": ["finance", "security", "governance", "infrastructure"],
-  "keywords": ["agent", "wallet", "spend", "authorization", "credentials", "vault", "governance", "budget", "audit"],
+  "keywords": ["agent", "wallet", "mandate", "spend", "authorization", "credentials", "vault", "governance", "budget", "audit", "a2a"],
   "claude_desktop": {
     "mcpServers": {
       "sanction": {

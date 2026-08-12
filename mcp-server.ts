@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Sanction MCP Server
+ * Sanction MCP — the wallet an AI agent carries.
  *
  * Exposes Sanction governance tools to any MCP-compatible agent host
- * (Claude Desktop, AIIA, etc.).
+ * (Claude Desktop, Cursor, AIIA, etc.). stdio is cooperative: the host
+ * must ask before acting. Discovery: GET /.well-known/wallet-card.json
  *
  * Configuration (env vars):
  *   SANCTION_API_URL   — Sanction API base URL (default: https://getsanction.com/api/v1)
@@ -159,7 +160,7 @@ function renderAuthResult(
 const server = new McpServer({
   name: "sanction",
   version: "0.7.0",
-  description: "Sanction — pre-action spend & credential authorization for autonomous AI agents (not sanctions/AML screening)",
+  description: "Sanction — the wallet an AI agent carries: spend, tool, capability, and credential authorization (not sanctions/AML screening)",
 })
 
 // Tool: Check spend authorization
@@ -288,7 +289,7 @@ server.tool(
 // Tool: Request scoped execution JWT
 server.tool(
   "sanction_request_execution",
-  "Issue a short-lived signed JWT that authorizes access to specific credentials within a hard spend cap. Call this before spawning any subprocess, container, or delegated agent that needs secrets — pass the returned JWT via environment variable or stdin, never hardcode credentials directly. The JWT expires automatically (default 15 min) and is single-wallet-scoped, so a compromised token can't access other wallets. Required before calling sanction_inject_credential.",
+  "Mint a short-lived mandate (signed JWT) for a child agent, subprocess, or counterparty: credential scope plus a hard spend cap. Pass the JWT — never the root pxy_ key. Default 15 min, wallet-bound, freeze-aware. The other party verifies it at POST /mandate/verify with no API key. Required before sanction_inject_credential.",
   {
     scope: z.array(z.string()).min(1).describe("List of credential labels the execution needs — e.g. ['STRIPE_KEY', 'OPENAI_API_KEY']. Only these labels will be injectable with the returned JWT. Request minimum required scope."),
     budget_usd: z.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),

@@ -76,7 +76,7 @@ export default function Architecture() {
         <section className="mt-10">
           <Stage label="Upstream" title="Identity — yours, not ours">
             Entra, SPIFFE, agent cards, plain API keys. Sanction consumes canonical identity and mints governed
-            runtime identity (scoped keys, short-lived execution tokens) — never an identity of record.
+            runtime identity (scoped keys, short-lived mandates) — never an identity of record.
           </Stage>
 
           <Arrow />
@@ -117,10 +117,13 @@ export default function Architecture() {
 
           <Arrow />
 
-          <Stage label="Downstream" title="Execution — wherever the agent runs">
-            Sanction belongs to no platform. The same decision answers over REST, the TypeScript SDK, MCP, an AWS
-            Bedrock action group, the LLM gateway, or the OpenID AuthZEN wire — so governance travels with the
-            agent instead of living inside one vendor&rsquo;s walls.
+          <Stage label="Downstream" title="The wallet travels with the agent">
+            Sanction belongs to no platform. The same decision answers over REST, the TypeScript SDK, MCP (the
+            wallet the agent carries), an AWS Bedrock action group, the LLM gateway, or the OpenID AuthZEN wire.
+            Counterparties fetch the{" "}
+            <Link href="/.well-known/wallet-card.json" className="text-emerald-400 hover:text-emerald-300">Wallet Card</Link>
+            {" "}and verify a presented mandate at{" "}
+            <code className="text-zinc-300">POST /v1/mandate/verify</code> — no API key.
           </Stage>
         </section>
 
@@ -163,17 +166,17 @@ export default function Architecture() {
         <section className="mt-14 rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
           <h2 className="font-display text-xl font-semibold tracking-tight">Now make it concrete</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
+            <Link href="/docs/agent-wallet" className="rounded-md border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-zinc-200 transition-colors hover:border-zinc-700">
+              The agent wallet →
+              <span className="block text-xs text-zinc-500">Carry, present, verify. What MCP is for.</span>
+            </Link>
             <Link href="/docs/quickstart" className="rounded-md border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-zinc-200 transition-colors hover:border-zinc-700">
               Quickstart →
               <span className="block text-xs text-zinc-500">First governed call in five minutes.</span>
             </Link>
-            <Link href="/docs" className="rounded-md border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-zinc-200 transition-colors hover:border-zinc-700">
-              Integration guides →
-              <span className="block text-xs text-zinc-500">Vercel AI SDK, LangChain, CrewAI, MCP.</span>
-            </Link>
             <a href="/api/openapi.json" className="rounded-md border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-zinc-200 transition-colors hover:border-zinc-700">
               API reference →
-              <span className="block text-xs text-zinc-500">OpenAPI 3.0, Bedrock-compatible.</span>
+              <span className="block text-xs text-zinc-500">OpenAPI 3.0, including mandate verify.</span>
             </a>
           </div>
         </section>

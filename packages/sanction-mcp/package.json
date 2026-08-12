@@ -2,7 +2,7 @@
   "name": "sanction-mcp",
   "version": "0.7.0",
   "mcpName": "io.github.ericlovold/sanction",
-  "description": "MCP server for Sanction — spend, tool, and provisioning authorization with human-approval grants, token budgets, and an encrypted credential vault for autonomous AI agents.",
+  "description": "Agent wallet for Sanction — the mandate, budget, and credential vault an AI agent carries. Counterparties verify before they work or settle.",
   "type": "module",
   "scripts": {
     "prepublishOnly": "npm --prefix ../.. run build:mcp"

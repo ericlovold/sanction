@@ -77,8 +77,9 @@ const CLAIMS: { title: string; body: ReactNode }[] = [
       <>
         Platform vendors govern agents inside their own walls — and agents don&rsquo;t stay inside walls. The same
         policy has to answer over REST, MCP, an SDK, a Bedrock action group, an LLM gateway, and the open AuthZEN
-        standard, so that switching runtimes never means shedding governance. Authorization that only works in one
-        ecosystem isn&rsquo;t governance; it&rsquo;s a feature of someone else&rsquo;s product.
+        standard, so that switching runtimes never means shedding governance. MCP is how the agent <em>carries</em>{" "}
+        that wallet; a counterparty verifies a presented mandate without holding the root key. Authorization that
+        only works in one ecosystem isn&rsquo;t governance; it&rsquo;s a feature of someone else&rsquo;s product.
       </>
     ),
   },
