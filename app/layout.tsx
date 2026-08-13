@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://getsanction.com"),
   title: "Sanction — The authorization layer for AI agents",
   description:
-    "Sanction is the authorization and credential layer for autonomous AI agents: set spend limits, approve or deny each action before it runs, and inject short-lived scoped secrets — across MCP, REST, and AWS Bedrock.",
+    "Sanction is the wallet an AI agent carries: spend limits, scoped mandates, and an audit trail — across MCP, REST, and AWS Bedrock.",
   openGraph: {
     title: "Sanction — The authorization layer for AI agents",
     description: "Don't give your agent your credit card. Give it a Sanction key — spend limits, scoped secrets, and an audit trail for autonomous AI agents.",

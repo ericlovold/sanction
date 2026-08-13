@@ -50,7 +50,7 @@ export default function StartPage() {
 
         <h2 className="text-lg font-semibold tracking-tight">Add Sanction to your stack</h2>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          One click puts the Sanction tools in front of your agent — it asks before it spends, and every decision is
+          One click puts the Sanction wallet in front of your agent — it asks before it spends, and every decision is
           logged. Paste the agent key and wallet id from the step above.
         </p>
         <div className="mt-5">

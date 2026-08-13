@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-12",
+    title: "The agent wallet is a public object",
+    tags: ["mcp", "wallet", "a2a", "mandate"],
+    body: "The engine was already a wallet; MCP was a client. This ships the public object. **`GET /.well-known/wallet-card.json`** is how other agents discover carry, present, and verify — and that stdio MCP is still cooperative (only the LLM gateway intercepts today). **`POST /v1/mandate/verify`** lets a counterparty check a presented execution JWT with no API key: frozen, revoked, expired, or garbage, each named; invalid is HTTP 200 so agents fail closed on the body. `/exec` mints that mandate. Hosted remote MCP (the broker that intercepts `tools/call`) stays Next. [Guide](/docs/agent-wallet).",
+  },
+  {
     date: "2026-07-28",
     title: "MCP checks the badge. Sanction decides what the badge opens.",
     tags: ["mcp", "conformance", "observability", "audit"],

@@ -110,7 +110,8 @@ yourself; ask again.
 
 ## 3. The loop, over MCP
 
-If your runtime speaks MCP, skip the REST and mount the tools:
+If your runtime speaks MCP, the agent carries a Sanction wallet — not another tool
+server next to GitHub. Discovery: [`GET /.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json).
 
 ```json
 {
@@ -124,19 +125,19 @@ If your runtime speaks MCP, skip the REST and mount the tools:
 }
 ```
 
-That exposes `sanction_authorize`, `sanction_authorize_tool`,
-`sanction_authorize_capability`, `sanction_authorize_provision`, `sanction_log_tokens`,
-`sanction_request_execution`, `sanction_inject_credential`, and
-`sanction_wallet_status`. Then give the agent one standing rule — in its system
-prompt, agent definition, or platform policy:
+That exposes the ten wallet tools, including `sanction_request_execution` (mint a
+mandate for a child or counterparty) and `sanction_check_authorization` (poll an
+escalation for its grant). Give the agent one standing rule:
 
 > Before any purchase, tool invocation, provisioning action, or secret use, call
 > the matching `sanction_*` tool first. Never proceed when it returns
 > `authorized: false`. When it returns `escalated`, wait for approval and retry
 > the identical request with the `grant_id`.
 
-The tool descriptions repeat this contract, so most agents follow it unprompted
-— the rule makes it policy rather than a suggestion.
+stdio MCP is cooperative: the host must ask. A counterparty who was handed a
+mandate checks it at `POST /v1/mandate/verify` with no API key. The LLM gateway
+is the one interception point that does not require cooperation. Guide:
+[The agent wallet](./AGENT-WALLET.md).
 
 ## 4. Webhooks — approvals that find you
 

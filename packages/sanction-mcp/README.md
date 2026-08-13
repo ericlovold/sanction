@@ -1,16 +1,18 @@
 # sanction-mcp
 
-**Spend authorization, token budgets, and a credential vault for autonomous AI agents — over MCP.**
+**The wallet an AI agent carries — over MCP.**
 
 Give your agent a [Sanction](https://getsanction.com) key instead of your credit card.
 Before it buys anything, calls a paid API, or touches a secret, it asks Sanction — which
 approves, escalates to you, or denies based on the policy you set. Every decision is logged.
 
-Even if your agent is hijacked at runtime, it can't spend, leak, or act beyond the limits
-you set — the budget cap, per-transaction limit, clearance gate, and short-lived scoped
-tokens bound the blast radius.
+A short-lived mandate (`sanction_request_execution`) is what you hand a child agent or a
+counterparty — never the root key. They check it at `POST /mandate/verify` with no API key.
+stdio MCP is cooperative: the host must ask before acting. The LLM gateway intercepts
+inference spend without cooperation. A hosted broker that intercepts `tools/call` is next.
 
 This package is a thin stdio MCP client for the hosted Sanction API at `getsanction.com`.
+Discovery: [Wallet Card](https://getsanction.com/.well-known/wallet-card.json).
 
 ## Quickstart
 
@@ -59,10 +61,11 @@ fetches it on first run.
 | `sanction_authorize_provision` | Ask before provisioning seats/licenses/infrastructure. Governs the resource and the dollars in one call. |
 | `sanction_authorize_tool` | Ask before invoking another tool, shell command, deploy, or email send. Enforces the tool allow/block/escalate policy. |
 | `sanction_authorize_capability` | Ask before acquiring a new capability — installing a skill/plugin, enabling an integration, calling a new API. Enforces the capability allow/block/escalate policy. |
+| `sanction_check_authorization` | Poll an escalated request for its one-use grant. |
 | `sanction_log_tokens` | Record LLM token usage against the daily token budget. |
 | `sanction_log_outcome` | Record a confirmed business outcome (enrollment, booking, conversion). Feeds cost-per-outcome ceilings; idempotent via `dedupe_key`. |
-| `sanction_request_execution` | Issue a short-lived, scoped JWT with a hard spend cap. |
-| `sanction_inject_credential` | Retrieve a vaulted secret with that JWT (audit-logged). |
+| `sanction_request_execution` | Mint a short-lived mandate (JWT) for a child agent or counterparty. |
+| `sanction_inject_credential` | Retrieve a vaulted secret under that mandate (audit-logged). |
 | `sanction_wallet_status` | Today/MTD token + spend totals and pending approvals. |
 
 ## Configuration

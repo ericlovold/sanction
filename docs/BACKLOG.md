@@ -484,6 +484,10 @@ as fact here.
       · 2026-07-08: promoted — this is also the Sanction-owned enforcement
       point (governed traffic must pass through it, not "we hope the agent
       called authorize"). Decision logic stays in the engine, not the proxy.
+      · 2026-08-12: WALLET-1 shipped the discovery + verify half (Wallet Card,
+      `POST /v1/mandate/verify`, honesty contract). This item is now the
+      hosted endpoint + broker interception — the actual launch. On the
+      public roadmap as Next.
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.

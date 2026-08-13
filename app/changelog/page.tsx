@@ -8,7 +8,7 @@ import { CHANGELOG } from "@/lib/changelog"
 export const metadata: Metadata = {
   title: "Sanction Changelog — what's new",
   description:
-    "Product updates and release notes for Sanction, the authorization layer for agents that act. Subscribe for updates, and tell us what to build next.",
+    "Product updates and release notes for Sanction, the wallet an AI agent carries. Subscribe for updates, and tell us what to build next.",
 }
 
 function fmt(date: string) {

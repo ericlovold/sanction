@@ -94,6 +94,7 @@ const concepts = [
 ]
 
 const ecosystem = [
+  { title: "The agent wallet", desc: "Carry, present, verify — MCP as the wallet an agent takes into A2A, not another tool server.", href: "/docs/agent-wallet" },
   { title: "Compatibility", desc: "Badges, channel packs, and install paths for MCP, frameworks, gateways, and payment-agent pilots.", href: "/compatibility" },
   { title: "Compatibility & badges", desc: "When each ecosystem claim is true, and which Sanction surface proves it.", href: "/docs/compatibility" },
   { title: "Framework adapters", desc: "SanctionMiddleware, Python wrappers, and LiteLLM callback recipes.", href: "/docs/framework-adapters" },

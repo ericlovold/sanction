@@ -12,7 +12,7 @@ surface:
 
 | Badge | Use when | Proof surface |
 |---|---|---|
-| **Sanction-governed MCP** | An MCP host or server calls `sanction-mcp` before risky tools or spend | `npx sanction-mcp`, `/authorize/tool`, `/authorize` |
+| **Sanction-governed MCP** | An MCP host carries a Sanction wallet (`sanction-mcp`) and asks before risky tools or spend. Cooperative until the hosted broker ships. | `npx sanction-mcp`, `/.well-known/wallet-card.json`, `/authorize/tool`, `/authorize` |
 | **AuthZEN PDP compatible** | A policy enforcement point calls Sanction's OpenID AuthZEN endpoints | `/access/v1/evaluation`, `/access/v1/evaluations` |
 | **AARP approval loop** | An AuthZEN escalation opens a Sanction access request and redeems the grant on retry | `/access/v1/access-request` |
 | **Gateway metered** | Model calls route through the Sanction gateway with `x-sanction-key` | `/api/gateway/<provider>` |
@@ -20,7 +20,11 @@ surface:
 
 ## MCP hosts
 
-The fastest channel is MCP because the install shape is already familiar:
+The fastest channel is MCP because the install shape is already familiar. The
+agent carries a Sanction wallet — it is not another tool server next to GitHub.
+Discovery: [`GET /.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json).
+stdio is cooperative; counterparties verify a presented mandate at
+`POST /v1/mandate/verify`. Guide: [The agent wallet](AGENT-WALLET.md).
 
 ```json
 {

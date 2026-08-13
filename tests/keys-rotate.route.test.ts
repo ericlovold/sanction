@@ -62,5 +62,6 @@ describe("openapi.json — the public contract document", () => {
     const body = await res.json()
     expect(body.openapi).toBeTruthy()
     expect(body.paths["/authorize/tool"]).toBeTruthy() // yesterday's endpoint is documented
+    expect(body.paths["/mandate/verify"]).toBeTruthy() // wallet: counterparties verify a mandate without a key
   })
 })

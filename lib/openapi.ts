@@ -5,7 +5,7 @@ export const spec = {
     title: "Sanction Agent Governance API",
     version: "1.0.0",
     description:
-      "Sanction is the permission stack for autonomous AI agents. Provides spend authorization, token budget tracking, encrypted credential injection, and clearance-level access control. Designed for use as an AWS Bedrock Action Group, MCP server, or direct API integration. Terminology: an agent is a seat — a governed identity you hand to whoever holds it (named holder, auto-expiry, key rotation that keeps history). The API keeps the agent noun; product surfaces say seat.",
+      "Sanction is the wallet an AI agent carries. Spend authorization, token budgets, scoped mandates counterparties can verify, and clearance-level access control. Designed for use as an MCP wallet, AWS Bedrock Action Group, or direct API. Terminology: an agent is a seat — a governed identity you hand to whoever holds it. The API keeps the agent noun; product surfaces say seat.",
     contact: { name: "Sanction", url: "https://getsanction.com" },
   },
   servers: [{ url: "https://getsanction.com/api/v1", description: "Production" }],
@@ -27,7 +27,7 @@ export const spec = {
         type: "http",
         scheme: "bearer",
         bearerFormat: "JWT",
-        description: "Short-lived execution JWT issued by POST /v1/exec. 15-minute TTL. Required for credential injection.",
+        description: "Short-lived execution JWT issued by POST /v1/exec — a bounded mandate (scope, budget, TTL). Required for credential injection; counterparties verify it at POST /v1/mandate/verify.",
       },
     },
     schemas: {
@@ -310,7 +310,7 @@ export const spec = {
       ExecTokenResponse: {
         type: "object",
         properties: {
-          jwt: { type: "string", description: "Signed JWT. Pass as Authorization: Bearer <jwt> to /credentials/inject" },
+          jwt: { type: "string", description: "Signed mandate JWT. Pass as Authorization: Bearer <jwt> to /credentials/inject, or as `mandate` to POST /mandate/verify." },
           jti: { type: "string", description: "Unique token ID for audit trail" },
           expires_at: { type: "string", format: "date-time" },
           clearance: { type: "integer", minimum: 1, maximum: 5 },
@@ -1595,7 +1595,7 @@ export const spec = {
         operationId: "requestExecutionToken",
         summary: "Issue a scoped execution JWT",
         description:
-          "Issue a short-lived (default 15min) signed JWT authorizing access to a specific set of credentials within a capped budget. Pass this JWT to a Docker container, subprocess, or code-generating agent. The JWT is required to call /credentials/inject.",
+          "Mint a short-lived (default 15min) mandate: a signed JWT authorizing a child agent or counterparty to act within a credential scope and a hard spend cap. Pass it to a subprocess, a delegated agent, or another agent over A2A. Required to call /credentials/inject; verify liveness at POST /mandate/verify (no API key — the JWT is the capability).",
         security: [{ AgentApiKey: [] }],
         requestBody: {
           required: true,
@@ -1608,6 +1608,58 @@ export const spec = {
           },
           "401": { description: "Invalid API key" },
           "403": { description: "Agent not authorized for requested credentials" },
+        },
+      },
+    },
+    "/mandate/verify": {
+      post: {
+        operationId: "verifyMandate",
+        summary: "Verify a presented mandate",
+        description:
+          "WALLET-1: a counterparty who was handed an execution JWT checks whether that mandate is still live — without a Sanction API key. HS256 is not locally verifiable; this is the merchant-side check. Garbage and unknown tokens return HTTP 200 `{valid:false, status:invalid}` so agents fail closed on the body. Frozen wallets, revoked tokens, and expiry are named statuses. Rate-limited per IP. Never logs the JWT.",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["mandate"],
+                properties: {
+                  mandate: { type: "string", description: "The execution JWT issued by POST /exec" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Mandate view — valid true only when active, unexpired, unrevoked, and the wallet is unfrozen",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["valid", "status"],
+                  properties: {
+                    valid: { type: "boolean" },
+                    status: { type: "string", enum: ["active", "expired", "revoked", "frozen", "invalid"] },
+                    wallet_id: { type: "string" },
+                    agent_id: { type: "string" },
+                    clearance: { type: "integer" },
+                    budget_usd: { type: "number" },
+                    spent_usd: { type: "number" },
+                    remaining_usd: { type: "number" },
+                    scope: { type: "array", items: { type: "string" } },
+                    expires_at: { type: "string", format: "date-time" },
+                    issued_at: { type: "string", format: "date-time" },
+                    reason: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Missing mandate field" },
+          "429": { description: "Rate limited" },
         },
       },
     },
