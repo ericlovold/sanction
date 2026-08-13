@@ -1420,7 +1420,7 @@ export const spec = {
                 required: ["wallet_id", "url"],
                 properties: {
                   wallet_id: { type: "string" },
-                  url: { type: "string", format: "uri", description: "Public https endpoint or hooks.slack.com URL" },
+                  url: { type: "string", format: "uri", description: "Public https endpoint, hooks.slack.com incoming webhook, or https://slack.com/archives/C… channel (interactive Approve/Deny when the Slack app is configured)" },
                   events: { type: "array", items: { type: "string" }, description: "Subscribed events; defaults applied if omitted. '*' subscribes to all." },
                 },
               },

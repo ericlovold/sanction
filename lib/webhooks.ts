@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from "crypto"
 import { db } from "./db"
+import { postSlackChat, slackBotToken, slackChannelIdFromUrl, slackInteractivePayload } from "./slack"
 
 // Owner-registered webhooks notified on events. Each delivery is signed with
 // HMAC-SHA256 over the exact request body so the receiver can verify it's us.
@@ -170,9 +171,17 @@ export async function deliverEvent(walletId: string, event: string, data: Record
   if (targets.length === 0) return
   const body = JSON.stringify({ event, created_at: new Date().toISOString(), wallet_id: walletId, ...data })
   await Promise.allSettled(
-    targets.map((h) =>
-      isSlackWebhookUrl(h.url) ? post(h.url, null, event, slackPayload(event, data)) : post(h.url, h.secret, event, body),
-    ),
+    targets.map((h) => {
+      const channelId = slackChannelIdFromUrl(h.url)
+      if (channelId) {
+        return slackBotToken()
+          ? postSlackChat(channelId, slackInteractivePayload(event, data, slackText(event, data)))
+          : Promise.resolve()
+      }
+      return isSlackWebhookUrl(h.url)
+        ? post(h.url, null, event, slackPayload(event, data))
+        : post(h.url, h.secret, event, body)
+    }),
   )
 }
 
@@ -180,6 +189,11 @@ export async function deliverEvent(walletId: string, event: string, data: Record
 export async function deliverPing(url: string, secret: string) {
   if (isSlackWebhookUrl(url)) {
     await post(url, null, "ping", slackPayload("ping", {}))
+    return
+  }
+  const channelId = slackChannelIdFromUrl(url)
+  if (channelId) {
+    if (slackBotToken()) await postSlackChat(channelId, slackPayload("ping", {}))
     return
   }
   const body = JSON.stringify({ event: "ping", created_at: new Date().toISOString(), message: "Sanction webhook connected." })
