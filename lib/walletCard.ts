@@ -29,7 +29,7 @@ export type WalletCard = {
   homepage: string
   carry: {
     mcp_stdio: { command: string; args: string[]; package: string }
-    mcp_remote: null
+    mcp_remote: string
     rest: string
   }
   present: {
@@ -65,7 +65,7 @@ export function walletCard(origin: string): WalletCard {
     homepage: "https://getsanction.com",
     carry: {
       mcp_stdio: { command: "npx", args: ["sanction-mcp"], package: "sanction-mcp" },
-      mcp_remote: null,
+      mcp_remote: `${origin}/mcp`,
       rest: api,
     },
     present: {
@@ -86,7 +86,7 @@ export function walletCard(origin: string): WalletCard {
       enforcement: "cooperative",
       interception: "llm-gateway-only",
       note:
-        "stdio MCP is agent-invoked: the host must call Sanction before acting. The LLM gateway intercepts inference spend without cooperation. A hosted MCP broker that intercepts tools/call is Next — until then, do not claim a hijacked agent cannot spend.",
+        "stdio MCP is agent-invoked: the host must call Sanction before acting. The hosted URL (`/mcp`) is the same cooperative wallet over Streamable HTTP. The LLM gateway intercepts inference spend without cooperation. A hosted MCP broker that intercepts tools/call is Next — until then, do not claim a hijacked agent cannot spend.",
     },
   }
 }

@@ -25,10 +25,13 @@ will not survive agents that do not share a prompt.
 
 ---
 
-## What is shipped (2026-08-12)
+## What is shipped (2026-08-16)
 
 - **Carry (stdio).** `npx sanction-mcp` in any MCP host. Ten tools. Cooperative:
   the host must ask before acting. Transport failure fails closed.
+- **Carry (URL).** `https://getsanction.com/mcp` — Streamable HTTP, agent API
+  key (`x-api-key` or `Authorization: Bearer pxy_...`). Same ten tools.
+  Cooperative. This is the paste for Claude / Cursor connectors.
 - **Present.** `POST /v1/exec` mints a 15-minute HS256 JWT: credential scope,
   hard spend cap, wallet-bound, freeze-aware. This is a mandate. It was
   documented as credential injection. It is also how a parent agent hires a
@@ -38,8 +41,8 @@ will not survive agents that do not share a prompt.
   revoked, expired, and garbage each have a named status. Invalid is HTTP 200
   `{valid:false}` so agents fail closed on the body.
 - **Discover.** `GET /.well-known/wallet-card.json` — the issuer's card. Names
-  carry, present, verify, evidence, and the honesty contract (cooperative MCP;
-  interception exists today only on the LLM gateway).
+  carry (stdio + URL), present, verify, evidence, and the honesty contract
+  (cooperative MCP; interception exists today only on the LLM gateway).
 
 The decision engine, seats, cascade budgets, grants, vault, freeze, and
 tamper-evident export were already the wallet. These surfaces make it
@@ -47,17 +50,15 @@ presentable.
 
 ---
 
-## What is Next (the actual launch)
+## What is Next (the actual enforcement launch)
 
-**Hosted remote MCP as the wallet endpoint.** The agent is issued a URL, not a
-local process. OAuth or API-key onboarding. v1 can still be cooperative — the
-agent *has a wallet endpoint*. v1.1 is broker mode: the agent talks to
-Sanction; Sanction fronts other MCP servers and intercepts `tools/call`
-through the existing `/authorize/tool` ladder. That is the LLM-gateway pattern
-for tools. That is what makes "a hijacked agent cannot spend" true.
+**Broker mode.** The agent talks to Sanction; Sanction fronts other MCP
+servers and intercepts `tools/call` through the existing `/authorize/tool`
+ladder. That is the LLM-gateway pattern for tools. That is what makes "a
+hijacked agent cannot spend" true. OAuth onboarding follows the API-key paste.
 
 Until the broker ships, do not claim interception on MCP. The Wallet Card
-says so in `honesty`.
+says so in `honesty`. The hosted URL is still a cooperative wallet.
 
 **Per-agent Wallet Cards** (this seat, this remaining budget band, never the
 key) attach to A2A Agent Cards so a peer can fetch constraints before a task.
@@ -84,17 +85,15 @@ protocols present: carry, present, verify, evidence.
 This slice made the wallet presentable. The next phase makes it the default
 path, then the enforcement path.
 
-1. **Ship this branch.** Wallet Card, mandate verify, and the naming are the
-   public contract. Changelog and roadmap already point here.
-2. **Hosted remote MCP (v1).** A URL the agent is issued — Streamable HTTP,
-   API-key then OAuth. Still cooperative. The install stops being a JSON blob.
-3. **Broker mode (v1.1).** The agent talks to Sanction; Sanction fronts other
+1. **Hosted remote MCP (v1) — shipped.** A URL the agent is issued —
+   Streamable HTTP, API-key. Still cooperative. The install can be a URL.
+2. **Broker mode (v1.1).** The agent talks to Sanction; Sanction fronts other
    MCP servers and intercepts `tools/call` through `/authorize/tool`. Same
    shape as the LLM gateway. This is when "hijacked agent cannot spend"
    becomes true.
-4. **One A2A demo.** Agent A mints a mandate; agent B verifies before working.
+3. **One A2A demo.** Agent A mints a mandate; agent B verifies before working.
    That demo is the GTM object — not another MCP directory listing.
-5. **Per-agent Wallet Cards** attach to A2A Agent Cards. Directory listings
+4. **Per-agent Wallet Cards** attach to A2A Agent Cards. Directory listings
    follow the URL, not the stdio recipe.
 
 Do not add an 11th cooperative tool. Do not invent an A2A competitor. Do not
@@ -104,6 +103,7 @@ become an identity provider or a payment rail.
 
 ## Honesty
 
-stdio MCP is agent-invoked. Skipping `sanction_authorize*` is possible. The
-LLM gateway is the one interception point that does not require cooperation.
-Hosted broker interception is the next product, not a claim we make today.
+stdio MCP and the hosted `/mcp` URL are agent-invoked. Skipping
+`sanction_authorize*` is possible. The LLM gateway is the one interception
+point that does not require cooperation. Hosted broker interception is the
+next product, not a claim we make today.

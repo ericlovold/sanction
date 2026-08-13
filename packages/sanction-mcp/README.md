@@ -8,11 +8,13 @@ approves, escalates to you, or denies based on the policy you set. Every decisio
 
 A short-lived mandate (`sanction_request_execution`) is what you hand a child agent or a
 counterparty — never the root key. They check it at `POST /mandate/verify` with no API key.
-stdio MCP is cooperative: the host must ask before acting. The LLM gateway intercepts
-inference spend without cooperation. A hosted broker that intercepts `tools/call` is next.
+stdio MCP is cooperative: the host must ask before acting. Prefer the hosted URL
+when your host accepts remote MCP: `https://getsanction.com/mcp` with
+`x-api-key: pxy_...`. The LLM gateway intercepts inference spend without
+cooperation. A hosted broker that intercepts `tools/call` is next.
 
-This package is a thin stdio MCP client for the hosted Sanction API at `getsanction.com`.
-Discovery: [Wallet Card](https://getsanction.com/.well-known/wallet-card.json).
+This package is the stdio client. The hosted endpoint is the same wallet over
+Streamable HTTP. Discovery: [Wallet Card](https://getsanction.com/.well-known/wallet-card.json).
 
 ## Quickstart
 
@@ -38,6 +40,21 @@ configuration the server needs.
 
 ### 2. Add to your MCP host
 
+Remote (paste this when the host accepts a URL):
+
+```json
+{
+  "mcpServers": {
+    "sanction": {
+      "url": "https://getsanction.com/mcp",
+      "headers": { "x-api-key": "pxy_..." }
+    }
+  }
+}
+```
+
+stdio (this package):
+
 ```json
 {
   "mcpServers": {
@@ -50,8 +67,7 @@ configuration the server needs.
 }
 ```
 
-Works with any MCP host — Claude Code, Claude Desktop, Cursor. No install needed; `npx`
-fetches it on first run.
+Works with any MCP host — Claude Code, Claude Desktop, Cursor.
 
 ## Tools
 

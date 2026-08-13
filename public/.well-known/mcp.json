@@ -1,12 +1,13 @@
 {
   "name": "sanction",
   "display_name": "Sanction — Agent Wallet",
-  "description": "The wallet an AI agent carries. Policy, budget, clearance, and evidence travel with the agent. Counterparties verify a mandate before they work, sell, or settle. Integrates via MCP (stdio), REST, or AWS Bedrock.",
+  "description": "The wallet an AI agent carries. Policy, budget, clearance, and evidence travel with the agent. Counterparties verify a mandate before they work, sell, or settle. Integrates via hosted MCP (`/mcp`), stdio, REST, or AWS Bedrock.",
   "version": "0.7.0",
   "homepage": "https://getsanction.com",
   "repository": "https://github.com/ericlovold/sanction",
   "license": "MIT",
-  "transport": ["stdio"],
+  "transport": ["stdio", "streamable-http"],
+  "url": "https://getsanction.com/mcp",
   "install": {
     "npm": "sanction-mcp",
     "command": "npx sanction-mcp"
@@ -89,11 +90,9 @@
   "claude_desktop": {
     "mcpServers": {
       "sanction": {
-        "command": "npx",
-        "args": ["sanction-mcp"],
-        "env": {
-          "SANCTION_API_KEY": "<your pxy_ key>",
-          "SANCTION_WALLET_ID": "<your wallet id>"
+        "url": "https://getsanction.com/mcp",
+        "headers": {
+          "x-api-key": "<your pxy_ key>"
         }
       }
     }

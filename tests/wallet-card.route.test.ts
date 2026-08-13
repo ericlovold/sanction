@@ -10,10 +10,12 @@ describe("walletCard", () => {
     expect(card.type).toBe("agent-wallet")
     expect(card.carry.mcp_stdio.command).toBe("npx")
     expect(card.carry.mcp_stdio.args).toEqual(["sanction-mcp"])
-    expect(card.carry.mcp_remote).toBeNull()
+    expect(card.carry.mcp_remote).toBe("https://getsanction.com/mcp")
     expect(card.present.format).toBe("execution-jwt")
     expect(card.present.mandate).toBe("https://getsanction.com/api/v1/exec")
     expect(card.verify.mandate).toBe("https://getsanction.com/api/v1/mandate/verify")
+    expect(card.evidence.export).toBe("https://getsanction.com/api/v1/audit/export")
+    expect(card.evidence.verify).toBe("https://getsanction.com/api/v1/audit/verify")
     expect(card.tools.map((t) => t.name)).toEqual(MCP_WALLET_TOOLS.map((t) => t.name))
     expect(card.tools).toHaveLength(10)
   })
@@ -43,9 +45,11 @@ describe("public/.well-known/mcp.json", () => {
   it("lists the same ten tools as the Wallet Card", () => {
     const listed = JSON.parse(readFileSync("public/.well-known/mcp.json", "utf8")) as {
       version: string
+      url: string
       tools: { name: string }[]
     }
     expect(listed.version).toBe("0.7.0")
+    expect(listed.url).toBe("https://getsanction.com/mcp")
     expect(listed.tools.map((t) => t.name)).toEqual(MCP_WALLET_TOOLS.map((t) => t.name))
   })
 })
