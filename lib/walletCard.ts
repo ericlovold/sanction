@@ -28,7 +28,7 @@ export type WalletCard = {
   version: string
   homepage: string
   carry: {
-    mcp_stdio: { command: string; package: string }
+    mcp_stdio: { command: string; args: string[]; package: string }
     mcp_remote: null
     rest: string
   }
@@ -64,7 +64,7 @@ export function walletCard(origin: string): WalletCard {
     version: "0.7.0",
     homepage: "https://getsanction.com",
     carry: {
-      mcp_stdio: { command: "npx sanction-mcp", package: "sanction-mcp" },
+      mcp_stdio: { command: "npx", args: ["sanction-mcp"], package: "sanction-mcp" },
       mcp_remote: null,
       rest: api,
     },

@@ -146,6 +146,36 @@ describe("POST /v1/mandate/verify — WALLET-1", () => {
     expect(body).toMatchObject({ valid: false, status: "frozen" })
   })
 
+  it("returns expired (not invalid) when the JWT is past exp and the row still looks live", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-12T18:00:00.000Z"))
+    const { jwt, jti } = await issueExecutionJWT(
+      { wallet: WID, agent: AID, clearance: 1, scope: ["openai"], budget_usd: 5 },
+      1,
+    )
+    dbMock.executionToken.findUnique.mockResolvedValue({
+      id: jti,
+      walletId: WID,
+      agentId: AID,
+      status: "active",
+      revokedAt: null,
+      expiresAt: new Date("2026-08-12T18:15:00.000Z"),
+      issuedAt: new Date("2026-08-12T18:00:00.000Z"),
+      spentUsd: 0,
+      budgetUsd: 5,
+      scope: ["openai"],
+      clearance: 1,
+    })
+    vi.setSystemTime(new Date("2026-08-12T18:00:02.000Z"))
+
+    try {
+      const body = await (await verifyMandate(req({ mandate: jwt }))).json()
+      expect(body).toMatchObject({ valid: false, status: "expired", wallet_id: WID })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("returns invalid when the row's wallet does not match the signed claims", async () => {
     const { jwt, jti } = await issueExecutionJWT({
       wallet: WID,

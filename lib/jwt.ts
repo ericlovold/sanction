@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify, type JWTPayload } from "jose"
+import { SignJWT, jwtVerify, errors, type JWTPayload } from "jose"
 import { createHash, randomBytes, createCipheriv, createDecipheriv, hkdfSync } from "crypto"
 
 function getSigningKey() {
@@ -47,6 +47,16 @@ export async function verifyExecutionJWT(
     ...(expectedWalletId ? { audience: expectedWalletId } : {}),
   })
   return payload as SanctionClaims & { jti: string }
+}
+
+/** Signature-valid but past `exp`. Counterparties get `expired`, not `invalid`. */
+export function expiredExecutionClaims(err: unknown): (SanctionClaims & { jti: string }) | null {
+  if (!(err instanceof errors.JWTExpired)) return null
+  const p = err.payload
+  if (typeof p.jti !== "string" || typeof p.wallet !== "string" || typeof p.agent !== "string") {
+    return null
+  }
+  return p as SanctionClaims & { jti: string }
 }
 
 // ── Credential encryption (AES-256-GCM) ──────────────────────────────────────

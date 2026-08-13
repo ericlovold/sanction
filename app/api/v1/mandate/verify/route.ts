@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { walletFreezeState } from "@/lib/freeze"
-import { verifyExecutionJWT } from "@/lib/jwt"
+import { expiredExecutionClaims, verifyExecutionJWT } from "@/lib/jwt"
 import { bindMandateRow, evaluateMandate, MANDATE_INVALID } from "@/lib/mandate"
 import { clientIp, rateLimit } from "@/lib/rateLimit"
 import { withTenant } from "@/lib/rls"
@@ -39,10 +39,14 @@ export async function POST(req: NextRequest) {
   }
 
   let claims: Awaited<ReturnType<typeof verifyExecutionJWT>>
+  let jwtExpired = false
   try {
     claims = await verifyExecutionJWT(parsed.data.mandate)
-  } catch {
-    return NextResponse.json(MANDATE_INVALID, { headers: NO_STORE })
+  } catch (err) {
+    const expired = expiredExecutionClaims(err)
+    if (!expired) return NextResponse.json(MANDATE_INVALID, { headers: NO_STORE })
+    claims = expired
+    jwtExpired = true
   }
 
   const row = await withTenant(claims.wallet, (tx) =>
@@ -50,6 +54,9 @@ export async function POST(req: NextRequest) {
   )
   const token = bindMandateRow(row, { jti: claims.jti, wallet: claims.wallet, agent: claims.agent })
   const freeze = token ? await walletFreezeState(db, token.walletId) : { frozen: false as const }
+  // If the JWT is past exp, name it expired even when the row's expiresAt still
+  // looks live (clock skew between jose exp and the stored TTL).
+  const now = jwtExpired && token ? new Date(Math.max(Date.now(), token.expiresAt.getTime())) : undefined
 
-  return NextResponse.json(evaluateMandate({ token, freezeFrozen: freeze.frozen }), { headers: NO_STORE })
+  return NextResponse.json(evaluateMandate({ token, freezeFrozen: freeze.frozen, now }), { headers: NO_STORE })
 }

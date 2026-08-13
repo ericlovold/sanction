@@ -8,7 +8,8 @@ describe("walletCard", () => {
   it("is an agent-wallet discovery document with carry, present, and verify", () => {
     const card = walletCard("https://getsanction.com")
     expect(card.type).toBe("agent-wallet")
-    expect(card.carry.mcp_stdio.command).toBe("npx sanction-mcp")
+    expect(card.carry.mcp_stdio.command).toBe("npx")
+    expect(card.carry.mcp_stdio.args).toEqual(["sanction-mcp"])
     expect(card.carry.mcp_remote).toBeNull()
     expect(card.present.format).toBe("execution-jwt")
     expect(card.present.mandate).toBe("https://getsanction.com/api/v1/exec")
