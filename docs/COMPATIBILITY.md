@@ -23,19 +23,16 @@ surface:
 The fastest channel is MCP because the install shape is already familiar. The
 agent carries a Sanction wallet — it is not another tool server next to GitHub.
 Discovery: [`GET /.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json).
-stdio is cooperative; counterparties verify a presented mandate at
+Paste the hosted URL into Claude / Cursor connectors; stdio remains for local
+hosts. Both are cooperative; counterparties verify a presented mandate at
 `POST /v1/mandate/verify`. Guide: [The agent wallet](AGENT-WALLET.md).
 
 ```json
 {
   "mcpServers": {
     "sanction": {
-      "command": "npx",
-      "args": ["sanction-mcp"],
-      "env": {
-        "SANCTION_API_KEY": "pxy_...",
-        "SANCTION_WALLET_ID": "wal_..."
-      }
+      "url": "https://getsanction.com/mcp",
+      "headers": { "x-api-key": "pxy_..." }
     }
   }
 }

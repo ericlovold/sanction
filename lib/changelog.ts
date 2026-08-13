@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-13",
+    title: "A URL to paste: hosted Sanction MCP",
+    tags: ["mcp", "wallet", "distribution"],
+    body: "The wallet is now a URL. **`https://getsanction.com/mcp`** is Streamable HTTP, authenticated with the agent key (`x-api-key` or `Authorization: Bearer pxy_...`). Same ten tools as `npx sanction-mcp`. Still cooperative — the host must ask before acting; broker interception of `tools/call` is Next. Cursor / Claude connectors paste the URL and a header, not a JSON blob. Discovery: [`/.well-known/wallet-card.json`](/docs/agent-wallet) lists `carry.mcp_remote`.",
+  },
+  {
     date: "2026-08-12",
     title: "The agent wallet is a public object",
     tags: ["mcp", "wallet", "a2a", "mandate"],

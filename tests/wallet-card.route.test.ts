@@ -10,7 +10,7 @@ describe("walletCard", () => {
     expect(card.type).toBe("agent-wallet")
     expect(card.carry.mcp_stdio.command).toBe("npx")
     expect(card.carry.mcp_stdio.args).toEqual(["sanction-mcp"])
-    expect(card.carry.mcp_remote).toBeNull()
+    expect(card.carry.mcp_remote).toBe("https://getsanction.com/mcp")
     expect(card.present.format).toBe("execution-jwt")
     expect(card.present.mandate).toBe("https://getsanction.com/api/v1/exec")
     expect(card.verify.mandate).toBe("https://getsanction.com/api/v1/mandate/verify")
