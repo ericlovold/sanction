@@ -28,7 +28,7 @@ export const ROADMAP: { now: RoadmapItem[]; next: RoadmapItem[]; later: RoadmapI
   ],
   next: [
     { title: "Hosted remote MCP — the wallet endpoint", note: "stdio is a client. The launch is a URL: OAuth or API-key onboarding, Streamable HTTP, the agent is issued a wallet endpoint. v1 can still be cooperative. v1.1 is broker mode — Sanction fronts other MCP servers and intercepts `tools/call` through the existing `/authorize/tool` ladder, the way the LLM gateway already intercepts inference." },
-    { title: "The published SDK + the Python side", note: "@sanction/sdk is publish-ready (0.6.0, FSL, escalate-loop helpers) — run the publish-sdk workflow once the npm org is wired. Next: the adapters where Python agents live — a LiteLLM callback and LangChain/LangGraph + CrewAI bindings over the same core, each with a runnable example." },
+    { title: "The published SDK + the Python side", note: "@sanction/sdk is publish-ready (0.6.0, FSL, escalate-loop helpers) — run the publish-sdk workflow once the npm org is wired. Shipped in-repo: Python `sanction-sdk` with a LiteLLM callback (`SanctionLiteLLMLogger`) that posts usage to `/tokens` after the call — not a pre-call wall (that's still `/api/gateway`). Next: PyPI, then LangChain/LangGraph + CrewAI over the same client." },
     { title: "Sequential simulation, all the way down", note: "Sequential replay shipped for per-agent budgets; next it threads pooled and subtree caps too, and the console's simulation preview grows an as-recorded vs sequential toggle." },
   ],
   later: [
