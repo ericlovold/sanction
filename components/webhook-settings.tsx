@@ -18,9 +18,11 @@ export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]
       </CardHeader>
       <CardContent className="px-5 pb-5 space-y-4">
         <p className="text-xs text-zinc-500">
-          Get pinged the instant a charge escalates. Slack URLs get readable messages automatically; other
-          endpoints get signed JSON (verify <code className="font-mono">x-sanction-signature</code>). Add
-          multiple routes with different subscriptions to send approvals and budget alerts to different channels.
+          Get pinged the instant a charge escalates. Slack incoming webhooks get
+          readable messages with a Review link; a Slack channel archive URL plus
+          the Sanction Slack app posts Approve/Deny in Slack. Other endpoints get
+          signed JSON (verify <code className="font-mono">x-sanction-signature</code>).
+          Multiple routes send different events to different channels.
         </p>
 
         {webhooks.length > 0 && (
@@ -58,7 +60,7 @@ export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]
                 name="url"
                 type="url"
                 required
-                placeholder="https://hooks.slack.com/… or any https endpoint"
+                placeholder="https://hooks.slack.com/…, https://slack.com/archives/C…, or any https endpoint"
                 className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 outline-none focus:border-zinc-600"
               />
               <button

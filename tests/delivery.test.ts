@@ -81,6 +81,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
   const realFetch = global.fetch
   afterEach(() => {
     global.fetch = realFetch
+    vi.unstubAllEnvs()
   })
 
   it("posts a signed body to every hook subscribed to the event (or *)", async () => {
@@ -119,6 +120,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(payload.blocks[0].text.text).toContain("tenet")
     expect(payload.blocks[0].text.text).toContain("$60.00")
     expect(payload.blocks[1].elements[0]).toMatchObject({ type: "button", url: expect.stringContaining("/dashboard/approvals") })
+    expect(payload.blocks[1].elements[0].action_id).toBeUndefined()
   })
 
   it("keeps signed raw JSON for non-Slack consumers on the same event", async () => {
@@ -138,6 +140,43 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(JSON.parse(String(machine[1].body))).toMatchObject({ event: "budget.threshold", wallet_id: "wallet_1", pct_used: 84 })
     const slack = calls.find(([u]) => String(u).includes("hooks.slack.com"))!
     expect(JSON.parse(String(slack[1].body)).blocks[0].text.text).toContain("84%")
+  })
+
+  it("posts Approve/Deny via chat.postMessage when a channel URL and bot token are set", async () => {
+    vi.stubEnv("SANCTION_SLACK_BOT_TOKEN", "xoxb-test")
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    dbMock.webhook.findMany.mockResolvedValue([
+      { url: "https://slack.com/archives/C0123456789", secret: "whsec_slack", events: ["*"], isActive: true },
+    ])
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true })))
+    global.fetch = fetchMock as never
+
+    await deliverEvent("wallet_1", "approval.created", {
+      approval_id: "appr_1",
+      agent: "tenet",
+      amount_usd: 60,
+      merchant: "Vendor",
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe("https://slack.com/api/chat.postMessage")
+    expect(new Headers(init.headers).get("authorization")).toBe("Bearer xoxb-test")
+    const body = JSON.parse(String(init.body))
+    expect(body.channel).toBe("C0123456789")
+    const actionIds = body.blocks[1].elements.map((el: { action_id?: string }) => el.action_id)
+    expect(actionIds).toContain("sanction_approve")
+    expect(actionIds).toContain("sanction_deny")
+  })
+
+  it("does not POST to slack.com/archives when the bot token is unset", async () => {
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    dbMock.webhook.findMany.mockResolvedValue([
+      { url: "https://slack.com/archives/C0123456789", secret: "whsec_slack", events: ["*"], isActive: true },
+    ])
+    const fetchMock = vi.fn(async () => new Response("ok"))
+    global.fetch = fetchMock as never
+    await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_1" })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("formats the weekly digest for Slack: wk/wk delta, counts, busiest agent", async () => {

@@ -8,24 +8,40 @@ every escalation and budget alert three ways; pick any or all.
 The wallet owner's email receives every escalation with an approve link, and a
 heads-up when any budget crosses its 80% line. Nothing to configure.
 
-## Slack (one paste)
+## Slack
 
-1. In Slack: create an **incoming webhook** for the channel that should get
-   approvals (Slack admin → Apps → Incoming Webhooks → Add to channel). You get
-   a `https://hooks.slack.com/...` URL.
+Two setups. Incoming webhooks stay a deep-link. In-Slack Approve/Deny needs a
+Slack app — incoming webhooks cannot receive button clicks.
+
+### Incoming webhook (Review link)
+
+1. In Slack: create an **incoming webhook** for the channel (Slack admin → Apps
+   → Incoming Webhooks → Add to channel). You get a `https://hooks.slack.com/...`
+   URL.
 2. In Sanction: **Dashboard → Approvals → Notification routes** → paste the URL.
    Sanction detects Slack automatically and sends a connect ping.
 
-From then on:
+Escalations arrive as readable Block Kit with a **Review in Sanction** button.
+No Slack app. The webhook URL is the secret.
 
-- Escalations arrive as *"⏳ **nightly-coder** needs approval for **$60.00** —
-  Vendor"* with a **Review in Sanction** button.
-- Budget warnings arrive at the same 80% line the dashboard meters show:
-  *"⚠️ **nightly-coder** has used **84%** of its daily spend."*
-- Denied-wall and resolution events post too.
+### Interactive Approve/Deny (Slack app)
 
-No Slack app to install, no OAuth. The webhook URL is the whole setup — treat
-it like a secret, because Slack does.
+1. Create a Slack app. Enable **Interactivity** with Request URL
+   `https://getsanction.com/api/slack/interactive`. Bot scope: `chat:write`.
+   Invite the bot to the channel.
+2. Set `SANCTION_SLACK_SIGNING_SECRET` and `SANCTION_SLACK_BOT_TOKEN` on the
+   Sanction deployment. The interactive endpoint **fails closed** (503) if the
+   signing secret is unset.
+3. Paste the channel archive URL (`https://slack.com/archives/C…`) as the
+   notification route.
+
+Escalations then carry **Approve** / **Deny** plus the Review link. The click
+runs the same `resolveApproval` path as the dashboard (grant, audit, resolved
+events). The actor is recorded as `slack:<username>`. Anyone in that channel
+can decide — the channel is the ACL.
+
+Signature: Slack's `v0` HMAC over the raw body. Stale timestamps (>5 minutes)
+and bad signatures are 401. Rate-limited per IP.
 
 ## Route different events to different channels
 
@@ -67,6 +83,7 @@ private ranges, and cloud-metadata hosts are rejected at registration.
 ## The loop, end to end
 
 1. Agent calls `/v1/authorize` → policy says **escalate**.
-2. You get the Slack ping → tap **Review in Sanction** → confirm-to-approve.
+2. You get the Slack ping → tap **Approve** or **Deny** (interactive app) or
+   **Review in Sanction** (incoming webhook).
 3. Approval mints a one-use grant; the agent redeems it with `grant_id` and
    proceeds. Every step is in the audit feed (`GET /v1/audit-events`).

@@ -98,7 +98,7 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     file: "NOTIFICATIONS.md",
     title: "Approvals that find you",
     description:
-      "Escalations and budget alerts, delivered where humans are: email by default, Slack with one pasted URL, signed webhooks for your own systems — with per-channel event routing.",
+      "Escalations and budget alerts where humans already are: email, Slack incoming webhooks (Review link), Slack interactive Approve/Deny, and signed webhooks.",
   },
   authzen: {
     file: "AUTHZEN.md",

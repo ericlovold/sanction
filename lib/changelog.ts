@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-13",
+    title: "Approve or deny in Slack — without opening the dashboard",
+    tags: ["approvals", "slack", "notifications"],
+    body: "Incoming Slack webhooks still deep-link; they cannot receive button clicks. Interactive **Approve / Deny** is a Slack app: paste a channel archive URL (`https://slack.com/archives/C…`), set `SANCTION_SLACK_SIGNING_SECRET` and `SANCTION_SLACK_BOT_TOKEN`, and the bot posts the card via `chat.postMessage`. The click is HMAC-verified over the raw body and runs the same `resolveApproval` path as the dashboard — grant, audit, actor recorded as `slack:<username>`. The interactive endpoint fails closed if the signing secret is unset. [Notifications](/docs/notifications).",
+  },
+  {
     date: "2026-08-12",
     title: "The agent wallet is a public object",
     tags: ["mcp", "wallet", "a2a", "mandate"],
