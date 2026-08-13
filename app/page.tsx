@@ -18,7 +18,7 @@ const CALENDLY_URL =
 export const metadata: Metadata = {
   title: "Sanction AI — AI advisory and implementation for real businesses",
   description:
-    "Sanction AI installs working AI on real business workflows: implementation, internal tools, content systems, and executive strategy. Discovery is free — you leave with the start of a plan either way.",
+    "Sanction AI installs working AI on real business workflows: implementation, internal tools, content systems, and executive strategy.",
 }
 
 const structuredData = {
@@ -78,12 +78,12 @@ const STEPS: [string, string, string][] = [
   [
     "1",
     "A real conversation",
-    "A free discovery call about your goals and where you are. You'll walk away with an honest read and the start of a plan, whether we work together or not.",
+    "Thirty minutes on your goals, current workflows, and the first system worth building.",
   ],
   [
     "2",
     "A look at your workflows",
-    "We map where the hours actually go and where AI removes friction, measured against real outcomes. You get the map either way.",
+    "We map where the hours go and where AI removes friction, measured against real outcomes.",
   ],
   [
     "3",
@@ -161,13 +161,10 @@ export default function Landing() {
         </p>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-            Book a free discovery call
+            Book discovery
           </a>
           <a className="sn-btn sn-btn-secondary sn-btn-l" href="#built">See what we&apos;ve built →</a>
         </div>
-        <MonoLabel mt={28} color="var(--text-faint)">
-          Discovery is free. You leave with the start of a plan either way.
-        </MonoLabel>
       </header>
 
       <AnthropicCerts />
@@ -297,12 +294,8 @@ export default function Landing() {
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
             Bring the workflow that&apos;s eating your week.
           </h2>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            One free call. You&apos;ll walk out with the start of a plan, whether or not we work
-            together.
-          </p>
-          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-            Book a free discovery call
+          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ marginTop: 28 }}>
+            Book discovery
           </a>
         </div>
       </section>

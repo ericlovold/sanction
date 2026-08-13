@@ -177,11 +177,8 @@ export default function About() {
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
             Bring the workflow that&apos;s eating your week.
           </h2>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            One free call. You&apos;ll walk out with the start of a plan, whether or not we work together.
-          </p>
-          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-            Book a free discovery call
+          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ marginTop: 28 }}>
+            Book discovery
           </a>
         </div>
       </section>
