@@ -346,3 +346,433 @@
     padding-bottom: 64px !important;
   }
 }
+
+/* ---- Agent-wallet story (home) ---------------------------------------- */
+
+/* Hero: copy left, wallet object right. Vertical rhythm lives on the outer
+   header because the inner grid carries the shared `wrap` inline style. */
+.sn-home-hero {
+  padding: 96px 0 104px;
+}
+.sn-home-hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 64px;
+  align-items: center;
+}
+.sn-home-hero-grid > * {
+  min-width: 0;
+}
+
+/* The wallet is the same physical-object language as the access-key card:
+   slight tilt, directional pine shadow, straightens on hover. The mandate
+   receipt overlaps its lower-right corner so the pair reads as one object. */
+.sn-wallet-stage {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  justify-self: center;
+  perspective: 1600px;
+}
+.sn-wallet-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 480px;
+  height: 480px;
+  transform: translate(-50%, -50%);
+  border: 1px dashed rgba(23, 97, 75, 0.22);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.sn-wallet-card {
+  position: relative;
+  background: linear-gradient(150deg, #16251e, #0d1512);
+  color: #f2f1ea;
+  border: 1px solid rgba(242, 241, 234, 0.12);
+  border-radius: var(--radius-key);
+  padding: 24px 26px 22px;
+  transform: rotateY(-14deg) rotateX(5deg);
+  box-shadow: -28px 34px 60px rgba(12, 51, 42, 0.3), 0 2px 10px rgba(12, 51, 42, 0.2);
+  transition: transform 420ms var(--ease-out), box-shadow 420ms var(--ease-out);
+  will-change: transform;
+}
+.sn-wallet-stage:hover .sn-wallet-card {
+  transform: rotateY(0deg) rotateX(0deg);
+  box-shadow: -6px 26px 54px rgba(12, 51, 42, 0.26), 0 2px 10px rgba(12, 51, 42, 0.18);
+}
+.sn-wallet-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sn-wallet-card-top img {
+  width: 22px;
+  height: 22px;
+}
+.sn-wallet-card-top > span:first-of-type {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: #8b8f81;
+}
+.sn-wallet-live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-label);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--signal);
+}
+.sn-wallet-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sn-wallet-agent {
+  margin-top: 22px;
+  font-family: var(--font-mono);
+  font-size: 21px;
+  letter-spacing: 0.01em;
+}
+.sn-wallet-rule {
+  height: 1px;
+  background: rgba(242, 241, 234, 0.12);
+  margin: 18px 0 16px;
+}
+.sn-wallet-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.sn-wallet-stats span {
+  display: block;
+  font-family: var(--font-label);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: #8b8f81;
+  margin-bottom: 5px;
+}
+.sn-wallet-stats strong {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+.sn-wallet-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #8b8f81;
+}
+.sn-mandate-card {
+  position: relative;
+  width: min(80%, 300px);
+  margin: -16px 0 0 auto;
+  background: var(--surface-card);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-raised);
+  padding: 16px 18px 14px;
+  box-sizing: border-box;
+}
+.sn-mandate-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-label);
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+}
+.sn-mandate-top span {
+  color: var(--text-muted);
+}
+.sn-mandate-top b {
+  font-weight: 500;
+  color: var(--status-approved);
+}
+.sn-mandate-title {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 15.5px;
+}
+.sn-mandate-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 16px;
+  margin-top: 12px;
+  align-items: baseline;
+}
+.sn-mandate-meta span {
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.sn-mandate-meta strong {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.sn-mandate-proof {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--status-approved-bg);
+  color: var(--status-approved);
+  font-family: var(--font-label);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+}
+.sn-mandate-proof i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.sn-wallet-caption {
+  display: block;
+  text-align: center;
+  margin-top: 24px;
+  color: var(--text-faint);
+}
+
+/* Dark wallet section — background here; text tokens come from the existing
+   .sanction [data-theme="dark"] override. */
+.sn-wallet-section {
+  background: var(--surface-inverse);
+  color: var(--text-body);
+}
+.sn-wallet-intro {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 64px;
+  margin-bottom: 80px;
+}
+.sn-wallet-intro h2 {
+  margin: 0;
+  font: 600 clamp(32px, 3.6vw, 44px) / 1.08 var(--font-sans);
+  letter-spacing: var(--tracking-display);
+}
+.sn-wallet-intro p {
+  margin: 0 0 20px;
+  font: var(--text-body-l);
+  color: var(--text-secondary);
+  max-width: 52ch;
+}
+.sn-inline-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.sn-inline-links a {
+  color: var(--signal);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.sn-inline-links a:hover {
+  color: #f2f1ea;
+}
+
+/* Lifecycle: numbered nodes joined by a fading connector. */
+.sn-flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 36px;
+  margin-bottom: 96px;
+}
+.sn-flow-node {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.sn-flow-node span {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(242, 241, 234, 0.2);
+  border-radius: 50%;
+  background: rgba(44, 192, 141, 0.06);
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+  flex-shrink: 0;
+}
+.sn-flow-node i {
+  flex: 1;
+  height: 1px;
+  margin-left: 14px;
+  background: linear-gradient(90deg, rgba(242, 241, 234, 0.25), rgba(242, 241, 234, 0.04));
+}
+.sn-flow-step h3 {
+  margin: 0 0 8px;
+  font: var(--text-h3);
+  letter-spacing: var(--tracking-heading);
+}
+.sn-flow-step p {
+  margin: 0;
+  font: 400 14.5px/1.55 var(--font-sans);
+  color: var(--text-secondary);
+}
+
+/* MCP panel: terminal left, copy right. */
+.sn-mcp-panel {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 64px;
+  align-items: center;
+}
+.sn-mcp-panel > * {
+  min-width: 0;
+}
+.sn-mcp-code {
+  background: #0b0d0b;
+  border: 1px solid rgba(242, 241, 234, 0.1);
+  border-radius: var(--radius-card);
+  padding: 16px 22px 22px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 2.1;
+  overflow-x: auto;
+}
+.sn-mcp-window {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 13px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(242, 241, 234, 0.08);
+}
+.sn-mcp-window i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(242, 241, 234, 0.14);
+}
+.sn-mcp-window span {
+  margin-left: auto;
+  font-family: var(--font-label);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.sn-mcp-code code {
+  display: block;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.sn-mcp-code code b {
+  font-weight: 400;
+  color: var(--text-faint);
+  margin-right: 8px;
+}
+.sn-mcp-code code em {
+  font-style: normal;
+  color: var(--signal);
+  margin-right: 8px;
+}
+.sn-mcp-code code span {
+  color: #f2f1ea;
+  margin-left: 8px;
+}
+.sn-mcp-code .sn-code-result {
+  width: fit-content;
+  margin-top: 12px;
+  padding: 2px 12px;
+  border: 1px solid rgba(44, 192, 141, 0.35);
+  border-radius: 8px;
+  background: rgba(44, 192, 141, 0.08);
+  color: var(--signal);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+}
+.sn-mcp-copy h3 {
+  margin: 0 0 14px;
+  font: 600 26px/1.2 var(--font-sans);
+  letter-spacing: var(--tracking-heading);
+}
+.sn-mcp-copy p {
+  margin: 0 0 20px;
+  font: 400 16px/1.6 var(--font-sans);
+  color: var(--text-secondary);
+  max-width: 46ch;
+}
+.sn-tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.sn-tool-grid span {
+  padding: 6px 10px;
+  border: 1px solid rgba(242, 241, 234, 0.16);
+  border-radius: 6px;
+  font-family: var(--font-label);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+.sn-mcp-copy .sn-honesty {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  border-left: 2px solid rgba(242, 241, 234, 0.14);
+  padding-left: 12px;
+  margin-bottom: 26px;
+}
+
+@media (max-width: 900px) {
+  .sn-home-hero {
+    padding: 64px 0 72px;
+  }
+  .sn-home-hero-grid,
+  .sn-wallet-intro,
+  .sn-mcp-panel {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  .sn-wallet-intro {
+    gap: 28px;
+    margin-bottom: 64px;
+  }
+  .sn-flow {
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: 72px;
+  }
+  /* Connectors imply left-to-right reading; drop them once the row wraps. */
+  .sn-flow-node i {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .sn-flow {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .sn-wallet-orbit {
+    display: none;
+  }
+  .sn-wallet-card {
+    transform: rotateY(-8deg) rotateX(3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-wallet-card,
+  .sn-wallet-stage:hover .sn-wallet-card {
+    transition: none;
+  }
+}

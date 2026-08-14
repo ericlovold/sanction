@@ -18,7 +18,7 @@ const CALENDLY_URL =
 export const metadata: Metadata = {
   title: "Sanction AI — AI advisory and implementation for real businesses",
   description:
-    "Sanction AI installs working AI on real business workflows: implementation, internal tools, content systems, and executive strategy.",
+    "Sanction AI builds operating systems for AI-enabled companies: implementation, internal tools, agent infrastructure, and executive strategy.",
 }
 
 const structuredData = {
@@ -104,6 +104,66 @@ const WONT: string[] = [
   "Build dependency. If you can't run it without us when we leave, we haven't finished the job.",
 ]
 
+function WalletVisual() {
+  return (
+    <div className="sn-wallet-stage" aria-label="Sanction agent wallet and verified mandate">
+      <div className="sn-wallet-orbit" aria-hidden="true" />
+      <div className="sn-wallet-card">
+        <div className="sn-wallet-card-top">
+          <img src="/brand/sanction-mark.svg" alt="" />
+          <span>AGENT WALLET</span>
+          <span className="sn-wallet-live"><i /> LIVE</span>
+        </div>
+        <div className="sn-wallet-agent">ops_agent_07</div>
+        <div className="sn-wallet-rule" />
+        <div className="sn-wallet-stats">
+          <div><span>POLICY</span><strong>production_ops</strong></div>
+          <div><span>AVAILABLE</span><strong>$2,500.00</strong></div>
+        </div>
+        <div className="sn-wallet-foot">
+          <span>pxy_•••••••3fa</span>
+          <span>MCP · REST</span>
+        </div>
+      </div>
+      <div className="sn-mandate-card">
+        <div className="sn-mandate-top"><span>MANDATE</span><b>VERIFIED</b></div>
+        <div className="sn-mandate-title">vendor_payment</div>
+        <div className="sn-mandate-meta">
+          <span>scope</span><strong>stripe.charge</strong>
+          <span>cap</span><strong>$480.00</strong>
+          <span>expires</span><strong>14m 32s</strong>
+        </div>
+        <div className="sn-mandate-proof"><i /> SIGNATURE + WALLET STATUS VALID</div>
+      </div>
+      <div className="sn-wallet-caption sn-mono">Policy travels with the agent</div>
+    </div>
+  )
+}
+
+const WALLET_FLOW: [string, string, string][] = [
+  ["01", "Discover", "A counterparty finds the issuer and verification surface."],
+  ["02", "Present", "The agent carries a signed, scoped, time-bound mandate."],
+  ["03", "Verify", "The counterparty checks budget, scope, freeze, and revocation."],
+  ["04", "Prove", "Each authorization becomes attributable evidence."],
+]
+
+function WalletFlow() {
+  return (
+    <div className="sn-flow" aria-label="Agent wallet lifecycle">
+      {WALLET_FLOW.map(([n, title, body], index) => (
+        <div className="sn-flow-step" key={title}>
+          <div className="sn-flow-node">
+            <span>{n}</span>
+            {index < WALLET_FLOW.length - 1 && <i aria-hidden="true" />}
+          </div>
+          <h3>{title}</h3>
+          <p>{body}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Landing() {
   return (
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
@@ -149,25 +209,76 @@ export default function Landing() {
       </nav>
 
       {/* Hero */}
-      <header className="sn-pad" style={{ ...wrap, padding: "104px 32px 96px", maxWidth: 880 }}>
-        <MonoLabel mb={20}>AI advisory · Implementation · Products</MonoLabel>
-        <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
-          Working AI for real businesses.
-        </h1>
-        <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "52ch", margin: "24px 0 32px" }}>
-          We install AI on the workflows your business already runs — implementation, internal
-          tools, content systems, and executive strategy. Built inside the tools you already pay
-          for, measured against outcomes you can point to.
-        </p>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-            Book discovery
-          </a>
-          <a className="sn-btn sn-btn-secondary sn-btn-l" href="#built">See what we&apos;ve built →</a>
+      <header className="sn-home-hero">
+        <div className="sn-home-hero-grid" style={wrap}>
+          <div>
+            <MonoLabel mb={20}>AI systems · Agent infrastructure · Implementation</MonoLabel>
+            <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
+              We build operating systems for AI-enabled companies.
+            </h1>
+            <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "52ch", margin: "24px 0 32px" }}>
+              Sanction AI turns fragmented experiments into systems that run the business: agent
+              infrastructure, internal tools, automated workflows, and the policies that keep them accountable.
+            </p>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
+                Bring us a workflow
+              </a>
+              <a className="sn-btn sn-btn-secondary sn-btn-l" href="#agent-wallet">See the agent wallet →</a>
+            </div>
+          </div>
+          <WalletVisual />
         </div>
       </header>
 
       <AnthropicCerts />
+
+      <section id="agent-wallet" className="sn-wallet-section" data-theme="dark">
+        <div style={{ ...wrap, padding: "104px 32px 112px" }}>
+          <div className="sn-wallet-intro">
+            <div>
+              <MonoLabel color="#43D5A1" mb={16}>New in Sanction</MonoLabel>
+              <h2>The wallet an AI agent carries.</h2>
+            </div>
+            <div>
+              <p>
+                Identity says who the agent is. Payment rails move money. Sanction carries the
+                missing operating authority: what this agent may do, under whose policy, within
+                what budget, and with what proof.
+              </p>
+              <div className="sn-inline-links">
+                <Link href="/docs/agent-wallet">Read the architecture →</Link>
+                <a href="/.well-known/wallet-card.json">Inspect the Wallet Card ↗</a>
+              </div>
+            </div>
+          </div>
+          <WalletFlow />
+          <div className="sn-mcp-panel">
+            <div className="sn-mcp-code">
+              <div className="sn-mcp-window"><i /><i /><i /><span>sanction-mcp</span></div>
+              <code><b>$</b> npx sanction-mcp</code>
+              <code><em>✓</em> wallet connected <span>ops_agent_07</span></code>
+              <code><em>✓</em> 10 governance tools available</code>
+              <code><b>→</b> sanction_authorize_tool</code>
+              <code className="sn-code-result">AUTHORIZED · request dec_8f31</code>
+            </div>
+            <div className="sn-mcp-copy">
+              <MonoLabel color="#43D5A1" mb={14}>MCP 0.7 · Ten tools</MonoLabel>
+              <h3>Authority becomes part of the agent&apos;s runtime.</h3>
+              <p>
+                Govern spend, provisioning, tools, capabilities, credentials, token cost, and
+                outcomes from any MCP host. Mint short-lived mandates for child agents and let
+                counterparties verify them without a Sanction API key.
+              </p>
+              <div className="sn-tool-grid">
+                <span>SPEND</span><span>TOOLS</span><span>CAPABILITIES</span><span>CREDENTIALS</span><span>OUTCOMES</span><span>APPROVALS</span>
+              </div>
+              <p className="sn-honesty">Today&apos;s stdio MCP is cooperative. Enforced tool interception is the next hosted broker phase.</p>
+              <a className="sn-btn sn-btn-onDark sn-btn-m" href="https://www.npmjs.com/package/sanction-mcp">Install the MCP server ↗</a>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Why companies call */}
       <section style={{ ...wrap, padding: "96px 32px 112px" }}>
