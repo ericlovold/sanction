@@ -17,6 +17,12 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-15 — Stand up the Slack app so Add to Slack goes live: create
+      the app, scopes `chat:write` + `incoming-webhook`, Redirect URL
+      `/api/slack/oauth/callback`, Interactivity Request URL
+      `/api/slack/interactive`, then set `SANCTION_SLACK_CLIENT_ID` /
+      `CLIENT_SECRET` / `SIGNING_SECRET` on the deployment. OAuth install
+      path is shipped (SLACK-1); the app + env is the remaining pickup. (ops)
 - [x] 2026-07-16 — promoted: packs grouped under the four ladder stages,
       each with a one-line meaning (backlog-tail PR, 2026-07-16). — Policy
       packs by ladder tag

@@ -54,6 +54,13 @@ describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () =>
     await db.agentClearance.create({ data: { walletId: walletA, agentId: agentA, level: 3 } })
     await db.agentClearance.create({ data: { walletId: walletB, agentId: agentB, level: 5 } })
 
+    await db.slackInstall.create({
+      data: { walletId: walletA, teamId: "TA", channelId: "CA1", botTokenEnc: "encA" },
+    })
+    await db.slackInstall.create({
+      data: { walletId: walletB, teamId: "TB", channelId: "CB1", botTokenEnc: "encB" },
+    })
+
     const appUrl = process.env.DATABASE_URL!.replace(/\/\/[^@]+@/, "//sanction_app:app@")
     appClient = new PrismaClient({ adapter: new PrismaPg({ connectionString: appUrl }) })
   })
@@ -62,6 +69,7 @@ describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () =>
     await appClient?.$disconnect()
     if (walletA) {
       await db.agentClearance.deleteMany({ where: { walletId: { in: [walletA, walletB] } } })
+      await db.slackInstall.deleteMany({ where: { walletId: { in: [walletA, walletB] } } })
       await db.credentialVault.deleteMany({ where: { walletId: { in: [walletA, walletB] } } })
       await db.agent.deleteMany({ where: { walletId: { in: [walletA, walletB] } } })
       await db.wallet.deleteMany({ where: { id: { in: [walletA, walletB] } } })
@@ -108,6 +116,24 @@ describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () =>
     })
     it("no tenant context → clearance invisible (fail-closed)", async () => {
       expect(await appClient.agentClearance.findMany({})).toHaveLength(0)
+    })
+  })
+
+  describe("SlackInstall", () => {
+    it("A sees only its own install — even with NO where clause", async () => {
+      const rows = await asTenant(walletA, (tx) => tx.slackInstall.findMany({}))
+      expect(rows).toHaveLength(1)
+      expect(rows[0].walletId).toBe(walletA)
+    })
+    it("A cannot write into B's SlackInstall (WITH CHECK blocks it)", async () => {
+      await expect(
+        asTenant(walletA, (tx) =>
+          tx.slackInstall.create({ data: { walletId: walletB, teamId: "TX", channelId: "CX1", botTokenEnc: "x" } }),
+        ),
+      ).rejects.toThrow()
+    })
+    it("no tenant context → install invisible (fail-closed)", async () => {
+      expect(await appClient.slackInstall.findMany({})).toHaveLength(0)
     })
   })
 })

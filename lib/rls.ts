@@ -4,7 +4,7 @@
  * `withTenant(walletId, fn)` opens a transaction, sets the transaction-local
  * `app.wallet_id` GUC that the RLS policies key on, then runs `fn` against the
  * scoped transaction client. Any query `fn` makes against an RLS-protected table
- * (currently CredentialVault — the crown jewel) can ONLY see or write rows for
+ * (currently CredentialVault and SlackInstall) can ONLY see or write rows for
  * `walletId`, even if the query forgets its `where` clause. This is the
  * DB-level backstop beneath the app-layer `walletId` filtering.
  *

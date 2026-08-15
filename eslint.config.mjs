@@ -24,6 +24,8 @@ const eslintConfig = defineConfig([
     // Generated build artifacts — not hand-written source.
     "**/mcp-server.js",
     "lib/generated/**",
+    // Local Python virtualenvs (never source).
+    "**/.venv/**",
   ]),
 ]);
 

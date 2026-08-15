@@ -5,12 +5,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // the bare getSessionWallet — a viewer resolves to the same null as no
 // session. addWebhookAction's own event-routing behavior is already covered
 // by tests/webhook-routing.test.ts; this file is just the role floor.
-const { dbMock, sessionMock, approvalsMock, subtreeMock, revalidateMock } = vi.hoisted(() => ({
-  dbMock: { webhook: { findUnique: vi.fn(), delete: vi.fn() } },
+const { dbMock, sessionMock, approvalsMock, subtreeMock, revalidateMock, tenantMock } = vi.hoisted(() => ({
+  dbMock: {
+    webhook: { findUnique: vi.fn(), delete: vi.fn() },
+    slackInstall: { updateMany: vi.fn() },
+  },
   sessionMock: { requireSessionRole: vi.fn() },
   approvalsMock: { resolveApproval: vi.fn() },
   subtreeMock: { subtreeWalletIds: vi.fn(async () => ({ ids: ["wallet_1"] })) },
   revalidateMock: vi.fn(),
+  tenantMock: vi.fn(),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/session", () => sessionMock)
@@ -28,8 +32,11 @@ vi.mock("next/server", async (orig) => {
   return { ...mod, after: (fn: () => void) => fn() }
 })
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
+vi.mock("@/lib/rls", () => ({
+  withTenant: (...args: unknown[]) => tenantMock(...args),
+}))
 
-import { resolveApprovalAction, removeWebhookAction } from "../app/dashboard/approvals/actions"
+import { resolveApprovalAction, removeWebhookAction, revokeSlackInstallAction } from "../app/dashboard/approvals/actions"
 
 const WALLET = { id: "wallet_1", ownerEmail: "cto@meridian.test" }
 
@@ -39,7 +46,10 @@ function form(fields: Record<string, string>) {
   return f
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  tenantMock.mockImplementation(async (_wallet: string, fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
+})
 
 describe("resolveApprovalAction — role floor", () => {
   it("denies without reaching resolveApproval when the role floor isn't met", async () => {
@@ -71,5 +81,24 @@ describe("removeWebhookAction — role floor", () => {
     await removeWebhookAction(form({ id: "wh_1" }))
     expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
     expect(dbMock.webhook.delete).toHaveBeenCalledWith({ where: { id: "wh_1" } })
+  })
+})
+
+describe("revokeSlackInstallAction — role floor", () => {
+  it("denies without touching the install when the role floor isn't met", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(null)
+    await revokeSlackInstallAction(form({ id: "si_1" }))
+    expect(tenantMock).not.toHaveBeenCalled()
+  })
+
+  it("requires admin-or-higher and revokes an owned install once granted", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    dbMock.slackInstall.updateMany.mockResolvedValue({ count: 1 })
+    await revokeSlackInstallAction(form({ id: "si_1" }))
+    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
+    expect(dbMock.slackInstall.updateMany).toHaveBeenCalledWith({
+      where: { id: "si_1", walletId: "wallet_1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    })
   })
 })

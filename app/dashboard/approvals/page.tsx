@@ -6,7 +6,9 @@ import { NoWallet } from "@/components/no-wallet"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
 import { WebhookSettings } from "@/components/webhook-settings"
 import { listPendingApprovals } from "@/lib/approvals"
+import { withTenant } from "@/lib/rls"
 import { getViewWallet } from "@/lib/session"
+import { slackClientId } from "@/lib/slackOAuth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
@@ -68,8 +70,12 @@ const statusClasses: Record<string, string> = {
   expired: "border-border bg-muted text-muted-foreground",
 }
 
-export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ review?: string }> }) {
-  const { review } = await searchParams
+export default async function ApprovalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ review?: string; slack?: string }>
+}) {
+  const { review, slack } = await searchParams
   const view = await getViewWallet()
   // A ?review deep link is someone answering an escalation email. Neither the
   // public demo fallback nor a bare "no wallet" screen may answer that click —
@@ -106,7 +112,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
   // Runs after listPendingApprovals on purpose: that read settles expired
   // escalations, and the resolved list below should include them.
-  const [resolved, webhooks, orgPendingRows] = await Promise.all([
+  const [resolved, webhooks, slackInstalls, orgPendingRows] = await Promise.all([
     db.pendingApproval.findMany({
       // Subtree-wide, like the pending inbox above it: a decision made here on
       // a pool's escalation must not vanish from the page that made it.
@@ -124,7 +130,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       where: { walletId },
       select: { id: true, url: true, events: true },
       orderBy: { createdAt: "desc" },
-  }),
+    }),
+    withTenant(walletId, (tx) =>
+      tx.slackInstall.findMany({
+        where: { walletId, revokedAt: null },
+        select: { id: true, teamName: true, channelName: true, channelId: true },
+        orderBy: { installedAt: "desc" },
+      }),
+    ).catch(() => []),
     descendantIds.length
       ? db.pendingApproval.findMany({
           // Pure read — no settle pass here; expired rows are filtered, not
@@ -368,7 +381,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </CardContent>
       </Card>
 
-      <WebhookSettings webhooks={webhooks} editable={hasRole(view.role, "admin")} />
+      <WebhookSettings
+        webhooks={webhooks}
+        slackInstalls={slackInstalls}
+        oauthEnabled={!!slackClientId()}
+        slackStatus={slack}
+        editable={hasRole(view.role, "admin")}
+      />
     </div>
   )
 }

@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-15",
+    title: "Add to Slack — approve without pasting a channel URL",
+    tags: ["approvals", "slack", "oauth"],
+    body: "Interactive Approve/Deny no longer needs a platform bot token and a pasted archive URL. **Add to Slack** on the Approvals page runs Slack OAuth v2 (`chat:write` + `incoming-webhook`), stores the bot token under the wallet's SEC-1 envelope, and posts the card to the channel picked at install. Incoming webhooks still deep-link only. The env bot token remains a fallback for archive-URL routes. [Notifications](/docs/notifications).",
+  },
+  {
     date: "2026-08-13",
     title: "Approve or deny in Slack — without opening the dashboard",
     tags: ["approvals", "slack", "notifications"],

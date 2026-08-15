@@ -2,14 +2,47 @@
 
 import { useActionState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { addWebhookAction, removeWebhookAction, type WebhookActionState } from "@/app/dashboard/approvals/actions"
+import {
+  addWebhookAction,
+  removeWebhookAction,
+  revokeSlackInstallAction,
+  type WebhookActionState,
+} from "@/app/dashboard/approvals/actions"
 
 export type WebhookRow = { id: string; url: string; events: string[] }
+export type SlackInstallRow = {
+  id: string
+  teamName: string | null
+  channelName: string | null
+  channelId: string
+}
 
 const initial: WebhookActionState = { ok: false, message: "" }
 
-export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]; editable: boolean }) {
+const SLACK_STATUS: Record<string, { ok: boolean; text: string }> = {
+  connected: { ok: true, text: "Slack connected. Escalations will land in the channel you picked." },
+  denied: { ok: false, text: "Slack install was cancelled." },
+  forbidden: { ok: false, text: "Admin role required to connect Slack." },
+  invalid: { ok: false, text: "Slack install expired. Try Add to Slack again." },
+  failed: { ok: false, text: "Slack did not return a bot token. Check the app's OAuth scopes." },
+  missing_channel: { ok: false, text: "Slack did not return a channel. Reinstall and pick a channel." },
+}
+
+export function WebhookSettings({
+  webhooks,
+  slackInstalls = [],
+  oauthEnabled = false,
+  slackStatus,
+  editable,
+}: {
+  webhooks: WebhookRow[]
+  slackInstalls?: SlackInstallRow[]
+  oauthEnabled?: boolean
+  slackStatus?: string
+  editable: boolean
+}) {
   const [state, formAction, pending] = useActionState(addWebhookAction, initial)
+  const status = slackStatus ? SLACK_STATUS[slackStatus] : undefined
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -18,12 +51,56 @@ export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]
       </CardHeader>
       <CardContent className="px-5 pb-5 space-y-4">
         <p className="text-xs text-zinc-500">
-          Get pinged the instant a charge escalates. Slack incoming webhooks get
-          readable messages with a Review link; a Slack channel archive URL plus
-          the Sanction Slack app posts Approve/Deny in Slack. Other endpoints get
-          signed JSON (verify <code className="font-mono">x-sanction-signature</code>).
-          Multiple routes send different events to different channels.
+          Get pinged the instant a charge escalates. Add to Slack posts Approve/Deny in the channel
+          you pick at install. Incoming webhooks still deep-link only. Other endpoints get signed
+          JSON (verify <code className="font-mono">x-sanction-signature</code>).
         </p>
+
+        {status && (
+          <p className={`text-xs ${status.ok ? "text-emerald-400" : "text-red-400"}`}>{status.text}</p>
+        )}
+
+        {slackInstalls.length > 0 && (
+          <div className="space-y-2">
+            {slackInstalls.map((row) => (
+              <div
+                key={row.id}
+                className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-zinc-300">
+                    {row.teamName ?? "Slack workspace"}
+                    <span className="text-zinc-500">
+                      {" "}
+                      · {row.channelName ? row.channelName : `#${row.channelId}`}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-zinc-500">Approve / Deny in Slack</p>
+                </div>
+                {editable && (
+                  <form action={revokeSlackInstallAction}>
+                    <input type="hidden" name="id" value={row.id} />
+                    <button
+                      type="submit"
+                      className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-red-400"
+                    >
+                      Disconnect
+                    </button>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {editable && oauthEnabled && (
+          <a
+            href="/api/slack/oauth/start"
+            className="inline-flex items-center rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500"
+          >
+            Add to Slack
+          </a>
+        )}
 
         {webhooks.length > 0 && (
           <div className="space-y-2">
@@ -51,7 +128,9 @@ export function WebhookSettings({ webhooks, editable }: { webhooks: WebhookRow[]
             ))}
           </div>
         )}
-        {webhooks.length === 0 && <p className="text-sm text-zinc-600">No webhooks yet.</p>}
+        {webhooks.length === 0 && slackInstalls.length === 0 && (
+          <p className="text-sm text-zinc-600">No webhooks yet.</p>
+        )}
 
         {editable ? (
           <form action={formAction} className="space-y-3">

@@ -1,6 +1,9 @@
 import { createHmac, randomBytes } from "crypto"
+import { decryptCredentialEnvelope } from "./credentialCrypto"
 import { db } from "./db"
+import { withTenant } from "./rls"
 import { postSlackChat, slackBotToken, slackChannelIdFromUrl, slackInteractivePayload } from "./slack"
+import { slackOAuthLabel } from "./slackOAuth"
 
 // Owner-registered webhooks notified on events. Each delivery is signed with
 // HMAC-SHA256 over the exact request body so the receiver can verify it's us.
@@ -164,14 +167,55 @@ export function slackPayload(event: string, data: Record<string, unknown>): stri
   return JSON.stringify({ text: text.replace(/\*/g, ""), blocks })
 }
 
+async function listSlackInstalls(walletId: string) {
+  try {
+    return await withTenant(walletId, (tx) =>
+      tx.slackInstall.findMany({ where: { walletId, revokedAt: null } }),
+    )
+  } catch {
+    return []
+  }
+}
+
+async function deliverSlackInstalls(
+  walletId: string,
+  event: string,
+  data: Record<string, unknown>,
+  installs: Array<{
+    teamId: string
+    channelId: string
+    botTokenEnc: string
+    keyId: string | null
+    events: string[]
+  }>,
+) {
+  const payload = slackInteractivePayload(event, data, slackText(event, data))
+  await Promise.allSettled(
+    installs
+      .filter((row) => row.events.includes(event) || row.events.includes("*"))
+      .map(async (row) => {
+        const token = await decryptCredentialEnvelope({
+          encryptedValue: row.botTokenEnc,
+          walletId,
+          label: slackOAuthLabel(row.teamId),
+          keyId: row.keyId,
+        })
+        await postSlackChat(row.channelId, payload, token)
+      }),
+  )
+}
+
 /** Deliver an event to every active webhook on the wallet subscribed to it. */
 export async function deliverEvent(walletId: string, event: string, data: Record<string, unknown>) {
-  const hooks = await db.webhook.findMany({ where: { walletId, isActive: true } })
+  const [hooks, installs] = await Promise.all([
+    db.webhook.findMany({ where: { walletId, isActive: true } }),
+    listSlackInstalls(walletId),
+  ])
   const targets = hooks.filter((h) => h.events.includes(event) || h.events.includes("*"))
-  if (targets.length === 0) return
+  if (targets.length === 0 && installs.length === 0) return
   const body = JSON.stringify({ event, created_at: new Date().toISOString(), wallet_id: walletId, ...data })
-  await Promise.allSettled(
-    targets.map((h) => {
+  await Promise.allSettled([
+    ...targets.map((h) => {
       const channelId = slackChannelIdFromUrl(h.url)
       if (channelId) {
         return slackBotToken()
@@ -182,7 +226,8 @@ export async function deliverEvent(walletId: string, event: string, data: Record
         ? post(h.url, null, event, slackPayload(event, data))
         : post(h.url, h.secret, event, body)
     }),
-  )
+    deliverSlackInstalls(walletId, event, data, installs),
+  ])
 }
 
 /** Send a one-off test ping to a single endpoint (used when a webhook is created). */

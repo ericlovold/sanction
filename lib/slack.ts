@@ -143,8 +143,7 @@ export function slackReplacementMessage(decision: "approve" | "reject", actor: s
   }
 }
 
-export async function postSlackChat(channel: string, body: string): Promise<void> {
-  const token = slackBotToken()
+export async function postSlackChat(channel: string, body: string, token = slackBotToken()): Promise<void> {
   if (!token) return
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 5000)

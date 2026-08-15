@@ -5,16 +5,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 // wrapper, and the fixed-window rate limiter. These run from after() in the
 // hot paths, so the shared contract is: fire when they should, stay silent
 // when they shouldn't, and never throw into the caller.
-const { dbMock } = vi.hoisted(() => ({
+const { dbMock, decryptMock } = vi.hoisted(() => ({
   dbMock: {
     wallet: { findUnique: vi.fn() },
     webhook: { findMany: vi.fn() },
+    slackInstall: { findMany: vi.fn() },
     rateLimit: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
+  decryptMock: vi.fn(),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/credentialCrypto", () => ({ decryptCredentialEnvelope: decryptMock }))
 vi.mock("@/lib/webhooks", async (orig) => {
   const mod = await orig<typeof import("@/lib/webhooks")>()
   return { ...mod, deliverEvent: vi.fn(async () => {}) }
@@ -34,6 +37,7 @@ const COMMON = { walletId: "wallet_1", ownerEmail: "owner@example.com", agentNam
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.slackInstall.findMany.mockResolvedValue([])
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
 })
 
@@ -177,6 +181,39 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     global.fetch = fetchMock as never
     await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_1" })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("posts Approve/Deny via an OAuth install token without the env bot token", async () => {
+    decryptMock.mockResolvedValue("xoxb-install")
+    dbMock.slackInstall.findMany.mockResolvedValue([
+      {
+        teamId: "T123",
+        channelId: "C0123456789",
+        botTokenEnc: "enc",
+        keyId: "key_1",
+        events: ["*"],
+      },
+    ])
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    dbMock.webhook.findMany.mockResolvedValue([])
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true })))
+    global.fetch = fetchMock as never
+
+    await deliverEvent("wallet_1", "approval.created", {
+      approval_id: "appr_1",
+      agent: "tenet",
+      amount_usd: 60,
+      merchant: "Vendor",
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe("https://slack.com/api/chat.postMessage")
+    expect(new Headers(init.headers).get("authorization")).toBe("Bearer xoxb-install")
+    const body = JSON.parse(String(init.body))
+    expect(body.channel).toBe("C0123456789")
+    const actionIds = body.blocks[1].elements.map((el: { action_id?: string }) => el.action_id)
+    expect(actionIds).toContain("sanction_approve")
+    expect(actionIds).toContain("sanction_deny")
   })
 
   it("formats the weekly digest for Slack: wk/wk delta, counts, busiest agent", async () => {

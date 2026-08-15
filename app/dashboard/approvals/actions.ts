@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { after } from "next/server"
 import { db } from "@/lib/db"
 import { resolveApproval } from "@/lib/approvals"
+import { withTenant } from "@/lib/rls"
 import { requireSessionRole } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { generateWebhookSecret, deliverPing, isPublicHttpsUrl, KNOWN_EVENTS, DEFAULT_EVENTS } from "@/lib/webhooks"
@@ -75,5 +76,19 @@ export async function removeWebhookAction(form: FormData): Promise<void> {
   const id = String(form.get("id") ?? "")
   const hook = await db.webhook.findUnique({ where: { id } })
   if (hook && hook.walletId === wallet.id) await db.webhook.delete({ where: { id } })
+  revalidatePath("/dashboard/approvals")
+}
+
+export async function revokeSlackInstallAction(form: FormData): Promise<void> {
+  const wallet = await requireSessionRole("admin")
+  if (!wallet) return
+  const id = String(form.get("id") ?? "")
+  if (!id) return
+  await withTenant(wallet.id, (tx) =>
+    tx.slackInstall.updateMany({
+      where: { id, walletId: wallet.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  )
   revalidatePath("/dashboard/approvals")
 }

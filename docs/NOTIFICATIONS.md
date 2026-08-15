@@ -13,6 +13,27 @@ heads-up when any budget crosses its 80% line. Nothing to configure.
 Two setups. Incoming webhooks stay a deep-link. In-Slack Approve/Deny needs a
 Slack app — incoming webhooks cannot receive button clicks.
 
+### Add to Slack (Approve / Deny)
+
+1. Create a Slack app. Scopes: `chat:write`, `incoming-webhook`. Enable
+   **Interactivity** with Request URL
+   `https://getsanction.com/api/slack/interactive`. Redirect URL:
+   `https://getsanction.com/api/slack/oauth/callback`.
+2. Set `SANCTION_SLACK_SIGNING_SECRET`, `SANCTION_SLACK_CLIENT_ID`, and
+   `SANCTION_SLACK_CLIENT_SECRET` on the Sanction deployment. The interactive
+   endpoint **fails closed** (503) if the signing secret is unset. OAuth start
+   is 503 if the client id is unset.
+3. Dashboard → Approvals → **Add to Slack**. Pick the channel at install.
+
+Escalations then carry **Approve** / **Deny** plus the Review link. The click
+runs the same `resolveApproval` path as the dashboard (grant, audit, resolved
+events). The actor is recorded as `slack:<username>`. Anyone in that channel
+can decide — the channel is the ACL. Disconnect on the same page revokes the
+install (the row stays; delivery stops).
+
+Signature: Slack's `v0` HMAC over the raw body. Stale timestamps (>5 minutes)
+and bad signatures are 401. Rate-limited per IP.
+
 ### Incoming webhook (Review link)
 
 1. In Slack: create an **incoming webhook** for the channel (Slack admin → Apps
@@ -24,24 +45,9 @@ Slack app — incoming webhooks cannot receive button clicks.
 Escalations arrive as readable Block Kit with a **Review in Sanction** button.
 No Slack app. The webhook URL is the secret.
 
-### Interactive Approve/Deny (Slack app)
-
-1. Create a Slack app. Enable **Interactivity** with Request URL
-   `https://getsanction.com/api/slack/interactive`. Bot scope: `chat:write`.
-   Invite the bot to the channel.
-2. Set `SANCTION_SLACK_SIGNING_SECRET` and `SANCTION_SLACK_BOT_TOKEN` on the
-   Sanction deployment. The interactive endpoint **fails closed** (503) if the
-   signing secret is unset.
-3. Paste the channel archive URL (`https://slack.com/archives/C…`) as the
-   notification route.
-
-Escalations then carry **Approve** / **Deny** plus the Review link. The click
-runs the same `resolveApproval` path as the dashboard (grant, audit, resolved
-events). The actor is recorded as `slack:<username>`. Anyone in that channel
-can decide — the channel is the ACL.
-
-Signature: Slack's `v0` HMAC over the raw body. Stale timestamps (>5 minutes)
-and bad signatures are 401. Rate-limited per IP.
+The env `SANCTION_SLACK_BOT_TOKEN` plus a pasted channel archive URL
+(`https://slack.com/archives/C…`) remains a platform-token fallback when OAuth
+is not configured.
 
 ## Route different events to different channels
 
