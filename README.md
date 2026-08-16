@@ -68,7 +68,7 @@ coverage gate, including concurrency and Postgres row-level-security suites.
 Platform vendors govern agents inside their own walls. Sanction authorizes
 agents wherever they run:
 
-- **MCP (agent wallet)** — `npx sanction-mcp` in any MCP host. The agent carries the wallet. [Wallet Card](https://getsanction.com/.well-known/wallet-card.json) · [guide](docs/AGENT-WALLET.md)
+- **MCP (agent wallet)** — paste `https://getsanction.com/mcp` (Streamable HTTP, `x-api-key`) or `npx sanction-mcp` in any MCP host. The agent carries the wallet. [Wallet Card](https://getsanction.com/.well-known/wallet-card.json) · [guide](docs/AGENT-WALLET.md)
 - **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
 - **TypeScript SDK** — `npm install @sanction/sdk`: `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane), plus framework adapters (`SanctionMiddleware`, `sanctionTool`)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)

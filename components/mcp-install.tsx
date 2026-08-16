@@ -42,18 +42,23 @@ export function McpInstall() {
   const [apiKey, setApiKey] = useState("")
   const [walletId, setWalletId] = useState("")
 
-  const { cursorHref, vscodeHref, claudeCmd, desktopJson, usingPlaceholders } = useMemo(() => {
+  const { remoteJson, cursorHref, vscodeHref, claudeCmd, desktopJson, usingPlaceholders } = useMemo(() => {
     const key = apiKey.trim() || KEY_PLACEHOLDER
     const wallet = walletId.trim() || WALLET_PLACEHOLDER
     const env = { SANCTION_API_KEY: key, SANCTION_WALLET_ID: wallet }
     const server = { command: "npx", args: ["-y", "sanction-mcp"], env }
+    const remote = {
+      url: "https://getsanction.com/mcp",
+      headers: { "x-api-key": key },
+    }
 
     return {
+      remoteJson: JSON.stringify({ mcpServers: { sanction: remote } }, null, 2),
       cursorHref: `cursor://anysphere.cursor-deeplink/mcp/install?name=sanction&config=${btoa(JSON.stringify(server))}`,
       vscodeHref: `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: "sanction", ...server }))}`,
       claudeCmd: `claude mcp add sanction --env SANCTION_API_KEY=${key} --env SANCTION_WALLET_ID=${wallet} -- npx -y sanction-mcp`,
       desktopJson: JSON.stringify({ mcpServers: { sanction: server } }, null, 2),
-      usingPlaceholders: !apiKey.trim() || !walletId.trim(),
+      usingPlaceholders: !apiKey.trim(),
     }
   }, [apiKey, walletId])
 
@@ -88,21 +93,23 @@ export function McpInstall() {
         </label>
       </div>
       <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-        Generated in your browser — the key never leaves this page.
-        {usingPlaceholders && " Leave blank to install with placeholders and paste your key into the config afterwards."}
+        Paste the URL. The agent is issued an endpoint, not a local process. Generated in your browser — the key never leaves this page.
+        {usingPlaceholders && " Leave blank to copy with a placeholder and paste your key afterwards."}
       </p>
+
+      <CopyBlock label="Hosted wallet — paste into Claude / Cursor connectors" text={remoteJson} />
 
       <div className="flex flex-wrap gap-2">
         <a href={cursorHref} className="sn-btn sn-btn-secondary sn-btn-m">
-          Add to Cursor
+          Add stdio to Cursor
         </a>
         <a href={vscodeHref} className="sn-btn sn-btn-secondary sn-btn-m">
-          Add to VS Code
+          Add stdio to VS Code
         </a>
       </div>
 
-      <CopyBlock label="Claude Code" text={claudeCmd} />
-      <CopyBlock label="Claude Desktop / any MCP client (claude_desktop_config.json)" text={desktopJson} />
+      <CopyBlock label="stdio — Claude Code" text={claudeCmd} />
+      <CopyBlock label="stdio — Claude Desktop / local hosts" text={desktopJson} />
     </div>
   )
 }

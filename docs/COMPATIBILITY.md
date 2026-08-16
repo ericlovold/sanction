@@ -12,7 +12,7 @@ surface:
 
 | Badge | Use when | Proof surface |
 |---|---|---|
-| **Sanction-governed MCP** | An MCP host carries a Sanction wallet (`sanction-mcp`) and asks before risky tools or spend. Cooperative until the hosted broker ships. | `npx sanction-mcp`, `/.well-known/wallet-card.json`, `/authorize/tool`, `/authorize` |
+| **Sanction-governed MCP** | An MCP host carries a Sanction wallet (`/mcp` or `sanction-mcp`) and asks before risky tools or spend. Cooperative until the hosted broker ships. | `https://getsanction.com/mcp`, `npx sanction-mcp`, `/.well-known/wallet-card.json`, `/authorize/tool`, `/authorize` |
 | **AuthZEN PDP compatible** | A policy enforcement point calls Sanction's OpenID AuthZEN endpoints | `/access/v1/evaluation`, `/access/v1/evaluations` |
 | **AARP approval loop** | An AuthZEN escalation opens a Sanction access request and redeems the grant on retry | `/access/v1/access-request` |
 | **Gateway metered** | Model calls route through the Sanction gateway with `x-sanction-key` | `/api/gateway/<provider>` |
@@ -23,19 +23,16 @@ surface:
 The fastest channel is MCP because the install shape is already familiar. The
 agent carries a Sanction wallet — it is not another tool server next to GitHub.
 Discovery: [`GET /.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json).
-stdio is cooperative; counterparties verify a presented mandate at
+Paste the hosted URL into Claude / Cursor connectors; stdio remains for local
+hosts. Both are cooperative; counterparties verify a presented mandate at
 `POST /v1/mandate/verify`. Guide: [The agent wallet](AGENT-WALLET.md).
 
 ```json
 {
   "mcpServers": {
     "sanction": {
-      "command": "npx",
-      "args": ["sanction-mcp"],
-      "env": {
-        "SANCTION_API_KEY": "pxy_...",
-        "SANCTION_WALLET_ID": "wal_..."
-      }
+      "url": "https://getsanction.com/mcp",
+      "headers": { "x-api-key": "pxy_..." }
     }
   }
 }

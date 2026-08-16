@@ -494,6 +494,10 @@ as fact here.
       `POST /v1/mandate/verify`, honesty contract). This item is now the
       hosted endpoint + broker interception — the actual launch. On the
       public roadmap as Next.
+      · 2026-08-16: **v1 URL** (`POST /mcp`, Streamable HTTP, API-key,
+      cooperative, MCP-REMOTE-1). Remainder is broker intercept + OAuth.
+      Per-agent Wallet Cards and per-decision receipts stay on the same
+      carry / present / verify / evidence path.
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.

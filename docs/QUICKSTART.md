@@ -119,7 +119,7 @@ curl -s -X POST https://getsanction.com/api/v1/tokens \
 ## Next steps
 
 - **Set a spend policy:** `PATCH /wallets/policy` — daily budgets, auto-approve thresholds, escalation rules.
-- **Carry the wallet over MCP:** `npx sanction-mcp`. Discovery: [`/.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json). Guide: [The agent wallet](./AGENT-WALLET.md).
+- **Carry the wallet over MCP:** paste `https://getsanction.com/mcp` with `x-api-key`, or `npx sanction-mcp`. Discovery: [`/.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json). Guide: [The agent wallet](./AGENT-WALLET.md).
 - **Mandate:** `POST /exec` mints a 15-minute JWT; a counterparty checks it at `POST /mandate/verify` (no API key); `POST /credentials/inject` uses it.
 - **Dashboard:** `GET /wallets/stats?wallet_id=<id>` or visit [getsanction.com](https://getsanction.com).
 - **Framework guides:** [Vercel AI SDK](./VERCEL-AI-SDK.md) · [LangChain](./LANGCHAIN.md) · [CrewAI](./CREWAI.md)

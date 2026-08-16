@@ -20,7 +20,7 @@ const badges = [
 const channels = [
   {
     title: "MCP hosts",
-    body: "Cursor, Claude Desktop, Claude Code, Windsurf, Codex, and custom MCP hosts add `npx sanction-mcp` as the agent's wallet — not another tool server.",
+    body: "Cursor, Claude Desktop, Claude Code, Windsurf, Codex, and custom MCP hosts paste `https://getsanction.com/mcp` (or `npx sanction-mcp`) as the agent's wallet — not another tool server.",
     pack: "mcp-tool-governance",
   },
   {
