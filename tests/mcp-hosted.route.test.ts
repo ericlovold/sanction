@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
-import { agentKeyFromMcpRequest } from "../lib/mcpRemote"
+import { agentKeyFromMcpRequest, isBrowserMcpProbe } from "../lib/mcpRemote"
 
 const { authMock, rateLimitMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock("@/lib/rateLimit", async (orig) => {
   return { ...mod, rateLimit: rateLimitMock }
 })
 
-import { POST as mcpPost } from "../app/mcp/route"
+import { GET as mcpGet, POST as mcpPost } from "../app/mcp/route"
 
 const KEY = "pxy_live_agent_key"
 
@@ -54,6 +54,58 @@ beforeEach(() => {
   authMock.mockResolvedValue({
     agent: { id: "agt_1", walletId: "wal_1", isActive: true },
     error: null,
+  })
+})
+
+describe("isBrowserMcpProbe", () => {
+  it("is a GET with text/html and no agent key — not an MCP SSE client", () => {
+    expect(
+      isBrowserMcpProbe(new Request("https://getsanction.com/mcp", { headers: { accept: "text/html" } })),
+    ).toBe(true)
+    expect(
+      isBrowserMcpProbe(
+        new Request("https://getsanction.com/mcp", {
+          method: "POST",
+          headers: { accept: "text/html" },
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      isBrowserMcpProbe(
+        new Request("https://getsanction.com/mcp", { headers: { accept: "application/json, text/event-stream" } }),
+      ),
+    ).toBe(false)
+    expect(
+      isBrowserMcpProbe(
+        new Request("https://getsanction.com/mcp", { headers: { accept: "text/html", "x-api-key": KEY } }),
+      ),
+    ).toBe(false)
+  })
+})
+
+describe("GET /mcp — browser vs protocol", () => {
+  it("serves a paste page to a browser with no key", async () => {
+    const req = new NextRequest("https://getsanction.com/mcp", {
+      headers: { accept: "text/html,application/xhtml+xml" },
+    })
+    const res = await mcpGet(req)
+    expect(res.status).toBe(200)
+    expect(res.headers.get("content-type")).toMatch(/text\/html/)
+    const html = await res.text()
+    expect(html).toContain("https://getsanction.com/mcp")
+    expect(html).toContain("x-api-key")
+    expect(html).toContain("Wallet Card")
+    expect(rateLimitMock).not.toHaveBeenCalled()
+    expect(authMock).not.toHaveBeenCalled()
+  })
+
+  it("401s JSON when an MCP client GETs without a key", async () => {
+    const req = new NextRequest("https://getsanction.com/mcp", {
+      headers: { accept: "application/json, text/event-stream" },
+    })
+    const res = await mcpGet(req)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("x-api-key") })
   })
 })
 
