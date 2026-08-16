@@ -111,7 +111,7 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 | `gateway` | Provider metering + budget enforcement | unit |
 | `mcpWalletStatus` | MCP wallet status fail-closed rendering | unit |
 | `mandate` / `mandate-verify.route` / `wallet-card.route` | Mandate fold + public verify + Wallet Card discovery (WALLET-1) | unit |
-| `mcp-hosted.route` | Hosted `/mcp` Streamable HTTP: auth, rate limit, initialize, tools/list (MCP-REMOTE-1) | unit |
+| `mcp-hosted.route` / `mcpServer` | Hosted `/mcp` Streamable HTTP: auth, rate limit, initialize, tools/list (MCP-REMOTE-1); shared tool handlers fail closed | unit |
 | `slack` / `slack-interactive.route` / `slack-oauth` / `slack-oauth.route` | Slack HMAC + interactive Approve/Deny through resolveApproval; OAuth install-per-workspace (SLACK-1) | unit |
 | `e2e.db` | The full customer lifecycle against real Postgres (wallet→agent→authorize→vault→exec→inject→revoke→approve, incl. provision) | DB |
 | `concurrency.db` | Advisory-lock atomicity under real concurrent transactions | DB |
