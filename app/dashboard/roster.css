@@ -1,0 +1,38 @@
+/* Roster surface — scoped. Dark credential case, one brass stamp. */
+.roster {
+  --roster-ink: #0b0c0e;
+  --roster-paper: #14161a;
+  --roster-rule: #2a2d33;
+  --roster-brass: #c4a35a;
+  --roster-fog: #8b9099;
+  --roster-signal: #e8e4d9;
+  --roster-paused: #d4a017;
+  --roster-blocked: #6b7078;
+  min-height: 100%;
+  background: var(--roster-ink);
+  color: var(--roster-signal);
+}
+
+.roster-stamp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--roster-rule);
+  padding: 2px 7px;
+}
+
+.roster-stamp-live {
+  color: var(--roster-brass);
+  border-color: color-mix(in srgb, var(--roster-brass) 55%, var(--roster-rule));
+}
+
+.roster-stamp-paused {
+  color: var(--roster-paused);
+  border-color: color-mix(in srgb, var(--roster-paused) 50%, var(--roster-rule));
+}
+
+.roster-stamp-blocked {
+  color: var(--roster-blocked);
+  border-color: var(--roster-rule);
+}

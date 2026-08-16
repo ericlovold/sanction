@@ -6,6 +6,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { listSessionWallets, requireSessionRole, setActiveWallet } from "@/lib/session"
+import { subtreeWalletIds } from "@/lib/walletSubtree"
 
 export type CreateAgentState = { ok: boolean; error: string; agentKey?: string; agentName?: string }
 export type BatchSeatResult = { id: string; name: string; holder: string | null; agentKey: string; apiKeyPrefix: string }
@@ -57,10 +58,18 @@ export async function createAgentAction(_prev: CreateAgentState, form: FormData)
   const expiresRaw = String(form.get("expires_at") ?? "").trim()
   const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : undefined
 
+  const requested = String(form.get("wallet_id") ?? "").trim()
+  let walletId = wallet.id
+  if (requested && requested !== wallet.id) {
+    const { ids } = await subtreeWalletIds(wallet.id)
+    if (!ids.includes(requested)) return { ok: false, error: "That group is not in this wallet." }
+    walletId = requested
+  }
+
   const key = generateApiKey()
   await db.agent.create({
     data: {
-      walletId: wallet.id,
+      walletId,
       name: parsed.data,
       apiKeyHash: key.hash,
       apiKeyPrefix: key.prefix,

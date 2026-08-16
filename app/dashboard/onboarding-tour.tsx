@@ -1,8 +1,8 @@
 "use client"
 
-// The 5/5 guided onboarding: five steps, spotlight + arrow overlays, each
+// Guided onboarding: spotlight + arrow overlays, each
 // anchored to the REAL element it teaches (data-tour attributes). Auto-opens
-// once for a first visit (localStorage), restartable via the "5-step tour"
+// once for a first visit (localStorage), restartable via the Tour
 // chip or ?tour=1. No dependencies — a backdrop with a cut-out ring, a card
 // positioned beside the target, Back/Next/Skip.
 
@@ -18,29 +18,24 @@ type Step = {
 
 const STEPS: Step[] = [
   {
-    target: "nav-providers",
-    title: "1 · Pull in your data",
-    body: "Connect Anthropic, OpenAI, or Google once — the key is encrypted into your vault. From then on your agents only ever hold Sanction seat keys, and every model call flows through the gateway, metered.",
+    target: "roster-root",
+    title: "1 · The roster",
+    body: "This is the group. Agents live on it. Child groups nest under it. Spend and the mandate stamp sit on the card — not on a report of zeros.",
   },
   {
-    target: "budget-card",
-    title: "2 · See it",
-    body: "Where you are on AI spend, always current: month against budget, week and quarter, and which provider the tokens went to. This is the answer to “where are we on our monthly AI spend?”",
+    target: "roster-add",
+    title: "2 · Add an agent",
+    body: "Name it. Create. Copy the key once. The card appears in this group.",
   },
   {
-    target: "nav-agents",
-    title: "3 · Seats, teams, budgets",
-    body: "Every agent gets a seat: its own key, its own budgets, its own audit trail. Group seats into Pools — departments with shared caps — and spend rolls up the tree.",
+    target: "nav-approvals",
+    title: "3 · Approve",
+    body: "When a request crosses the line it pauses here. Approve mints a single-use grant. The stamp on the agent card reads paused until you decide.",
   },
   {
-    target: "decisions-card",
-    title: "4 · Approve",
-    body: "Anything over your escalation line pauses HERE until a human decides. Approving mints a single-use grant the agent retries with — try it on a live one right now.",
-  },
-  {
-    target: "nav-policy",
-    title: "5 · Govern",
-    body: "Policy is the ladder: auto-approve under a line, escalate above it, hard-deny at the cap. And Audit is the signed, tamper-evident record of every decision — the evidence layer.",
+    target: "nav-vault",
+    title: "4 · Vault",
+    body: "Credentials, providers, people, policy, spend, and the signed record. Properties of the wallet — not nine icons on the rail.",
   },
 ]
 
@@ -184,7 +179,7 @@ export function TourLauncher() {
       }}
       className="rounded-full border border-emerald-500/40 px-3 py-1 text-xs text-emerald-500 hover:bg-emerald-500/[0.08]"
     >
-      5-step tour
+      Tour
     </button>
   )
 }
