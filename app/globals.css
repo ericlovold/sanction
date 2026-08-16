@@ -78,15 +78,15 @@
   --chart-4: oklch(0.5 0.008 160);      /* ink-muted */
   --chart-5: oklch(0.72 0.02 160);      /* faint */
   --radius: 0.375rem;                    /* tighter — precision, not bubble */
-  /* the control rail stays DEEP PINE even in light mode (the framed instrument look) */
-  --sidebar: oklch(0.3 0.045 165);      /* deep pine #0c332a */
-  --sidebar-foreground: oklch(0.95 0.005 160);
-  --sidebar-primary: oklch(0.62 0.13 163); /* emerald — the active accent bar */
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(1 0 0 / 6%);  /* active row wash on pine */
-  --sidebar-accent-foreground: oklch(0.99 0 0);
+  /* Roster pass: ink rail, brass active — matches the credential case */
+  --sidebar: oklch(0.11 0.005 260);
+  --sidebar-foreground: oklch(0.91 0.01 85);
+  --sidebar-primary: oklch(0.78 0.08 85);
+  --sidebar-primary-foreground: oklch(0.11 0.005 260);
+  --sidebar-accent: oklch(1 0 0 / 6%);
+  --sidebar-accent-foreground: oklch(0.93 0.01 85);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.62 0.13 163);
+  --sidebar-ring: oklch(0.78 0.08 85);
 }
 
 .dark {
@@ -118,7 +118,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.78 0.08 85);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);

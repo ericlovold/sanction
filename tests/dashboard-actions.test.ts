@@ -4,17 +4,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // (single + batch seat) now sit behind requireSessionRole("admin") instead
 // of the bare getSessionWallet — a viewer resolves to the same null as no
 // session, same denial.
-const { dbMock, sessionMock, revalidateMock, redirectMock } = vi.hoisted(() => ({
+const { dbMock, sessionMock, revalidateMock, redirectMock, subtreeMock } = vi.hoisted(() => ({
   dbMock: { agent: { create: vi.fn() }, $transaction: vi.fn() },
   sessionMock: { requireSessionRole: vi.fn(), listSessionWallets: vi.fn(), setActiveWallet: vi.fn() },
   revalidateMock: vi.fn(),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`)
   }),
+  subtreeMock: { subtreeWalletIds: vi.fn() },
 }))
 dbMock.$transaction.mockImplementation((fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/session", () => sessionMock)
+vi.mock("@/lib/walletSubtree", () => subtreeMock)
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
 vi.mock("next/navigation", () => ({ redirect: redirectMock }))
 
@@ -47,6 +49,22 @@ describe("createAgentAction — role floor", () => {
     expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
     expect(res.ok).toBe(true)
     expect(dbMock.agent.create).toHaveBeenCalledOnce()
+  })
+
+  it("refuses a wallet_id outside the subtree", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    subtreeMock.subtreeWalletIds.mockResolvedValue({ ids: ["wallet_1"] })
+    const res = await createAgentAction({ ok: false, error: "" }, form({ name: "runner-1", wallet_id: "wallet_other" }))
+    expect(res.ok).toBe(false)
+    expect(dbMock.agent.create).not.toHaveBeenCalled()
+  })
+
+  it("creates on a child group inside the subtree", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    subtreeMock.subtreeWalletIds.mockResolvedValue({ ids: ["wallet_1", "wallet_child"] })
+    const res = await createAgentAction({ ok: false, error: "" }, form({ name: "runner-1", wallet_id: "wallet_child" }))
+    expect(res.ok).toBe(true)
+    expect(dbMock.agent.create.mock.calls[0][0].data.walletId).toBe("wallet_child")
   })
 })
 

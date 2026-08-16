@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-08-15",
+    title: "The dashboard is a roster",
+    tags: ["console", "ux"],
+    body: "Overview is no longer a monthly report of zeros. **Roster** is the home: the wallet tree as group cards, agents as cards inside them, a mandate stamp (live / paused / blocked) on each. Add an agent on the group you are looking at — name it, copy the key once. The rail is three items: Roster, Approvals, Vault. Old URLs stay; Vault is the drawer for credentials, people, policy, spend, and the signed record.",
+  },
+  {
+    date: "2026-08-15",
     title: "Add to Slack — approve without pasting a channel URL",
     tags: ["approvals", "slack", "oauth"],
     body: "Interactive Approve/Deny no longer needs a platform bot token and a pasted archive URL. **Add to Slack** on the Approvals page runs Slack OAuth v2 (`chat:write` + `incoming-webhook`), stores the bot token under the wallet's SEC-1 envelope, and posts the card to the channel picked at install. Incoming webhooks still deep-link only. The env bot token remains a fallback for archive-URL routes. [Notifications](/docs/notifications).",

@@ -22,33 +22,17 @@ function Icon({ d }: { d: string }) {
 // Minimal inline icons (no icon-lib dependency).
 const ICON = {
   overview: "M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z",
-  agents: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-  pools: "M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5",
-  spend: "M3 3v18h18M7 14l3-3 3 3 5-6",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
-  policy: "M9 12l2 2 4-4M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z",
   credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
-  audit: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M9 13h6M9 17h6M9 9h1",
-  team: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6",
 }
 
-// Consolidated nav (2026-07-16): 9 items, one home per job. Overview leads
-// (the org pulse), Approvals right behind it (the #1 operator job, badge
-// always near the top of the mobile strip). Former top-level pages live as
-// sections now: API Keys → Team & access (mgmt key) + Seats (agent keys),
-// Execution → Seats, Observe → Pools, Outcomes → Spend — each old URL
-// redirects to its new home.
+// Roster pass (2026-08-15): three surfaces. The tree is home. Approvals is
+// the only job that is not an object property. Vault holds secrets, people,
+// and the signed record. Old URLs stay reachable from the vault drawers.
 const items: Item[] = [
-  { href: "/dashboard", label: "Overview", icon: <Icon d={ICON.overview} /> },
+  { href: "/dashboard", label: "Roster", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
-  { href: "/dashboard/agents", label: "Seats", icon: <Icon d={ICON.agents} /> },
-  { href: "/dashboard/pools", label: "Pools", icon: <Icon d={ICON.pools} /> },
-  { href: "/dashboard/policy", label: "Policy", icon: <Icon d={ICON.policy} /> },
-  { href: "/dashboard/spend", label: "Spend", icon: <Icon d={ICON.spend} /> },
-  { href: "/dashboard/audit", label: "Audit", icon: <Icon d={ICON.audit} /> },
-  { href: "/dashboard/providers", label: "Providers", icon: <Icon d={ICON.spend} /> },
-  { href: "/dashboard/credentials", label: "Credentials", icon: <Icon d={ICON.credentials} /> },
-  { href: "/dashboard/team", label: "Team & access", icon: <Icon d={ICON.team} /> },
+  { href: "/dashboard/vault", label: "Vault", icon: <Icon d={ICON.credentials} /> },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -80,14 +64,13 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
 export function DashboardSidebar({
   view,
   pendingCount,
-  hasPools = true,
+  hasPools: _hasPools = true,
   account,
   switcher,
 }: {
   view: { name: string; isSession: boolean }
   pendingCount: number
-  // Pools is conceptual overhead for a single-wallet operator — hidden until
-  // the wallet actually has children. The page stays reachable by URL.
+  // Kept so the layout does not change. Pools are group cards on the roster.
   hasPools?: boolean
   account: ReactNode
   // WALLET-MEMBERS part 2: rendered instead of the static name line when the
@@ -95,7 +78,7 @@ export function DashboardSidebar({
   switcher?: ReactNode
 }) {
   const pathname = usePathname()
-  const visible = hasPools ? items : items.filter((it) => it.href !== "/dashboard/pools")
+  const visible = items
   return (
     <>
       {/* Desktop: the deep-pine control rail framing the light workpaper */}
