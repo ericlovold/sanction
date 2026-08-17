@@ -17,6 +17,17 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-17 — Pull the MIA launch ribbon from the home page after
+      2026-09-10. It shipped as a launch-window element (live 2026-08-10) and
+      nothing else expires it; a permanent "NEW" ribbon stops reading as news.
+      The `app/page.tsx` comment carries the same date. (site)
+- [ ] 2026-08-17 — Drain the reposition drift into the docs: the site now
+      leads as the services firm (advisory · implementation · products) while
+      `README.md` and `AGENTS.md` still describe a product-only identity, and
+      no markdown file mentions the firm, the analyst, or the two-product
+      shape. A future session reading the repo gets the pre-reposition story.
+      Run `/truthsync` as its own docs-only pass — deliberately not bundled
+      with the home-page layout fix. (docs)
 - [ ] 2026-08-15 — Stand up the Slack app so Add to Slack goes live: create
       the app, scopes `chat:write` + `incoming-webhook`, Redirect URL
       `/api/slack/oauth/callback`, Interactivity Request URL

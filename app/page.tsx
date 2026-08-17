@@ -169,7 +169,9 @@ export default function Landing() {
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
-      {/* Launch ribbon — MIA showtime window. Remove after the launch cycle. */}
+      {/* Launch ribbon — MIA showtime window. Live since 2026-08-10; pull it
+          after 2026-09-10 so the home page isn't permanently in launch mode.
+          Tracked in docs/BACKLOG.md so the date doesn't rely on memory. */}
       <Link
         href="/moral-intention"
         style={{
@@ -232,53 +234,6 @@ export default function Landing() {
       </header>
 
       <AnthropicCerts />
-
-      <section id="agent-wallet" className="sn-wallet-section" data-theme="dark">
-        <div style={{ ...wrap, padding: "104px 32px 112px" }}>
-          <div className="sn-wallet-intro">
-            <div>
-              <MonoLabel color="#43D5A1" mb={16}>New in Sanction</MonoLabel>
-              <h2>The wallet an AI agent carries.</h2>
-            </div>
-            <div>
-              <p>
-                Identity says who the agent is. Payment rails move money. Sanction carries the
-                missing operating authority: what this agent may do, under whose policy, within
-                what budget, and with what proof.
-              </p>
-              <div className="sn-inline-links">
-                <Link href="/docs/agent-wallet">Read the architecture →</Link>
-                <a href="/.well-known/wallet-card.json">Inspect the Wallet Card ↗</a>
-              </div>
-            </div>
-          </div>
-          <WalletFlow />
-          <div className="sn-mcp-panel">
-            <div className="sn-mcp-code">
-              <div className="sn-mcp-window"><i /><i /><i /><span>sanction-mcp</span></div>
-              <code><b>$</b> npx sanction-mcp</code>
-              <code><em>✓</em> wallet connected <span>ops_agent_07</span></code>
-              <code><em>✓</em> 10 governance tools available</code>
-              <code><b>→</b> sanction_authorize_tool</code>
-              <code className="sn-code-result">AUTHORIZED · request dec_8f31</code>
-            </div>
-            <div className="sn-mcp-copy">
-              <MonoLabel color="#43D5A1" mb={14}>MCP 0.7 · Ten tools</MonoLabel>
-              <h3>Authority becomes part of the agent&apos;s runtime.</h3>
-              <p>
-                Govern spend, provisioning, tools, capabilities, credentials, token cost, and
-                outcomes from any MCP host. Mint short-lived mandates for child agents and let
-                counterparties verify them without a Sanction API key.
-              </p>
-              <div className="sn-tool-grid">
-                <span>SPEND</span><span>TOOLS</span><span>CAPABILITIES</span><span>CREDENTIALS</span><span>OUTCOMES</span><span>APPROVALS</span>
-              </div>
-              <p className="sn-honesty">Today&apos;s stdio MCP is cooperative. Enforced tool interception is the next hosted broker phase.</p>
-              <a className="sn-btn sn-btn-onDark sn-btn-m" href="https://www.npmjs.com/package/sanction-mcp">Install the MCP server ↗</a>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Why companies call */}
       <section style={{ ...wrap, padding: "96px 32px 112px" }}>
@@ -350,7 +305,10 @@ export default function Landing() {
               We run production AI. That&apos;s why we can install it.
             </h2>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "#C4C7BB", maxWidth: "54ch", margin: "20px 0 0" }}>
-              The advice comes from operating real systems with real users — not from slides.
+              The advice comes from operating real systems with real users — not from slides. It&apos;s
+              also how the job finishes: when we put agents inside your company, the platform we
+              built governs what they may spend and do — teams as budgets, a human over the line,
+              and a record finance can audit.
             </p>
           </div>
           <div className="sn-pair">
@@ -369,13 +327,72 @@ export default function Landing() {
             <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
               <MonoLabel color="#2CC08D">Sanction Platform</MonoLabel>
               <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
-                The wallet an AI agent carries
+                Answer for what your agents spend and do
               </h3>
               <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
                 Budgets, human sign-off, and a signed record of what agents spend and do.
                 MCP, REST, Bedrock — the wallet travels with the agent.
               </p>
               <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/platform">Explore the platform →</Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* The platform in depth — the proof chapter continues, still on dark.
+          Sits AFTER the services argument on purpose: the exec buyer reads why
+          they called before meeting `npx`. Deep detail lives on /platform. */}
+      <section
+        id="agent-wallet"
+        className="sn-wallet-section"
+        data-theme="dark"
+        style={{ borderTop: "1px solid rgba(242,241,234,.08)" }}
+      >
+        <div style={{ ...wrap, padding: "104px 32px 112px" }}>
+          <div className="sn-wallet-intro">
+            <div>
+              <MonoLabel color="#43D5A1" mb={16}>New in Sanction</MonoLabel>
+              <h2>The wallet an AI agent carries.</h2>
+            </div>
+            <div>
+              <p>
+                Identity says who the agent is. Payment rails move money. Sanction carries the
+                missing operating authority: what this agent may do, under whose policy, within
+                what budget, and with what proof.
+              </p>
+              <div className="sn-inline-links">
+                <Link href="/docs/agent-wallet">Read the architecture →</Link>
+                <a href="/.well-known/wallet-card.json">Inspect the Wallet Card ↗</a>
+              </div>
+            </div>
+          </div>
+          <WalletFlow />
+          <div className="sn-mcp-panel">
+            <div className="sn-mcp-code">
+              <div className="sn-mcp-window"><i /><i /><i /><span>sanction-mcp</span></div>
+              <code><b>$</b> npx sanction-mcp</code>
+              <code><em>✓</em> wallet connected <span>ops_agent_07</span></code>
+              <code><em>✓</em> 10 governance tools available</code>
+              <code><b>→</b> sanction_authorize_tool</code>
+              <code className="sn-code-result">AUTHORIZED · request dec_8f31</code>
+            </div>
+            <div className="sn-mcp-copy">
+              <MonoLabel color="#43D5A1" mb={14}>MCP 0.7 · Ten tools</MonoLabel>
+              <h3>Authority becomes part of the agent&apos;s runtime.</h3>
+              <p>
+                Govern spend, provisioning, tools, capabilities, credentials, token cost, and
+                outcomes from any MCP host. Mint short-lived mandates for child agents and let
+                counterparties verify them without a Sanction API key.
+              </p>
+              <div className="sn-tool-grid">
+                <span>SPEND</span><span>TOOLS</span><span>CAPABILITIES</span><span>CREDENTIALS</span><span>OUTCOMES</span><span>APPROVALS</span>
+              </div>
+              <p className="sn-honesty">Today&apos;s stdio MCP is cooperative. Enforced tool interception is the next hosted broker phase.</p>
+              {/* Both funnels get a next step: install it yourself, or have us do it. */}
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <a className="sn-btn sn-btn-primary sn-btn-m" href={CALENDLY_URL} target="_blank" rel="noopener">Have us install it →</a>
+                <a className="sn-btn sn-btn-onDark sn-btn-m" href="https://www.npmjs.com/package/sanction-mcp">Install the MCP server ↗</a>
+              </div>
             </div>
           </div>
         </div>
