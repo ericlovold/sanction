@@ -58,6 +58,31 @@ export function dailyPace(spent: number, cap: number | null, now: Date): Pace {
 // project a wild month-end total.
 const MIN_MONTH_FRACTION = 0.05
 
+/**
+ * Bucket dated amounts into per-day totals over `days` consecutive local days
+ * starting at `start` (time-of-day on `start` is ignored). Events outside the
+ * window are dropped. Same day math the 14-day trend uses, factored pure so
+ * the runway chart can be tested without a database.
+ */
+export function bucketByDay(events: { at: Date; amount: number }[], start: Date, days: number): number[] {
+  const dayStart = new Date(start)
+  dayStart.setHours(0, 0, 0, 0)
+  const totals = new Array<number>(days).fill(0)
+  for (const e of events) {
+    const d = new Date(e.at)
+    d.setHours(0, 0, 0, 0)
+    const idx = Math.round((d.getTime() - dayStart.getTime()) / DAY_MS)
+    if (idx >= 0 && idx < days) totals[idx] += e.amount
+  }
+  return totals
+}
+
+/** Running total: [3,1,4] → [3,4,8]. */
+export function cumulative(values: number[]): number[] {
+  let sum = 0
+  return values.map((v) => (sum += v))
+}
+
 export function monthlyPace(spent: number, cap: number | null, now: Date): Pace {
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)

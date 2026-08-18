@@ -6,9 +6,12 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
-import { dailyPace } from "@/lib/burn"
+import { dailyPace, bucketByDay } from "@/lib/burn"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd, fmtCount } from "@/lib/format"
+import { RunwayChart } from "@/components/runway-chart"
+import { seatHealth, type SeatHealthInput } from "@/lib/seatHealth"
+import { decisionCode } from "@/lib/decisions"
 
 export const dynamic = "force-dynamic"
 
@@ -91,9 +94,14 @@ async function getSpend(walletId: string) {
 
   const monthScope = { agentId: { in: agentIds }, createdAt: { gte: monthStart } }
 
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - 6)
+  weekStart.setHours(0, 0, 0, 0)
+
   const [
     tokDay, spendDay, tokMonth, spendMonth,
     byModel, byTask, tokByAgent, authByAgent, byCategory, decisionMix, trendLogs,
+    monthTokenLogs, monthSpendReqs, authByAgentRecent, deniedNotes,
   ] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
@@ -106,6 +114,10 @@ async function getSpend(walletId: string) {
     db.authorizationRequest.groupBy({ by: ["category"], where: { ...monthScope, status: "approved" }, _sum: { amountUsd: true }, _count: true, orderBy: { _sum: { amountUsd: "desc" } } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: monthScope, _count: true }),
     db.tokenLog.findMany({ where: { agentId: { in: agentIds }, createdAt: { gte: trendStart } }, select: { createdAt: true, costUsd: true } }),
+    db.tokenLog.findMany({ where: { agentId: { in: agentIds }, createdAt: { gte: monthStart } }, select: { createdAt: true, costUsd: true } }),
+    db.authorizationRequest.findMany({ where: { ...monthScope, status: "approved" }, select: { createdAt: true, amountUsd: true } }),
+    db.authorizationRequest.groupBy({ by: ["agentId", "status"], where: { agentId: { in: agentIds }, createdAt: { gte: weekStart } }, _count: true }),
+    db.authorizationRequest.groupBy({ by: ["agentId", "decisionNote"], where: { ...monthScope, status: "denied" }, _count: true }),
   ])
 
   // Per-agent merge: token cost + approved spend + decision counts
@@ -141,11 +153,45 @@ async function getSpend(walletId: string) {
 
   const mix = Object.fromEntries(decisionMix.map((r) => [r.status, r._count])) as Record<string, number>
 
+  // Month runway: per-day totals since the 1st, for the cumulative chart.
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate()
+  const tokenByMonthDay = bucketByDay(monthTokenLogs.map((l) => ({ at: l.createdAt, amount: l.costUsd })), monthStart, daysInMonth)
+  const spendByMonthDay = bucketByDay(monthSpendReqs.map((r) => ({ at: r.createdAt, amount: r.amountUsd })), monthStart, daysInMonth)
+
+  // Seat health: month vs last-7-days decision mix, plus each seat's most-hit
+  // denial code (decisionNote → stable DecisionCode, same mapping agents see).
+  const recentByAgent = new Map<string, { approved: number; denied: number; escalated: number }>()
+  for (const r of authByAgentRecent) {
+    const row = recentByAgent.get(r.agentId) ?? { approved: 0, denied: 0, escalated: 0 }
+    if (r.status === "approved") row.approved += r._count
+    else if (r.status === "denied") row.denied += r._count
+    else if (r.status === "escalated") row.escalated += r._count
+    recentByAgent.set(r.agentId, row)
+  }
+  const topDenialByAgent = new Map<string, { code: string; count: number }>()
+  for (const r of deniedNotes) {
+    const code = decisionCode("denied", r.decisionNote) ?? "POLICY_DENIED"
+    const cur = topDenialByAgent.get(r.agentId)
+    if (!cur || r._count > cur.count) topDenialByAgent.set(r.agentId, { code, count: r._count })
+  }
+  const healthInputs: SeatHealthInput[] = agentIds.map((id) => {
+    const m = agentRows.get(id)
+    return {
+      id,
+      name: nameOf.get(id) ?? id,
+      month: { approved: m?.approved ?? 0, denied: m?.denied ?? 0, escalated: m?.escalated ?? 0 },
+      recent: recentByAgent.get(id) ?? { approved: 0, denied: 0, escalated: 0 },
+      topDenial: topDenialByAgent.get(id),
+    }
+  })
+  const seatFlags = seatHealth(healthInputs)
+
   return {
     wallet, policy: wallet?.policy ?? null,
     tokDay, spendDay, tokMonth, spendMonth,
     byModel, byTask: byTask.filter((t) => (t._sum.costUsd ?? 0) > 0), byCategory,
     agentList, days, trendMax, mix,
+    tokenByMonthDay, spendByMonthDay, seatFlags,
   }
 }
 
@@ -178,6 +224,27 @@ export default async function SpendPage() {
         </CardContent>
       </Card>
 
+      {/* Month runway — cumulative burn vs the monthly cap, exhaust date drawn */}
+      <Card className="bg-card border-border">
+        <CardHeader className="px-5 pt-5 pb-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Month runway</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5 pt-3 grid gap-5 sm:grid-cols-2">
+          <RunwayChart
+            label="Token cost"
+            dailyTotals={s.tokenByMonthDay}
+            capUsd={s.policy?.monthlyTokenBudgetUsd != null ? s.policy.monthlyTokenBudgetUsd / 100 : null}
+            now={new Date()}
+          />
+          <RunwayChart
+            label="Authorized spend"
+            dailyTotals={s.spendByMonthDay}
+            capUsd={s.policy?.monthlySpendBudgetUsd != null ? s.policy.monthlySpendBudgetUsd / 100 : null}
+            now={new Date()}
+          />
+        </CardContent>
+      </Card>
+
       {/* KPI row — this month */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -204,7 +271,10 @@ export default async function SpendPage() {
           <CardTitle className="text-sm font-medium text-muted-foreground">Token cost · last 14 days</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
-          <div className="flex h-32 items-end gap-1.5">
+          {/* items-end here collapsed the bar columns to content height, so the
+              bars' percentage heights resolved against auto and rendered 0px —
+              let the columns stretch; they bottom-align internally. */}
+          <div className="flex h-32 gap-1.5">
             {s.days.map((d, i) => (
               <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-1.5">
                 <span className="text-[9px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{fmtUsd(d.cost)}</span>
@@ -216,6 +286,59 @@ export default async function SpendPage() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Seat health — drift flags, not another table of totals */}
+      <Card className="bg-card border-border">
+        <CardHeader className="px-5 pt-5 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Seat health · this month</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          {s.seatFlags.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No drift flags — no seat is running a hot or climbing denial rate.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {s.seatFlags.map((f) => (
+                <div key={f.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 truncate text-foreground">
+                      {f.name}
+                      {f.climbing && (
+                        <span className="rounded border border-amber-500/25 bg-amber-500/10 px-1 py-0.5 text-[9px] font-medium text-amber-400">
+                          ▲ denial rate climbing
+                        </span>
+                      )}
+                      {f.hot && (
+                        <span className="rounded border border-red-500/25 bg-red-500/10 px-1 py-0.5 text-[9px] font-medium text-red-400">
+                          hot
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      denied {Math.round(f.denialRateMonth * 100)}% of decisions this month
+                      {f.climbing && ` · ${Math.round(f.denialRateRecent * 100)}% in the last 7 days`}
+                      {f.escalationRateMonth > 0 && ` · ${Math.round(f.escalationRateMonth * 100)}% escalated`}
+                    </p>
+                  </div>
+                  {f.topDenial && (
+                    <span
+                      title={`${f.topDenial.count} denials`}
+                      className="ml-3 shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                    >
+                      {f.topDenial.code} ×{f.topDenial.count}
+                    </span>
+                  )}
+                </div>
+              ))}
+              <p className="pt-1 text-[11px] text-muted-foreground">
+                A seat that keeps hitting the same rule is usually misconfigured, not misbehaving — check its
+                budget overrides or the policy&apos;s lists before assuming the worst.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

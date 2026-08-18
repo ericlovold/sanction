@@ -161,6 +161,14 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
 
+- As of 2026-08-18: getsanction.com leads as **Sanction AI, the services
+  firm** (advisory · implementation · products) since the 2026-08-10
+  reposition (PR #232); the product marketing moved intact to `/platform`,
+  and the Moral Intention Analyst launched alongside. This file and README
+  still describe the product identity — deliberate for now; whether the repo
+  docs mention the firm is Eric's call, queued in `docs/BACKLOG.md` as a
+  `/truthsync` pass. Don't "fix" the mismatch unprompted.
+
 - As of 2026-07-04: PRs merge as SQUASHES here. After your PR merges, the
   remote work branch still holds pre-squash commits that are NOT in main's
   ancestry — a plain push from a main-rebuilt branch gets rejected as
