@@ -17,6 +17,49 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-18 — Sweep the `npm install @sanction/sdk` claim: the package
+      is NOT on the npm registry (verified 2026-08-18; roadmap says publish
+      blocked on wiring the npm org). README now says "publish pending";
+      `docs/FRAMEWORK-ADAPTERS.md` and other docs still instruct the
+      install. Either run the publish-sdk workflow or sweep the docs — fold
+      into the truthsync pass. (docs/release)
+- [x] 2026-08-18 — promoted: Month runway card shipped on /dashboard/spend
+      (cumulative burn vs monthly caps, projection + exhaust date; collapsed
+      sprint arc, 2026-08-18). — Burn-down chart in the console: the
+      day-bucket spend/decision series already comes back from
+      `/reporting/summary`; the console shows runway numbers but never draws
+      the line. A spend-velocity-vs-threshold chart makes exhaust ETAs
+      legible at a glance, wallet down to seat. (console)
+- [x] 2026-08-18 — promoted: Seat health card shipped on /dashboard/spend
+      (hot/climbing denial-rate flags + top denial code; collapsed sprint
+      arc, 2026-08-18). — Seat health surfacing: per-seat
+      approved/denied/escalated counts exist in reporting; the delta is a
+      trend view that flags drift — a seat whose denial rate is climbing, or
+      that keeps hitting the same rule, is misconfigured and burning
+      goodwill before it burns budget. (console)
+- [ ] 2026-08-18 — Policy inheritance down the wallet tree (roadmap
+      candidate): budgets cascade today (subtree caps enforced atomically);
+      policy rules do not — a parent cannot push a tool blocklist or
+      escalation band onto children. Decide whether rules should inherit,
+      and document today's actual behavior wherever nesting is described
+      either way. (engine)
+- [ ] 2026-08-18 — Context-conditional rules (roadmap candidate): rules
+      today test one dimension at a time (amount, category, tool); there is
+      no cross-signal predicate ("allow up to $X only while condition Y
+      holds this hour"). Fits the determinism principle — rules stay pure,
+      the context they evaluate just gets richer — but needs a design pass
+      on what enters the context snapshot. (engine)
+- [ ] 2026-08-17 — Pull the MIA launch ribbon from the home page after
+      2026-09-10. It shipped as a launch-window element (live 2026-08-10) and
+      nothing else expires it; a permanent "NEW" ribbon stops reading as news.
+      The `app/page.tsx` comment carries the same date. (site)
+- [ ] 2026-08-17 — Drain the reposition drift into the docs: the site now
+      leads as the services firm (advisory · implementation · products) while
+      `README.md` and `AGENTS.md` still describe a product-only identity, and
+      no markdown file mentions the firm, the analyst, or the two-product
+      shape. A future session reading the repo gets the pre-reposition story.
+      Run `/truthsync` as its own docs-only pass — deliberately not bundled
+      with the home-page layout fix. (docs)
 - [ ] 2026-08-15 — Stand up the Slack app so Add to Slack goes live: create
       the app, scopes `chat:write` + `incoming-webhook`, Redirect URL
       `/api/slack/oauth/callback`, Interactivity Request URL

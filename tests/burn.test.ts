@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { crossedThreshold, dailyPace } from "../lib/burn"
+import { crossedThreshold, dailyPace, bucketByDay, cumulative } from "../lib/burn"
 
 describe("crossedThreshold", () => {
   // Default line: 80% of cap.
@@ -60,5 +60,33 @@ describe("dailyPace", () => {
     const p = dailyPace(100, 100, noon)
     expect(p.willExhaust).toBe(false) // exhausted is the enforcement layer's message, not a forecast
     expect(p.pctOfCap).toBeCloseTo(100, 5)
+  })
+})
+
+describe("bucketByDay", () => {
+  const start = new Date("2026-08-01T09:30:00") // time-of-day must be ignored
+
+  it("buckets amounts into local-day slots and drops out-of-window events", () => {
+    const totals = bucketByDay(
+      [
+        { at: new Date("2026-08-01T00:05:00"), amount: 3 },
+        { at: new Date("2026-08-01T23:55:00"), amount: 2 },
+        { at: new Date("2026-08-03T12:00:00"), amount: 7 },
+        { at: new Date("2026-07-31T23:59:00"), amount: 100 }, // before window
+        { at: new Date("2026-08-05T00:00:00"), amount: 100 }, // after window
+      ],
+      start,
+      4,
+    )
+    expect(totals).toEqual([5, 0, 7, 0])
+  })
+
+  it("returns all zeros for no events", () => {
+    expect(bucketByDay([], start, 3)).toEqual([0, 0, 0])
+  })
+
+  it("cumulative is a running total", () => {
+    expect(cumulative([3, 1, 4])).toEqual([3, 4, 8])
+    expect(cumulative([])).toEqual([])
   })
 })
