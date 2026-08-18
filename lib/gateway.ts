@@ -225,6 +225,37 @@ type StreamData = {
  * emit usage in-stream by default; OpenAI only when the client sets
  * stream_options.include_usage. feed() each parsed `data:` JSON; result() at end.
  */
+/**
+ * Metering must never be optional for the party being governed.
+ *
+ * OpenAI-compatible providers only emit usage in a stream when the CALLER sets
+ * `stream_options.include_usage`. An agent that streams without it produced no
+ * usage block, so nothing was metered and no budget moved — an unbounded spend
+ * hole opened by the governed party. We set the flag on the way out so the
+ * choice is ours, not the caller's. Anthropic and Gemini stream usage by
+ * default and are left untouched.
+ *
+ * Returns the (possibly rewritten) body. Any parse failure returns the original
+ * bytes unchanged — a proxy must not corrupt a request it does not understand.
+ * Safe because the route strips `content-length` before forwarding.
+ */
+export function forceStreamUsage(provider: string, body: ArrayBuffer | undefined): ArrayBuffer | undefined {
+  if (!body || body.byteLength === 0) return body
+  if (provider !== "openai" && provider !== "perplexity") return body
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(body))
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return body
+    const o = parsed as Record<string, unknown>
+    if (o.stream !== true) return body
+    const existing = (typeof o.stream_options === "object" && o.stream_options !== null ? o.stream_options : {}) as Record<string, unknown>
+    if (existing.include_usage === true) return body
+    o.stream_options = { ...existing, include_usage: true }
+    return new TextEncoder().encode(JSON.stringify(o)).buffer as ArrayBuffer
+  } catch {
+    return body
+  }
+}
+
 export function makeStreamMeter(provider: string) {
   const acc: GatewayUsage = { model: "", tokensIn: 0, tokensOut: 0 }
   return {

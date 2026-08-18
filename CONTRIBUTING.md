@@ -17,7 +17,7 @@ that proves it.
 
 ```bash
 npm install          # postinstall generates the Prisma client automatically
-npm run check        # typecheck + lint + 500+ unit tests — no database needed
+npm run check        # typecheck + lint + 1,000+ unit tests — no database needed
 npm run dev          # Next.js dev server
 ```
 
@@ -29,7 +29,7 @@ see `.env.example`. CI runs both suites either way, so you can lean on it.
 ## The gates (every push, every PR)
 
 - `npm run check` must pass: `tsc`, ESLint, unit tests.
-- **Coverage floor: 80% statements/lines, 80% branches, 85% functions.** It's
+- **Coverage floor: 90% statements/lines, 83% branches, 94% functions.** It's
   a ratchet — it moves up as coverage grows, never down. New code needs tests.
 - DB tests run in CI against a real Postgres service.
 - CodeRabbit reviews every PR; a human merges.

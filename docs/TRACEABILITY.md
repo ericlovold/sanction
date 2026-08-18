@@ -121,7 +121,8 @@ AUTHZ-LOCK, AUTHZ-IDEM, UX-1 · *Webhooks* → WEBHOOK-SIG, WEBHOOK-SSRF ·
 
 `vitest.config.ts` holds floor thresholds set just under current coverage —
 they only move **up**. Raising them is part of landing any test-adding PR.
-Current gate: **80/80 statements/lines, 80 branches, 85 functions** (actuals
-~80.8/80.8/86.7 at the time the gate was set). Static page-content modules
+Current gate: **90/90 statements/lines, 83 branches, 94 functions** — the
+single source of truth is `vitest.config.ts`; branches is the binding floor.
+Keep this line, `CONTRIBUTING.md`, and the README in step with it. Static page-content modules
 (changelog, roadmap, docs, integrations, auth-client stub) are excluded from
 measurement — they hold prose and SVG paths, not decisions.
