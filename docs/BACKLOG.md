@@ -17,6 +17,34 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-18 — Sweep the `npm install @sanction/sdk` claim: the package
+      is NOT on the npm registry (verified 2026-08-18; roadmap says publish
+      blocked on wiring the npm org). README now says "publish pending";
+      `docs/FRAMEWORK-ADAPTERS.md` and other docs still instruct the
+      install. Either run the publish-sdk workflow or sweep the docs — fold
+      into the truthsync pass. (docs/release)
+- [ ] 2026-08-18 — Burn-down chart in the console (roadmap candidate): the
+      day-bucket spend/decision series already comes back from
+      `/reporting/summary`; the console shows runway numbers but never draws
+      the line. A spend-velocity-vs-threshold chart makes exhaust ETAs
+      legible at a glance, wallet down to seat. (console)
+- [ ] 2026-08-18 — Seat health surfacing (roadmap candidate): per-seat
+      approved/denied/escalated counts exist in reporting; the delta is a
+      trend view that flags drift — a seat whose denial rate is climbing, or
+      that keeps hitting the same rule, is misconfigured and burning
+      goodwill before it burns budget. (console)
+- [ ] 2026-08-18 — Policy inheritance down the wallet tree (roadmap
+      candidate): budgets cascade today (subtree caps enforced atomically);
+      policy rules do not — a parent cannot push a tool blocklist or
+      escalation band onto children. Decide whether rules should inherit,
+      and document today's actual behavior wherever nesting is described
+      either way. (engine)
+- [ ] 2026-08-18 — Context-conditional rules (roadmap candidate): rules
+      today test one dimension at a time (amount, category, tool); there is
+      no cross-signal predicate ("allow up to $X only while condition Y
+      holds this hour"). Fits the determinism principle — rules stay pure,
+      the context they evaluate just gets richer — but needs a design pass
+      on what enters the context snapshot. (engine)
 - [ ] 2026-08-17 — Pull the MIA launch ribbon from the home page after
       2026-09-10. It shipped as a launch-window element (live 2026-08-10) and
       nothing else expires it; a permanent "NEW" ribbon stops reading as news.
