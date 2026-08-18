@@ -91,9 +91,9 @@ coverage gate, including concurrency and Postgres row-level-security suites.
 
 ### Start from a pack, not a blank policy
 
-Nine installable policy packs cover the common shapes — **Startup defaults**,
+Eleven installable policy packs cover the common shapes — **Startup defaults**,
 **Coding agent seat**, **MCP tool governance**, **Compliance baseline**,
-**Client-safe launch** among them. `GET /policy/packs` lists them;
+**Client-safe launch**, and **No-egress** (Sanction Local) among them. `GET /policy/packs` lists them;
 `POST /policy/packs/{id}/preview` simulates one against your last 30 days of
 real decisions before anything changes; `apply` writes it as a policy revision.
 
