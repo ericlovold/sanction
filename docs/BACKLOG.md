@@ -23,12 +23,16 @@ as fact here.
       `docs/FRAMEWORK-ADAPTERS.md` and other docs still instruct the
       install. Either run the publish-sdk workflow or sweep the docs — fold
       into the truthsync pass. (docs/release)
-- [ ] 2026-08-18 — Burn-down chart in the console (roadmap candidate): the
+- [x] 2026-08-18 — promoted: Month runway card shipped on /dashboard/spend
+      (cumulative burn vs monthly caps, projection + exhaust date; collapsed
+      sprint arc, 2026-08-18). — Burn-down chart in the console: the
       day-bucket spend/decision series already comes back from
       `/reporting/summary`; the console shows runway numbers but never draws
       the line. A spend-velocity-vs-threshold chart makes exhaust ETAs
       legible at a glance, wallet down to seat. (console)
-- [ ] 2026-08-18 — Seat health surfacing (roadmap candidate): per-seat
+- [x] 2026-08-18 — promoted: Seat health card shipped on /dashboard/spend
+      (hot/climbing denial-rate flags + top denial code; collapsed sprint
+      arc, 2026-08-18). — Seat health surfacing: per-seat
       approved/denied/escalated counts exist in reporting; the delta is a
       trend view that flags drift — a seat whose denial rate is climbing, or
       that keeps hitting the same rule, is misconfigured and burning
