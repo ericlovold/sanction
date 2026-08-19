@@ -286,6 +286,13 @@ export async function POST(req: NextRequest) {
     return simulateResponse(status, note, agent.name, amount_usd, merchant)
   }
 
+  // Captured inside the transaction below. A subtree-cap breach rolls that
+  // transaction back, so the denial row is written in the catch — it still has
+  // to carry the revision and context the engine evaluated, or evidence replay
+  // has a hole for this whole denial class. Declared out here because a `let`
+  // inside `try` is not in scope in `catch`.
+  let evidenceForDenial: { policyRevision: number; decisionContextJson: ReturnType<typeof decisionEvidence> } | null = null
+
   try {
     // Threshold-crossing state, captured inside the transaction (where the
     // budget reads are consistent) and notified after the response.
@@ -327,6 +334,7 @@ export async function POST(req: NextRequest) {
       // EVID-1: persist the revision in force plus the exact context evaluated,
       // so this decision can be replayed and proven later.
       const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("spend", ctxFull) }
+      evidenceForDenial = evidence
 
       if (decision.effect === "deny") {
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
@@ -351,14 +359,12 @@ export async function POST(req: NextRequest) {
       // reserve_budget obligation (exec-token debit) when there's a token to enforce
       // against — debited on every approval, including sub-floor ones.
       if (!observe) {
-        try {
-          poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
-        } catch (e) {
-          if (e instanceof CascadeBudgetExceeded) {
-            return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
-          }
-          throw e
-        }
+        // Deliberately unguarded: a cap breach must roll back every ancestor
+        // counter this loop already incremented. Catching here would COMMIT
+        // those increments alongside a denial — phantom spend that the
+        // GREATEST() reconcile can never heal downward. Handled outside the
+        // transaction, the same way the grant path and the AuthZEN PDP do it.
+        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
 
         const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
         spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
@@ -366,7 +372,7 @@ export async function POST(req: NextRequest) {
         // Observe writes no counters, but the would_be must stay truthful: the
         // subtree cap lives outside the ladder, so check it read-only here —
         // the same answer FUND-1's simulate path gives.
-        return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
+        return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
       }
 
       const approved = await tx.authorizationRequest.create({
@@ -440,6 +446,21 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: httpFor(result) })
   } catch (e: unknown) {
+    // Subtree cap breach: the transaction has rolled back, so no counter moved.
+    // Persist the denial on its own, carrying the evidence captured before the
+    // reservation attempt.
+    if (e instanceof CascadeBudgetExceeded) {
+      const rec = await db.authorizationRequest.create({
+        data: {
+          ...base,
+          ...(evidenceForDenial ?? {}),
+          status: "denied",
+          decidedAt: new Date(),
+          decisionNote: SUBTREE_CAP_EXCEEDED_NOTE,
+        },
+      })
+      return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: httpFor(rec) })
+    }
     // Unique violation on (agentId, idempotencyKey) => concurrent duplicate; return the winner.
     if (idempotencyKey && isUniqueViolation(e)) {
       const existing = await db.authorizationRequest.findUnique({

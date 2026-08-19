@@ -1,6 +1,6 @@
 {
   "name": "@sanction/sdk",
-  "version": "0.6.0",
+  "version": "0.8.0",
   "description": "TypeScript SDK for Sanction — authorize spend and tools, inject scoped credentials, manage policy. The tool runs behind the decision.",
   "license": "FSL-1.1-MIT",
   "type": "module",

@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
-import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter } from "@/lib/gateway"
+import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter, forceStreamUsage } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
 import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
+import { logger } from "@/lib/log"
 
 export const dynamic = "force-dynamic"
 // Streaming responses relay at the provider's pace; give long generations room
 // so a live stream is never cut mid-flight (the old buffered path could burn
 // tokens then time out at 60s with nothing delivered).
 export const maxDuration = 300
+
+const log = logger("gateway")
 
 // Headers we must not forward upstream (Sanction auth, hop-by-hop, encoding).
 const STRIP_REQ = new Set(["host", "x-sanction-key", "content-length", "accept-encoding", "connection"])
@@ -101,7 +104,10 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
 
   const url = `${cfg.baseUrl}/${path.join("/")}${req.nextUrl.search}`
   const method = req.method
-  const body = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer()
+  const rawBody = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer()
+  // Metering is not the caller's choice: force stream usage reporting on the
+  // way out (no-op for providers that already stream usage by default).
+  const body = forceStreamUsage(provider, rawBody)
 
   // Provider-key injection (Providers page): when the caller sends NO provider
   // auth of its own, fall back to the wallet's vaulted provider:<id> key —
@@ -215,7 +221,20 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       },
       async flush() {
         const usage = meter.result()
-        if (usage.tokensIn || usage.tokensOut) await meterWithRetry(usage)
+        if (usage.tokensIn || usage.tokensOut) {
+          await meterWithRetry(usage)
+        } else {
+          // Reaching here means the stream reported no usage even after we set
+          // include_usage — the call is unmetered and the budget did not move.
+          // Never silent: an unmetered call is a hole in the thing this
+          // product exists to guarantee.
+          log.warn("gateway stream reported no usage — call is unmetered", {
+            provider,
+            agentId: agent.id,
+            walletId: agent.walletId,
+            path: path.join("/"),
+          })
+        }
       },
     })
     return passthroughResponse(upstream, upstream.body.pipeThrough(transform))

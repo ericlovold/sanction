@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { costUsd, GATEWAY_PROVIDERS, makeStreamMeter, tokenBudgetUsd } from "../lib/gateway"
+import { costUsd, GATEWAY_PROVIDERS, makeStreamMeter, tokenBudgetUsd, forceStreamUsage } from "../lib/gateway"
 
 describe("costUsd — longest-prefix pricing match", () => {
   it("prices 1M in / 1M out for a known model", () => {
@@ -122,5 +122,39 @@ describe("tokenBudgetUsd — per-agent override > wallet policy > none", () => {
 
   it("is null (no enforcement) when neither is set", () => {
     expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: null, ...wallet(null) })).toBeNull()
+  })
+})
+
+describe("forceStreamUsage — metering is not the caller's choice", () => {
+  const decode = (b: ArrayBuffer | undefined) => JSON.parse(new TextDecoder().decode(b!))
+  const encode = (o: unknown) => new TextEncoder().encode(JSON.stringify(o)).buffer as ArrayBuffer
+
+  it("adds include_usage to an OpenAI stream that omitted it (the bypass)", () => {
+    const out = forceStreamUsage("openai", encode({ model: "gpt-4o", stream: true }))
+    expect(decode(out).stream_options).toEqual({ include_usage: true })
+  })
+
+  it("preserves other stream_options while forcing include_usage", () => {
+    const out = forceStreamUsage("openai", encode({ stream: true, stream_options: { foo: 1 } }))
+    expect(decode(out).stream_options).toEqual({ foo: 1, include_usage: true })
+  })
+
+  it("leaves non-streaming requests untouched", () => {
+    const body = encode({ model: "gpt-4o", stream: false })
+    expect(forceStreamUsage("openai", body)).toBe(body)
+  })
+
+  it("leaves providers that stream usage by default untouched", () => {
+    const body = encode({ stream: true })
+    expect(forceStreamUsage("anthropic", body)).toBe(body)
+    expect(forceStreamUsage("gemini", body)).toBe(body)
+  })
+
+  it("returns unparseable or empty bodies unchanged rather than corrupting them", () => {
+    const junk = new TextEncoder().encode("not json").buffer as ArrayBuffer
+    expect(forceStreamUsage("openai", junk)).toBe(junk)
+    expect(forceStreamUsage("openai", undefined)).toBeUndefined()
+    const arr = encode([1, 2, 3])
+    expect(forceStreamUsage("openai", arr)).toBe(arr)
   })
 })
