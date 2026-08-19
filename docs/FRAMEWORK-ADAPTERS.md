@@ -3,7 +3,7 @@
 Sanction stays outside the framework's identity system and inside the
 pre-action path: the framework asks, Sanction decides, the agent acts only on an
 approved decision or redeemed grant. The TypeScript adapters below **ship in
-`@sanction/sdk`** ([`sdk/`](../sdk/) in this repo — the npm publish is
+`sanction-sdk`** ([`sdk/`](../sdk/) in this repo — the npm publish is
 pending, so install from the repo path until it lands: `npm install
 /path/to/sanction/sdk`, after which the imports below resolve unchanged); the
 Python recipes are copy-in until their packages land.
@@ -14,7 +14,7 @@ Framework-agnostic — use it with LangChain.js, LangGraph, Mastra, or any custo
 agent runtime. It authorizes first and runs the tool only on approval:
 
 ```ts
-import { SanctionClient, SanctionMiddleware, SanctionToolBlocked } from "@sanction/sdk"
+import { SanctionClient, SanctionMiddleware, SanctionToolBlocked } from "sanction-sdk"
 
 const client = new SanctionClient(process.env.SANCTION_AGENT_KEY!)
 const runTool = SanctionMiddleware(client)
@@ -47,7 +47,7 @@ it only runs on an approved decision:
 ```ts
 import { tool } from "ai"
 import { z } from "zod"
-import { SanctionClient, sanctionTool } from "@sanction/sdk"
+import { SanctionClient, sanctionTool } from "sanction-sdk"
 
 const client = new SanctionClient(process.env.SANCTION_AGENT_KEY!)
 

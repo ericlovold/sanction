@@ -49,7 +49,7 @@ row true — update the row, the tests, or both, in the same PR.
 | `docs/` | Public guides (rendered at `/docs/[slug]` via `lib/docs.ts`) + internal records |
 | `tests/` | Unit suites (mocked DB) and `*.db.test.ts` (real Postgres) |
 | `mcp-server.ts` → `packages/sanction-mcp` | The published MCP server |
-| `sdk/` | `@sanction/sdk` TypeScript client |
+| `sdk/` | `sanction-sdk` TypeScript client |
 
 ## Working style
 

@@ -1,5 +1,5 @@
 /**
- * Secure Nightly Coding Agent — a runnable reference for @sanction/sdk (DIST-3).
+ * Secure Nightly Coding Agent — a runnable reference for sanction-sdk (DIST-3).
  *
  * The story: you let an autonomous coding agent run overnight. It writes code,
  * calls model providers, opens PRs, kicks preview deploys, reads a staging DB.

@@ -3,7 +3,7 @@
     "blueprint": "secure-nightly-coding-agent",
     "description": "Overnight coding/research agent that calls model providers, sandboxes, and secret-backed tools (GitHub/Vercel/staging DB). Budgets are accounting caps over the dev's own rails — Sanction holds no money (control-plane, FUND-1 = no custody).",
     "version": "0.2.0",
-    "amounts": "DOLLARS. @sanction/sdk PolicyInput is camelCase dollars; the API stores cents internally.",
+    "amounts": "DOLLARS. sanction-sdk PolicyInput is camelCase dollars; the API stores cents internally.",
     "enforcement": {
       "policy.blockedCategories": "ENFORCED — authorize denies on exact category match",
       "policy.perTransactionMaxUsd": "ENFORCED — denies amount over ceiling",

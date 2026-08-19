@@ -3,7 +3,7 @@
     "blueprint": "safe-research-agent",
     "description": "Read-only research agent: queries model/data/news vendors, no write privileges, no production connections. Tighter caps than the coding-agent blueprint. Control-plane only — Sanction holds no money.",
     "version": "0.2.0",
-    "amounts": "DOLLARS. @sanction/sdk PolicyInput is camelCase dollars; the API stores cents internally.",
+    "amounts": "DOLLARS. sanction-sdk PolicyInput is camelCase dollars; the API stores cents internally.",
     "enforcement": {
       "policy.blockedCategories": "ENFORCED — authorize denies on exact category match",
       "policy.perTransactionMaxUsd": "ENFORCED — denies amount over ceiling",

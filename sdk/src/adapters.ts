@@ -99,7 +99,7 @@ type AiSdkToolLike = {
  *
  * ```ts
  * import { tool } from "ai"
- * import { sanctionTool } from "@sanction/sdk"
+ * import { sanctionTool } from "sanction-sdk"
  *
  * const deploy = sanctionTool(client, "deploy", tool({
  *   description: "Deploy the app",
