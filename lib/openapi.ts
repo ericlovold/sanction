@@ -1294,10 +1294,10 @@ export const spec = {
         description:
           "Read the current state of an authorization request by id — used to poll an escalation until a human resolves it. Readable by the wallet's agent key or the management key. On approval the response carries the one-use grant the agent redeems by retrying with grant_id. Settles expired escalations to the policy's timeout action on read.",
         security: [{ AgentApiKey: [] }, { ManagementKey: [] }],
-        parameters: [
-          { in: "path", name: "id", required: true, schema: { type: "string" } },
-          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
-        ],
+        // The handler derives the wallet from the request row's agent; there is
+        // no wallet_id query param. It was declared required here, so every
+        // generated client (Bedrock included) demanded a value that does nothing.
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "string" } }],
         responses: {
           "200": { description: "The request's status, decision, and (if approved) grant receipt" },
           "401": { description: "Wallet agent key or management key required" },

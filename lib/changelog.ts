@@ -58,6 +58,30 @@ export const CHANGELOG: ChangelogEntry[] = [
     body: "MCP shipped its largest revision since launch today: the protocol core goes stateless, the `initialize` handshake is gone, Roots/Sampling/Logging enter a formal deprecation lifecycle, and authorization gets hardened. If you read \"MCP hardens authorization\" and reached for the alarm — don't. That work is **authentication**: RFC 9207 issuer validation, credentials bound to their issuing server, metadata documents replacing dynamic registration. It proves who is calling. It says nothing about whether this agent may spend $4,000 with an unfamiliar merchant at 2am, under whose budget, or who signs when it crosses the line. The spec is not moving into the policy layer.\n\n`sanction-mcp` is conformant, and the parts that were ours are done. The stateless core is a tailwind — our authorize call was already a self-contained POST, and the escalation loop already threads state the way the revision prescribes, as an explicit `request_id` then a one-use `grant_id` the caller passes back. Zero dependencies on the three deprecated features. Tool schema bodies verified clean under a strict JSON Schema 2020-12 validator. And the deprecation of protocol Logging is now a feature: Sanction reads the revision's reserved **W3C trace context** keys off every tool call and forwards them to the API, so a governed decision correlates with the agent run that requested it — one story across your traces and our audit log. Tracing is diagnostic and never load-bearing; every value is validated against its W3C grammar before it becomes an outbound header, because host input that turns into headers is how you get header injection. All of it is a CI gate, not a claim: `tests/mcpConformance.test.ts` fails the build if the surface drifts. Next, and deliberately not this week: Tasks maps almost exactly onto escalation — a request that pauses for a human and mints a grant on approval *is* a resumable task — and MCP Apps can render the approve/deny card where the human already is. Both need the v2 SDK, which is beta. This package governs real money in other people's stacks; it doesn't take a beta dependency on release week. [Conformance details](/docs/mcp-2026-07-28).",
   },
   {
+    date: "2026-07-19",
+    title: "Connect a provider once",
+    tags: ["providers", "gateway", "vault"],
+    body: "Provider API keys stop living in every agent's environment. Connect a provider on the **Providers** page and the key is stored under the wallet's SEC-1 envelope as `provider:&lt;id&gt;`, then injected into that provider's native auth header at the gateway — server-side, never returned to the caller. Agents that bring their own provider auth are untouched. An agent with neither its own auth nor a vaulted key fails closed *before* any upstream call, with a pointer rather than a silent pass-through.",
+  },
+  {
+    date: "2026-07-17",
+    title: "A wallet holds people, and a viewer cannot touch anything",
+    tags: ["team", "roles", "console"],
+    body: "A wallet is no longer one human with one key. **Team membership** gives each person their own identity at their own role — `owner`, `admin`, `viewer` — invited by email and accepted through Better Auth, never through the shared management key. The role floor is structural, not cosmetic: every dashboard mutation action calls `requireSessionRole(\"admin\")`, so a viewer can read the whole console and change none of it. The two read-only policy actions (pack preview, draft simulation) stay open deliberately — simulating a hypothetical policy is visibility, not a mutation. A **wallet switcher** reaches every membership you hold, so owning your own wallet no longer hides the ones you were invited to.",
+  },
+  {
+    date: "2026-07-16",
+    title: "The MCP wallet knows which wallet it is",
+    tags: ["mcp", "dx"],
+    body: "`sanction_wallet_status` used to require `SANCTION_WALLET_ID` in the host config. It now derives the wallet from the agent key that is already authenticating the call, so an MCP host needs one secret instead of two. `SANCTION_WALLET_ID` still works when set.",
+  },
+  {
+    date: "2026-07-14",
+    title: "The org owner can decide anywhere in their subtree",
+    tags: ["approvals", "governance", "console"],
+    body: "An escalation used to be resolvable only by the owner of the exact wallet it belonged to — so a parent-org owner watching a child pool's escalation could see it and not act on it. Resolution now authorizes against the whole subtree (`subtreeWalletIds`), behind the same admin role floor, and runs the identical `resolveApproval` path with the actor recorded. The pool's own owner still resolves in their own inbox. Honest boundary: the subtree *authorization* is asserted by wiring rather than proven by a test that builds a real two-level org — it is listed in `docs/TRACEABILITY.md` Gaps until that test exists.",
+  },
+  {
     date: "2026-07-12",
     title: "v0.7.0 — adopt first, enforce when the numbers say so",
     version: "0.7.0",

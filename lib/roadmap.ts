@@ -11,8 +11,10 @@
 // policy packs, console parity, gateway fail-closed metering, the Local runtime,
 // outcome governance (cost-per-outcome ceilings, freeze, reallocation), the TS
 // framework adapters, tamper-evident audit exports, the Local install package,
-// observe-mode adoption, the wallet as a public pasteable object, and the
-// roster console with team roles are shipped (see the changelog) → now, ecosystem
+// observe-mode adoption, the wallet as a public pasteable object (Wallet Card,
+// mandate verify, the hosted /mcp URL), Slack OAuth install with interactive
+// approvals, and the roster console with team roles are shipped (see the
+// changelog) → now, ecosystem
 // distribution → next, the published SDK + Python adapters and simulation all
 // the way down → later, enterprise trust.
 

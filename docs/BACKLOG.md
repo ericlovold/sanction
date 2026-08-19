@@ -17,12 +17,28 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-08-18 — Sweep the `npm install @sanction/sdk` claim: the package
-      is NOT on the npm registry (verified 2026-08-18; roadmap says publish
-      blocked on wiring the npm org). README now says "publish pending";
-      `docs/FRAMEWORK-ADAPTERS.md` and other docs still instruct the
-      install. Either run the publish-sdk workflow or sweep the docs — fold
-      into the truthsync pass. (docs/release)
+- [ ] 2026-08-18 — Prove subtree approval resolution with a real two-level
+      org: the org owner can now resolve escalations anywhere in the subtree,
+      but the only covering test mocks `subtreeWalletIds` to a single wallet,
+      so the authorization scope is asserted rather than proven. Listed in
+      `docs/TRACEABILITY.md` Gaps until a test builds the org and resolves
+      across it (and refuses a non-member). (tests/governance)
+- [ ] 2026-08-18 — No local-dev path: `npm run dev` boots, then every API call
+      500s with a raw Prisma P1001 and nothing names `DATABASE_URL`. There is
+      no compose file, no Postgres bring-up doc, and QUICKSTART is
+      hosted-only, so a fresh clone is a dead end about four minutes in.
+      Smallest fix with the most leverage: a "Run it locally" step 0 in
+      QUICKSTART, a `DATABASE_URL` presence check that returns a sentence
+      instead of P1001, and a README link to `examples/setup.sh` (which
+      already does the whole first-decision flow and is linked nowhere). (dx)
+- [x] 2026-08-18 — swept (truthsync PR, 2026-08-18): `sdk/README.md` and
+      `docs/PAY-PER-CRAWL.md` carried install instructions that 404;
+      `docs/FRAMEWORK-ADAPTERS.md` said "install from the repo path" without a
+      command. All three now give a working `npm install /path/to/sanction/sdk`
+      and note the imports resolve unchanged once it publishes. Root cause of
+      the publish gap found separately: `publish-sdk.yml` has never been
+      dispatched, and the `sanction` npm scope is the remaining precondition.
+      — Sweep the `npm install @sanction/sdk` claim
 - [x] 2026-08-18 — promoted: Month runway card shipped on /dashboard/spend
       (cumulative burn vs monthly caps, projection + exhaust date; collapsed
       sprint arc, 2026-08-18). — Burn-down chart in the console: the

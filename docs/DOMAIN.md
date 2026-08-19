@@ -75,6 +75,10 @@ named in the discovery doc but not yet a first-class entity.
 | **Webhook** | Shipped | `Webhook` | Owner endpoint notified on approval/escalation/budget events; HMAC-SHA256 signed. |
 | **Audit Event** | Partial | *(distributed — see below)* | No unified `AuditEvent` table today. The decision stream exports as a signed, hash-chained, tamper-evident document (AUDIT-1: `GET /v1/audit/export`, verified self-contained via `POST /v1/audit/verify`); across-time chain anchors are AUDIT-2 (Later). |
 | **Organization** | Roadmap | *(the Wallet tree fills this role)* | No `Organization` model. Org → tenant → sub-tenant is modeled as a self-nesting `Wallet` hierarchy. |
+| **Policy Revision** | Shipped | `PolicyRevision` | Every policy mutation writes one — the immutable record of what the policy was at a moment. A decision persists the revision in force, which is what makes evidence replay (`GET /v1/authorize/{id}/evidence`) provable rather than approximate. |
+| **Slack Install** | Shipped | `SlackInstall` | A workspace's Slack OAuth install: bot token encrypted under the wallet's SEC-1 envelope (a secret-bearing row), plus the channel chosen at install. Backs interactive Approve/Deny; the pasted incoming-webhook route needs no install. |
+| **Outcome** | Shipped | `OutcomeEvent` | A reported result of governed work. Cost-per-outcome ceilings compare spend against these, and a wallet over its ceiling throttles to human-gated spend. |
+| **Budget Reallocation** | Shipped | `BudgetReallocation` | An auditable move of budget across the wallet tree — who moved what, between which wallets, when. |
 | **Team Member** | Shipped | `WalletMember` (WALLET-MEMBERS) | A second (or third) human's access to a Wallet, at a role: `owner` \| `admin` \| `viewer` (plain strings, not a DB enum — matches this schema's convention). Invited by email, accepted via Better Auth (Google/GitHub only — the legacy `sk_`/magic-link session is a single shared secret and can't represent a distinct human). The Wallet's own creator is implicitly `owner` with no row here — see Ownership below. |
 
 ---
@@ -94,9 +98,10 @@ there is no such model — **`Wallet` is the root, and it nests into itself**:
   (`owner`/`admin`/`viewer`), signed in with their own Google/GitHub account.
   `lib/session.ts`'s `getSessionMember()` resolves *who* is acting and at what
   role; `lib/roles.ts`'s `hasRole()` is the floor check dashboard mutations
-  enforce. No wallet switcher yet — someone who owns their own Wallet and is
-  *also* an accepted member of another one always lands on the one they own
-  (`resolveWalletForUser`'s documented precedence).
+  enforce. A wallet switcher reaches every membership: someone who owns their
+  own Wallet and is *also* an accepted member of another one lands on the one
+  they own by default (`resolveWalletForUser`'s documented precedence) and
+  switches from there (`components/wallet-switcher.tsx`).
 
 So "who owns everything" is answered by **User → Wallet(root) → child Wallets →
 Agents**, plus **WalletMember → Wallet** for everyone else with access — not
@@ -185,12 +190,22 @@ worth keeping as canonical positioning:
 
 - **Preventive, not observability.** "Your agent *cannot* do this until policy
   says yes" — not "here's what your agent did."
-- **The MCP wedge.** "Govern any MCP tool" (shipped, `now`) puts Sanction inline
-  as the enforcement point for the MCP ecosystem: LLM → Sanction → policy →
-  approve → tool.
-- **The arc.** Today: govern spend + provisioning + tool actions through one
-  engine. Next: human approval everywhere + local deployment (Sanction Local).
-  Later: cryptographic audit + customer-managed keys + payment-rail neutrality.
+- **The MCP wedge.** "Govern any MCP tool" (shipped, `now`) gives the agent a
+  wallet in the MCP ecosystem: LLM → Sanction → policy → approve → tool. Read
+  that arrow honestly — **today's MCP surface is cooperative, not
+  intercepting.** Both `npx sanction-mcp` and the hosted `/mcp` URL rely on the
+  host asking before it acts; the honesty contract lives on the Wallet Card.
+  The LLM gateway is the surface that actually intercepts. Broker mode — where
+  Sanction fronts other MCP servers and intercepts `tools/call` through the
+  `/authorize/tool` ladder — is Next, and until it ships nothing here may claim
+  interception on MCP.
+- **The arc.** Today: govern spend, provisioning, tool, and capability actions
+  through one engine, with human approval everywhere it escalates and Sanction
+  Local for air-gapped deployments — both shipped. Next: the MCP broker, the
+  published SDK and its Python side, per-agent Wallet Cards, and decision
+  receipts. Later: cryptographic audit anchors + customer-managed keys +
+  payment-rail neutrality. `lib/roadmap.ts` is the authority; this line is a
+  summary of it.
 - **Across platforms, not inside one.** Incumbents optimize governance inside
   their own platform. Sanction optimizes authorization across platforms —
   providers, payment rails, identities, and agent ecosystems.

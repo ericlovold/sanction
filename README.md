@@ -59,11 +59,15 @@ Around the engine:
   holders, contractor auto-expiry (the key fails closed past the date), key
   rotation that keeps history, and batch creation from one template.
 - **Budgets that cascade.** Wallets nest into trees; subtree caps are enforced
-  atomically so sibling agents can't race past a parent's limit. The dashboard
-  leads with budget runway — % used, pace, exhaust ETA — from wallet down to seat.
-- **Notifications that find you.** Email by default; Slack with one pasted
-  webhook URL (readable messages, Review button); signed JSON webhooks for
-  machines — each route subscribed to its own events. [Guide](docs/NOTIFICATIONS.md)
+  atomically so sibling agents can't race past a parent's limit. The console's
+  spend view draws the month's runway — cumulative burn against the cap, pace,
+  and the projected exhaust date — from wallet down to seat.
+- **Notifications that find you.** Email by default; signed JSON webhooks for
+  machines; and Slack two ways — a pasted incoming-webhook URL that deep-links
+  to the decision, or **Add to Slack**, which installs per workspace over OAuth
+  and posts interactive **Approve / Deny** buttons that run the same
+  `resolveApproval` path as the dashboard, actor recorded. Each route subscribes
+  to its own events. [Guide](docs/NOTIFICATIONS.md)
 - **Evidence you can replay.** Every policy edit becomes an immutable
   revision; every decision stores the revision in force and the exact context
   the engine evaluated. `GET /authorize/{id}/evidence` re-runs the pure rules
@@ -81,6 +85,18 @@ Around the engine:
   reordering any row breaks the chain, and the head is HMAC-signed by Sanction.
   A regulator or the governed customer runs `POST /audit/verify` — self-contained,
   no database — to prove nothing changed after signing, down to the first broken link.
+- **A console that opens on the roster.** The dashboard home is the wallet tree
+  as groups with agents as cards, each carrying a mandate stamp (live / paused /
+  blocked). A wallet holds people, not just keys: team membership with roles
+  (`owner` / `admin` / `viewer`), a switcher across every membership, and a
+  viewer who can read everything and change nothing.
+- **Adopt without enforcing.** Observe mode runs the real engine on a live fleet
+  and records what it *would* have done — blocking nothing, moving no counters —
+  so you can watch a week of would-be denials and the dollars behind them, then
+  flip each pool to enforce in one confirm-gated click.
+- **Spend answerable to outcomes.** Report outcomes (`POST /outcomes`) and a
+  wallet over its cost-per-outcome ceiling throttles to human-gated spend.
+  Wallets can be frozen outright, and budget reallocated across the tree.
 - **LLM gateway.** Point your model SDK's base URL at
   `https://getsanction.com/api/gateway/<provider>` with `x-sanction-key` —
   usage is metered and budget-capped with zero per-call instrumentation.
@@ -172,6 +188,7 @@ POST  /authorize/provision      — Authorize provisioning (resource + line item
 POST  /authorize/capability     — Authorize acquiring capability (skill/plugin/API)
 GET   /authorize/{id}           — Poll an escalated decision (grant receipt included)
 POST  /tokens                   — Log LLM token consumption against the daily budget
+POST  /outcomes                 — Report an outcome; spend becomes answerable to results
 ```
 
 **Escalate to a human** — over the line, someone decides:
@@ -224,6 +241,12 @@ POST  /agents/batch             — Stamp one template across up to 50 seats
 GET/PATCH /agents               — List / per-seat budgets, clearance, holder, expiry
 POST  /agents/rotate            — Rotate a seat's key (optionally pass to a new holder)
 POST  /webhooks                 — Register a notification route (per-event subscriptions)
+POST  /wallets/freeze           — Pause every agent action in this wallet and its subtree
+POST  /wallets/unfreeze         — Resume exactly where the fleet stopped
+POST  /wallets/reallocate       — Move budget across the wallet tree
+POST  /wallets/bootstrap-key    — Mint a management key for a legacy wallet
+GET   /outcomes                 — Reported outcomes + cost-per-outcome state
+GET   /activity                 — Recent decision activity for the console
 ```
 
 **Speak the standard** — AuthZEN PDP + AARP (agent key; base

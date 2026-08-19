@@ -3,9 +3,10 @@
 Sanction stays outside the framework's identity system and inside the
 pre-action path: the framework asks, Sanction decides, the agent acts only on an
 approved decision or redeemed grant. The TypeScript adapters below **ship in
-`@sanction/sdk`** ([`sdk/`](../sdk/) in this repo — the npm publish is pending,
-so install from the repo path until it lands); the Python recipes are copy-in
-until their packages land.
+`@sanction/sdk`** ([`sdk/`](../sdk/) in this repo — the npm publish is
+pending, so install from the repo path until it lands: `npm install
+/path/to/sanction/sdk`, after which the imports below resolve unchanged); the
+Python recipes are copy-in until their packages land.
 
 ## TypeScript: `SanctionMiddleware` (ships)
 

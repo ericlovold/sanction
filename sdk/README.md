@@ -4,9 +4,16 @@ TypeScript SDK for [Sanction](https://getsanction.com) — the independent
 authorization plane for AI agents. Gate spend, authorize tools *before* they
 run, inject scoped credentials, and manage policy from agent or owner code.
 
-```bash
-npm install @sanction/sdk
-```
+> **Not on npm yet.** `@sanction/sdk` is publish-pending — the package builds
+> and passes its tests in-repo, but the npm scope is not stood up. Until it
+> lands, depend on the checked-in build directly:
+>
+> ```bash
+> # from your project, pointing at a clone of the sanction repo
+> npm install /path/to/sanction/sdk
+> ```
+>
+> Imports below read `@sanction/sdk` and resolve unchanged once it publishes.
 
 Zero runtime dependencies (uses the global `fetch`, Node ≥ 18). Ships ESM +
 types. License: **FSL-1.1-MIT** (same as the Sanction server source — see
