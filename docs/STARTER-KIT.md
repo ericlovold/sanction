@@ -95,8 +95,8 @@ const d = await fetch(`https://getsanction.com/api/v1/authorize/${request_id}`, 
   headers: { "x-api-key": process.env.SANCTION_API_KEY! },
 }).then((r) => r.json())
 
-if (d.authorized && d.grant?.id) {
-  // Retry the ORIGINAL request with grant_id: d.grant.id — every field must
+if (d.authorized && d.grant_id) {
+  // Retry the ORIGINAL request with grant_id: d.grant_id — every field must
   // match what the owner approved, or it's denied GRANT_MISMATCH.
 }
 ```
