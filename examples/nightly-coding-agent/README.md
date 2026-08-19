@@ -1,6 +1,6 @@
 # Secure Nightly Coding Agent
 
-A small, **runnable** reference for [`@sanction/sdk`](../../sdk) — the governed-autonomy
+A small, **runnable** reference for [`sanction-sdk`](../../sdk) — the governed-autonomy
 loop for an autonomous coding agent that runs overnight. It is the executable form
 of the [`secure-nightly-coding-agent`](../policies/secure-nightly-coding-agent.json)
 policy blueprint (roadmap item DIST-3).

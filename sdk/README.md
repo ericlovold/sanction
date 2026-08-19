@@ -1,19 +1,19 @@
-# @sanction/sdk
+# sanction-sdk
 
 TypeScript SDK for [Sanction](https://getsanction.com) — the independent
 authorization plane for AI agents. Gate spend, authorize tools *before* they
 run, inject scoped credentials, and manage policy from agent or owner code.
 
-> **Not on npm yet.** `@sanction/sdk` is publish-pending — the package builds
-> and passes its tests in-repo, but the npm scope is not stood up. Until it
-> lands, depend on the checked-in build directly:
+> **Not on npm yet.** `sanction-sdk` is publish-pending — unscoped, so it needs
+> no npm org, just a run of the `publish-sdk` workflow. Until it lands, depend
+> on the checked-in build directly:
 >
 > ```bash
 > # from your project, pointing at a clone of the sanction repo
 > npm install /path/to/sanction/sdk
 > ```
 >
-> Imports below read `@sanction/sdk` and resolve unchanged once it publishes.
+> Imports below read `sanction-sdk` and resolve unchanged once it publishes.
 
 Zero runtime dependencies (uses the global `fetch`, Node ≥ 18). Ships ESM +
 types. License: **FSL-1.1-MIT** (same as the Sanction server source — see
@@ -29,7 +29,7 @@ types. License: **FSL-1.1-MIT** (same as the Sanction server source — see
 ## Data plane — gate an action before it happens
 
 ```ts
-import { SanctionClient } from "@sanction/sdk"
+import { SanctionClient } from "sanction-sdk"
 
 const sanction = new SanctionClient(process.env.SANCTION_API_KEY!) // pxy_...
 
@@ -59,7 +59,7 @@ if (decision.status === "denied") {
 ## Tool gate — the tool runs behind the decision
 
 ```ts
-import { SanctionClient, SanctionMiddleware, sanctionTool, SanctionToolBlocked } from "@sanction/sdk"
+import { SanctionClient, SanctionMiddleware, sanctionTool, SanctionToolBlocked } from "sanction-sdk"
 
 const client = new SanctionClient(process.env.SANCTION_API_KEY!)
 const runTool = SanctionMiddleware(client)
@@ -100,7 +100,7 @@ const result = await sanction.withCredential(
 ## Management plane — provision + set policy
 
 ```ts
-import { SanctionAdminClient } from "@sanction/sdk"
+import { SanctionAdminClient } from "sanction-sdk"
 
 const wallet = await SanctionAdminClient.createWallet({ name: "nightly-coding", ownerEmail: "you@example.com" })
 const admin = new SanctionAdminClient(wallet.managementKey)

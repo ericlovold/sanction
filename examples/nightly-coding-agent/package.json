@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Runnable reference for @sanction/sdk: a governed overnight coding agent (DIST-3).",
+  "description": "Runnable reference for sanction-sdk: a governed overnight coding agent (DIST-3).",
   "scripts": {
     "start": "tsx src/main.ts",
     "demo": "tsx src/main.ts",

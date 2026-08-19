@@ -4,6 +4,17 @@ import { PrismaClient } from "./generated/prisma/client"
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
 function createClient() {
+  // A fresh clone's first failure used to be a raw Prisma P1001 five layers
+  // down. Name the actual problem — and the fix — at the source instead.
+  // Dev-only: production builds/deploys construct lazily and manage env
+  // elsewhere; the newcomer hitting this is always on `next dev`.
+  if (!process.env.DATABASE_URL && process.env.NODE_ENV === "development") {
+    throw new Error(
+      "DATABASE_URL is not set. Sanction's API routes need Postgres: copy .env.example to .env.local, " +
+        "point DATABASE_URL at a running Postgres, and run `npx prisma migrate deploy`. " +
+        "Unit tests don't need this (`npm run check`); the dev server's API routes do.",
+    )
+  }
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
   return new PrismaClient({ adapter })
 }

@@ -146,7 +146,7 @@ agents wherever they run. Pick the shortest path to your stack:
 |---|---|---|
 | Govern any MCP host (Claude Desktop, Cursor, …) | MCP wallet | Paste `https://getsanction.com/mcp` or `npx sanction-mcp` |
 | Meter model spend with zero code changes | LLM gateway | Point the SDK base URL at `/api/gateway/<provider>` |
-| Govern agents in a TypeScript app | SDK | [`sdk/`](sdk/) in this repo (npm publish pending) |
+| Govern agents in a TypeScript app | SDK | [`sdk/`](sdk/) in this repo (`sanction-sdk`, npm publish pending) |
 | Call the engine from anything else | REST API | `POST /v1/authorize` with an `x-api-key` |
 | Plug into an AuthZEN enforcement point | PDP | Point it at `/api/access/v1/evaluation` |
 | Orchestrate on AWS Bedrock | Action Group | [docs/BEDROCK.md](docs/BEDROCK.md) |
@@ -155,10 +155,14 @@ The full menu:
 
 - **MCP (agent wallet)** — paste `https://getsanction.com/mcp` (Streamable HTTP, `x-api-key`) or `npx sanction-mcp` in any MCP host. The agent carries the wallet. [Wallet Card](https://getsanction.com/.well-known/wallet-card.json) · [guide](docs/AGENT-WALLET.md)
 - **AuthZEN PDP** — any [OpenID AuthZEN 1.0](https://openid.net/specs/authorization-api-1_0.html) enforcement point can use Sanction as its decision point, zero custom code ([guide](docs/AUTHZEN.md))
-- **TypeScript SDK** — [`sdk/`](sdk/) (`@sanction/sdk`, npm publish pending): `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane), plus framework adapters (`SanctionMiddleware`, `sanctionTool`)
+- **TypeScript SDK** — [`sdk/`](sdk/) (`sanction-sdk`, npm publish pending): `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane), plus framework adapters (`SanctionMiddleware`, `sanctionTool`)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
 - **AWS Bedrock Action Group** — enterprise agent orchestration ([setup guide](docs/BEDROCK.md))
 - **LLM gateway** — cross-provider metering with no code changes
+
+Fastest first decision: `bash examples/setup.sh` — wallet, agent, and a demo
+policy in one command, printing the env exports your agent needs
+([examples/](examples/) has runnable clients to point at it).
 
 [Agent wallet](docs/AGENT-WALLET.md) ·
 [Quickstart](docs/QUICKSTART.md) ·

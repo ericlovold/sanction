@@ -17,20 +17,16 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-08-18 — Prove subtree approval resolution with a real two-level
-      org: the org owner can now resolve escalations anywhere in the subtree,
-      but the only covering test mocks `subtreeWalletIds` to a single wallet,
-      so the authorization scope is asserted rather than proven. Listed in
-      `docs/TRACEABILITY.md` Gaps until a test builds the org and resolves
-      across it (and refuses a non-member). (tests/governance)
-- [ ] 2026-08-18 — No local-dev path: `npm run dev` boots, then every API call
-      500s with a raw Prisma P1001 and nothing names `DATABASE_URL`. There is
-      no compose file, no Postgres bring-up doc, and QUICKSTART is
-      hosted-only, so a fresh clone is a dead end about four minutes in.
-      Smallest fix with the most leverage: a "Run it locally" step 0 in
-      QUICKSTART, a `DATABASE_URL` presence check that returns a sentence
-      instead of P1001, and a README link to `examples/setup.sh` (which
-      already does the whole first-decision flow and is linked nowhere). (dx)
+- [x] 2026-08-18 — closed (sprint B, 2026-08-19): the subtree gate is now
+      exercised directly — a mock honoring the `walletId IN` filter over a
+      two-level org proves descendant resolution (grant on the pool's own
+      wallet) and refusal outside the subtree on both lookup paths.
+      TRACEABILITY Gap 4 closed. — Prove subtree approval resolution
+- [x] 2026-08-18 — closed (sprint B, 2026-08-19): QUICKSTART gained step 0
+      (hosted-or-local, with the env + migrate sequence and a
+      `?simulate=true` pointer), `lib/db.ts` names `DATABASE_URL` and the fix
+      in dev instead of a raw P1001, and the README links
+      `examples/setup.sh` as the fastest first decision. — No local-dev path
 - [x] 2026-08-18 — swept (truthsync PR, 2026-08-18): `sdk/README.md` and
       `docs/PAY-PER-CRAWL.md` carried install instructions that 404;
       `docs/FRAMEWORK-ADAPTERS.md` said "install from the repo path" without a

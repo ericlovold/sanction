@@ -31,7 +31,7 @@ Pay-per-crawl's flow (see Cloudflare's AI Crawl Control docs):
 
 `sanctionedFetch` puts Sanction between steps 1 and 2:
 
-> **Not on npm yet.** `@sanction/sdk` is publish-pending — the package builds
+> **Not on npm yet.** `sanction-sdk` is publish-pending — the package builds
 > and passes its tests in-repo, but the npm scope is not stood up. Until it
 > lands, depend on the checked-in build directly:
 >
@@ -40,10 +40,10 @@ Pay-per-crawl's flow (see Cloudflare's AI Crawl Control docs):
 > npm install /path/to/sanction/sdk
 > ```
 >
-> Imports below read `@sanction/sdk` and resolve unchanged once it publishes.
+> Imports below read `sanction-sdk` and resolve unchanged once it publishes.
 
 ```ts
-import { SanctionClient, sanctionedFetch, SanctionCrawlBlocked } from "@sanction/sdk"
+import { SanctionClient, sanctionedFetch, SanctionCrawlBlocked } from "sanction-sdk"
 
 const client = new SanctionClient(process.env.SANCTION_API_KEY!)
 
