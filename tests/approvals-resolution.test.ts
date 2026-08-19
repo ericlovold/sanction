@@ -218,3 +218,70 @@ describe("listPendingApprovals — the inbox sweep", () => {
     )
   })
 })
+
+describe("resolveApproval — authority spans the subtree, and only the subtree", () => {
+  // The ORG-VIS gap: prior tests handed resolveApproval a single wallet id and
+  // a findFirst mock that ignored the where-clause, so the subtree gate was
+  // never exercised. This mock HONORS `walletId: { in: [...] }` against a
+  // two-level org fixture: root → child_pool, plus an unrelated stranger org.
+  const ORG_ROOT = "wallet_root"
+  const CHILD_POOL = "wallet_child_pool"
+  const STRANGER = "wallet_stranger"
+  const SUBTREE = [ORG_ROOT, CHILD_POOL] // what subtreeWalletIds(root) yields
+
+  const fixtures = [
+    pendingApproval({ id: "pa_child", walletId: CHILD_POOL, sourceId: "req_child" }),
+    pendingApproval({ id: "pa_stranger", walletId: STRANGER, sourceId: "req_stranger" }),
+  ]
+
+  beforeEach(() => {
+    dbMock.pendingApproval.findFirst.mockImplementation(
+      async ({ where }: { where: { walletId: { in: string[] }; OR: Array<Record<string, string>> } }) => {
+        const ids = where.walletId.in
+        const wanted = where.OR.map((c) => c.id ?? c.sourceId)
+        return fixtures.find((f) => ids.includes(f.walletId) && (wanted.includes(f.id) || wanted.includes(f.sourceId))) ?? null
+      },
+    )
+    // Legacy fallback: no pre-PendingApproval rows exist in this fixture set.
+    dbMock.authorizationRequest.findUnique.mockResolvedValue(null)
+    dbMock.pendingApproval.findUnique.mockImplementation(async () => ({
+      ...pendingApproval({ id: "pa_child", walletId: CHILD_POOL, sourceId: "req_child" }),
+      status: "approved",
+      resolvedAt: new Date(),
+      resolutionNote: "Approved by owner",
+    }))
+  })
+
+  it("the org owner resolves an escalation waiting in a descendant pool", async () => {
+    const result = await resolveApproval(SUBTREE, "pa_child", "approve", undefined, "owner@org.example")
+    expect(result.ok).toBe(true)
+    // The approval resolves against its OWN wallet — the subtree set only
+    // gates who may decide. The grant must belong to the child pool.
+    expect(dbMock.grant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ walletId: CHILD_POOL }) }),
+    )
+  })
+
+  it("refuses an approval outside the subtree — same call, stranger's wallet", async () => {
+    const result = await resolveApproval(SUBTREE, "pa_stranger", "approve", undefined, "owner@org.example")
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.status).toBe(404)
+    expect(dbMock.grant.create).not.toHaveBeenCalled()
+  })
+
+  it("refuses by request_id too — the legacy path applies the same wallet gate", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_legacy",
+      status: "escalated",
+      agent: { walletId: STRANGER, name: "outsider" },
+    })
+    const result = await resolveApproval(SUBTREE, "req_legacy", "approve")
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.status).toBe(404)
+  })
+
+  it("a single-wallet caller (the REST API) cannot reach a sibling pool's approval", async () => {
+    const result = await resolveApproval(CHILD_POOL, "pa_stranger", "approve")
+    expect(result.ok).toBe(false)
+  })
+})

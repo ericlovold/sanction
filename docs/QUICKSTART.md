@@ -6,6 +6,26 @@
 
 ---
 
+## 0. Hosted or local?
+
+Every step below runs against the hosted API — nothing to install. **Cloned the
+repo and want it local instead?** The API routes need Postgres:
+
+```bash
+cp .env.example .env.local           # fill DATABASE_URL (any Postgres), the two secrets
+npx prisma migrate deploy            # create the schema
+npm run dev                          # then use http://localhost:3000/api/v1 below
+```
+
+`npm run check` (tests, typecheck, lint) needs no database — only the running
+API does. Two shortcuts worth knowing either way:
+
+- `bash examples/setup.sh` does steps 1–3 in one command — wallet, agent, a
+  demo policy tuned so $8 approves / $45 escalates — and prints the exports.
+  Point it locally with `SANCTION_API_URL=http://localhost:3000/api/v1`.
+- Add `?simulate=true` to any `/authorize` call for a full dry run: the real
+  engine decides, nothing persists, no budget moves.
+
 ## 1. Create a wallet
 
 A wallet is your master account. You get back a **management key** (`sk_…`) — save it, it's shown once.
@@ -22,7 +42,7 @@ curl -s -X POST https://getsanction.com/api/v1/wallets \
 Response (abbreviated):
 
 ```json
-{ "id": "wal_abc123", "management_key": "sk_live_...", "warning": "Store this key now." }
+{ "id": "wal_abc123", "management_key": "sk_...", "warning": "Store this key now." }
 ```
 
 ## 2. Register an agent & get a key
@@ -32,7 +52,7 @@ Use your `sk_` management key to provision an agent. You get back an **agent key
 ```bash
 curl -s -X POST https://getsanction.com/api/v1/agents \
   -H "Content-Type: application/json" \
-  -H "x-mgmt-key: sk_live_YOUR_MGMT_KEY" \
+  -H "x-mgmt-key: sk_YOUR_MGMT_KEY" \
   -d '{
     "wallet_id": "wal_abc123",
     "name": "my-first-agent"
@@ -42,7 +62,7 @@ curl -s -X POST https://getsanction.com/api/v1/agents \
 Response:
 
 ```json
-{ "id": "agt_xyz", "api_key": "pxy_live_...", "warning": "Store this key now." }
+{ "id": "agt_xyz", "api_key": "pxy_...", "warning": "Store this key now." }
 ```
 
 ## 3. Route an LLM call through the gateway
@@ -53,7 +73,7 @@ Swap your provider's base URL for the Sanction gateway. Pass your agent key in `
 # Claude via Sanction gateway
 curl -s -X POST https://getsanction.com/api/gateway/anthropic/v1/messages \
   -H "Content-Type: application/json" \
-  -H "x-sanction-key: pxy_live_YOUR_AGENT_KEY" \
+  -H "x-sanction-key: pxy_YOUR_AGENT_KEY" \
   -H "x-api-key: YOUR_ANTHROPIC_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
@@ -72,7 +92,7 @@ Before any financial action, ask Sanction for permission.
 ```bash
 curl -s -X POST https://getsanction.com/api/v1/authorize \
   -H "Content-Type: application/json" \
-  -H "x-api-key: pxy_live_YOUR_AGENT_KEY" \
+  -H "x-api-key: pxy_YOUR_AGENT_KEY" \
   -d '{
     "action": "purchase",
     "amount_usd": 29.99,
@@ -104,7 +124,7 @@ If you call an LLM directly instead of through the gateway, log usage manually:
 ```bash
 curl -s -X POST https://getsanction.com/api/v1/tokens \
   -H "Content-Type: application/json" \
-  -H "x-api-key: pxy_live_YOUR_AGENT_KEY" \
+  -H "x-api-key: pxy_YOUR_AGENT_KEY" \
   -d '{
     "model": "claude-sonnet-4-20250514",
     "tokens_in": 150,

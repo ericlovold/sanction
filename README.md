@@ -160,6 +160,10 @@ The full menu:
 - **AWS Bedrock Action Group** — enterprise agent orchestration ([setup guide](docs/BEDROCK.md))
 - **LLM gateway** — cross-provider metering with no code changes
 
+Fastest first decision: `bash examples/setup.sh` — wallet, agent, and a demo
+policy in one command, printing the env exports your agent needs
+([examples/](examples/) has runnable clients to point at it).
+
 [Agent wallet](docs/AGENT-WALLET.md) ·
 [Quickstart](docs/QUICKSTART.md) ·
 [Starter kit](docs/STARTER-KIT.md) ·
