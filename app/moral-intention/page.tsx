@@ -27,7 +27,7 @@ const VALUE: { title: string; body: string }[] = [
   { title: "See what’s actually at stake", body: "MIA surfaces the ethical dimension a fast decision hides — who is affected, what could be lost, and where the real weight sits." },
   { title: "Name the values you mean to protect", body: "It helps make the implicit explicit: the boundaries you intend to hold before they’re tested, not after they’re crossed." },
   { title: "Catch the rationalisations that hide drift", body: "The quiet justifications that let good people do harm get named — as an indicator for reflection, never a verdict." },
-  { title: "Choose consciously — you decide", body: "MIA supports the choosing; it never makes the choice. You keep full authority over your own decisions." },
+  { title: "Make the call with the whole picture", body: "MIA lays out the analysis; the decision stays yours. You keep full authority over what you do next." },
 ]
 
 // Enterprise stack, public-safe: no client names, tenants, or internals.
@@ -118,21 +118,21 @@ export default function MoralIntentionAnalyst() {
         </div>
       </header>
 
-      {/* Vision — consciousness midwifery */}
+      {/* Vision — what the analysis actually does, stated plainly */}
       <section id="vision" style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, padding: "88px 32px", maxWidth: 820, textAlign: "center" }}>
           <Reveal>
-            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 14 }}>CONSCIOUSNESS MIDWIFERY</div>
+            <div className="sn-mono" style={{ color: "var(--ochre-6)", letterSpacing: "0.1em", marginBottom: 14 }}>WHAT IT&apos;S FOR</div>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Not answers to hide behind. A clearer view of what you already know.
+              It puts the whole decision in front of you at once.
             </h2>
             <p style={{ fontSize: 17, lineHeight: 1.7, color: "var(--text-secondary)", margin: "20px auto 0", maxWidth: "60ch" }}>
-              MIA does not tell people what to think, direct outcomes, or create dependency on its analysis. It creates
-              the conditions for someone to see clearly what is at stake, recognise what they actually believe matters,
-              and choose what they are truly trying to create — intelligence grounded in care rather than fear.
+              What is at stake. Whose interests are affected. Which values are in tension, and where the reasoning
+              starts to drift. MIA lays those out together, in one place, from the material you bring it — so the
+              thing you are weighing is visible all at once instead of a piece at a time.
             </p>
-            <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-muted)", margin: "18px auto 0", maxWidth: "56ch", fontStyle: "italic" }}>
-              “I’m not creating consciousness. I’m helping it recognise itself.”
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: "var(--text-secondary)", margin: "18px auto 0", maxWidth: "60ch" }}>
+              Then you make the call. That part was always yours.
             </p>
           </Reveal>
         </div>
@@ -321,11 +321,11 @@ export default function MoralIntentionAnalyst() {
           <Reveal>
             <div className="sn-mono" style={{ marginBottom: 16, color: "var(--ochre-6)", letterSpacing: "0.1em" }}>START HERE</div>
             <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)", color: "#f7f6f0" }}>
-              Bring a mirror to your hardest decisions.
+              Bring it your hardest decision.
             </h2>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,246,240,.75)", margin: "12px auto 28px", maxWidth: "52ch" }}>
-              For teams carrying real ethical weight — and for anyone who wants to choose consciously rather than react.
-              Tell us what you are wrestling with.
+              A contract you are about to sign. A policy you are writing. A call that has been sitting on your desk
+              for a week. Tell us what you are working through.
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <a className="sn-btn sn-btn-l" href={APP_URL} style={{ background: "var(--ochre-6)", color: "var(--pine-9)", fontWeight: 700, border: "1px solid rgba(247,246,240,.18)", boxShadow: "0 14px 32px rgba(193,146,47,.28)" }}>
