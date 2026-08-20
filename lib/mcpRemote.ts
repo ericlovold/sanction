@@ -80,7 +80,7 @@ export function mcpLandingHtml(origin: string): string {
     <h1>This is the wallet an agent carries.</h1>
     <p>This is a Streamable HTTP wallet endpoint. MCP hosts send your agent key (<code>x-api-key: pxy_…</code> or <code>Authorization: Bearer pxy_…</code>). A browser has no key, so the protocol fail-closes.</p>
     <pre>${config}</pre>
-    <p class="note">Cooperative until broker mode — the host must ask before acting. Discovery: <a href="${escapeHtml(origin)}/.well-known/wallet-card.json">Wallet Card</a>. Need a key? <a href="${escapeHtml(origin)}/start">Create a wallet</a>.</p>
+    <p class="note">This wallet URL is cooperative — the host must ask before acting. For intercepted tools/call, front your MCP servers with the broker (<code>/mcp/broker/&lt;upstream&gt;</code>). Discovery: <a href="${escapeHtml(origin)}/.well-known/wallet-card.json">Wallet Card</a>. Need a key? <a href="${escapeHtml(origin)}/start">Create a wallet</a>.</p>
     <p class="note"><code>${safe}</code></p>
   </main>
 </body>

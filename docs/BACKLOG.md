@@ -563,6 +563,14 @@ as fact here.
       cooperative, MCP-REMOTE-1). Remainder is broker intercept + OAuth.
       Per-agent Wallet Cards and per-decision receipts stay on the same
       carry / present / verify / evidence path.
+      · 2026-08-20: **broker intercept shipped** (BROKER-1) —
+      `/mcp/broker/<upstream>` fronts registered MCP servers, authorizes
+      every `tools/call` through the tool ladder before forwarding, refuses
+      as MCP `isError` results, redeems grants via
+      `_meta["sanction/grant_id"]`. Upstream configs SEC-1-vaulted under
+      `mcp:<name>`; outbound headers built fresh (agent's Sanction key never
+      forwarded). Remainder of this item: OAuth onboarding + tools/list
+      filtering.
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.

@@ -1422,6 +1422,48 @@ export const spec = {
         },
       },
     },
+    "/broker/upstreams": {
+      post: {
+        summary: "Register an MCP upstream the broker may front (BROKER-1)",
+        description:
+          "Owner-plane. Stores the upstream's URL and optional auth header SEC-1-encrypted under the reserved mcp:<name> vault label. Agents then speak to /mcp/broker/{name} with only their Sanction key; every tools/call is authorized before forwarding and the upstream credential is injected server-side. URL must be public https (SSRF-guarded). Re-registering a name replaces the prior config.",
+        security: [{ ManagementKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["wallet_id", "name", "url"],
+                properties: {
+                  wallet_id: { type: "string" },
+                  name: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{0,39}$" },
+                  url: { type: "string", format: "uri" },
+                  auth_header: { type: "string" },
+                  auth_value: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: { "201": { description: "Registered; body carries broker_url" } },
+      },
+      get: {
+        summary: "List registered MCP upstreams (names only, never credentials)",
+        security: [{ ManagementKey: [] }],
+        parameters: [{ in: "query", name: "wallet_id", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "upstreams: [{name, broker_url, created_at}]" } },
+      },
+      delete: {
+        summary: "Revoke a registered MCP upstream",
+        security: [{ ManagementKey: [] }],
+        parameters: [
+          { in: "query", name: "wallet_id", required: true, schema: { type: "string" } },
+          { in: "query", name: "name", required: true, schema: { type: "string" } },
+        ],
+        responses: { "200": { description: "removed" }, "404": { description: "unknown name" } },
+      },
+    },
     "/webhooks": {
       get: {
         operationId: "listWebhooks",

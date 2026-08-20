@@ -20,11 +20,12 @@ describe("walletCard", () => {
     expect(card.tools).toHaveLength(10)
   })
 
-  it("states cooperative enforcement instead of claiming interception", () => {
+  it("scopes the interception claim to gateway + broker; cooperative surfaces stay named", () => {
     const card = walletCard("https://example.test")
-    expect(card.honesty.enforcement).toBe("cooperative")
-    expect(card.honesty.interception).toBe("llm-gateway-only")
-    expect(card.honesty.note).toMatch(/do not claim a hijacked agent cannot spend/i)
+    expect(card.honesty.enforcement).toBe("cooperative+broker")
+    expect(card.honesty.interception).toBe("gateway+mcp-broker")
+    expect(card.honesty.note).toMatch(/not governed/i)
+    expect(card.carry.mcp_broker.url_template).toContain("/mcp/broker/")
   })
 })
 
@@ -48,7 +49,7 @@ describe("public/.well-known/mcp.json", () => {
       url: string
       tools: { name: string }[]
     }
-    expect(listed.version).toBe("0.7.0")
+    expect(listed.version).toBe("0.8.0")
     expect(listed.url).toBe("https://getsanction.com/mcp")
     expect(listed.tools.map((t) => t.name)).toEqual(MCP_WALLET_TOOLS.map((t) => t.name))
   })
