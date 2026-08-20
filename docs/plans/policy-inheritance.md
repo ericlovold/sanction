@@ -1,9 +1,13 @@
 # Policy inheritance down the wallet tree — design proposal
 
-> Status: **proposed**, not scheduled. Drafted 2026-08-18 from the sprint
-> ingest (external analysis, verified against the code). The product decision
-> — whether rules inherit at all — is the owner's; this doc frames it so the
-> decision is cheap.
+> Status: **slice 1 shipped** (INHERIT-1, 2026-08-20) — tool + capability
+> ladders, per-layer evaluation folded deny > escalate > allow (NOT a rule
+> concat: a permissive ancestor must never widen a strict child, which the
+> proposed concat would have allowed — caught during implementation).
+> Enforced on the REST routes and the AuthZEN PDP; evidence carries the
+> deciding layer + consulted revisions; console shows inherited constraints.
+> Category/resource lists remain a follow-up; spend thresholds stay
+> per-wallet by design. Original proposal below, kept for the record.
 
 ## What is true today (verified)
 

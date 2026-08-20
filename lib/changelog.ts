@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-20",
+    title: "Block it once at the org — no team below can allow it back",
+    tags: ["engine", "governance", "inheritance", "tree"],
+    body: "Budgets always cascaded down the wallet tree; rules now do too. **Tool and capability decisions consult every ancestor policy** — each layer runs through the same pure ladder independently, and the verdicts fold deny > escalate > allow with the root-most objector named in the decision. The semantics are one sentence: **a child may tighten, never loosen.** Block `payments.charge` at the org root and no team's allow-list can bring it back; put `deploy.production` on the org's escalate list and every deploy below waits for a human; and a permissive parent (`allow *`) can never silently widen a team's strict allow-list — which is exactly why this is per-layer evaluation, not a merge of rule lists. Nothing copies down: every wallet keeps its own policy and revision chain, and each persisted decision records which layer decided plus every revision consulted, so evidence replay reproduces the verdict and the trail shows the whole chain was heard. Same fold on the REST routes and the AuthZEN PDP — one engine, every surface. The policy console shows what a wallet inherits, read-only, named by parent. Spend thresholds stay per-wallet by design: money ceilings are the piece owners tune per team, and the tree-wide money control remains the subtree cap.",
+  },
+  {
     date: "2026-08-19",
     title: "npm install sanction-sdk",
     tags: ["sdk", "distribution", "release"],

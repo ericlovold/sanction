@@ -91,6 +91,14 @@ there is no such model — **`Wallet` is the root, and it nests into itself**:
 - `Wallet.parentId` → self-relation `WalletTree`. `null` = a root wallet.
 - Subtree reporting rolls spend **up**; `/authorize` enforces opt-in subtree caps
   down (`Policy.subtreeDailyCapUsd`, tracked by `WalletBudgetCounter`).
+- **Rules inherit down** (INHERIT-1): tool and capability decisions consult
+  every ancestor policy as an evaluation-time overlay — each layer evaluated
+  independently through the pure ladder, verdicts folded deny > escalate >
+  allow, root-most objector named. A child may tighten, never loosen; no
+  copy-down, every wallet keeps its own revision chain; evidence records the
+  deciding layer and the full consulted-revision trail (`lib/inheritance.ts`).
+  Spend/provision thresholds stay per-wallet — money ceilings are the piece
+  owners tune per team; the tree-wide money control is the subtree cap.
 - A `User` (Better Auth human identity) owns one or more Wallets; a Wallet is
   claimed by email on first social sign-in (`lib/session.ts`).
 - Beyond the one owning `User`, a Wallet can have additional human members via

@@ -17,13 +17,13 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-08-19 — npm token renewal: publishing now runs on a granular
-      automation token (all-packages read/write, 2FA bypass). Granular tokens
-      expire — when this one does, Publish MCP and Publish SDK start failing
-      E403/EOTP with no other warning. Note the expiry date from npmjs.com →
-      Access Tokens here, and renew + update the `NPM_TOKEN` repo secret
-      before it. Also queued that night: delete the old select-packages token
-      once confirmed unused. (ops)
+- [ ] 2026-08-19 — npm token renewal: publishing runs on a granular
+      automation token (all-packages read/write, 2FA bypass) that **expires
+      2026-11-18**. When it does, Publish MCP and Publish SDK start failing
+      E403/EOTP with no other warning — renew at npmjs.com → Access Tokens
+      and update the `NPM_TOKEN` repo secret BEFORE then; treat ~2026-11-10
+      as the act-by date. Also still open: delete the old select-packages
+      token once confirmed unused. (ops)
 - [x] 2026-08-18 — closed (sprint B, 2026-08-19): the subtree gate is now
       exercised directly — a mock honoring the `walletId IN` filter over a
       two-level org proves descendant resolution (grant on the pool's own
@@ -56,12 +56,12 @@ as fact here.
       trend view that flags drift — a seat whose denial rate is climbing, or
       that keeps hitting the same rule, is misconfigured and burning
       goodwill before it burns budget. (console)
-- [ ] 2026-08-18 — Policy inheritance down the wallet tree (roadmap
-      candidate): budgets cascade today (subtree caps enforced atomically);
-      policy rules do not — a parent cannot push a tool blocklist or
-      escalation band onto children. Decide whether rules should inherit,
-      and document today's actual behavior wherever nesting is described
-      either way. (engine)
+- [x] 2026-08-18 — shipped (INHERIT-1, 2026-08-20): tool + capability rules
+      now inherit down the tree as an evaluation-time overlay — per-layer
+      evaluation folded deny > escalate > allow, tighten-never-loosen,
+      evidence carries the deciding layer + consulted revisions, console
+      shows inherited constraints. Escalation bands/spend thresholds stay
+      per-wallet by design. — Policy inheritance down the wallet tree
 - [ ] 2026-08-18 — Context-conditional rules (roadmap candidate): rules
       today test one dimension at a time (amount, category, tool); there is
       no cross-signal predicate ("allow up to $X only while condition Y

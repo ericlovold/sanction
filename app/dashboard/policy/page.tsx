@@ -10,6 +10,7 @@ import { getViewWallet } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
+import { policyLayerChain } from "@/lib/inheritance"
 
 export const dynamic = "force-dynamic"
 
@@ -54,6 +55,27 @@ export default async function PolicyPage() {
   ])
   const capabilityRules = Array.isArray(wallet?.policy?.capabilityRules) ? wallet.policy.capabilityRules.length : 0
 
+  // INHERIT-1: rules inherited from ancestor wallets bind this wallet's agents
+  // and are not editable here — they are shown so a denial that names a parent
+  // reads as governance, not as a bug. Ancestors only (own policy is the editor).
+  const ancestorLayers = wallet?.policy
+    ? (
+        await policyLayerChain(db, { id: wallet.id, parentId: wallet.parentId, policy: wallet.policy })
+      ).slice(0, -1)
+    : []
+  // Zero-noise: an ancestor with nothing to say adds nothing here — the chain
+  // is still consulted at decision time either way.
+  const inheritedLayers = ancestorLayers.filter(
+    (l) => l.blockedTools.length > 0 || l.escalateTools.length > 0 || l.allowedTools.length > 0 || l.capabilityRules.length > 0,
+  )
+  const layerNames = new Map(
+    inheritedLayers.length > 0
+      ? (
+          await db.wallet.findMany({ where: { id: { in: inheritedLayers.map((l) => l.walletId) } }, select: { id: true, name: true } })
+        ).map((w) => [w.id, w.name] as const)
+      : [],
+  )
+
   return (
     <div className="min-h-screen max-w-4xl mx-auto space-y-6 p-6">
       <div>
@@ -93,6 +115,41 @@ export default async function PolicyPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Inherited constraints — read-only by design; edited on the parent. */}
+      {inheritedLayers.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardContent className="px-5 py-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Inherited from parent wallets</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                These rules bind every agent in this wallet and cannot be loosened here — a parent&apos;s block or
+                escalate always stands. Edit them on the wallet that owns them.
+              </p>
+            </div>
+            {inheritedLayers.map((l) => {
+              const caps = l.capabilityRules.length
+              const parts = [
+                l.blockedTools.length > 0 && `blocks ${l.blockedTools.join(", ")}`,
+                l.escalateTools.length > 0 && `escalates ${l.escalateTools.join(", ")}`,
+                l.allowedTools.length > 0 && `allow-list of ${l.allowedTools.length} tool${l.allowedTools.length === 1 ? "" : "s"}`,
+                caps > 0 && `${caps} capability rule${caps === 1 ? "" : "s"}`,
+              ].filter(Boolean)
+              return (
+                <div key={l.walletId} className="flex items-start justify-between gap-3 border-t border-border pt-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{layerNames.get(l.walletId) ?? l.walletId}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{parts.join(" · ")}</p>
+                  </div>
+                  <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    rev {l.revision} · inherited
+                  </span>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
       )}
 
       <PackPicker editable={hasRole(view.role, "admin")} previewable={view.isSession} />
