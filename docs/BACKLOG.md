@@ -378,15 +378,16 @@ as fact here.
 - [ ] 2026-07-09 — Framework adapters, follow-on packages (roadmap Next; the
       TS foundation shipped: SDK authorizeTool + SanctionMiddleware +
       sanctionTool for Vercel AI SDK). Remaining, each its own shippable unit:
-      (1) Python package — LiteLLM callback + a sanctioned-tool decorator for
-      LangChain/LangGraph (recipes already in docs/FRAMEWORK-ADAPTERS.md);
+      (1) Python package — **shipped 2026-08-13**: LiteLLM callback
+      (`SanctionLiteLLMLogger`) + `log_tokens`; LangChain/LangGraph
+      sanctioned-tool decorator still open (recipes in
+      docs/FRAMEWORK-ADAPTERS.md);
       (2) CrewAI authorize-tool; (3) a runnable examples/ agent per adapter;
       (4) once gateway vault-injected keys land, drop the "provider keys in
       runtime" caveat from the adapter checklist. (feature, from roadmap Next)
       · 2026-07-10: TS publish path ready (`@sanction/sdk@0.6.0`, FSL,
       `getAuthorization` + `sanctionTool` grantId, publish-sdk workflow) —
-      run the workflow after the `sanction` npm org is confirmed; Python
-      units still open.
+      run the workflow after the `sanction` npm org is confirmed.
 
 - [x] 2026-07-09 — AuthZEN/MCP hardening sprint 2 (deferred from the code-review
       sprint; the CONFIRMED-but-deeper findings): (1) batch grant-atomicity —
@@ -539,6 +540,8 @@ as fact here.
       (idea, from distribution review) · 2026-07-08: promoted — ship exactly
       ONE adapter first (LiteLLM callback or LangChain middleware), not the
       full list; the rest follow demand.
+      · 2026-08-13: LiteLLM callback shipped in-repo (`PY-1`,
+      `packages/sanction-python`). LangChain/CrewAI remain demand-gated.
 - [x] 2026-07-05 — Channel policy packs: extend PACK-1's catalog with packs
       shaped to a channel — coding-agent, MCP-tool, contractor-seat,
       gateway-token-budget, payment-agent. Pure data + one catalog entry each.

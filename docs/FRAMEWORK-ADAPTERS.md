@@ -3,8 +3,9 @@
 Sanction stays outside the framework's identity system and inside the
 pre-action path: the framework asks, Sanction decides, the agent acts only on an
 approved decision or redeemed grant. The TypeScript adapters below **ship in
-`sanction-sdk`** (`npm install sanction-sdk` — source in [`sdk/`](../sdk/));
-the Python recipes are copy-in until their packages land.
+`sanction-sdk`** (`npm install sanction-sdk` — source in [`sdk/`](../sdk/)).
+Python LiteLLM ships in `packages/sanction-python` (same `sanction-sdk` name,
+PyPI publish pending). LangChain and CrewAI recipes stay copy-in.
 
 ## TypeScript: `SanctionMiddleware` (ships)
 
@@ -97,35 +98,31 @@ Use the same pattern for spend (`/authorize`), provisioning
 
 ## LiteLLM callback
 
-For token spend, the simplest path is still the gateway base URL. If LiteLLM is
-already the gateway of record, add a callback that logs usage and uses Sanction
-as the budget authority for high-risk operations:
+Post-call meter, not a pre-call wall. `SanctionLiteLLMLogger` duck-types
+LiteLLM's `CustomLogger` and posts each successful completion to
+`POST /tokens`. The package does not import `litellm`.
 
 ```python
 import os
-import httpx
+import litellm
+from sanction_sdk import SanctionLiteLLMLogger
 
-SANCTION_API = os.getenv("SANCTION_API", "https://getsanction.com/api/v1")
-SANCTION_KEY = os.environ["SANCTION_AGENT_KEY"]
+litellm.callbacks = [
+    SanctionLiteLLMLogger(api_key=os.environ["SANCTION_AGENT_KEY"])
+]
 
-def log_tokens(model: str, tokens_in: int, tokens_out: int, cost_usd: float, task: str):
-    httpx.post(
-        f"{SANCTION_API}/tokens",
-        headers={"x-api-key": SANCTION_KEY},
-        json={
-            "model": model,
-            "tokens_in": tokens_in,
-            "tokens_out": tokens_out,
-            "cost_usd": cost_usd,
-            "task": task,
-        },
-        timeout=10,
-    ).raise_for_status()
+response = litellm.completion(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+)
 ```
 
-For a fail-closed budget wall before the provider call, route LiteLLM's provider
-base URL through `/api/gateway/<provider>` with `x-sanction-key`. Manual
-`/tokens` logging is useful for parity and reporting; it is not a pre-call wall.
+Cost comes from LiteLLM's `response_cost`. Missing usage is skipped, not
+invented. A 402 or an unreachable Sanction never raises into the completion —
+the call already happened.
+
+For a fail-closed budget wall *before* the provider call, route LiteLLM's
+provider base URL through `/api/gateway/<provider>` with `x-sanction-key`.
 
 ## Adapter checklist
 
