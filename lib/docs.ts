@@ -38,7 +38,7 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     file: "FRAMEWORK-ADAPTERS.md",
     title: "Framework adapters",
     description:
-      "SanctionMiddleware, LangChain/LangGraph wrappers, and LiteLLM callback recipes for putting authorization before framework tool execution.",
+      "SanctionMiddleware, the Python LiteLLM callback, and LangChain/LangGraph copy-in recipes.",
   },
   quickstart: {
     file: "QUICKSTART.md",

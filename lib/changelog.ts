@@ -64,6 +64,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     body: "Incoming Slack webhooks still deep-link; they cannot receive button clicks. Interactive **Approve / Deny** is a Slack app: paste a channel archive URL (`https://slack.com/archives/C…`), set `SANCTION_SLACK_SIGNING_SECRET` and `SANCTION_SLACK_BOT_TOKEN`, and the bot posts the card via `chat.postMessage`. The click is HMAC-verified over the raw body and runs the same `resolveApproval` path as the dashboard — grant, audit, actor recorded as `slack:<username>`. The interactive endpoint fails closed if the signing secret is unset. [Notifications](/docs/notifications).",
   },
   {
+    date: "2026-08-13",
+    title: "One Python import: LiteLLM posts usage to Sanction",
+    tags: ["sdk", "python", "litellm"],
+    body: "Python agents get a real adapter, not a copy-paste recipe. **`SanctionLiteLLMLogger`** duck-types LiteLLM's `CustomLogger` and posts each successful completion to `POST /tokens`. Wire it with `litellm.callbacks = [SanctionLiteLLMLogger(api_key=...)]`. The package lives at `packages/sanction-python` (unpublished; runtime dep is httpx only — it never imports litellm). This is meter/report after the call. Fail-closed spend is still `/api/gateway/<provider>`. LangChain and CrewAI stay Next. [Adapter guide](/docs/framework-adapters).",
+  },
+  {
     date: "2026-08-12",
     title: "The agent wallet is a public object",
     tags: ["mcp", "wallet", "a2a", "mandate"],
