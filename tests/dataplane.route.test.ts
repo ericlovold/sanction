@@ -12,7 +12,7 @@ const { dbMock } = vi.hoisted(() => ({
     agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     wallet: { findUnique: vi.fn() },
     policy: { findUnique: vi.fn() },
-    tokenLog: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
+    tokenLog: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     grant: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     pendingApproval: { count: vi.fn(), create: vi.fn() },
@@ -521,5 +521,84 @@ describe("authorize/tool — inheritance (a child may tighten, never loosen)", (
     const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "web.search" } }))
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ authorized: true, status: "allowed" })
+  })
+})
+
+// ── COND-1: conditional rules through the tool route ─────────────────────────
+describe("authorize/tool — conditional rules (COND-1)", () => {
+  const conditionedAgent = {
+    ...AGENT,
+    wallet: {
+      ...AGENT.wallet,
+      policy: {
+        ...POLICY,
+        blockedTools: [],
+        escalateTools: [],
+        toolConditions: [{ pattern: "*", effect: "block", when: { after_model_calls_today: 5 } }],
+      },
+    },
+  }
+
+  it("blocks past the model-call threshold, with signals in evidence", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(conditionedAgent)
+    dbMock.tokenLog.count.mockResolvedValue(7)
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_cond1", createdAt: new Date() })
+
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "web.search" } }))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ authorized: false, status: "denied", code: "TOOL_CONDITION_BLOCKED" })
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          decisionContextJson: expect.objectContaining({
+            ctx: expect.objectContaining({
+              modelCallsToday: 7,
+              requestHourUtc: expect.any(Number),
+              conditions: [{ pattern: "*", effect: "block", when: { after_model_calls_today: 5 } }],
+            }),
+          }),
+        }),
+      }),
+    )
+  })
+
+  it("allows below the threshold — and only then queries the counter", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(conditionedAgent)
+    dbMock.tokenLog.count.mockResolvedValue(3)
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "web.search" } }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ authorized: true, status: "allowed" })
+    expect(dbMock.tokenLog.count).toHaveBeenCalledTimes(1)
+  })
+
+  it("skips the counter query entirely when no layer conditions on it", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(AGENT) // no conditions anywhere
+    dbMock.tokenLog.count.mockClear()
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "web.search" } }))
+    expect(res.status).toBe(200)
+    expect(dbMock.tokenLog.count).not.toHaveBeenCalled()
+  })
+
+  it("a PARENT's conditional rule binds the child (inheritance carries conditions)", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({
+      ...AGENT,
+      wallet: { ...AGENT.wallet, parentId: "wallet_parent", policy: { ...POLICY, blockedTools: [], escalateTools: [] } },
+    })
+    dbMock.wallet.findUnique.mockResolvedValue({
+      id: "wallet_parent",
+      parentId: null,
+      policy: {
+        ...POLICY,
+        walletId: "wallet_parent",
+        blockedTools: [],
+        escalateTools: [],
+        toolConditions: [{ pattern: "deploy.*", effect: "block", when: { after_model_calls_today: 1 } }],
+      },
+    })
+    dbMock.tokenLog.count.mockResolvedValue(2)
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_cond2", createdAt: new Date() })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "deploy.prod" } }))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ code: "TOOL_CONDITION_BLOCKED" })
   })
 })

@@ -117,7 +117,19 @@ export async function POST(req: NextRequest) {
   // tighten, never loosen. Leaf layer comes from the wallet already in hand;
   // a parentless wallet adds zero queries and folds to exactly the old path.
   const layers = await policyLayerChain(db, { id: agent.wallet.id, parentId: agent.wallet.parentId, policy })
-  const outcome = decideToolLayered(tool, layers)
+  // COND-1: signals captured ONCE here — rules never read the live clock or
+  // counters, so the persisted context replays byte-for-byte. The call count
+  // is only fetched when some layer actually conditions on it.
+  const needsCallCount = layers.some((l) => l.toolConditions.some((r) => r.when.after_model_calls_today !== undefined))
+  const signalDayStart = new Date()
+  signalDayStart.setHours(0, 0, 0, 0)
+  const signals = {
+    requestHourUtc: new Date().getUTCHours(),
+    modelCallsToday: needsCallCount
+      ? await db.tokenLog.count({ where: { agentId: agent.id, createdAt: { gte: signalDayStart } } })
+      : undefined,
+  }
+  const outcome = decideToolLayered(tool, layers, signals)
   const decision = {
     status: (outcome.effect === "allow" ? "allowed" : outcome.effect === "escalate" ? "escalated" : "denied") as "allowed" | "escalated" | "denied",
     code: outcome.code as ToolDecisionCode | undefined,
@@ -131,6 +143,9 @@ export async function POST(req: NextRequest) {
     blockedTools: outcome.decidedBy.blockedTools,
     allowedTools: outcome.decidedBy.allowedTools,
     escalateTools: outcome.decidedBy.escalateTools,
+    conditions: outcome.decidedBy.toolConditions,
+    requestHourUtc: signals.requestHourUtc,
+    modelCallsToday: signals.modelCallsToday,
     inheritance: {
       decided_by: { wallet_id: outcome.decidedBy.walletId, revision: outcome.decidedBy.revision },
       consulted: outcome.consulted,

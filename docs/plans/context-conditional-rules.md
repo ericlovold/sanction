@@ -1,9 +1,15 @@
 # Context-conditional rules — design proposal
 
-> Status: **proposed**, not scheduled. Drafted 2026-08-18 from the sprint
-> ingest. Needs an owner decision on scope before any code: which signals
-> enter the context snapshot is a governance-surface decision, not a
-> refactor.
+> Status: **slice 1 shipped** (COND-1, 2026-08-20) — `outside_hours_utc` +
+> `after_model_calls_today` on the tool ladder, one predicate per rule,
+> restrictive effects only, signals captured once by the shell and persisted
+> in evidence, conditions riding the INHERIT-1 layers. One correction from
+> this proposal: the counting signal shipped as **model calls today**, not
+> `maxDecisionsPerDay` — allowed tool calls are decision-only (never
+> persisted), so a decisions counter would be blind to exactly the runaway
+> loops it targets. Simulate boundary: the tool ladder predates SIM-1's
+> simulatable set; candidate `tool_conditions` echo back in `ignored_fields`.
+> Original proposal below, kept for the record.
 
 ## The ask
 

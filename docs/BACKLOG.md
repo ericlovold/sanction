@@ -62,12 +62,12 @@ as fact here.
       evidence carries the deciding layer + consulted revisions, console
       shows inherited constraints. Escalation bands/spend thresholds stay
       per-wallet by design. — Policy inheritance down the wallet tree
-- [ ] 2026-08-18 — Context-conditional rules (roadmap candidate): rules
-      today test one dimension at a time (amount, category, tool); there is
-      no cross-signal predicate ("allow up to $X only while condition Y
-      holds this hour"). Fits the determinism principle — rules stay pure,
-      the context they evaluate just gets richer — but needs a design pass
-      on what enters the context snapshot. (engine)
+- [x] 2026-08-18 — shipped (COND-1, 2026-08-20): conditional tool rules with
+      a closed vocabulary — `outside_hours_utc` + `after_model_calls_today`,
+      one predicate per rule, restrictive effects only, signals captured once
+      and persisted in evidence, inheriting down the tree. Counting signal
+      corrected to model calls (allowed tool calls are never persisted).
+      — Context-conditional rules
 - [ ] 2026-08-17 — Pull the MIA launch ribbon from the home page after
       2026-09-10. It shipped as a launch-window element (live 2026-08-10) and
       nothing else expires it; a permanent "NEW" ribbon stops reading as news.

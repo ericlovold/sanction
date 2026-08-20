@@ -143,6 +143,7 @@ type PolicyShape = {
   allowedResources: string[]
   escalateResources: string[]
   capabilityRules: unknown
+  toolConditions?: unknown
   // CPO-1 ceiling config — read into cpoContext for the spend/provision throttle.
   outcomeKind: string | null
   costPerOutcomeCeilingUsd: number | null
@@ -284,7 +285,16 @@ export async function evaluateAuthZen(
       // INHERIT-1 parity: the PDP folds the same ancestor layers the native
       // /authorize/tool route does — one engine, every surface.
       const toolLayers = await policyLayerChain(db, { id: agent.wallet.id, parentId: agent.wallet.parentId, policy })
-      const o = decideToolLayered(r.resource.id, toolLayers)
+      // COND-1 parity: same signals contract as /authorize/tool.
+      const needsCallCount = toolLayers.some((l) => l.toolConditions.some((c) => c.when.after_model_calls_today !== undefined))
+      const sigDayStart = new Date()
+      sigDayStart.setHours(0, 0, 0, 0)
+      const o = decideToolLayered(r.resource.id, toolLayers, {
+        requestHourUtc: new Date().getUTCHours(),
+        modelCallsToday: needsCallCount
+          ? await db.tokenLog.count({ where: { agentId: agent.id, createdAt: { gte: sigDayStart } } })
+          : undefined,
+      })
       const d = {
         status: (o.effect === "allow" ? "allowed" : o.effect === "escalate" ? "escalated" : "denied") as "allowed" | "escalated" | "denied",
         code: o.code as ToolDecisionCode | undefined,

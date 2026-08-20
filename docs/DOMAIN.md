@@ -99,6 +99,13 @@ there is no such model — **`Wallet` is the root, and it nests into itself**:
   deciding layer and the full consulted-revision trail (`lib/inheritance.ts`).
   Spend/provision thresholds stay per-wallet — money ceilings are the piece
   owners tune per team; the tree-wide money control is the subtree cap.
+- **Rules can be conditional** (COND-1): a tool rule may carry a `when` — a
+  closed vocabulary, one predicate per rule: `outside_hours_utc` (deploys
+  escalate outside business hours) or `after_model_calls_today` (a runaway
+  breaker: block everything once today's model calls pass N). Signals are
+  captured once by the enforcement shell and persisted in evidence, so replay
+  reads the snapshot, never the live clock. Conditions inherit like any other
+  rule.
 - A `User` (Better Auth human identity) owns one or more Wallets; a Wallet is
   claimed by email on first social sign-in (`lib/session.ts`).
 - Beyond the one owning `User`, a Wallet can have additional human members via

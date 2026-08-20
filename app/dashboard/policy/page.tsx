@@ -66,7 +66,7 @@ export default async function PolicyPage() {
   // Zero-noise: an ancestor with nothing to say adds nothing here — the chain
   // is still consulted at decision time either way.
   const inheritedLayers = ancestorLayers.filter(
-    (l) => l.blockedTools.length > 0 || l.escalateTools.length > 0 || l.allowedTools.length > 0 || l.capabilityRules.length > 0,
+    (l) => l.blockedTools.length > 0 || l.escalateTools.length > 0 || l.allowedTools.length > 0 || l.capabilityRules.length > 0 || l.toolConditions.length > 0,
   )
   const layerNames = new Map(
     inheritedLayers.length > 0
@@ -93,6 +93,8 @@ export default async function PolicyPage() {
               <p className="text-xs text-muted-foreground">Tool posture</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {wallet.policy.blockedTools.length} blocked · {wallet.policy.escalateTools.length} escalated
+                {Array.isArray(wallet.policy.toolConditions) && wallet.policy.toolConditions.length > 0 &&
+                  ` · ${wallet.policy.toolConditions.length} conditional`}
               </p>
             </CardContent>
           </Card>
@@ -130,11 +132,13 @@ export default async function PolicyPage() {
             </div>
             {inheritedLayers.map((l) => {
               const caps = l.capabilityRules.length
+              const conds = l.toolConditions.length
               const parts = [
                 l.blockedTools.length > 0 && `blocks ${l.blockedTools.join(", ")}`,
                 l.escalateTools.length > 0 && `escalates ${l.escalateTools.join(", ")}`,
                 l.allowedTools.length > 0 && `allow-list of ${l.allowedTools.length} tool${l.allowedTools.length === 1 ? "" : "s"}`,
                 caps > 0 && `${caps} capability rule${caps === 1 ? "" : "s"}`,
+                conds > 0 && `${conds} conditional rule${conds === 1 ? "" : "s"}`,
               ].filter(Boolean)
               return (
                 <div key={l.walletId} className="flex items-start justify-between gap-3 border-t border-border pt-3 text-sm">

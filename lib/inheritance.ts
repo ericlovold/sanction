@@ -22,7 +22,7 @@
 // walked iteratively like walletAncestorChain.
 
 import { evaluate } from "@/lib/evaluation"
-import { TOOL_RULES, type ToolContext } from "@/lib/rules/tool"
+import { TOOL_RULES, type ToolContext, type ToolConditionRule } from "@/lib/rules/tool"
 import {
   CAPABILITY_RULES,
   parseCapabilityRules,
@@ -37,6 +37,30 @@ export type PolicyLayer = {
   allowedTools: string[]
   escalateTools: string[]
   capabilityRules: CapabilityRule[]
+  toolConditions: ToolConditionRule[]
+}
+
+/** Signals the shell supplies once per request — never read inside rules. */
+export type ToolSignals = { requestHourUtc?: number; modelCallsToday?: number }
+
+/** Parse a Policy.toolConditions Json column (bad entries dropped, like
+ * parseCapabilityRules — the write path validates, the read path tolerates). */
+export function parseToolConditions(value: unknown): ToolConditionRule[] {
+  if (!Array.isArray(value)) return []
+  const out: ToolConditionRule[] = []
+  for (const v of value) {
+    const r = v as ToolConditionRule
+    if (!r || typeof r !== "object" || typeof r.pattern !== "string" || r.pattern.length === 0) continue
+    if (r.effect !== "block" && r.effect !== "escalate") continue
+    const w = r.when
+    if (!w || typeof w !== "object") continue
+    const hours = Array.isArray(w.outside_hours_utc) && w.outside_hours_utc.length === 2 &&
+      w.outside_hours_utc.every((h) => Number.isInteger(h) && h >= 0 && h <= 23)
+    const calls = typeof w.after_model_calls_today === "number" && Number.isInteger(w.after_model_calls_today) && w.after_model_calls_today >= 1
+    if (Number(!!hours) + Number(!!calls) !== 1) continue
+    out.push({ pattern: r.pattern, effect: r.effect, when: hours ? { outside_hours_utc: [w.outside_hours_utc![0], w.outside_hours_utc![1]] } : { after_model_calls_today: w.after_model_calls_today } })
+  }
+  return out
 }
 
 export type ConsultedRevision = { wallet_id: string; revision: number }
@@ -67,6 +91,7 @@ type LayerTx = {
             allowedTools: true
             escalateTools: true
             capabilityRules: true
+            toolConditions: true
           }
         }
       }
@@ -79,6 +104,7 @@ type LayerTx = {
         allowedTools: string[]
         escalateTools: string[]
         capabilityRules: unknown
+        toolConditions: unknown
       } | null
     } | null>
   }
@@ -92,6 +118,7 @@ type LeafPolicy = {
   allowedTools: string[]
   escalateTools: string[]
   capabilityRules: unknown
+  toolConditions?: unknown
 }
 
 function toLayer(walletId: string, p: LeafPolicy): PolicyLayer {
@@ -102,6 +129,7 @@ function toLayer(walletId: string, p: LeafPolicy): PolicyLayer {
     allowedTools: p.allowedTools,
     escalateTools: p.escalateTools,
     capabilityRules: parseCapabilityRules(p.capabilityRules),
+    toolConditions: parseToolConditions(p.toolConditions),
   }
 }
 
@@ -134,6 +162,7 @@ export async function policyLayerChain(
             allowedTools: true,
             escalateTools: true,
             capabilityRules: true,
+            toolConditions: true,
           },
         },
       },
@@ -158,14 +187,18 @@ function fold(verdicts: LayerVerdict[], consulted: ConsultedRevision[]): Layered
   return { effect: winner.effect, code: winner.code, reason: winner.reason, decidedBy: winner.layer, consulted }
 }
 
-/** Decide a tool invocation across every policy layer. Pure. */
-export function decideToolLayered(tool: string, layers: PolicyLayer[]): LayeredOutcome {
+/** Decide a tool invocation across every policy layer. Pure — signals are
+ * whatever the shell captured once for this request (COND-1). */
+export function decideToolLayered(tool: string, layers: PolicyLayer[], signals: ToolSignals = {}): LayeredOutcome {
   const verdicts = layers.map((layer) => {
     const ctx: ToolContext = {
       tool,
       blockedTools: layer.blockedTools,
       allowedTools: layer.allowedTools,
       escalateTools: layer.escalateTools,
+      conditions: layer.toolConditions,
+      requestHourUtc: signals.requestHourUtc,
+      modelCallsToday: signals.modelCallsToday,
     }
     const d = evaluate(ctx, TOOL_RULES)
     return { layer, effect: d.effect, code: d.code, reason: d.reason }
