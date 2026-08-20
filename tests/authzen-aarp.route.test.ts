@@ -221,7 +221,7 @@ describe("POST /access/v1/access-request", () => {
     // agent B. verifyBindingToken is the enforcement point; this pins it
     // directly (the route/PDP subject checks would otherwise mask a regression).
     const offer = await obtainOffer() // token.sub = AID
-    const base = { name: "x", perTransactionMaxUsd: null, dailySpendBudgetUsd: null, escalateOverUsd: null, wallet: { policy: null } }
+    const base = { name: "x", perTransactionMaxUsd: null, dailySpendBudgetUsd: null, escalateOverUsd: null, wallet: { id: "wallet_1", parentId: null, policy: null } }
     const self: AuthZenAgent = { ...base, id: AID, walletId: WID }
     const peer: AuthZenAgent = { ...base, id: "agent_2", walletId: WID }
 

@@ -6,11 +6,11 @@ import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import {
   CAPABILITY_REMEDIATION,
-  decideCapability,
   parseCapabilityRules,
   type CapabilityDecisionCode,
 } from "@/lib/capability"
 import { decisionEvidence } from "@/lib/evidence"
+import { policyLayerChain, decideCapabilityLayered } from "@/lib/inheritance"
 import { createCapabilityPendingApproval } from "@/lib/approvals"
 import { consumeCapabilityGrant } from "@/lib/grants"
 import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
@@ -103,8 +103,25 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const rules = parseCapabilityRules(policy.capabilityRules)
-  const decision = decideCapability({ capability, rules })
+  // INHERIT-1: every ancestor policy is consulted — a child may tighten,
+  // never loosen (see lib/inheritance.ts for the fold semantics).
+  const layers = await policyLayerChain(db, { id: agent.wallet.id, parentId: agent.wallet.parentId, policy })
+  const outcome = decideCapabilityLayered(capability, layers)
+  const decision = {
+    status: (outcome.effect === "allow" ? "allowed" : outcome.effect === "escalate" ? "escalated" : "denied") as "allowed" | "escalated" | "denied",
+    code: outcome.code as import("@/lib/capability").CapabilityDecisionCode | undefined,
+    reason: outcome.reason,
+  }
+  // Deciding layer's rules replay its verdict exactly; the trail is metadata
+  // the pure rules never read.
+  const evidenceCtx = {
+    capability,
+    rules: outcome.decidedBy.capabilityRules,
+    inheritance: {
+      decided_by: { wallet_id: outcome.decidedBy.walletId, revision: outcome.decidedBy.revision },
+      consulted: outcome.consulted,
+    },
+  }
 
   // Escalation persists: audit row + inbox item; approval mints the grant.
   if (decision.status === "escalated") {
@@ -122,7 +139,7 @@ export async function POST(req: NextRequest) {
             status: "escalated",
             decisionNote: decision.reason,
             policyRevision: policy.currentRevision,
-            decisionContextJson: decisionEvidence("capability", { capability, rules }),
+            decisionContextJson: decisionEvidence("capability", evidenceCtx),
             idempotencyKey,
           },
         })

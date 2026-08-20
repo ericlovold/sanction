@@ -56,12 +56,12 @@ as fact here.
       trend view that flags drift — a seat whose denial rate is climbing, or
       that keeps hitting the same rule, is misconfigured and burning
       goodwill before it burns budget. (console)
-- [ ] 2026-08-18 — Policy inheritance down the wallet tree (roadmap
-      candidate): budgets cascade today (subtree caps enforced atomically);
-      policy rules do not — a parent cannot push a tool blocklist or
-      escalation band onto children. Decide whether rules should inherit,
-      and document today's actual behavior wherever nesting is described
-      either way. (engine)
+- [x] 2026-08-18 — shipped (INHERIT-1, 2026-08-20): tool + capability rules
+      now inherit down the tree as an evaluation-time overlay — per-layer
+      evaluation folded deny > escalate > allow, tighten-never-loosen,
+      evidence carries the deciding layer + consulted revisions, console
+      shows inherited constraints. Escalation bands/spend thresholds stay
+      per-wallet by design. — Policy inheritance down the wallet tree
 - [ ] 2026-08-18 — Context-conditional rules (roadmap candidate): rules
       today test one dimension at a time (amount, category, tool); there is
       no cross-signal predicate ("allow up to $X only while condition Y

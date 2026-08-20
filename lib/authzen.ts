@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { SignJWT, jwtVerify } from "jose"
 import { db } from "@/lib/db"
 import { decidePolicy, decideProvisionPolicy, decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
-import { decideTool, TOOL_REMEDIATION } from "@/lib/toolDecisions"
-import { CAPABILITY_REMEDIATION, decideCapability, parseCapabilityRules } from "@/lib/capability"
+import { TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
+import { policyLayerChain, decideToolLayered, decideCapabilityLayered } from "@/lib/inheritance"
+import { CAPABILITY_REMEDIATION, parseCapabilityRules, type CapabilityDecisionCode } from "@/lib/capability"
 import { consumeSpendGrant, consumeProvisionGrant, consumeToolGrant, consumeCapabilityGrant, type GrantConsumeResult } from "@/lib/grants"
 import { APPEALABLE_DENIALS } from "@/lib/evidence"
 import { cpoContext } from "@/lib/outcomes"
@@ -127,6 +128,7 @@ const OPEN_APPROVAL: Record<string, string> = {
 }
 
 type PolicyShape = {
+  currentRevision: number
   blockedCategories: string[]
   allowedCategories: string[]
   perTransactionMaxUsd: number
@@ -140,7 +142,7 @@ type PolicyShape = {
   blockedResources: string[]
   allowedResources: string[]
   escalateResources: string[]
-  capabilityRules?: unknown
+  capabilityRules: unknown
   // CPO-1 ceiling config — read into cpoContext for the spend/provision throttle.
   outcomeKind: string | null
   costPerOutcomeCeilingUsd: number | null
@@ -155,7 +157,7 @@ export type AuthZenAgent = {
   perTransactionMaxUsd: number | null
   dailySpendBudgetUsd: number | null
   escalateOverUsd: number | null
-  wallet: { policy: PolicyShape | null }
+  wallet: { id: string; parentId: string | null; policy: PolicyShape | null }
 }
 
 function deny(code: string, reason: string, remediation?: string): AuthZenDecision {
@@ -279,12 +281,15 @@ export async function evaluateAuthZen(
 
   switch (r.resource.type) {
     case "tool": {
-      const d = decideTool({
-        tool: r.resource.id,
-        blockedTools: policy.blockedTools,
-        allowedTools: policy.allowedTools,
-        escalateTools: policy.escalateTools,
-      })
+      // INHERIT-1 parity: the PDP folds the same ancestor layers the native
+      // /authorize/tool route does — one engine, every surface.
+      const toolLayers = await policyLayerChain(db, { id: agent.wallet.id, parentId: agent.wallet.parentId, policy })
+      const o = decideToolLayered(r.resource.id, toolLayers)
+      const d = {
+        status: (o.effect === "allow" ? "allowed" : o.effect === "escalate" ? "escalated" : "denied") as "allowed" | "escalated" | "denied",
+        code: o.code as ToolDecisionCode | undefined,
+        reason: o.reason,
+      }
       if (d.status === "allowed") return { decision: true }
       const remediation = d.code
         ? TOOL_REMEDIATION[d.code] + (d.status === "escalated" ? OPEN_APPROVAL.tool : "")
@@ -297,7 +302,13 @@ export async function evaluateAuthZen(
     }
 
     case "capability": {
-      const d = decideCapability({ capability: r.resource.id, rules: parseCapabilityRules(policy.capabilityRules) })
+      const capLayers = await policyLayerChain(db, { id: agent.wallet.id, parentId: agent.wallet.parentId, policy })
+      const o = decideCapabilityLayered(r.resource.id, capLayers)
+      const d = {
+        status: (o.effect === "allow" ? "allowed" : o.effect === "escalate" ? "escalated" : "denied") as "allowed" | "escalated" | "denied",
+        code: o.code as CapabilityDecisionCode | undefined,
+        reason: o.reason,
+      }
       if (d.status === "allowed") return { decision: true }
       const remediation = d.code
         ? CAPABILITY_REMEDIATION[d.code] + (d.status === "escalated" ? OPEN_APPROVAL.capability : "")

@@ -4,7 +4,8 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
-import { decideTool, TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
+import { TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
+import { policyLayerChain, decideToolLayered } from "@/lib/inheritance"
 import { decisionEvidence } from "@/lib/evidence"
 import { createToolPendingApproval } from "@/lib/approvals"
 import { consumeToolGrant } from "@/lib/grants"
@@ -112,12 +113,29 @@ export async function POST(req: NextRequest) {
   // observed marker, nothing blocked, no approvals or pages (see spend route).
   const observe = policy.enforcementMode === "observe"
 
-  const decision = decideTool({
+  // INHERIT-1: the decision spans every ancestor policy — a child may
+  // tighten, never loosen. Leaf layer comes from the wallet already in hand;
+  // a parentless wallet adds zero queries and folds to exactly the old path.
+  const layers = await policyLayerChain(db, { id: agent.wallet.id, parentId: agent.wallet.parentId, policy })
+  const outcome = decideToolLayered(tool, layers)
+  const decision = {
+    status: (outcome.effect === "allow" ? "allowed" : outcome.effect === "escalate" ? "escalated" : "denied") as "allowed" | "escalated" | "denied",
+    code: outcome.code as ToolDecisionCode | undefined,
+    reason: outcome.reason,
+  }
+  // Evidence context: the DECIDING layer's lists (replay reproduces its
+  // verdict exactly) plus the consulted-revision trail. Extra keys are
+  // invisible to the pure rules, so old and new rows replay identically.
+  const evidenceCtx = {
     tool,
-    blockedTools: policy.blockedTools,
-    allowedTools: policy.allowedTools,
-    escalateTools: policy.escalateTools,
-  })
+    blockedTools: outcome.decidedBy.blockedTools,
+    allowedTools: outcome.decidedBy.allowedTools,
+    escalateTools: outcome.decidedBy.escalateTools,
+    inheritance: {
+      decided_by: { wallet_id: outcome.decidedBy.walletId, revision: outcome.decidedBy.revision },
+      consulted: outcome.consulted,
+    },
+  }
 
   // Escalation persists: an audit row + an inbox item the owner can act on.
   if (decision.status === "escalated") {
@@ -136,12 +154,7 @@ export async function POST(req: NextRequest) {
             decisionNote: decision.reason,
             // EVID-1: the tool ladder is fully stateless — the lists ARE the state.
             policyRevision: policy.currentRevision,
-            decisionContextJson: decisionEvidence("tool", {
-              tool,
-              blockedTools: policy.blockedTools,
-              allowedTools: policy.allowedTools,
-              escalateTools: policy.escalateTools,
-            }),
+            decisionContextJson: decisionEvidence("tool", evidenceCtx),
             idempotencyKey,
           },
         })
@@ -239,12 +252,7 @@ export async function POST(req: NextRequest) {
           decidedAt: new Date(),
           decisionNote: decision.reason,
           policyRevision: policy.currentRevision,
-          decisionContextJson: decisionEvidence("tool", {
-            tool,
-            blockedTools: policy.blockedTools,
-            allowedTools: policy.allowedTools,
-            escalateTools: policy.escalateTools,
-          }),
+          decisionContextJson: decisionEvidence("tool", evidenceCtx),
           idempotencyKey,
         },
       })

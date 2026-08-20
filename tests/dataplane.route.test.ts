@@ -58,6 +58,7 @@ const AID = "agent_1"
 const POLICY = {
   id: "pol_1",
   walletId: WID,
+  currentRevision: 1,
   dailyTokenBudgetUsd: 1_000, // $10/day token budget
   dailySpendBudgetUsd: 5_000,
   subtreeDailyCapUsd: null,
@@ -457,5 +458,68 @@ describe("wallets/stats — membership required (owner or in-wallet agent)", () 
     // Scoped to the key's own wallet — same read the explicit wallet_id form gets.
     expect(body.today).toMatchObject({ token_cost_usd: 1.5, spend_usd: 20 })
     expect(body.scope).toBe("wallet")
+  })
+})
+
+// ── INHERIT-1: policy inheritance through the tool route ─────────────────────
+describe("authorize/tool — inheritance (a child may tighten, never loosen)", () => {
+  const PARENT_WID = "wallet_parent"
+  const parentPolicy = {
+    ...POLICY,
+    currentRevision: 5,
+    walletId: PARENT_WID,
+    blockedTools: ["payments.charge"],
+    escalateTools: [],
+  }
+  const childAgent = {
+    ...AGENT,
+    wallet: {
+      ...AGENT.wallet,
+      parentId: PARENT_WID,
+      // Child explicitly allows what the parent blocks — the parent must win.
+      policy: { ...POLICY, blockedTools: [], escalateTools: [], allowedTools: ["payments.charge"] },
+    },
+  }
+
+  it("an ancestor block denies through the route, with the trail in evidence", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(childAgent)
+    dbMock.wallet.findUnique.mockResolvedValue({ id: PARENT_WID, parentId: null, policy: parentPolicy })
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_inh1", createdAt: new Date() })
+
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "payments.charge" } }))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ authorized: false, status: "denied", code: "TOOL_BLOCKED" })
+
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "denied",
+          decisionContextJson: expect.objectContaining({
+            ladder: "tool",
+            effect: "deny",
+            ctx: expect.objectContaining({
+              inheritance: {
+                decided_by: { wallet_id: PARENT_WID, revision: 5 },
+                consulted: [
+                  { wallet_id: PARENT_WID, revision: 5 },
+                  { wallet_id: WID, revision: POLICY.currentRevision },
+                ],
+              },
+            }),
+          }),
+        }),
+      }),
+    )
+  })
+
+  it("a tool neither layer objects to stays allowed", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({
+      ...childAgent,
+      wallet: { ...childAgent.wallet, policy: { ...POLICY, blockedTools: [], escalateTools: [], allowedTools: [] } },
+    })
+    dbMock.wallet.findUnique.mockResolvedValue({ id: PARENT_WID, parentId: null, policy: parentPolicy })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "web.search" } }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ authorized: true, status: "allowed" })
   })
 })
