@@ -14,6 +14,36 @@ const tools = z.array(z.string().trim().min(1).max(80)).max(200)
 const capabilityRules = z
   .array(z.object({ pattern: z.string().trim().min(1).max(MAX_CAPABILITY_PATTERN_LEN), effect: z.enum(["block", "allow", "escalate"]) }))
   .max(MAX_CAPABILITY_RULES)
+// COND-1: conditional tool rules — a CLOSED vocabulary, exactly one predicate
+// per rule (no AND/OR: composition is more rules, which stays simulable and
+// explainable). Effects are restrictive only; allow remains unconditional
+// membership. Hours are UTC (0-23); [22, 6] wraps midnight; start === end is
+// rejected as meaningless. after_model_calls_today counts the agent's
+// persisted gateway/token-log calls today — chosen over "decisions today"
+// because allowed tool calls are decision-only (never persisted), so a
+// decisions counter would be blind to exactly the runaway loops this exists
+// to stop.
+const hourUtc = z.number().int().min(0).max(23)
+const toolConditions = z
+  .array(
+    z
+      .object({
+        pattern: z.string().trim().min(1).max(80),
+        effect: z.enum(["block", "escalate"]),
+        when: z
+          .object({
+            outside_hours_utc: z.tuple([hourUtc, hourUtc]).optional(),
+            after_model_calls_today: z.number().int().min(1).max(1_000_000).optional(),
+          })
+          .refine((w) => (w.outside_hours_utc ? 1 : 0) + (w.after_model_calls_today ? 1 : 0) === 1, {
+            message: "when takes exactly one predicate",
+          }),
+      })
+      .refine((r) => !r.when.outside_hours_utc || r.when.outside_hours_utc[0] !== r.when.outside_hours_utc[1], {
+        message: "outside_hours_utc start and end must differ",
+      }),
+  )
+  .max(50)
 
 export const policyInputSchema = z
   .object({
@@ -32,6 +62,7 @@ export const policyInputSchema = z
     blocked_tools: tools,
     escalate_tools: tools,
     capability_rules: capabilityRules,
+    tool_conditions: toolConditions,
     escalation_timeout_mins: z.number().int().min(0).max(10_080), // 0 = never; cap 7 days
     escalation_timeout_action: z.enum(["deny", "approve"]),
     // OBS-1: observe runs the full engine but blocks nothing (see schema note).
@@ -80,6 +111,7 @@ export async function applyPolicyUpdate(walletId: string, input: unknown) {
   if (d.blocked_tools !== undefined) data.blockedTools = d.blocked_tools
   if (d.escalate_tools !== undefined) data.escalateTools = d.escalate_tools
   if (d.capability_rules !== undefined) data.capabilityRules = d.capability_rules
+  if (d.tool_conditions !== undefined) data.toolConditions = d.tool_conditions
   if (d.escalation_timeout_mins !== undefined) data.escalationTimeoutMins = d.escalation_timeout_mins
   if (d.escalation_timeout_action !== undefined) data.escalationTimeoutAction = d.escalation_timeout_action
   if (d.enforcement_mode !== undefined) data.enforcementMode = d.enforcement_mode
@@ -152,6 +184,7 @@ type PolicyRow = {
   blockedTools: string[]
   escalateTools: string[]
   capabilityRules?: unknown
+  toolConditions?: unknown
   escalationTimeoutMins: number
   escalationTimeoutAction: string
   enforcementMode?: string
@@ -178,6 +211,7 @@ export function policyToDollars(p: PolicyRow) {
     blocked_tools: p.blockedTools,
     escalate_tools: p.escalateTools,
     capability_rules: p.capabilityRules ?? [],
+    tool_conditions: p.toolConditions ?? [],
     escalation_timeout_mins: p.escalationTimeoutMins,
     escalation_timeout_action: p.escalationTimeoutAction,
     enforcement_mode: p.enforcementMode ?? "enforce",

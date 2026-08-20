@@ -376,6 +376,12 @@ model Policy {
   // namespaced ids (skill:install:*, plugin:*, api:github.com/*) and
   // prefix-glob matching. Empty = allow all (governance is opt-in, like tools).
   capabilityRules Json @default("[]")
+  // COND-1: context-conditional tool rules — closed vocabulary, one predicate
+  // per rule: {pattern, effect: block|escalate, when: {outside_hours_utc: [s,e]
+  // | after_model_calls_today: N}}. Validated in lib/policy.ts; evaluated in
+  // the tool ladder with signals the shell supplies (never the live clock at
+  // replay). Allow stays unconditional membership by design.
+  toolConditions  Json @default("[]")
 
   // Cost-per-outcome ceiling (CPO-1): governs spend ÷ outcomes (CAC/CPA-class
   // metrics), not just absolute spend. When the wallet's windowed cost per

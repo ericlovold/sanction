@@ -12,6 +12,7 @@ const layer = (walletId: string, over: Partial<PolicyLayer> = {}): PolicyLayer =
   allowedTools: [],
   escalateTools: [],
   capabilityRules: [],
+  toolConditions: [],
   ...over,
 })
 

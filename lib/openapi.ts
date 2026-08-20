@@ -484,6 +484,7 @@ export const spec = {
           allowed_categories: { type: "array", items: { type: "string" } },
           blocked_categories: { type: "array", items: { type: "string" } },
           capability_rules: { $ref: "#/components/schemas/CapabilityRules" },
+          tool_conditions: { $ref: "#/components/schemas/ToolConditions" },
           escalation_timeout_mins: { type: "integer", minimum: 0, maximum: 10080 },
           escalation_timeout_action: { type: "string", enum: ["deny", "approve"] },
         },
@@ -498,6 +499,28 @@ export const spec = {
           properties: {
             pattern: { type: "string", minLength: 1, maxLength: 120, description: "e.g. skill:install:*, api:github.com/*" },
             effect: { type: "string", enum: ["block", "allow", "escalate"] },
+          },
+        },
+      },
+      ToolConditions: {
+        type: "array",
+        maxItems: 50,
+        description:
+          "Context-conditional tool rules (COND-1): a closed vocabulary, exactly one predicate per rule. The restriction is ACTIVE when the condition holds — outside_hours_utc: [start, end) UTC hours (wrapping midnight allowed), or after_model_calls_today: N persisted model calls by this agent today. Effects are restrictive only; allow-list membership is never conditional.",
+        items: {
+          type: "object",
+          required: ["pattern", "effect", "when"],
+          properties: {
+            pattern: { type: "string", minLength: 1, maxLength: 80, description: "Prefix-glob tool pattern, e.g. deploy.*, *" },
+            effect: { type: "string", enum: ["block", "escalate"] },
+            when: {
+              type: "object",
+              description: "Exactly one of:",
+              properties: {
+                outside_hours_utc: { type: "array", minItems: 2, maxItems: 2, items: { type: "integer", minimum: 0, maximum: 23 } },
+                after_model_calls_today: { type: "integer", minimum: 1, maximum: 1000000 },
+              },
+            },
           },
         },
       },
@@ -526,6 +549,7 @@ export const spec = {
           blocked_tools: { type: "array", items: { type: "string" } },
           escalate_tools: { type: "array", items: { type: "string" } },
           capability_rules: { $ref: "#/components/schemas/CapabilityRules" },
+          tool_conditions: { $ref: "#/components/schemas/ToolConditions" },
           escalation_timeout_mins: { type: "integer", minimum: 0, maximum: 10080 },
           escalation_timeout_action: { type: "string", enum: ["deny", "approve"] },
         },
@@ -542,6 +566,7 @@ export const spec = {
           allowed_categories: { type: "array", items: { type: "string" } },
           blocked_categories: { type: "array", items: { type: "string" } },
           capability_rules: { $ref: "#/components/schemas/CapabilityRules" },
+          tool_conditions: { $ref: "#/components/schemas/ToolConditions" },
         },
       },
       PolicyResponse: {
