@@ -17,6 +17,16 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-22 — GTM launch arc (Eric: "timing is everything"): platform
+      positioning goes stablecoin-era (irreversibility argument, rail-aware,
+      non-custodial/veto-only), pricing gains **Pro $20/mo early access**
+      (metered in decisions, lead-capture CTA, no checkout until billing
+      ships), first blog post announces the arc, marketing strategy drafted
+      (14-day launch sequence, CLARITY-vote newsjack prep for ~2026-09-15,
+      content franchises, Pro funnel). Remaining after the site ships:
+      DIST-0 listings (MCP registries, Slack App Directory), activation
+      email sequence, founder posts (Eric's voice — coached, never
+      drafted). (arc, from founder direction)
 - [ ] 2026-08-22 — Monetization + distribution (five-discipline research
       fan-out; synthesis in `docs/plans/monetization-and-distribution.md`):
       the billable unit is **the decision** (never bps on spend — economics
