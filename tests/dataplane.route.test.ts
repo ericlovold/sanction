@@ -13,6 +13,7 @@ const { dbMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn() },
     policy: { findUnique: vi.fn() },
     tokenLog: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    walletDecisionCounter: { upsert: vi.fn(async () => ({})), aggregate: vi.fn(async () => ({ _sum: { count: 0 } })) },
     authorizationRequest: { findUnique: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     grant: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     pendingApproval: { count: vi.fn(), create: vi.fn() },

@@ -47,6 +47,17 @@ export const spec = {
             description:
               "Optional attribution tags (≤8; e.g. {\"channel\":\"paid-media\",\"play\":\"d2c-search\"}). Stored on the decision and surfaced in the audit feed/CSV for rollups. Never read by policy rules.",
           },
+          settlement: {
+            type: "object",
+            required: ["rail"],
+            properties: {
+              rail: { type: "string", enum: ["card", "ach", "wire", "x402", "internal"] },
+              asset: { type: "string", enum: ["usd", "usdc", "eurc", "usdt"] },
+              network: { type: "string", enum: ["base", "ethereum", "solana", "polygon", "arbitrum", "optimism"], description: "Only valid with rail \"x402\"" },
+            },
+            description:
+              "Optional settlement metadata: which rail the approved spend will settle on (closed vocabulary). Inert to the decision — never read by policy rules — and stored on the row so the ledger and audit feed/CSV are rail-aware. Sanction authorizes the spend; any rail settles it.",
+          },
           grant_id: {
             type: "string",
             description: "Short-lived approval grant returned from GET /authorize/{request_id}. Retry the exact approved request with this field to consume the grant.",
@@ -355,6 +366,7 @@ export const spec = {
           month: {
             type: "object",
             properties: {
+              decisions: { type: "integer", description: "Fresh engine decisions rendered this month across the scope (spend, tool, capability, provision — approve/escalate/deny alike; replays and grant redemptions never count)." },
               token_cost_usd: { type: "number" },
               spend_usd: { type: "number" },
               spend_budget_usd: { type: "number", nullable: true },

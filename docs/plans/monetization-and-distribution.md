@@ -118,9 +118,13 @@ and hash-chained exports versus caps-and-alerts.
 
 ## First slices (if promoted)
 
-- **MONO-0** — instrument billing without billing: per-wallet decision
-  counter + monthly rollup (the `WalletBudgetCounter` pattern), so pricing
-  launches later as a config change, not a rebuild.
+- **MONO-0** — **shipped 2026-08-22**: per-wallet, per-UTC-month
+  `WalletDecisionCounter`, incremented once per fresh engine decision across
+  all four authorize shells (replays/redemptions/simulate never count;
+  increments after the response, failures swallowed). Surfaces as
+  `month.decisions` on `/v1/wallets/stats` and a Decisions (month) card on
+  the spend console. No fee attaches — the unit is measured before it is
+  ever priced.
 - **DIST-0** — registry listings + Slack App Directory submission +
   `/govern/<x>` page template.
 - **x402-payable tier** — rides STABLE-1; it is monetization and

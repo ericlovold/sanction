@@ -77,6 +77,9 @@ export async function buildAuditFeed(
         // Attribution tags ride detailsJson on spend rows (provision rows use
         // it for their own shape and simply won't have a tags key).
         tags: (a.detailsJson as { tags?: Record<string, string> } | null)?.tags,
+        // STABLE-0: settlement metadata rides detailsJson the same way — the
+        // feed and CSV are rail-aware wherever the caller declared the rail.
+        settlement: (a.detailsJson as { settlement?: Record<string, string> } | null)?.settlement,
       })),
       tokens.map((t): AuditEvent => ({
         type: "token.logged",

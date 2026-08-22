@@ -10,6 +10,7 @@ import { dailyPace, bucketByDay } from "@/lib/burn"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd, fmtCount } from "@/lib/format"
 import { RunwayChart } from "@/components/runway-chart"
+import { decisionsThisMonth } from "@/lib/decisionMeter"
 import { seatHealth, type SeatHealthInput } from "@/lib/seatHealth"
 import { decisionCode } from "@/lib/decisions"
 
@@ -153,6 +154,10 @@ async function getSpend(walletId: string) {
 
   const mix = Object.fromEntries(decisionMix.map((r) => [r.status, r._count])) as Record<string, number>
 
+  // MONO-0: the month's fresh engine decisions, from the counter (allowed tool
+  // calls never persist a row, so the row-derived mix undercounts them).
+  const decisions = await decisionsThisMonth(walletIds)
+
   // Month runway: per-day totals since the 1st, for the cumulative chart.
   const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate()
   const tokenByMonthDay = bucketByDay(monthTokenLogs.map((l) => ({ at: l.createdAt, amount: l.costUsd })), monthStart, daysInMonth)
@@ -190,7 +195,7 @@ async function getSpend(walletId: string) {
     wallet, policy: wallet?.policy ?? null,
     tokDay, spendDay, tokMonth, spendMonth,
     byModel, byTask: byTask.filter((t) => (t._sum.costUsd ?? 0) > 0), byCategory,
-    agentList, days, trendMax, mix,
+    agentList, days, trendMax, mix, decisions,
     tokenByMonthDay, spendByMonthDay, seatFlags,
   }
 }
@@ -246,12 +251,13 @@ export default async function SpendPage() {
       </Card>
 
       {/* KPI row — this month */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Token cost (month)", value: fmtUsd(s.tokMonth._sum.costUsd ?? 0), sub: `${tokensMonth.toLocaleString()} tokens` },
           { label: "Authorized spend (month)", value: fmtUsd(s.spendMonth._sum.amountUsd ?? 0), sub: `${s.mix.approved ?? 0} approved` },
           { label: "Denied (month)", value: `${s.mix.denied ?? 0}`, sub: "blocked by policy" },
           { label: "Escalated (month)", value: `${s.mix.escalated ?? 0}`, sub: "awaiting a human" },
+          { label: "Decisions (month)", value: `${s.decisions}`, sub: "engine verdicts rendered" },
         ].map((k) => (
           <Card key={k.label} className="bg-card border-border">
             <CardHeader className="px-4 pt-4 pb-1">

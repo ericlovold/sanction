@@ -15,6 +15,7 @@ import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import { createProvisionPendingApproval } from "@/lib/approvals"
+import { recordDecision } from "@/lib/decisionMeter"
 import { consumeProvisionGrant } from "@/lib/grants"
 import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thresholds"
 import type { CascadeCrossing } from "@/lib/cascadeBudget"
@@ -182,6 +183,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (!policy) {
+    // MONO-0: deny-by-default is still a rendered decision.
+    after(() => recordDecision(agent.walletId))
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
   }
 
@@ -223,6 +226,7 @@ export async function POST(req: NextRequest) {
       const rec = await db.authorizationRequest.create({
         data: { ...base, ...gateEvidence(), status: "denied", decidedAt: new Date(), decisionNote: preDecision.reason } as never,
       })
+      after(() => recordDecision(agent.walletId))
       return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: statusCode(rec.status) })
     }
   }
@@ -265,6 +269,11 @@ export async function POST(req: NextRequest) {
     }
     return simulateResponse(status, note, agent.name, amount_usd, resource)
   }
+
+  // Captured inside the transaction below; a subtree-cap breach rolls that
+  // transaction back, so the denial row is written in the catch — carrying the
+  // revision and context the engine evaluated (see the spend route's D1 note).
+  let evidenceForDenial: { policyRevision: number; decisionContextJson: ReturnType<typeof decisionEvidence> } | null = null
 
   try {
     // Threshold-crossing state, captured inside the transaction and notified
@@ -325,6 +334,7 @@ export async function POST(req: NextRequest) {
       const decision = evaluate(ctxFull, PROVISION_STATEFUL)
       // EVID-1: revision in force + exact evaluated context — replayable later.
       const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("provision", ctxFull) }
+      evidenceForDenial = evidence
 
       if (decision.effect === "deny") {
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
@@ -333,14 +343,12 @@ export async function POST(req: NextRequest) {
         return escalateNow(decision.reason ?? "Exceeds escalation threshold", evidence)
       }
 
-      try {
-        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
-      } catch (e) {
-        if (e instanceof CascadeBudgetExceeded) {
-          return tx.authorizationRequest.create({ data: { ...base, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
-        }
-        throw e
-      }
+      // Deliberately unguarded: a cap breach must roll back every ancestor
+      // counter this loop already incremented. Catching here would COMMIT
+      // those increments alongside a denial — phantom spend that the
+      // GREATEST() reconcile can never heal downward. Handled outside the
+      // transaction, exactly like the spend route (D1).
+      poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
 
       const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
       spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
@@ -410,8 +418,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // MONO-0: one fresh decision rendered; replays/redemptions/simulate never
+    // reach here. Metered after the response; can never fail the path.
+    after(() => recordDecision(agent.walletId))
     return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: statusCode(result.status) })
   } catch (e: unknown) {
+    // Subtree cap breach: the transaction rolled back (no counter moved), so
+    // persist the denial on its own with the evidence captured pre-reserve.
+    if (e instanceof CascadeBudgetExceeded) {
+      const rec = await db.authorizationRequest.create({
+        data: { ...base, ...(evidenceForDenial ?? {}), status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE },
+      })
+      after(() => recordDecision(agent.walletId))
+      return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: statusCode(rec.status) })
+    }
     if (idempotencyKey && isUniqueViolation(e)) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },

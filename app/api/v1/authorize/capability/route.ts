@@ -10,6 +10,7 @@ import {
   type CapabilityDecisionCode,
 } from "@/lib/capability"
 import { decisionEvidence } from "@/lib/evidence"
+import { recordDecision } from "@/lib/decisionMeter"
 import { policyLayerChain, decideCapabilityLayered } from "@/lib/inheritance"
 import { createCapabilityPendingApproval } from "@/lib/approvals"
 import { consumeCapabilityGrant } from "@/lib/grants"
@@ -97,6 +98,8 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   if (!policy) {
+    // MONO-0: deny-by-default is still a rendered decision.
+    after(() => recordDecision(agent.walletId))
     return NextResponse.json(
       { authorized: false, status: "denied", code: "NO_POLICY", reason: "No policy configured", agent: agent.name, capability },
       { status: 403 },
@@ -152,6 +155,7 @@ export async function POST(req: NextRequest) {
         })
         return row
       })
+      after(() => recordDecision(agent.walletId))
 
       after(() =>
         Promise.all([
@@ -197,6 +201,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // MONO-0: allowed and denied capability decisions are decision-only — the
+  // meter is the one place they count (escalations counted above).
+  after(() => recordDecision(agent.walletId))
   const authorized = decision.status === "allowed"
   return NextResponse.json(
     {

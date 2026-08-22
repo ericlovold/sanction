@@ -83,6 +83,7 @@ model Wallet {
   slackInstalls    SlackInstall[]
   magicLinks       MagicLink[]
   budgetCounters   WalletBudgetCounter[]
+  decisionCounters WalletDecisionCounter[]
   pendingApprovals PendingApproval[]
   grants           Grant[]
   outcomes         OutcomeEvent[]
@@ -646,6 +647,23 @@ model Grant {
 
 // Running counters for opt-in subtree caps. /authorize updates these atomically
 // across capped ancestors so sibling agents cannot race past a parent cap.
+// MONO-0: per-wallet, per-UTC-month count of fresh engine decisions — the
+// future billable unit, counted now so pricing could launch as a config
+// change (docs/plans/monetization-and-distribution.md). Instrumentation only:
+// nothing on the decision path reads it, and increments happen after the
+// response (lib/decisionMeter.ts). Replays/redemptions/simulate never count.
+model WalletDecisionCounter {
+  id        String   @id @default(cuid())
+  walletId  String
+  month     String // UTC "YYYY-MM"
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([walletId, month])
+}
+
 model WalletBudgetCounter {
   id          String   @id @default(cuid())
   walletId    String
