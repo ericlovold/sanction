@@ -1476,6 +1476,39 @@ export const spec = {
         responses: { "200": { description: "removed" }, "404": { description: "unknown name" } },
       },
     },
+    "/authorize/quote": {
+      post: {
+        operationId: "authorizeQuote",
+        summary: "Authorize an x402 payment challenge before the wallet signs",
+        description:
+          "Post the 402 body a resource server just returned. Sanction prices the quote (USD-pegged stablecoins with known decimals only — never a guessed rate) and runs it through the same spend ladder as POST /authorize, so budgets, escalation, grants, evidence and the decision meter all apply, with STABLE-0 settlement metadata derived from the quote. When a challenge offers several ways to pay, the WORST case is authorized: the client chooses, and Sanction cannot know which. Category defaults to \"api\" — a policy that uses an allowed-category list must include it or pass `category` explicitly, otherwise the quote denies with CATEGORY_NOT_ALLOWED.",
+        tags: ["Authorization"],
+        security: [{ AgentKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["challenge"],
+                properties: {
+                  challenge: { type: "object", description: "The parsed 402 response body: {x402Version, accepts: [...]}" },
+                  category: { type: "string", description: "Spend category for the ladder (default \"api\")" },
+                  description: { type: "string" },
+                  grant_id: { type: "string", description: "Redeem an approval granted after an escalation" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Decision (approved or escalated), plus the priced quote and its settlement metadata" },
+          400: { description: "Body is not an x402 payment-required response (code NOT_X402)" },
+          401: { description: "Invalid agent key" },
+          403: { description: "Denied by policy, or the quote could not be priced (code QUOTE_NOT_PRICEABLE)" },
+        },
+      },
+    },
     "/webhooks": {
       get: {
         operationId: "listWebhooks",

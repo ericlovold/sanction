@@ -5,6 +5,8 @@ import { publicOrigin } from "@/lib/authzen"
 import { clientIp, rateLimit } from "@/lib/rateLimit"
 import { brokerRefusalResult, classifyBrokerBody, forwardToUpstream, loadUpstream, GRANT_META_KEY } from "@/lib/broker"
 import { POST as authorizeToolPOST } from "@/app/api/v1/authorize/tool/route"
+import { POST as authorizeSpendPOST } from "@/app/api/v1/authorize/route"
+import { gateX402Response, type SpendAuthorizer } from "@/lib/x402Gate"
 import { logger } from "@/lib/log"
 
 export const maxDuration = 60
@@ -79,7 +81,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
   // Non-POST (SSE resume GET, session DELETE) carries no tools/call — forward.
   if (rawBody === undefined) {
     const res = await forwardToUpstream(upstream, { method: req.method, headers: req.headers, rawBody })
-    return passthrough(res)
+    return gateOrPassthrough(res, apiKey, { upstream: upstreamName, agentId: agent.id, rpcId: null })
   }
 
   let body: unknown
@@ -151,11 +153,72 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
       headers: req.headers,
       rawBody: JSON.stringify(body),
     })
-    return passthrough(res)
+    return gateOrPassthrough(res, apiKey, { upstream: upstreamName, agentId: agent.id, rpcId: call.id })
   }
 
   const res = await forwardToUpstream(upstream, { method: req.method, headers: req.headers, rawBody })
-  return passthrough(res)
+  return gateOrPassthrough(res, apiKey, { upstream: upstreamName, agentId: agent.id, rpcId: null })
+}
+
+// STABLE-1: a brokered upstream that answers 402 is demanding money. Price the
+// x402 challenge and run it through the SAME spend ladder as any purchase; on
+// anything but an approval the challenge is WITHHELD — the agent cannot sign a
+// payment it never received. Non-x402 402s pass through untouched.
+async function gateOrPassthrough(
+  res: Response,
+  apiKey: string,
+  ctx: { upstream: string; agentId: string; rpcId: string | number | null },
+): Promise<Response> {
+  if (res.status !== 402) return passthrough(res)
+
+  const authorize: SpendAuthorizer = async (input) => {
+    const r = await authorizeSpendPOST(
+      new NextRequest("https://broker.internal/api/v1/authorize", {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "purchase",
+          amount_usd: input.amountUsd,
+          merchant: input.merchant,
+          category: input.category,
+          description: input.description,
+          settlement: input.settlement,
+        }),
+      }),
+    )
+    return { ...((await r.json()) as Record<string, unknown>), httpStatus: r.status }
+  }
+
+  const verdict = await gateX402Response(res, authorize, { description: `x402 quote from MCP upstream '${ctx.upstream}'` })
+
+  if (verdict.effect === "refuse") {
+    log.info("broker withheld an x402 challenge", {
+      agentId: ctx.agentId,
+      upstream: ctx.upstream,
+      status: verdict.status,
+      code: verdict.code,
+    })
+    // The challenge is deliberately absent from this body.
+    return NextResponse.json(
+      brokerRefusalResult(ctx.rpcId, {
+        status: verdict.status,
+        code: verdict.code,
+        reason: verdict.reason,
+        remediation: verdict.remediation,
+        request_id: verdict.requestId,
+      }),
+      { status: 200, headers: NO_STORE },
+    )
+  }
+
+  const headers = new Headers()
+  for (const h of ["content-type", "mcp-session-id", "mcp-protocol-version"]) {
+    const v = res.headers.get(h)
+    if (v) headers.set(h, v)
+  }
+  headers.set("Cache-Control", "no-store")
+  if (verdict.effect === "allow" && verdict.requestId) headers.set("x-sanction-request-id", verdict.requestId)
+  return new Response(verdict.rawBody, { status: 402, headers })
 }
 
 function passthrough(res: Response): Response {

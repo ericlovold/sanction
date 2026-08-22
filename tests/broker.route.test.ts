@@ -38,6 +38,10 @@ vi.mock("@/lib/credentialCrypto", () => ({
   ),
 }))
 vi.mock("@/lib/rateLimit", () => ({ clientIp: () => "1.2.3.4", rateLimit: vi.fn(async () => ({ ok: true })) }))
+// STABLE-1: the spend ladder has its own suite; here we only prove the broker
+// routes an upstream 402 through it and honors the verdict.
+const { spendMock } = vi.hoisted(() => ({ spendMock: vi.fn() }))
+vi.mock("@/app/api/v1/authorize/route", () => ({ POST: spendMock }))
 
 import { POST as brokerPOST } from "../app/mcp/broker/[upstream]/route"
 
@@ -173,5 +177,72 @@ describe("/mcp/broker/[upstream] — interception before forwarding", () => {
     )
     expect(res.status).toBe(400)
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+})
+
+describe("/mcp/broker/[upstream] — the x402 spend gate (STABLE-1)", () => {
+  const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+  const challenge = {
+    x402Version: 1,
+    error: "X-PAYMENT header is required",
+    accepts: [
+      {
+        scheme: "exact",
+        network: "base",
+        maxAmountRequired: "50000", // $0.05
+        resource: "https://paid.mcp.example/tool",
+        payTo: "0xabc0000000000000000000000000000000000001",
+        asset: USDC_BASE,
+      },
+    ],
+  }
+  const upstream402 = () =>
+    vi.fn(async () => new Response(JSON.stringify(challenge), { status: 402, headers: { "content-type": "application/json" } })) as never
+
+  it("a denied quote is withheld — the agent never receives the payment requirements", async () => {
+    global.fetch = upstream402()
+    spendMock.mockResolvedValue(
+      Response.json(
+        { authorized: false, status: "denied", code: "DAILY_BUDGET_EXCEEDED", reason: "Daily spend budget exceeded" },
+        { status: 403 },
+      ),
+    )
+    const res = await brokerPOST(rpc("tools/list", {}, 7), ctx)
+    const text = await res.text()
+    expect(text).toContain("DAILY_BUDGET_EXCEEDED")
+    // The enforcement: no payee, no amount, nothing to sign.
+    expect(text).not.toContain("payTo")
+    expect(text).not.toContain("maxAmountRequired")
+    expect(text).not.toContain("0x833589")
+  })
+
+  it("prices the quote and hands the ladder a settlement-tagged spend request", async () => {
+    global.fetch = upstream402()
+    spendMock.mockResolvedValue(Response.json({ authorized: true, status: "approved", request_id: "req_x" }, { status: 200 }))
+    await brokerPOST(rpc("tools/list", {}, 8), ctx)
+    const forwarded = JSON.parse(await spendMock.mock.calls[0][0].text())
+    expect(forwarded).toMatchObject({
+      action: "purchase",
+      amount_usd: 0.05,
+      merchant: "paid.mcp.example",
+      settlement: { rail: "x402", asset: "usdc", network: "base" },
+    })
+  })
+
+  it("an approved quote is relayed intact so the agent's own wallet signs it", async () => {
+    global.fetch = upstream402()
+    spendMock.mockResolvedValue(Response.json({ authorized: true, status: "approved", request_id: "req_x" }, { status: 200 }))
+    const res = await brokerPOST(rpc("tools/list", {}, 9), ctx)
+    expect(res.status).toBe(402)
+    expect(res.headers.get("x-sanction-request-id")).toBe("req_x")
+    expect(JSON.parse(await res.text()).accepts[0].payTo).toBe(challenge.accepts[0].payTo)
+  })
+
+  it("a non-x402 402 passes through untouched — we govern what we can price", async () => {
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: "subscription required" }), { status: 402 })) as never
+    const res = await brokerPOST(rpc("tools/list", {}, 10), ctx)
+    expect(res.status).toBe(402)
+    expect(spendMock).not.toHaveBeenCalled()
+    expect(await res.text()).toContain("subscription required")
   })
 })
