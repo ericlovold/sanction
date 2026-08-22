@@ -6,7 +6,7 @@ export function DocsHeader() {
     <header className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
       <nav className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center">
-          <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-4 w-auto" />
+          <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[18px] w-auto" />
         </Link>
         <div className="flex items-center gap-6 text-sm text-zinc-400">
           <Link href="/docs" className="hover:text-zinc-100 transition-colors">Docs</Link>

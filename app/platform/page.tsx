@@ -206,8 +206,7 @@ export default async function Landing() {
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 17, letterSpacing: "-0.02em" }}>
-            <img src="/brand/sanction-mark.svg" alt="" style={{ width: 24, height: 24 }} />
-            Sanction
+            <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 25 }} />
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <a className="sanction-link" href="#how">How it works</a>
@@ -470,8 +469,7 @@ export default async function Landing() {
       <footer style={{ borderTop: "1px solid var(--line-2)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 24, padding: 32, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--text-body)" }}>
-            <img src="/brand/sanction-mark.svg" alt="" style={{ width: 18, height: 18 }} />
-            Sanction
+            <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 18 }} />
           </span>
           <span>Authorize · Protect · Govern</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
