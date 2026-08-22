@@ -86,7 +86,7 @@ export function DashboardSidebar({
         <div className="border-b border-sidebar-border px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_var(--sidebar-primary)]" />
-            <span className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground">Sanction</span>
+            <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[16px] w-auto" />
           </Link>
           {switcher ?? (
             <p className="mt-2 truncate font-mono text-[11px] text-sidebar-foreground/45">
@@ -113,7 +113,7 @@ export function DashboardSidebar({
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-sidebar-primary" />
-            <span className="font-display text-[13px] font-semibold uppercase tracking-[0.16em]">Sanction</span>
+            <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[16px] w-auto" />
           </Link>
           <div className="flex items-center gap-1">{account}<ThemeToggle collapsed /></div>
         </div>
