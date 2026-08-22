@@ -1,6 +1,6 @@
 # sanction-mcp
 
-**Spend authorization, token budgets, and a credential vault for autonomous AI agents — over MCP.**
+**Sanction authorizes the spend; any rail settles it. Govern MCP tools, token budgets, spend, and credentials for autonomous AI agents.**
 
 Give your agent a [Sanction](https://getsanction.com) key instead of your credit card.
 Before it buys anything, calls a paid API, or touches a secret, it asks Sanction — which

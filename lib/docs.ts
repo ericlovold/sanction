@@ -106,6 +106,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "The web now charges agents per request (402 + crawler-price, x402 settlement). sanctionedFetch turns every quote into a governed spend decision — budgets, escalation, and audit instead of a static max-price header.",
   },
+  "governed-workflows": {
+    file: "GOVERNED-WORKFLOWS.md",
+    title: "Three governed workflows",
+    description:
+      "Engineer-ready paths for MCP tool governance, team-level LLM spend caps, and x402 authorization before a wallet signs — including policy, wire examples, failures, and boundaries.",
+  },
   "multi-tenant": {
     file: "INTEGRATION.md",
     title: "Multi-Tenant Integration Runbook",

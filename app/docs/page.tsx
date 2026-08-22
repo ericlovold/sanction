@@ -25,13 +25,6 @@ const authorizeSnippet = `curl -X POST https://getsanction.com/api/v1/authorize 
 # → { "authorized": true, "status": "approved", "request_id": "req_…" }
 # Raise amount_usd to 40 and it comes back "escalated" — a human approves before it spends.`
 
-const provisionSnippet = `# Create an agent per tenant (management key — server-side only)
-curl -X POST https://getsanction.com/api/v1/agents \\
-  -H "x-mgmt-key: sk_your_management_key" \\
-  -H "content-type: application/json" \\
-  -d '{"wallet_id":"wlt_…","name":"tenant_42"}'
-# → returns a pxy_ key (shown once) for that tenant's agent`
-
 const REPO = "https://github.com/ericlovold/sanction/blob/main/docs"
 
 const steps = [
@@ -57,29 +50,22 @@ const steps = [
 
 const workflows = [
   {
+    tag: "MCP governance",
+    title: "Govern MCP tools before they run",
+    body: "Register an upstream once, vault its credential, and point MCP hosts at Sanction's broker. Destructive calls deny, merges and deploys escalate, and an agent never receives the upstream token.",
+    link: { label: "MCP broker workflow", href: "/docs/governed-workflows" },
+  },
+  {
     tag: "Internal AI governance",
-    title: "Departments as wallets — govern your own org's AI spend",
-    body: "Engineering, marketing, and ops each get a wallet with the budget their cost center owns. Seats inside for the people and agents doing the work; a pooled daily cap enforces the department line at the gateway, roll-ups give finance chargeback by team, and when something runs away, freeze is one call. Hard enforcement, not a dashboard you check after the invoice.",
-    link: { label: "Agent fleets guide", href: "/docs/agent-fleets" },
+    title: "Cap AI spend by team without instrumenting every call",
+    body: "Model clients change one base URL and header. Department wallets set budgets and cascade caps; Finance gets chargeback and signed evidence from the same ledger that enforced the limit.",
+    link: { label: "LLM spend workflow", href: "/docs/governed-workflows" },
   },
   {
-    tag: "Overnight agents",
-    title: "Cap the agent that runs all night",
-    body: "An autonomous coding or research agent works your backlog overnight, burning tokens while you sleep. Set a daily token budget on the agent — the gateway returns 402 and stops the call the moment the cap is hit, before the overrun.",
-    link: { label: "Gateway reference", href: "/docs/gateway" },
-  },
-  {
-    tag: "Multi-tenant platforms",
-    title: "Govern many agents under one account",
-    body: "Running agents for many customers? Provision one agent per tenant under a master account, set per-tenant budgets, and roll spend up for chargeback. One place to govern the whole fleet.",
-    code: provisionSnippet,
-    link: { label: "Multi-tenant runbook", href: "/docs/multi-tenant" },
-  },
-  {
-    tag: "Cross-provider cost control",
-    title: "See and cap spend across every provider",
-    body: "Token pricing is the digital Wild West — rates change mid-cycle, and the question becomes which provider to use. Route Anthropic, OpenAI, and Gemini through one gateway and one key; every call is metered and capped in one place.",
-    link: { label: "Vercel AI SDK guide", href: "/docs/ai-sdk" },
+    tag: "Agent payments",
+    title: "Authorize x402 before the wallet signs",
+    body: "Price a payment challenge, run the existing spend ladder, and sign only after approval. Brokered refusals withhold the payment requirements, so a hijacked agent cannot construct the transfer.",
+    link: { label: "x402 workflow", href: "/docs/governed-workflows" },
   },
 ]
 
@@ -179,7 +165,6 @@ export default function Docs() {
                 <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-400/90">{w.tag}</p>
                 <h3 className="mt-1 font-display text-lg font-semibold tracking-tight">{w.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{w.body}</p>
-                {w.code && <Code>{w.code}</Code>}
                 <a href={w.link.href} className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
                   {w.link.label} →
                 </a>
