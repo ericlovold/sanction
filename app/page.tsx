@@ -4,30 +4,22 @@ import { AnthropicCerts } from "@/components/anthropic-certs"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 
-// Repositioned 2026-08 (Jim Keen conversation): getsanction.com now leads as
-// Sanction AI — the services company — with the products as proof of
-// capability. The product marketing page moved intact to /platform; nothing
-// under /dashboard, /docs, or /api changed. ericlovold.com stays the personal
-// vehicle (newsletter, story); this site is the firm work is delivered under.
-
-// Discovery booking — same live Calendly the personal site uses.
-// NEXT_PUBLIC_CALENDLY_URL overrides at build time.
-const CALENDLY_URL =
-  process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/ericlovold/30min"
-
 export const metadata: Metadata = {
-  title: "Sanction AI — AI advisory and implementation for real businesses",
+  title: "Sanction — Stop runaway AI API spend",
   description:
-    "Sanction AI builds operating systems for AI-enabled companies: implementation, internal tools, agent infrastructure, and executive strategy.",
+    "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
 }
 
 const structuredData = {
   "@context": "https://schema.org",
-  "@type": "ProfessionalService",
-  name: "Sanction AI",
+  "@type": "SoftwareApplication",
+  name: "Sanction",
   url: "https://getsanction.com",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Web, API",
   description:
-    "AI advisory and implementation. Working systems installed on real business workflows — plus production AI products: the Sanction authorization platform and the Moral Intention Analyst.",
+    "Sanction authorizes AI spend, MCP tool calls, and x402 payment demands before they become irreversible.",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 }
 
 function MonoLabel({ children, color, mt, mb }: { children: React.ReactNode; color?: string; mt?: number; mb?: number }) {
@@ -42,66 +34,65 @@ const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "
 
 const PAIN_POINTS: [string, string][] = [
   [
-    "You posted an AI role that isn't filling",
-    "The person who can build AI and also understand your business is a unicorn. Big tech pays them more than the role makes sense for, and the work is still sitting there.",
+    "The agent kept retrying",
+    "It kept reading, checking, and repairing after it passed the number you had in your head. Your provider kept accepting calls. Your card kept paying.",
   ],
   [
-    "You tried the tools and nothing stuck",
-    "Someone bought licenses, a few people experimented, the excitement faded. It happens when nobody installs AI on the way you actually work.",
+    "The alert arrived after the spend",
+    "Usage dashboards explain what happened. They do not decide whether the next call is allowed to leave your stack.",
   ],
   [
-    "Your team is at capacity and the asks keep coming",
-    "You don't need more headcount to deliver more. You need the repetitive half of the work to run itself so your people can spend their hours on judgment.",
+    "The action could not be taken back",
+    "A destructive tool call or signed machine payment needs authorization before execution, not a report after it clears.",
   ],
 ]
 
-const SERVICES: [string, string][] = [
+const WORKFLOWS: [string, string, string][] = [
   [
-    "The morning that runs itself",
-    "Intake, follow-ups, reporting, the recurring hours — wired to run on their own. You review the exceptions; you stop retyping.",
+    "01",
+    "Govern MCP tools before they run",
+    "Put the hosted broker in front of an MCP server. Block destructive tools, escalate sensitive ones, and return a machine-readable refusal before the upstream receives the call.",
   ],
   [
-    "The app that's in your head",
-    "The internal tool your team's wanted for years, now cheap enough to actually build with AI. Scoped, shipped, dependable in production.",
+    "02",
+    "Cap AI spend by team",
+    "Change the model gateway base URL. Wallet-tree budgets enforce agent, team, and organization caps without instrumenting every call.",
   ],
   [
-    "Faster, still unmistakably you",
-    "Drafting, structuring, repurposing at speed — tuned so everything that ships still reads like your company wrote it.",
-  ],
-  [
-    "Live in weeks, not quarters",
-    "A modern site — designed, written with you, instrumented, shipped AI-fast. The same way we built this one.",
+    "03",
+    "Authorize x402 before the wallet signs",
+    "Send the payment challenge to Sanction first. It prices the worst case, applies policy, and withholds a denied demand before the wallet can sign it.",
   ],
 ]
 
 const STEPS: [string, string, string][] = [
   [
     "1",
-    "A real conversation",
-    "Thirty minutes on your goals, current workflows, and the first system worth building.",
+    "Connect one enforcement point",
+    "Use the LLM gateway, the hosted MCP broker, or the pre-sign quote endpoint. Your provider, tools, and payment rail stay yours.",
   ],
   [
     "2",
-    "A look at your workflows",
-    "We map where the hours go and where AI removes friction, measured against real outcomes.",
+    "Set the policy",
+    "Define agent and team budgets, allowed or blocked tools, escalation bands, and the hard line that cannot be crossed.",
   ],
   [
     "3",
-    "A first build with a fixed scope",
-    "One concrete thing, priced exactly before any work starts. A workflow that runs itself, an internal tool, a content system. Your team puts its hands on it in weeks.",
+    "Get a deterministic decision",
+    "Approved proceeds. Escalated pauses for a human and a one-use grant. Denied stops the provider call, tool call, or wallet action.",
   ],
   [
     "4",
-    "A simple ongoing rhythm",
-    "Keep building monthly, or have us embedded a few days a month as your fractional AI operator.",
+    "Export the evidence",
+    "Every decision is attributable and exportable in a signed, hash-chained record for engineering, finance, and audit.",
   ],
 ]
 
 const WONT: string[] = [
-  "Sell you “transformation.” You'll get specific systems with names, owners, and measured outcomes.",
-  "Automate your voice away. Anything a human reads as you stays written by you. AI makes you faster.",
-  "Ship anything you can't see into. If it touches your data or your customers, you can audit what it did and turn it off.",
-  "Build dependency. If you can't run it without us when we leave, we haven't finished the job.",
+  "Sanction does not settle payments. It authorizes the spend; any rail settles it.",
+  "Sanction does not replace your model provider or MCP server. It governs whether the next request may reach them.",
+  "Sanction does not custody signing keys. In the broker, a denied x402 challenge is withheld before your wallet sees payment instructions.",
+  "Sanction cannot govern traffic routed around it. Enforcement applies at the gateway, broker, and authorization endpoints you connect.",
 ]
 
 // Stacked-coin balance visual, replacing the old stats-card face. Built from
@@ -204,11 +195,9 @@ export default function Landing() {
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
-      {/* Launch ribbon — MIA showtime window. Live since 2026-08-10; pull it
-          after 2026-09-10 so the home page isn't permanently in launch mode.
-          Tracked in docs/BACKLOG.md so the date doesn't rely on memory. */}
+      {/* Product launch ribbon */}
       <Link
-        href="/moral-intention"
+        href="/changelog"
         style={{
           display: "block",
           background: "var(--pine-9)",
@@ -220,7 +209,7 @@ export default function Landing() {
         }}
       >
         <span className="sn-mono" style={{ color: "#78E0B2", letterSpacing: "0.1em", marginRight: 10 }}>NEW</span>
-        Moral Intention Analyst — ethical analysis of documents, decisions, and processes. Try it free →
+        x402 spend gate is live — authorize the demand before the wallet signs →
       </Link>
 
       {/* Nav */}
@@ -230,16 +219,14 @@ export default function Landing() {
             <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 25 }} />
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
-            <a className="sanction-link" href="#services">Services</a>
-            <a className="sanction-link" href="#how">How we work</a>
-            <a className="sanction-link" href="#built">What we&apos;ve built</a>
+            <a className="sanction-link" href="#workflows">Workflows</a>
+            <a className="sanction-link" href="#how">How it works</a>
+            <a className="sanction-link" href="#agent-wallet">Agent wallet</a>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
             <Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link>
-            <a className="sn-btn sn-btn-primary sn-btn-s" href={CALENDLY_URL} target="_blank" rel="noopener">
-              Book discovery
-            </a>
+            <Link className="sn-btn sn-btn-primary sn-btn-s" href="/start">Start free</Link>
           </div>
         </div>
       </nav>
@@ -248,19 +235,17 @@ export default function Landing() {
       <header className="sn-home-hero">
         <div className="sn-home-hero-grid" style={wrap}>
           <div>
-            <MonoLabel mb={20}>AI systems · Agent infrastructure · Implementation</MonoLabel>
+            <MonoLabel mb={20}>Spend governance for autonomous systems</MonoLabel>
             <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
-              We build operating systems for AI-enabled companies.
+              Your agent can run. Your API bill can&apos;t.
             </h1>
             <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "52ch", margin: "24px 0 32px" }}>
-              Sanction AI turns fragmented experiments into systems that run the business: agent
-              infrastructure, internal tools, automated workflows, and the policies that keep them accountable.
+              Set a hard limit before the next model call leaves your stack. Sanction authorizes AI
+              spend, MCP tools, and x402 payment demands before they become irreversible.
             </p>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener">
-                Bring us a workflow
-              </a>
-              <a className="sn-btn sn-btn-secondary sn-btn-l" href="#agent-wallet">See the agent wallet →</a>
+              <Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Start free</Link>
+              <a className="sn-btn sn-btn-secondary sn-btn-l" href="#workflows">See the workflows →</a>
             </div>
           </div>
           <WalletVisual />
@@ -269,12 +254,12 @@ export default function Landing() {
 
       <AnthropicCerts />
 
-      {/* Why companies call */}
+      {/* Why authorization comes first */}
       <section style={{ ...wrap, padding: "96px 32px 112px" }}>
         <div style={{ maxWidth: 620, marginBottom: 48 }}>
-          <MonoLabel mb={16}>Why companies call</MonoLabel>
+          <MonoLabel mb={16}>Why authorization comes first</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            The work is sitting there. The hire isn&apos;t coming.
+            Runaway spend is not an observability problem.
           </h2>
         </div>
         <div className="sn-cards">
@@ -287,23 +272,24 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Services */}
-      <section id="services" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
+      {/* Workflows */}
+      <section id="workflows" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
         <div style={{ ...wrap, padding: "96px 32px 112px" }}>
           <div style={{ maxWidth: 620, marginBottom: 48 }}>
-            <MonoLabel mb={16}>Services</MonoLabel>
+            <MonoLabel mb={16}>Three governed workflows</MonoLabel>
             <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              What you end up with.
+              Start with the most expensive failure mode.
             </h2>
             <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "54ch", margin: "20px 0 0" }}>
-              Not a strategy deck. Working systems, running in production, with your team trained
-              on the handoff.
+              One decision engine sits in front of three irreversible actions. Sanction authorizes
+              the spend; any rail settles it.
             </p>
           </div>
-          <div className="sn-pair">
-            {SERVICES.map(([t, d]) => (
-              <div key={t} className="sn-card" style={{ padding: 28 }}>
-                <h3 style={{ margin: "0 0 8px", font: "var(--text-h3)" }}>{t}</h3>
+          <div className="sn-cards">
+            {WORKFLOWS.map(([n, t, d]) => (
+              <div key={n} className="sn-card" style={{ padding: 28 }}>
+                <MonoLabel color="var(--pine-7)">Workflow {n}</MonoLabel>
+                <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
                 <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{d}</p>
               </div>
             ))}
@@ -311,12 +297,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How we work */}
+      {/* How it works */}
       <section id="how" style={{ ...wrap, padding: "112px 32px" }}>
         <div style={{ maxWidth: 620, marginBottom: 48 }}>
-          <MonoLabel mb={16}>How we work</MonoLabel>
+          <MonoLabel mb={16}>How it works</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Four steps, no mystery.
+            Put policy in the path, not beside it.
           </h2>
         </div>
         <div className="sn-pair">
@@ -330,52 +316,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Built by us — the products as proof */}
-      <section id="built" data-theme="dark" style={{ background: "#0A0A0A" }}>
-        <div style={{ ...wrap, padding: "96px 32px 104px" }}>
-          <div style={{ maxWidth: 620, marginBottom: 48 }}>
-            <MonoLabel color="#2CC08D" mb={16}>What we&apos;ve built</MonoLabel>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#F2F1EA" }}>
-              We run production AI. That&apos;s why we can install it.
-            </h2>
-            <p style={{ fontSize: 16, lineHeight: 1.6, color: "#C4C7BB", maxWidth: "54ch", margin: "20px 0 0" }}>
-              The advice comes from operating real systems with real users — not from slides. It&apos;s
-              also how the job finishes: when we put agents inside your company, the platform we
-              built governs what they may spend and do — teams as budgets, a human over the line,
-              and a record finance can audit.
-            </p>
-          </div>
-          <div className="sn-pair">
-            <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
-              <MonoLabel color="#2CC08D">Moral Intention Analyst</MonoLabel>
-              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
-                Ethical analysis of documents, decisions, and processes
-              </h3>
-              <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
-                Authored with Dr. A.C. Ping, PhD. Bring it a contract, a policy, a decision you&apos;re
-                weighing — it surfaces what&apos;s at stake, who&apos;s affected, and where the reasoning
-                drifts. Built for the calls a person has to make. Free to try.
-              </p>
-              <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/moral-intention">Try the analyst →</Link>
-            </div>
-            <div style={{ background: "#141513", border: "1px solid rgba(242,241,234,.1)", borderRadius: 14, padding: 28 }}>
-              <MonoLabel color="#2CC08D">Sanction Platform</MonoLabel>
-              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)", color: "#F2F1EA" }}>
-                Answer for what your agents spend and do
-              </h3>
-              <p style={{ margin: "0 0 20px", fontSize: 14.5, lineHeight: 1.55, color: "#C4C7BB" }}>
-                Budgets, human sign-off, and a signed record of what agents spend and do.
-                MCP, REST, Bedrock — the wallet travels with the agent.
-              </p>
-              <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/platform">Explore the platform →</Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* The platform in depth — the proof chapter continues, still on dark.
-          Sits AFTER the services argument on purpose: the exec buyer reads why
-          they called before meeting `npx`. Deep detail lives on /platform. */}
+      {/* The platform in depth */}
       <section
         id="agent-wallet"
         className="sn-wallet-section"
@@ -385,13 +326,13 @@ export default function Landing() {
         <div style={{ ...wrap, padding: "104px 32px 112px" }}>
           <div className="sn-wallet-intro">
             <div>
-              <MonoLabel color="#43D5A1" mb={16}>New in Sanction</MonoLabel>
-              <h2>The wallet an AI agent carries.</h2>
+              <MonoLabel color="#43D5A1" mb={16}>The control plane</MonoLabel>
+              <h2>Policy travels with the agent.</h2>
             </div>
             <div>
               <p>
                 Identity says who the agent is. Payment rails move money. Sanction carries the
-                missing operating authority: what this agent may do, under whose policy, within
+                missing authority: what the agent may spend or invoke, under whose policy, within
                 what budget, and with what proof.
               </p>
               <div className="sn-inline-links">
@@ -411,20 +352,19 @@ export default function Landing() {
               <code className="sn-code-result">AUTHORIZED · request dec_8f31</code>
             </div>
             <div className="sn-mcp-copy">
-              <MonoLabel color="#43D5A1" mb={14}>MCP 0.7 · Ten tools</MonoLabel>
-              <h3>Authority becomes part of the agent&apos;s runtime.</h3>
+              <MonoLabel color="#43D5A1" mb={14}>Governed MCP</MonoLabel>
+              <h3>Put policy in front of every tools/call.</h3>
               <p>
-                Govern spend, provisioning, tools, capabilities, credentials, token cost, and
-                outcomes from any MCP host. Mint short-lived mandates for child agents and let
-                counterparties verify them without a Sanction API key.
+                Register an upstream once, then point the MCP host at Sanction&apos;s broker. Every
+                tool call is authorized before a byte reaches the upstream, and the upstream
+                credential stays in the vault.
               </p>
               <div className="sn-tool-grid">
                 <span>SPEND</span><span>TOOLS</span><span>CAPABILITIES</span><span>CREDENTIALS</span><span>OUTCOMES</span><span>APPROVALS</span>
               </div>
-              <p className="sn-honesty">Today&apos;s stdio MCP is cooperative. Enforced tool interception is the next hosted broker phase.</p>
-              {/* Both funnels get a next step: install it yourself, or have us do it. */}
+              <p className="sn-honesty">Brokered traffic is enforced. Calls sent directly to the upstream bypass Sanction and are not governed.</p>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <a className="sn-btn sn-btn-primary sn-btn-m" href={CALENDLY_URL} target="_blank" rel="noopener">Have us install it →</a>
+                <Link className="sn-btn sn-btn-primary sn-btn-m" href="/start">Create a wallet →</Link>
                 <a className="sn-btn sn-btn-onDark sn-btn-m" href="https://www.npmjs.com/package/sanction-mcp">Install the MCP server ↗</a>
               </div>
             </div>
@@ -432,12 +372,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* What we won't do */}
+      {/* Product boundary */}
       <section style={{ ...wrap, padding: "112px 32px" }}>
         <div style={{ maxWidth: 620, marginBottom: 40 }}>
-          <MonoLabel mb={16}>The other side of the deal</MonoLabel>
+          <MonoLabel mb={16}>The product boundary</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            What we won&apos;t do.
+            What Sanction does not do.
           </h2>
         </div>
         <div className="sn-pair">
@@ -452,13 +392,11 @@ export default function Landing() {
       {/* Closing CTA */}
       <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "88px 32px", textAlign: "center" }}>
-          <MonoLabel mb={16}>First conversation</MonoLabel>
+          <MonoLabel mb={16}>Start with one workflow</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
-            Bring the workflow that&apos;s eating your week.
+            Put a hard limit in front of the next irreversible action.
           </h2>
-          <a className="sn-btn sn-btn-primary sn-btn-l" href={CALENDLY_URL} target="_blank" rel="noopener" style={{ marginTop: 28 }}>
-            Book discovery
-          </a>
+          <Link className="sn-btn sn-btn-primary sn-btn-l" href="/start" style={{ marginTop: 28 }}>Start free</Link>
         </div>
       </section>
 
@@ -468,7 +406,7 @@ export default function Landing() {
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--text-body)" }}>
             <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 18 }} />
           </span>
-          <span>Advisory · Implementation · Products</span>
+          <span>Sanction authorizes the spend. Any rail settles it.</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
             <Link className="sanction-link" href="/platform">Platform</Link>
             <Link className="sanction-link" href="/moral-intention">Moral Intention</Link>
