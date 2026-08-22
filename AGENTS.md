@@ -161,6 +161,28 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
 
+- As of 2026-08-22: **production must deploy from `main`.** During the GTM
+  reframe, the marketing branch was promoted straight to production (actor
+  `codex`), so getsanction.com ran code that was NOT in `main` — meaning any
+  routine merge would have silently reverted the live homepage and the "x402
+  spend gate is live" banner. Reconciled by merging that branch (#255). Before
+  promoting a branch to production, ask whether `main` will still be able to
+  deploy safely afterwards; if you must promote, land the same commits on
+  `main` in the same session.
+
+- As of 2026-08-22: **don't stack a PR onto a branch that is about to be
+  squash-merged.** #256 was opened against #255's branch and merged there, but
+  #255 had already been squashed into `main`, so the fix never reached `main`
+  and looked merged while being absent from the product. Either land the fix on
+  the feature branch *before* it merges, or base it on `main` afterwards.
+  Check with `git merge-base --is-ancestor <sha> origin/main`.
+
+- As of 2026-08-22: **`app/favicon.ico` must contain RGBA PNGs.** Next.js
+  decodes it to build icon metadata and throws "The PNG is not in RGBA format"
+  — which 500s every page, not just the icon. Chromium screenshots are RGB
+  unless captured with `omitBackground: true`. Verify with
+  `file app/favicon.ico` (it should say RGBA) and load `/` once before pushing.
+
 - As of 2026-08-18: getsanction.com leads as **Sanction AI, the services
   firm** (advisory · implementation · products) since the 2026-08-10
   reposition (PR #232); the product marketing moved intact to `/platform`,

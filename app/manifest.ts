@@ -17,8 +17,8 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "Spend", url: "/dashboard/spend", description: "Budgets and burn" },
     ],
     display: "standalone",
-    background_color: "#0a0a0a",
-    theme_color: "#0a0a0a",
+    background_color: "#0c332a",
+    theme_color: "#0c332a",
     orientation: "portrait-primary",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
