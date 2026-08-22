@@ -3,6 +3,10 @@
 > Status: **proposal** (2026-08-22, from Eric's direction: agents will spend,
 > authorized spend will not settle in card-rail USD — it settles in regulated
 > stablecoins, most likely USDC. Build the path.)
+>
+> Companion: `monetization-and-distribution.md` (same date) — the
+> five-discipline research synthesis on microtransaction monetization (the
+> decision as the billable unit) and distribution points (the Zapier loop).
 
 ## The thesis, stated precisely
 

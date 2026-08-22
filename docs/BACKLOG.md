@@ -17,6 +17,23 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-22 — Monetization + distribution (five-discipline research
+      fan-out; synthesis in `docs/plans/monetization-and-distribution.md`):
+      the billable unit is **the decision** (never bps on spend — economics
+      and regulatory optics both wrong); Zapier-style bundles around a
+      per-decision micro-fee; the self-serve tier payable via x402/USDC
+      itself. Trust surfaces before any invoice: fee meter anchored to
+      governed value, operator-set fee cap enforced by our own engine,
+      per-decision receipts in the audit export, grace mode (never
+      fail-closed on our own billing). Distribution quick wins, ranked:
+      MCP registry + Glama/PulseMCP/Smithery/mcp.so listings (~a day),
+      Slack App Directory submission (approval cards in shared channels
+      are shipped viral surface), programmatic `/govern/<x>` pages,
+      x402/AP2 ecosystem listing after STABLE-0/1 (no policy layer is
+      listed there today — empty slot), n8n node before Zapier. First
+      slices if promoted: MONO-0 (decision counter + rollup, bill-ready
+      without billing), DIST-0 (listings + template). Counsel memo before
+      any pricing launch. (arc, from founder direction)
 - [ ] 2026-08-22 — Stablecoin rails (Eric's direction): agents' authorized
       spend will settle in regulated stablecoins (USDC most likely), not
       card-rail USD — build the path. Design position written:
