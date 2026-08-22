@@ -1,18 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { MarketingLeadCapture } from "@/components/marketing-lead-capture"
 import { AnthropicCerts } from "@/components/anthropic-certs"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 
-// "Talk to us" → book a call. NEXT_PUBLIC_CALENDLY_URL overrides at build time;
-// defaults to Eric's scheduling link so the CTA always books (no dead-end).
-const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/eric-getsanction/30min"
-
 export const metadata: Metadata = {
-  title: "Sanction — Authorization for autonomous AI agents",
+  title: "Sanction — Stop runaway AI API spend",
   description:
-    "One key governs what an agent may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record. Across MCP, REST, and AWS Bedrock.",
+    "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
 }
 
 const structuredData = [
@@ -199,9 +194,9 @@ export default function Landing() {
             Sanction
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
+            <a className="sanction-link" href="#workflows">Workflows</a>
             <a className="sanction-link" href="#how">How it works</a>
             <a className="sanction-link" href="#security">Security</a>
-            <a className="sanction-link" href="#pricing">Pricing</a>
             <Link className="sanction-link" href="/compatibility">Compatibility</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
@@ -215,18 +210,18 @@ export default function Landing() {
       {/* Hero */}
       <header className="sn-hero sn-pad" style={{ ...wrap, padding: "96px 32px 112px" }}>
         <div>
-          <MonoLabel mb={20}>Authorize · Protect · Govern</MonoLabel>
+          <MonoLabel mb={20}>Spend governance for autonomous systems</MonoLabel>
           <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
-            Autonomy for your agents. Authority for your team.
+            Your agent can run. Your API bill can&apos;t.
           </h1>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "46ch", margin: "24px 0 32px" }}>
-            One key governs what an agent may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record.
+            Set a hard limit before the next model call leaves your stack. Sanction returns a decision before AI spend, an MCP tool call, or an x402 payment can run away.
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Start free</Link>
-            <a className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener">Talk to us →</a>
+            <Link className="sn-btn sn-btn-secondary sn-btn-l" href="/docs/governed-workflows">See the workflows →</Link>
           </div>
-          <MonoLabel mt={28} color="var(--text-faint)">MCP · AWS Bedrock · REST</MonoLabel>
+          <MonoLabel mt={28} color="var(--text-faint)">MCP · LLM Gateway · x402</MonoLabel>
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
           <div className="sn-key"><AccessKeyCard width={400} /></div>
@@ -236,16 +231,20 @@ export default function Landing() {
       {/* Anthropic-certified trust strip */}
       <AnthropicCerts />
 
-      {/* Pillars */}
-      <section style={{ ...wrap, padding: "0 32px 112px" }}>
+      {/* Workflows */}
+      <section id="workflows" style={{ ...wrap, padding: "0 32px 112px" }}>
+        <div style={{ maxWidth: 640, marginBottom: 48 }}>
+          <MonoLabel mb={16}>Start with one irreversible action</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Put a decision in front of the things an agent cannot take back.</h2>
+        </div>
         <div className="sn-cards">
           {[
-            ["Authorize", "Agent Wallet", "Budgets and policy on every spend and provisioning action. Auto-approve under threshold, escalate over it, deny what's blocked."],
-            ["Protect", "Credential Vault", "AES-256-GCM at rest under a rotating KMS-wrapped key, tenant-isolated at the database. Scoped 15-minute execution tokens gate every injection."],
-            ["Govern", "Clearance Levels", "A 1–5 clearance system. Agents only ever touch what they're explicitly cleared for. Fail-closed by default."],
+            ["01", "Govern MCP tools before they run", "Broker an MCP server. Block destructive tools, escalate sensitive ones, and return a JSON-RPC refusal before an upstream receives the call."],
+            ["02", "Cap AI spend by team", "Change the gateway base URL. Wallet-tree budgets enforce department and organization caps without instrumenting every model call."],
+            ["03", "Authorize x402 before the wallet signs", "Send a payment challenge to Sanction first. It prices the worst case, authorizes or withholds the signature, and records the decision."],
           ].map(([k, t, d]) => (
             <div key={k} className="sn-card" style={{ padding: 28 }}>
-              <MonoLabel color="var(--pine-7)">{k}</MonoLabel>
+              <MonoLabel color="var(--pine-7)">Workflow {k}</MonoLabel>
               <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
               <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{d}</p>
             </div>
@@ -257,13 +256,13 @@ export default function Landing() {
       <section id="how" style={{ ...wrap, padding: "0 32px 112px" }}>
         <div style={{ maxWidth: 560, marginBottom: 48 }}>
           <MonoLabel mb={16}>The decision engine</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Every call comes back one of three ways.</h2>
+          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Policy acts before the call, not after the invoice.</h2>
         </div>
         <div className="sn-cards">
           {[
-            ["approved", "Under the threshold, allowed category. The agent proceeds; the spend is logged."],
-            ["escalated", "Over your line. The request pauses and waits for a human — approval mints a one-use grant."],
-            ["denied", "Blocked category or over the hard cap. It never reaches the merchant."],
+            ["approved", "Inside policy. The agent proceeds and the decision is recorded."],
+            ["escalated", "Over your line. The request pauses for a human; approval mints a one-use grant."],
+            ["denied", "Blocked tool, exhausted budget, or hard cap. Sanction withholds the call."],
           ].map(([d, txt]) => (
             <div key={d} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 20 }}>
               <DecisionPill decision={d as keyof typeof DECISIONS} />
@@ -277,12 +276,12 @@ export default function Landing() {
       <section data-theme="dark" style={{ background: "#0A0A0A", color: "var(--text-body)" }}>
         <div className="sn-two sn-pad" style={{ ...wrap, padding: "96px 32px" }}>
           <div>
-            <MonoLabel color="#2CC08D" mb={16}>For the builders</MonoLabel>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#F2F1EA" }}>Three calls. Governed agent.</h2>
+            <MonoLabel color="#2CC08D" mb={16}>The LLM spend workflow</MonoLabel>
+            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)", color: "#F2F1EA" }}>One base-URL change. A hard stop before provider spend.</h2>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: "#C4C7BB", maxWidth: "44ch", margin: "20px 0 28px" }}>
-              Register an agent, set a policy, authorize in real time. Real REST, real MCP — no SDK lock-in, nothing to babysit.
+              Route your model client through Sanction. When an agent, team, or organization budget is exhausted, the gateway returns 402 before forwarding the request.
             </p>
-            <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/docs/starter-kit">Read the docs →</Link>
+            <Link className="sn-btn sn-btn-onDark sn-btn-m" href="/docs/gateway">Read the gateway guide →</Link>
           </div>
           <div
             style={{
@@ -297,13 +296,11 @@ export default function Landing() {
               overflowX: "auto",
             }}
           >
-            <div style={{ color: "#5C6055", marginBottom: 8 }}># authorize.sh</div>
-            curl -X POST /api/v1/authorize \<br />
-            &nbsp;&nbsp;-H &quot;x-api-key: <span style={{ color: "#2CC08D" }}>pxy_••••</span>&quot; \<br />
-            &nbsp;&nbsp;-d &apos;{"{"} &quot;action&quot;: &quot;purchase&quot;,<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;amount_usd&quot;: 12.50 {"}"}&apos;<br />
+            <div style={{ color: "#5C6055", marginBottom: 8 }}># model client</div>
+            base_url = &quot;https://getsanction.com/api/gateway/anthropic&quot;<br />
+            x-sanction-key = <span style={{ color: "#2CC08D" }}>pxy_••••</span><br />
             <br />
-            <span style={{ color: "#5C6055" }}># →</span> {"{"} &quot;status&quot;: <span style={{ color: "#2CC08D" }}>&quot;approved&quot;</span> {"}"}
+            <span style={{ color: "#5C6055" }}># budget exhausted →</span> <span style={{ color: "#E09A55" }}>402 Payment Required</span>
           </div>
         </div>
       </section>
@@ -331,35 +328,24 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Product access */}
       <section id="pricing" style={{ ...wrap, padding: "0 32px 112px" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto 32px", textAlign: "center" }}>
+          <MonoLabel mb={16}>Put it in the stack</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Start with the workflow that has the most expensive failure mode.</h2>
+        </div>
         <div className="sn-pair" style={{ maxWidth: 880, margin: "0 auto" }}>
           <div className="sn-card" style={{ padding: 32 }}>
             <MonoLabel>Individual</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Free</div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>No card. Personal, production, and client work.</div>
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>No card. Build and run a governed workflow in production.</div>
             <Link className="sn-btn sn-btn-secondary sn-btn-m" href="/start" style={{ width: "100%" }}>Start free</Link>
           </div>
           <div className="sn-card" style={{ padding: 32, border: "1px solid var(--pine-8)" }}>
             <MonoLabel color="var(--pine-7)">Enterprise</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Paid license</div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 12 }}>SSO, policy administration, audit export, SLA, deployment control.</div>
-            <Link className="sanction-link" href="/docs/commercial-license" style={{ fontSize: 13, display: "block", marginBottom: 20 }}>Commercial license guide →</Link>
-            <a className="sn-btn sn-btn-primary sn-btn-m" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener" style={{ width: "100%" }}>Talk to us</a>
-          </div>
-        </div>
-      </section>
-
-      {/* Stay in the loop */}
-      <section id="stay-in-the-loop" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", padding: "88px 32px", textAlign: "center" }}>
-          <MonoLabel mb={16}>Stay in the loop</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Not ready to wire up an agent?</h2>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            Get launch updates and early access as we ship. One email when it matters — no spam.
-          </p>
-          <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
-            <MarketingLeadCapture source="landing" />
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>Policy administration, audit export, deployment control, and commercial use.</div>
+            <Link className="sn-btn sn-btn-primary sn-btn-m" href="/docs/commercial-license" style={{ width: "100%" }}>Commercial license guide →</Link>
           </div>
         </div>
       </section>
