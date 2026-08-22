@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { AnthropicCerts } from "@/components/anthropic-certs"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 
@@ -256,8 +255,6 @@ export default function Landing() {
           <WalletVisual />
         </div>
       </header>
-
-      <AnthropicCerts />
 
       {/* Why authorization comes first */}
       <section style={{ ...wrap, padding: "96px 32px 112px" }}>
