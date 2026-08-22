@@ -14,7 +14,7 @@ const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.c
 export const metadata: Metadata = {
   title: "Sanction Platform — Authorization for autonomous AI agents",
   description:
-    "The wallet an AI agent carries. One key governs what it may spend, invoke, and provision. Over the line, a human decides — and every decision is on the record.",
+    "The wallet an AI agent carries. One key governs what it may spend, invoke, and provision. Sanction authorizes the spend; any rail settles it — and every decision is on the record.",
 }
 
 // The hero shows a LIVE pending escalation from the demo wallet, so the page
@@ -211,6 +211,7 @@ export default async function Landing() {
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <a className="sanction-link" href="#how">How it works</a>
+            <a className="sanction-link" href="#rails">Settlement</a>
             <a className="sanction-link" href="#security">Security</a>
             <a className="sanction-link" href="#pricing">Pricing</a>
             <Link className="sanction-link" href="/">Services</Link>
@@ -231,13 +232,13 @@ export default async function Landing() {
             Autonomy for your agents. Authority for your team.
           </h1>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "48ch", margin: "24px 0 32px" }}>
-            Where your AI spend is going, who&apos;s cleared to spend it, and the calls big enough to need your sign-off — in one place, above whatever gateway your engineers run. Every decision on a signed record.
+            Where your AI spend is going, who&apos;s cleared to spend it, and the calls big enough to need your sign-off — in one place, above whatever gateway your engineers run. Every decision on a signed record, made before the money moves.
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <TrackCTA className="sn-btn sn-btn-primary sn-btn-l" href="/start" location="hero" target="start">Start free</TrackCTA>
             <TrackCTA className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} location="hero" target="talk">Talk to us →</TrackCTA>
           </div>
-          <MonoLabel mt={28} color="var(--text-faint)">Agent wallet · MCP · REST</MonoLabel>
+          <MonoLabel mt={28} color="var(--text-faint)">Agent wallet · MCP · REST · Any rail</MonoLabel>
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
           {escalation ? (
@@ -311,6 +312,50 @@ export default async function Landing() {
         </div>
       </section>
 
+      {/* Settlement rails — the stablecoin-era argument */}
+      <section id="rails" style={{ ...wrap, padding: "0 32px 112px" }}>
+        <div style={{ maxWidth: 640, marginBottom: 48 }}>
+          <MonoLabel mb={16}>The settlement rail is changing</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
+            Sanction authorizes the spend; any rail settles it.
+          </h2>
+          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "58ch", margin: "20px 0 0" }}>
+            Agent payments are moving to stablecoin rails — USDC over x402. On card rails, authorization is one control
+            point among several: disputes, chargebacks, and issuer reversals stand behind it. On stablecoin rails there
+            are no chargebacks. Settlement is irreversible, and the pre-transaction decision is the only control point.
+            That decision is what Sanction makes.
+          </p>
+        </div>
+        <div className="sn-security-items" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px 40px" }}>
+          {[
+            [
+              "Settlement-aware ledger — live",
+              "Send settlement: {rail, asset, network} with any /v1/authorize call — a closed vocabulary, x402 / USDC / Base today — and the rail is recorded in the decision evidence and the audit CSV export.",
+            ],
+            [
+              "Every decision point, shipped",
+              "The MCP broker intercepts tool calls before they run. The LLM gateway meters model spend per call. Escalations pause for a human; approval mints a one-use grant. All of it replayable, with hash-chained evidence exports.",
+            ],
+            [
+              "The x402 spend gate — next",
+              "When a brokered agent meets an x402 payment requirement, Sanction treats the quoted amount as a spend request: /authorize runs before the wallet signs, and a denial means the transfer is never signed. This is next on the roadmap — not shipped yet.",
+            ],
+            [
+              "Non-custodial, veto-only",
+              "Sanction never holds funds or keys, and can never initiate a transfer — it can only refuse one. The GENIUS Act made payment stablecoins a regulated instrument; the pending CLARITY Act (Senate vote scheduled September 2026) would codify that non-custodial, non-controlling software is not a money transmitter. Sanction is built deliberately to that shape — and every decision leaves auditable evidence that supports your compliance program.",
+            ],
+          ].map(([t, d]) => (
+            <div key={t} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{t}</div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "var(--text-muted)", marginTop: 6 }}>{d}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: "48px 0 0", fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-faint)" }}>
+          sanction (v.) — to give official authorization. The older meaning. The one we mean.
+        </p>
+      </section>
+
       {/* Dev section (dark) */}
       <section data-theme="dark" style={{ background: "#0A0A0A", color: "var(--text-body)" }}>
         <div className="sn-two sn-pad" style={{ ...wrap, padding: "96px 32px" }}>
@@ -371,7 +416,14 @@ export default async function Landing() {
 
       {/* Pricing */}
       <section id="pricing" style={{ ...wrap, padding: "0 32px 112px" }}>
-        <div className="sn-pair" style={{ maxWidth: 880, margin: "0 auto" }}>
+        <div style={{ maxWidth: 560, margin: "0 auto 48px", textAlign: "center" }}>
+          <MonoLabel mb={16}>Pricing</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>The meter is the decision.</h2>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 0" }}>
+            Free for individuals. Metered for teams. An agreement for the enterprise.
+          </p>
+        </div>
+        <div className="sn-cards" style={{ maxWidth: 1020, margin: "0 auto" }}>
           <div className="sn-card" style={{ padding: 32 }}>
             <MonoLabel>Individual</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Free</div>
@@ -379,11 +431,23 @@ export default async function Landing() {
             <Link className="sn-btn sn-btn-secondary sn-btn-m" href="/start" style={{ width: "100%" }}>Start free</Link>
           </div>
           <div className="sn-card" style={{ padding: 32, border: "1px solid var(--pine-8)" }}>
-            <MonoLabel color="var(--pine-7)">Enterprise</MonoLabel>
-            <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Paid license</div>
+            <MonoLabel color="var(--pine-7)">Pro · Early access</MonoLabel>
+            <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>
+              $20<span style={{ fontSize: 16, fontWeight: 500, color: "var(--text-muted)" }}>/mo</span>
+            </div>
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 10 }}>For teams. 5,000 decisions included, then $5 per 1,000.</div>
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 10 }}>
+              Metered in decisions — the one unit of what Sanction does. Approvals, denials, escalations count once; replays never do.
+            </div>
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>Pay by card — or your agent pays via x402/USDC (pilot).</div>
+            <a className="sn-btn sn-btn-primary sn-btn-m" href="#stay-in-the-loop" style={{ width: "100%" }}>Join the Pro early access</a>
+          </div>
+          <div className="sn-card" style={{ padding: 32 }}>
+            <MonoLabel>Enterprise</MonoLabel>
+            <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Agreement</div>
             <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 12 }}>SSO, policy administration, audit export, SLA, deployment control.</div>
             <Link className="sanction-link" href="/docs/commercial-license" style={{ fontSize: 13, display: "block", marginBottom: 20 }}>Commercial license guide →</Link>
-            <a className="sn-btn sn-btn-primary sn-btn-m" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener" style={{ width: "100%" }}>Talk to us</a>
+            <a className="sn-btn sn-btn-secondary sn-btn-m" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener" style={{ width: "100%" }}>Talk to us</a>
           </div>
         </div>
       </section>
@@ -394,7 +458,7 @@ export default async function Landing() {
           <MonoLabel mb={16}>Stay in the loop</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Not ready to wire up an agent?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            Get launch updates and early access as we ship. One email when it matters — no spam.
+            Get launch updates and early access as we ship — Pro early access included. One email when it matters — no spam.
           </p>
           <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
             <MarketingLeadCapture source="landing" />

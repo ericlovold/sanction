@@ -48,7 +48,7 @@ export function rangeUtc(from: string, to: string): { start: Date; end: Date } {
 export const CSV_COLUMNS = [
   "at", "type", "id", "agent_id", "agent_name", "action", "amount_usd", "merchant",
   "category", "status", "reason", "model", "cost_usd", "tokens_in", "tokens_out",
-  "task_label", "credential_label", "tags",
+  "task_label", "credential_label", "tags", "settlement",
 ] as const
 
 function csvEscape(v: unknown): string {

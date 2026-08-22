@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-22",
+    title: "The ledger learns the rail; the meter learns the decision",
+    tags: ["engine", "api", "console"],
+    body: "Two small slices that point at the same future. **STABLE-0**: `POST /v1/authorize` now accepts optional `settlement` metadata — `{rail, asset, network}`, a closed vocabulary (`x402`/`usdc`/`base` is the triple the agent-payments world is converging on) — inert to the decision itself, recorded on the row, and surfaced in the audit feed and CSV. Stablecoin settlement is irreversible, which makes pre-transaction authorization the only control point; the ledger is now rail-aware before any rail-specific enforcement exists. Sanction authorizes the spend; any rail settles it. **MONO-0**: a per-wallet, per-month **decision counter** across all four authorize surfaces — approve, escalate, and deny each count once; idempotent replays, grant redemptions, and simulate runs never do, and metering runs after the response so it can never fail or slow a decision. It shows as *Decisions (month)* on the spend console and `month.decisions` on `/v1/wallets/stats`. No fee attaches to it — it exists so the unit is measured honestly long before anything is ever priced in it. Found and fixed while wiring: the provision route still caught a subtree-cap breach *inside* its transaction, committing the ancestor counters the reservation loop had already incremented — phantom pool spend on a denied provision. It now rolls back and persists the denial outside, evidence attached, exactly like the spend route.",
+  },
+  {
     date: "2026-08-20",
     title: "The broker: on fronted MCP servers, a hijacked agent cannot act",
     tags: ["mcp", "broker", "engine", "credentials"],

@@ -12,6 +12,8 @@ import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
+import { settlementSchema } from "@/lib/settlement"
+import { recordDecision } from "@/lib/decisionMeter"
 import { createSpendPendingApproval } from "@/lib/approvals"
 import { consumeSpendGrant } from "@/lib/grants"
 import { cpoContext } from "@/lib/outcomes"
@@ -44,6 +46,10 @@ const schema = z.object({
     .record(z.string().trim().min(1).max(40), z.string().trim().min(1).max(80))
     .refine((t) => Object.keys(t).length <= 8, { message: "At most 8 tags" })
     .optional(),
+  // STABLE-0: which rail this spend will settle on ({rail, asset, network},
+  // closed vocabulary — lib/settlement.ts). Inert to the decision like tags;
+  // recorded on the row so the ledger is rail-aware.
+  settlement: settlementSchema.optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -64,7 +70,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { action, amount_usd, merchant, category, description, grant_id, tags } = parsed.data
+  const { action, amount_usd, merchant, category, description, grant_id, tags, settlement } = parsed.data
   if (simulate && grant_id) {
     return NextResponse.json({ error: "grant_id cannot be used with simulate=true" }, { status: 400 })
   }
@@ -118,7 +124,10 @@ export async function POST(req: NextRequest) {
     idempotencyKey,
     // The observed marker rides detailsJson like tags do — the row keeps the
     // truthful would-be status, and this marker says enforcement stood down.
-    detailsJson: tags || observe ? { ...(tags ? { tags } : {}), ...(observe ? { observed: true } : {}) } : undefined,
+    detailsJson:
+      tags || settlement || observe
+        ? { ...(tags ? { tags } : {}), ...(settlement ? { settlement } : {}), ...(observe ? { observed: true } : {}) }
+        : undefined,
   }
   const amountCents = Math.round(amount_usd * 100)
 
@@ -195,6 +204,8 @@ export async function POST(req: NextRequest) {
 
   // No policy = deny by default
   if (!policy) {
+    // MONO-0: deny-by-default is still a rendered decision.
+    after(() => recordDecision(agent.walletId))
     return persist({ ...base, status: "denied", decidedAt: new Date(), decisionNote: "No policy configured" }, agent.name)
   }
 
@@ -238,6 +249,7 @@ export async function POST(req: NextRequest) {
           decisionContextJson: decisionEvidence("spend", gateCtx),
         },
       })
+      after(() => recordDecision(agent.walletId))
       return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: httpFor(rec) })
     }
   }
@@ -444,6 +456,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // MONO-0: one fresh decision rendered (approve/escalate/deny alike, observe
+    // included — the engine ran). Replays, grant redemptions, and simulate
+    // never reach here. Metered after the response; can never fail the path.
+    after(() => recordDecision(agent.walletId))
     return NextResponse.json(await withAppeal(decisionResponse(result, agent.name)), { status: httpFor(result) })
   } catch (e: unknown) {
     // Subtree cap breach: the transaction has rolled back, so no counter moved.
@@ -459,6 +475,7 @@ export async function POST(req: NextRequest) {
           decisionNote: SUBTREE_CAP_EXCEEDED_NOTE,
         },
       })
+      after(() => recordDecision(agent.walletId))
       return NextResponse.json(await withAppeal(decisionResponse(rec, agent.name)), { status: httpFor(rec) })
     }
     // Unique violation on (agentId, idempotencyKey) => concurrent duplicate; return the winner.

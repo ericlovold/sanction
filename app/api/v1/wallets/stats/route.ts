@@ -4,6 +4,7 @@ import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
 import { monthlyPace, dailyPace } from "@/lib/burn"
 import { readScope, scopedWalletIds } from "@/lib/apiScope"
+import { decisionsThisMonth } from "@/lib/decisionMeter"
 
 export async function GET(req: NextRequest) {
   let walletId = req.nextUrl.searchParams.get("wallet_id")
@@ -58,6 +59,10 @@ export async function GET(req: NextRequest) {
     db.pendingApproval.count({ where: { walletId: { in: walletIds }, status: "pending" } }),
     db.policy.findUnique({ where: { walletId }, select: { monthlySpendBudgetUsd: true, dailySpendBudgetUsd: true } }),
   ])
+  // MONO-0: fresh engine decisions this month across the scope — the counter
+  // is authoritative (allowed tool calls never persist a row, so counting
+  // AuthorizationRequest rows would undercount).
+  const decisionCount = await decisionsThisMonth(walletIds)
 
   // Projections (REPORT-1): linear pace against the wallet caps. The guards in
   // lib/burn.ts keep early-day / early-month extrapolation honest (null).
@@ -82,6 +87,7 @@ export async function GET(req: NextRequest) {
       exhaust_at: dayPace.exhaustAt?.toISOString() ?? null,
     },
     month: {
+      decisions: decisionCount,
       token_cost_usd: tokenMonth._sum.costUsd ?? 0,
       spend_usd: monthSpendUsd,
       spend_budget_usd: monthCapUsd,

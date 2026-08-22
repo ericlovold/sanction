@@ -1,6 +1,13 @@
 # Stablecoin rails — design position
 
-> Status: **proposal** (2026-08-22, from Eric's direction: agents will spend,
+> Status: **STABLE-0 shipped** (2026-08-22, same day): `/v1/authorize` accepts
+> optional `settlement` `{rail, asset, network}` — closed vocabulary
+> (`lib/settlement.ts`), inert to the decision, persisted on the row,
+> surfaced in the audit feed/CSV and OpenAPI. Live-fired: `x402/usdc/base`
+> recorded on an approved decision; off-vocabulary rails 400. STABLE-1 (the
+> x402 spend gate) is next.
+>
+> Original framing (2026-08-22, from Eric's direction: agents will spend,
 > authorized spend will not settle in card-rail USD — it settles in regulated
 > stablecoins, most likely USDC. Build the path.)
 >

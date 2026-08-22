@@ -12,6 +12,7 @@ import { consumeToolGrant } from "@/lib/grants"
 import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { REMEDIATION, deriveReplayCode, isObserved, type DecisionCode } from "@/lib/decisions"
+import { recordDecision } from "@/lib/decisionMeter"
 import { logger } from "@/lib/log"
 
 const log = logger("v1/authorize/tool")
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   if (!policy) {
+    // MONO-0: deny-by-default is still a rendered decision.
+    after(() => recordDecision(agent.walletId))
     return NextResponse.json(
       { authorized: false, status: "denied", code: "NO_POLICY", reason: "No policy configured", agent: agent.name, tool },
       { status: 403 },
@@ -185,6 +188,7 @@ export async function POST(req: NextRequest) {
         }
         return row
       })
+      after(() => recordDecision(agent.walletId))
 
       if (!observe) after(() =>
         Promise.all([
@@ -272,6 +276,7 @@ export async function POST(req: NextRequest) {
         },
       })
       requestId = denied.id
+      after(() => recordDecision(agent.walletId))
     } catch (e: unknown) {
       if (idempotencyKey && isUniqueViolation(e)) {
         const existing = await db.authorizationRequest.findUnique({
@@ -303,6 +308,9 @@ export async function POST(req: NextRequest) {
       { status: 200 },
     )
   }
+  // MONO-0: allowed tool calls are decision-only (never persisted) — the
+  // meter is the one place they count.
+  if (decision.status === "allowed") after(() => recordDecision(agent.walletId))
   const authorized = decision.status === "allowed"
   return NextResponse.json(
     {

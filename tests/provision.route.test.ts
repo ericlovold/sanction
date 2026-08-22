@@ -342,3 +342,30 @@ describe("provision route — grant consumption (pre-approved authority)", () =>
     expect(body).toMatchObject({ authorized: false, status: "denied", code: "GRANT_CONSUMED" })
   })
 })
+
+describe("provision route — subtree cap breach rolls back, then persists (D1 parity)", () => {
+  it("denies SUBTREE_CAP_EXCEEDED outside the transaction, evidence attached", async () => {
+    // The reserve loop throws mid-walk. The old inner catch committed the
+    // ancestor increments it had already written (phantom spend); the fix
+    // lets the transaction roll back and persists the denial on its own,
+    // carrying the evidence captured before the reservation attempt.
+    const { reserveCascadeDailySpend, CascadeBudgetExceeded } = await import("../lib/cascadeBudget")
+    vi.mocked(reserveCascadeDailySpend).mockRejectedValueOnce(
+      new CascadeBudgetExceeded("wallet_parent", 10_000, new Date()),
+    )
+    const res = await provision(req({ ...SEATS, amount_usd: 20 })) // approve band
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.code).toBe("SUBTREE_CAP_EXCEEDED")
+    // The denial row is written AFTER the rolled-back transaction and must
+    // carry the evaluated context — the old in-transaction catch dropped it.
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "denied",
+          decisionContextJson: expect.objectContaining({ ctx: expect.anything() }),
+        }),
+      }),
+    )
+  })
+})

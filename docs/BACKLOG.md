@@ -17,6 +17,16 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-22 — GTM launch arc (Eric: "timing is everything"): platform
+      positioning goes stablecoin-era (irreversibility argument, rail-aware,
+      non-custodial/veto-only), pricing gains **Pro $20/mo early access**
+      (metered in decisions, lead-capture CTA, no checkout until billing
+      ships), first blog post announces the arc, marketing strategy drafted
+      (14-day launch sequence, CLARITY-vote newsjack prep for ~2026-09-15,
+      content franchises, Pro funnel). Remaining after the site ships:
+      DIST-0 listings (MCP registries, Slack App Directory), activation
+      email sequence, founder posts (Eric's voice — coached, never
+      drafted). (arc, from founder direction)
 - [ ] 2026-08-22 — Monetization + distribution (five-discipline research
       fan-out; synthesis in `docs/plans/monetization-and-distribution.md`):
       the billable unit is **the decision** (never bps on spend — economics
@@ -34,6 +44,10 @@ as fact here.
       slices if promoted: MONO-0 (decision counter + rollup, bill-ready
       without billing), DIST-0 (listings + template). Counsel memo before
       any pricing launch. (arc, from founder direction)
+      · 2026-08-22: **MONO-0 shipped** — WalletDecisionCounter across all
+      four authorize shells (fresh decisions only; replays/redemptions/
+      simulate never count; metering can never fail the path), surfaced on
+      /v1/wallets/stats and the spend console. DIST-0 still open.
 - [ ] 2026-08-22 — Stablecoin rails (Eric's direction): agents' authorized
       spend will settle in regulated stablecoins (USDC most likely), not
       card-rail USD — build the path. Design position written:
@@ -48,6 +62,10 @@ as fact here.
       non-custodial) → STABLE-2 policy co-signer for agent wallet providers
       via the AuthZEN PDP → STABLE-3 onchain mirror (research only).
       Custody explicitly rejected. (arc, from founder direction)
+      · 2026-08-22: **STABLE-0 shipped** — closed-vocab settlement metadata
+      on /v1/authorize, persisted + audit-surfaced, live-fired with
+      x402/usdc/base. Next slice: STABLE-1. CLARITY Act note: Senate
+      cloture vote 2026-09-15 — re-verify §604 status after.
 - [ ] 2026-08-19 — npm token renewal: publishing runs on a granular
       automation token (all-packages read/write, 2FA bypass) that **expires
       2026-11-18**. When it does, Publish MCP and Publish SDK start failing
