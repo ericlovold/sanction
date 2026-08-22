@@ -17,6 +17,20 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-22 — Stablecoin rails (Eric's direction): agents' authorized
+      spend will settle in regulated stablecoins (USDC most likely), not
+      card-rail USD — build the path. Design position written:
+      `docs/plans/stablecoin-rails.md`. Core claim: stablecoin settlement is
+      irreversible, so pre-transaction authorization becomes the *only*
+      control point — the rail shift makes the engine more necessary.
+      Already in hand: the gateway speaks 402 (x402's handshake verb),
+      mandate verify (WALLET-1) converges with AP2's signed mandates, the
+      broker intercepts, and cents-denominated policy maps 1:1 to USDC.
+      Slices: STABLE-0 rail-agnostic settlement metadata in evidence/ledger
+      → STABLE-1 x402 spend gate (authorize before the wallet signs;
+      non-custodial) → STABLE-2 policy co-signer for agent wallet providers
+      via the AuthZEN PDP → STABLE-3 onchain mirror (research only).
+      Custody explicitly rejected. (arc, from founder direction)
 - [ ] 2026-08-19 — npm token renewal: publishing runs on a granular
       automation token (all-packages read/write, 2FA bypass) that **expires
       2026-11-18**. When it does, Publish MCP and Publish SDK start failing
