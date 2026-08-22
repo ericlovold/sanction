@@ -104,6 +104,43 @@ const WONT: string[] = [
   "Build dependency. If you can't run it without us when we leave, we haven't finished the job.",
 ]
 
+// Stacked-coin balance visual, replacing the old stats-card face. Built from
+// the card's own tokens (pine gradient, --signal green, #f2f1ea ink) rather
+// than a photoreal render, so it reads as part of the same object as the
+// mandate card next to it, not a stock illustration dropped on top.
+function CoinStack() {
+  return (
+    <svg viewBox="0 0 340 190" width="100%" height="140" aria-hidden="true">
+      <defs>
+        <radialGradient id="coinFace" cx="32%" cy="28%" r="80%">
+          <stop offset="0%" stopColor="#2f8f70" />
+          <stop offset="55%" stopColor="#17614b" />
+          <stop offset="100%" stopColor="#0c332a" />
+        </radialGradient>
+        <filter id="coinShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="8" />
+        </filter>
+      </defs>
+
+      <ellipse cx="175" cy="178" rx="150" ry="10" fill="#000" opacity="0.35" filter="url(#coinShadow)" />
+
+      {/* back stack, edge-on */}
+      {[168, 156, 144, 132].map((cy, i) => (
+        <ellipse key={cy} cx="95" cy={cy} rx="58" ry="14" fill={i % 2 === 0 ? "#124a3a" : "#17614b"} stroke="rgba(242,241,234,0.1)" />
+      ))}
+      <ellipse cx="95" cy="122" rx="58" ry="17" fill="#23795f" stroke="rgba(242,241,234,0.14)" />
+
+      {/* front coin */}
+      <circle cx="226" cy="97" r="72" fill="url(#coinFace)" stroke="rgba(242,241,234,0.16)" />
+      <circle cx="226" cy="97" r="58" fill="none" stroke="rgba(242,241,234,0.22)" strokeWidth="1.5" />
+      <path d="M 174 60 A 72 72 0 0 1 268 55" fill="none" stroke="var(--signal)" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
+      <text x="226" y="97" textAnchor="middle" dominantBaseline="central" dy="2" fontFamily="var(--font-mono)" fontSize="58" fontWeight="600" fill="#f2f1ea">
+        $
+      </text>
+    </svg>
+  )
+}
+
 function WalletVisual() {
   return (
     <div className="sn-wallet-stage" aria-label="Sanction agent wallet and verified mandate">
@@ -114,11 +151,9 @@ function WalletVisual() {
           <span>AGENT WALLET</span>
           <span className="sn-wallet-live"><i /> LIVE</span>
         </div>
-        <div className="sn-wallet-agent">ops_agent_07</div>
-        <div className="sn-wallet-rule" />
-        <div className="sn-wallet-stats">
-          <div><span>POLICY</span><strong>production_ops</strong></div>
-          <div><span>AVAILABLE</span><strong>$2,500.00</strong></div>
+        <CoinStack />
+        <div className="sn-wallet-stats" style={{ gridTemplateColumns: "1fr", textAlign: "center", marginTop: 8 }}>
+          <div><span>AVAILABLE</span><strong style={{ fontSize: 20 }}>$2,500.00</strong></div>
         </div>
         <div className="sn-wallet-foot">
           <span>pxy_•••••••3fa</span>
