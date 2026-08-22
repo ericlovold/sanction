@@ -12,20 +12,20 @@ const spaceGrotesk = Space_Grotesk({
 })
 export const metadata: Metadata = {
   metadataBase: new URL("https://getsanction.com"),
-  title: "Sanction — The authorization layer for AI agents",
+  title: "Sanction — Stop runaway AI API spend",
   description:
-    "Sanction is the wallet an AI agent carries: spend limits, scoped mandates, and an audit trail — across MCP, REST, and AWS Bedrock.",
+    "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
   openGraph: {
-    title: "Sanction — The authorization layer for AI agents",
-    description: "Don't give your agent your credit card. Give it a Sanction key — spend limits, scoped secrets, and an audit trail for autonomous AI agents.",
+    title: "Your agent can run. Your API bill can't.",
+    description: "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
     url: "https://getsanction.com",
     siteName: "Sanction",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sanction — The authorization layer for AI agents",
-    description: "Don't give your agent your credit card. Give it a Sanction key — spend limits, scoped secrets, and an audit trail for autonomous AI agents.",
+    title: "Your agent can run. Your API bill can't.",
+    description: "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
   },
   appleWebApp: {
     capable: true,
