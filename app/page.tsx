@@ -143,8 +143,13 @@ function WalletVisual() {
           <span className="sn-wallet-live"><i /> LIVE</span>
         </div>
         <CoinStack />
+        {/* Deliberately NOT a balance. Sanction is non-custodial — it holds no
+            funds and can never initiate a transfer, only refuse one, which is
+            what keeps it inside CLARITY §604's non-controlling test. An
+            "available" figure reads as custody to the exact audience that cares
+            most, so the readout states the limit instead of a balance. */}
         <div className="sn-wallet-stats" style={{ gridTemplateColumns: "1fr", textAlign: "center", marginTop: 8 }}>
-          <div><span>AVAILABLE</span><strong style={{ fontSize: 20 }}>$2,500.00</strong></div>
+          <div><span>DAILY CAP</span><strong style={{ fontSize: 20, letterSpacing: "0.04em" }}>ENFORCED</strong></div>
         </div>
         <div className="sn-wallet-foot">
           <span>pxy_•••••••3fa</span>
