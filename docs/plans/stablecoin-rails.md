@@ -30,6 +30,25 @@ shift makes the engine more necessary, not less.
   agents settle via x402. Partner-integration stage; 60+ partners.
 - **GENIUS Act** (US, July 2025) made payment stablecoins a regulated
   instrument — the "crypto-regulated stablecoin" Eric names exists in law.
+- **CLARITY Act** (H.R. 3633 — verified 2026-08-22): the market-structure
+  bill, bigger in scope than GENIUS — it settles SEC/CFTC jurisdiction over
+  digital assets. House passed 294–134 (July 2025); Senate Banking advanced
+  it 15–9 (May 2026); Senate cloture vote scheduled **2026-09-15**. Not law
+  yet. The provision that matters most to Sanction is **Section 604**
+  (incorporating the Blockchain Regulatory Certainty Act): **non-custodial,
+  non-controlling software developers are not money transmitters** and
+  carry no BSA obligations. The test is "non-controlling": no legal right
+  to control user transactions, no unilateral ability to initiate them, no
+  ability to effectuate transfers without another party's approval.
+
+  **Design constraint this imposes (adopt now):** Sanction must remain
+  **veto-only**. A co-signer that can only *refuse* a transfer the wallet
+  initiates sits inside the Section 604 safe harbor; a signer that can
+  *initiate or effectuate* transfers steps outside it. STABLE-2 and
+  STABLE-3 are therefore specified as veto-only co-signing — Sanction can
+  say no, and can never say go on its own. This was already our
+  architecture (identity and funds stay upstream); CLARITY makes it the
+  legal architecture too. Re-verify status after the Senate vote.
 
 ## What is already in hand (verified against this repo)
 
