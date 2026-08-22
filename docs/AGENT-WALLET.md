@@ -42,7 +42,8 @@ will not survive agents that do not share a prompt.
   `{valid:false}` so agents fail closed on the body.
 - **Discover.** `GET /.well-known/wallet-card.json` — the issuer's card. Names
   carry (stdio + URL), present, verify, evidence, and the honesty contract
-  (cooperative MCP; interception exists today only on the LLM gateway).
+  (cooperative on stdio and the wallet URL; INTERCEPTED on the LLM gateway
+  and on any MCP server fronted by the broker at `/mcp/broker/<upstream>`).
 
 The decision engine, seats, cascade budgets, grants, vault, freeze, and
 tamper-evident export were already the wallet. These surfaces make it
@@ -57,8 +58,13 @@ servers and intercepts `tools/call` through the existing `/authorize/tool`
 ladder. That is the LLM-gateway pattern for tools. That is what makes "a
 hijacked agent cannot spend" true. OAuth onboarding follows the API-key paste.
 
-Until the broker ships, do not claim interception on MCP. The Wallet Card
-says so in `honesty`. The hosted URL is still a cooperative wallet.
+The broker shipped (BROKER-1): register an upstream with
+`POST /v1/broker/upstreams` and point the host at `/mcp/broker/<upstream>` —
+every `tools/call` runs the wallet's tool ladder BEFORE it is forwarded, and
+the upstream credential lives in the wallet's vault, never with the agent.
+Scope the claim honestly: interception holds for brokered traffic; the plain
+wallet URL stays cooperative, and traffic that goes straight to an upstream
+is not governed. The Wallet Card's `honesty` block says exactly this.
 
 **Per-agent Wallet Cards** (this seat, this remaining budget band, never the
 key) attach to A2A Agent Cards so a peer can fetch constraints before a task.

@@ -17,6 +17,37 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-08-22 — Monetization + distribution (five-discipline research
+      fan-out; synthesis in `docs/plans/monetization-and-distribution.md`):
+      the billable unit is **the decision** (never bps on spend — economics
+      and regulatory optics both wrong); Zapier-style bundles around a
+      per-decision micro-fee; the self-serve tier payable via x402/USDC
+      itself. Trust surfaces before any invoice: fee meter anchored to
+      governed value, operator-set fee cap enforced by our own engine,
+      per-decision receipts in the audit export, grace mode (never
+      fail-closed on our own billing). Distribution quick wins, ranked:
+      MCP registry + Glama/PulseMCP/Smithery/mcp.so listings (~a day),
+      Slack App Directory submission (approval cards in shared channels
+      are shipped viral surface), programmatic `/govern/<x>` pages,
+      x402/AP2 ecosystem listing after STABLE-0/1 (no policy layer is
+      listed there today — empty slot), n8n node before Zapier. First
+      slices if promoted: MONO-0 (decision counter + rollup, bill-ready
+      without billing), DIST-0 (listings + template). Counsel memo before
+      any pricing launch. (arc, from founder direction)
+- [ ] 2026-08-22 — Stablecoin rails (Eric's direction): agents' authorized
+      spend will settle in regulated stablecoins (USDC most likely), not
+      card-rail USD — build the path. Design position written:
+      `docs/plans/stablecoin-rails.md`. Core claim: stablecoin settlement is
+      irreversible, so pre-transaction authorization becomes the *only*
+      control point — the rail shift makes the engine more necessary.
+      Already in hand: the gateway speaks 402 (x402's handshake verb),
+      mandate verify (WALLET-1) converges with AP2's signed mandates, the
+      broker intercepts, and cents-denominated policy maps 1:1 to USDC.
+      Slices: STABLE-0 rail-agnostic settlement metadata in evidence/ledger
+      → STABLE-1 x402 spend gate (authorize before the wallet signs;
+      non-custodial) → STABLE-2 policy co-signer for agent wallet providers
+      via the AuthZEN PDP → STABLE-3 onchain mirror (research only).
+      Custody explicitly rejected. (arc, from founder direction)
 - [ ] 2026-08-19 — npm token renewal: publishing runs on a granular
       automation token (all-packages read/write, 2FA bypass) that **expires
       2026-11-18**. When it does, Publish MCP and Publish SDK start failing
@@ -563,6 +594,14 @@ as fact here.
       cooperative, MCP-REMOTE-1). Remainder is broker intercept + OAuth.
       Per-agent Wallet Cards and per-decision receipts stay on the same
       carry / present / verify / evidence path.
+      · 2026-08-20: **broker intercept shipped** (BROKER-1) —
+      `/mcp/broker/<upstream>` fronts registered MCP servers, authorizes
+      every `tools/call` through the tool ladder before forwarding, refuses
+      as MCP `isError` results, redeems grants via
+      `_meta["sanction/grant_id"]`. Upstream configs SEC-1-vaulted under
+      `mcp:<name>`; outbound headers built fresh (agent's Sanction key never
+      forwarded). Remainder of this item: OAuth onboarding + tools/list
+      filtering.
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.

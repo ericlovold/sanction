@@ -6,6 +6,7 @@ import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter, forc
 import type { GatewayUsage } from "@/lib/gateway"
 import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
+import { withTenant } from "@/lib/rls"
 import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
 import { logger } from "@/lib/log"
 
@@ -117,9 +118,14 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   const outHeaders = upstreamHeaders(req)
   if (!hasProviderAuth(outHeaders)) {
     const providerId = provider as ProviderId
-    const cred = await db.credentialVault.findFirst({
-      where: { walletId: agent.walletId, label: `provider:${providerId}`, revokedAt: null },
-    })
+    // SEC-3: CredentialVault is FORCE RLS — this read silently returned null
+    // outside the tenant context, so a connected provider still answered
+    // PROVIDER_NOT_CONNECTED. Found by the broker arc's live fire.
+    const cred = await withTenant(agent.walletId, (tx) =>
+      tx.credentialVault.findFirst({
+        where: { walletId: agent.walletId, label: `provider:${providerId}`, revokedAt: null },
+      }),
+    )
     if (!cred) {
       return NextResponse.json(
         {

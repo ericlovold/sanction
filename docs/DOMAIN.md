@@ -210,10 +210,13 @@ worth keeping as canonical positioning:
   that arrow honestly — **today's MCP surface is cooperative, not
   intercepting.** Both `npx sanction-mcp` and the hosted `/mcp` URL rely on the
   host asking before it acts; the honesty contract lives on the Wallet Card.
-  The LLM gateway is the surface that actually intercepts. Broker mode — where
-  Sanction fronts other MCP servers and intercepts `tools/call` through the
-  `/authorize/tool` ladder — is Next, and until it ships nothing here may claim
-  interception on MCP.
+  The LLM gateway intercepts inference; the **MCP broker** (BROKER-1,
+  `/mcp/broker/<upstream>`) intercepts `tools/call` through the
+  `/authorize/tool` ladder for any upstream the wallet registers — on brokered
+  traffic, a hijacked agent cannot invoke what policy forbids, and the
+  upstream credential lives in the vault, never with the agent. Traffic that
+  bypasses the broker is not governed; the claim stays scoped to what flows
+  through it.
 - **The arc.** Today: govern spend, provisioning, tool, and capability actions
   through one engine, with human approval everywhere it escalates and Sanction
   Local for air-gapped deployments — both shipped. Next: the MCP broker, the

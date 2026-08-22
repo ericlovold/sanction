@@ -145,6 +145,7 @@ agents wherever they run. Pick the shortest path to your stack:
 | You want to… | Use | First step |
 |---|---|---|
 | Govern any MCP host (Claude Desktop, Cursor, …) | MCP wallet | Paste `https://getsanction.com/mcp` or `npx sanction-mcp` |
+| Intercept tools/call to an MCP server | MCP broker | Register the upstream, point the host at `/mcp/broker/<name>` |
 | Meter model spend with zero code changes | LLM gateway | Point the SDK base URL at `/api/gateway/<provider>` |
 | Govern agents in a TypeScript app | SDK | `npm install sanction-sdk` |
 | Call the engine from anything else | REST API | `POST /v1/authorize` with an `x-api-key` |
@@ -245,6 +246,7 @@ POST  /agents/batch             — Stamp one template across up to 50 seats
 GET/PATCH /agents               — List / per-seat budgets, clearance, holder, expiry
 POST  /agents/rotate            — Rotate a seat's key (optionally pass to a new holder)
 POST  /webhooks                 — Register a notification route (per-event subscriptions)
+POST/GET/DELETE /broker/upstreams — Register the MCP servers the broker may front (BROKER-1)
 POST  /wallets/freeze           — Pause every agent action in this wallet and its subtree
 POST  /wallets/unfreeze         — Resume exactly where the fleet stopped
 POST  /wallets/reallocate       — Move budget across the wallet tree

@@ -7,6 +7,8 @@
  * are a later slice; this document is the issuer's card.
  */
 
+import { MCP_SERVER_VERSION } from "@/lib/mcpServer"
+
 export const MCP_WALLET_TOOLS = [
   { name: "sanction_authorize", description: "Ask before any purchase, subscription, or transfer." },
   { name: "sanction_authorize_provision", description: "Ask before provisioning seats, licenses, or infrastructure." },
@@ -30,6 +32,7 @@ export type WalletCard = {
   carry: {
     mcp_stdio: { command: string; args: string[]; package: string }
     mcp_remote: string
+    mcp_broker: { url_template: string; register: string; note: string }
     rest: string
   }
   present: {
@@ -47,8 +50,8 @@ export type WalletCard = {
   }
   tools: readonly { name: string; description: string }[]
   honesty: {
-    enforcement: "cooperative"
-    interception: "llm-gateway-only"
+    enforcement: "cooperative+broker"
+    interception: "gateway+mcp-broker"
     note: string
   }
 }
@@ -61,11 +64,16 @@ export function walletCard(origin: string): WalletCard {
     display_name: "Sanction — Agent Wallet",
     description:
       "The wallet an AI agent carries. Policy, budget, clearance, and evidence travel with the agent. Counterparties verify a mandate here before they work, sell, or settle.",
-    version: "0.7.0",
+    version: MCP_SERVER_VERSION,
     homepage: "https://getsanction.com",
     carry: {
       mcp_stdio: { command: "npx", args: ["sanction-mcp"], package: "sanction-mcp" },
       mcp_remote: `${origin}/mcp`,
+      mcp_broker: {
+        url_template: `${origin}/mcp/broker/{upstream}`,
+        register: `${api}/broker/upstreams`,
+        note: "Point the host at the broker instead of the upstream MCP server: every tools/call is authorized by the wallet's policy before it is forwarded, and the upstream credential lives in the wallet's vault, never with the agent.",
+      },
       rest: api,
     },
     present: {
@@ -83,10 +91,10 @@ export function walletCard(origin: string): WalletCard {
     },
     tools: MCP_WALLET_TOOLS,
     honesty: {
-      enforcement: "cooperative",
-      interception: "llm-gateway-only",
+      enforcement: "cooperative+broker",
+      interception: "gateway+mcp-broker",
       note:
-        "stdio MCP is agent-invoked: the host must call Sanction before acting. The hosted URL (`/mcp`) is the same cooperative wallet over Streamable HTTP. The LLM gateway intercepts inference spend without cooperation. A hosted MCP broker that intercepts tools/call is Next — until then, do not claim a hijacked agent cannot spend.",
+        "Two enforcement modes, named precisely. INTERCEPTED: the LLM gateway (inference spend) and the MCP broker (`/mcp/broker/{upstream}` — tools/call is authorized before it is forwarded, so on brokered traffic a hijacked agent cannot invoke what policy forbids). COOPERATIVE: stdio MCP and the hosted wallet URL (`/mcp`) — the host must call Sanction before acting. Traffic that goes straight to an upstream without the broker is not governed; route it through the broker if it must be.",
     },
   }
 }
