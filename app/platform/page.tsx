@@ -337,8 +337,8 @@ export default async function Landing() {
               "The MCP broker intercepts tool calls before they run. The LLM gateway meters model spend per call. Escalations pause for a human; approval mints a one-use grant. All of it replayable, with hash-chained evidence exports.",
             ],
             [
-              "The x402 spend gate — next",
-              "When a brokered agent meets an x402 payment requirement, Sanction treats the quoted amount as a spend request: /authorize runs before the wallet signs, and a denial means the transfer is never signed. This is next on the roadmap — not shipped yet.",
+              "The x402 spend gate — live",
+              "When an agent meets an x402 payment requirement, Sanction prices the quote and runs it through the same ladder as any purchase — before the wallet signs. Through the MCP broker this is interception: a refused challenge is withheld, and an agent that never receives the payment requirements cannot sign them. Quotes priced in USD-pegged stablecoins only; a rate we would have to guess is denied, never estimated.",
             ],
             [
               "Non-custodial, veto-only",

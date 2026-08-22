@@ -64,8 +64,19 @@ as fact here.
       Custody explicitly rejected. (arc, from founder direction)
       · 2026-08-22: **STABLE-0 shipped** — closed-vocab settlement metadata
       on /v1/authorize, persisted + audit-surfaced, live-fired with
-      x402/usdc/base. Next slice: STABLE-1. CLARITY Act note: Senate
-      cloture vote 2026-09-15 — re-verify §604 status after.
+      x402/usdc/base. CLARITY Act note: Senate cloture vote 2026-09-15 —
+      re-verify §604 status after.
+      · 2026-08-22: **STABLE-1 shipped** — the spend gate. `/v1/authorize/quote`
+      prices an x402 challenge and runs the same ladder before the wallet
+      signs; the MCP broker intercepts upstream 402s and WITHHOLDS the
+      challenge on refusal. USD-pegged stablecoins with known decimals only
+      (Base USDC today) — unpriceable quotes deny rather than guess a rate;
+      multi-option challenges authorize the worst case. Open follow-ups:
+      more priceable assets (an operator-declared asset registry beats
+      hardcoding), settlement receipts reconciled back to decisions, and
+      STABLE-2 the wallet-provider co-signer (veto-only). Note for docs: the
+      quote category defaults to `api`, so allow-list policies must include
+      it or pass `category` — surfaced by live fire as CATEGORY_NOT_ALLOWED.
 - [ ] 2026-08-19 — npm token renewal: publishing runs on a granular
       automation token (all-packages read/write, 2FA bypass) that **expires
       2026-11-18**. When it does, Publish MCP and Publish SDK start failing

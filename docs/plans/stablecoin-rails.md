@@ -1,11 +1,19 @@
 # Stablecoin rails — design position
 
-> Status: **STABLE-0 shipped** (2026-08-22, same day): `/v1/authorize` accepts
-> optional `settlement` `{rail, asset, network}` — closed vocabulary
-> (`lib/settlement.ts`), inert to the decision, persisted on the row,
-> surfaced in the audit feed/CSV and OpenAPI. Live-fired: `x402/usdc/base`
-> recorded on an approved decision; off-vocabulary rails 400. STABLE-1 (the
-> x402 spend gate) is next.
+> Status: **STABLE-0 and STABLE-1 shipped** (2026-08-22). STABLE-0:
+> `/v1/authorize` accepts optional `settlement` `{rail, asset, network}` —
+> closed vocabulary, inert to the decision, persisted and surfaced in the
+> audit feed/CSV and OpenAPI. STABLE-1: the spend gate — `POST
+> /v1/authorize/quote` prices an x402 challenge and runs it through the same
+> ladder before the wallet signs, and the MCP broker *intercepts* upstream
+> 402s, withholding the challenge on refusal. Two corrections this slice
+> made to the proposal, kept as the record: (1) pricing is deliberately
+> narrow — USD-pegged stablecoins with known decimals only, because a
+> decision that depends on an FX lookup at decision time breaks determinism;
+> (2) a challenge offering several ways to pay is authorized at its WORST
+> case, and one unpriceable option poisons the whole challenge, since the
+> client picks and we cannot know which. STABLE-2 (wallet-provider co-signer,
+> veto-only) is next.
 >
 > Original framing (2026-08-22, from Eric's direction: agents will spend,
 > authorized spend will not settle in card-rail USD — it settles in regulated

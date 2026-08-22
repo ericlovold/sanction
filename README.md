@@ -188,6 +188,7 @@ endpoints take `x-api-key pxy_…`; management endpoints take the owner's
 
 ```
 POST  /authorize                — Authorize a spend action (grant_id redeems an approval)
+POST  /authorize/quote          — Authorize an x402 payment challenge before the wallet signs
 POST  /authorize/tool           — Authorize a tool invocation
 POST  /authorize/provision      — Authorize provisioning (resource + line item + $)
 POST  /authorize/capability     — Authorize acquiring capability (skill/plugin/API)
