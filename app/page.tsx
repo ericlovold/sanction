@@ -411,7 +411,6 @@ export default function Landing() {
           <span>Sanction authorizes the spend. Any rail settles it.</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
             <Link className="sanction-link" href="/platform">Platform</Link>
-            <Link className="sanction-link" href="/moral-intention">Moral Intention</Link>
             <Link className="sanction-link" href="/about">About</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>
             <Link className="sanction-link" href="/changelog">Changelog</Link>
