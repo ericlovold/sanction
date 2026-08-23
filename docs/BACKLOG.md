@@ -655,6 +655,22 @@ as fact here.
       in-session: stay source-available, lock the strategy not the source —
       revisit if the competitive picture changes.
 
+- [ ] 2026-08-23 — Prune 7 fully-absorbed remote branches. Verified merged
+      by locating each PR's squash commit on main (and, for
+      `fix/hero-noncustodial`, by content — #256 was stranded and re-landed
+      via #257). The paste-ready `git push origin --delete` command and the
+      recorded branch tips are in `docs/handoff/CODEX-SPRINT-2026-08-23.md`
+      §4. **Blocked in-session**: the sandbox classifier denies remote branch
+      deletion, so this needs Eric or a granted Bash permission. (chore,
+      from /fresh-eyes)
+- [ ] 2026-08-23 — Make "merged ≠ deployed" impossible to miss. PR #259
+      merged to main and produced no Vercel build; production ran a merge
+      behind for ~2h with nobody alerted. Options worth weighing: a CI job
+      that fails if main's tip has no production deployment after N minutes,
+      or a `/deploy-check` step folded into `/zoomout` and `/cut-release`.
+      Interim mitigation is the dated AGENTS.md note. (gap, from /fresh-eyes)
+
+
 ## Closed
 
 - [x] 2026-07-08 — Agent-fleet parity packaging (from a prospect's platform

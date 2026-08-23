@@ -153,6 +153,15 @@ fixes; run before every /cut-release). `/tailwind` is the market-event
 playbook: verify the news at primary sources, map it to engine primitives +
 roadmap ("hold the mandate, not the rail"), ship a fenced same-day slice or
 degrade gracefully to mapping + backlog arc, and flag the GTM moment.
+`fresh-eyes` is homegrown too (added 2026-08-23): the inverse of
+`/INPUT`. Where INPUT ingests outside material INTO the project,
+`/fresh-eyes` exports verified state OUT to a reader with no context — a
+Codex sprint, another agent, a contractor — and then stares at the repo
+the way that reader will, naming what our own fluency hides. Every claim
+is verified live in the run that writes it; the contract is a blind-spot
+ledger (VERIFIED · LANDMINE · ASSUMED · UNOWNED · DECIDE · DRIFT). Run it
+before handing the repo to anyone, or before pausing an arc you will not
+personally resume. Exports live in `docs/handoff/`.
 `audit` is homegrown too (adapted 2026-07-07 from the "AI Code Sanity Check"
 audit-prompt suite): `/audit [topics…]` runs read-only best-practice
 investigations — 29 topics, 0–5 maturity score + amateur/AI-built signal
@@ -160,6 +169,17 @@ each — writing evidence-backed reports to the gitignored `audit/` directory;
 a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
+
+- As of 2026-08-23: **a merge to `main` is not a deploy.** PR #259 merged at
+  19:23 UTC and produced no Vercel build at all — production sat on #258 for
+  nearly two hours while `main` was a merge ahead, and the live site silently
+  lacked the OG cards and the `/moral-intention` redirect. Main HAD
+  auto-deployed three times the previous day, so absence of a build is an
+  anomaly, not configuration. This is the 2026-08-22 invariant failing from
+  the other direction. **Close every arc by checking production, not the
+  merge**: `list_deployments` for a `target: "production"` entry at main's
+  tip, then curl one asset the arc actually added. A 404 on that asset is the
+  tell.
 
 - As of 2026-08-22: **production must deploy from `main`.** During the GTM
   reframe, the marketing branch was promoted straight to production (actor
