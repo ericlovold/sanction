@@ -221,6 +221,7 @@ export default function Landing() {
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 17, letterSpacing: "-0.02em" }}>
             <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 25 }} />
+            <span className="sn-lockup-tag" aria-hidden="true"><span>Agent authorization</span></span>
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <a className="sanction-link" href="#workflows">Workflows</a>
@@ -239,7 +240,7 @@ export default function Landing() {
       <header className="sn-home-hero">
         <div className="sn-home-hero-grid" style={wrap}>
           <div>
-            <MonoLabel mb={20}>Spend governance for autonomous systems</MonoLabel>
+            <MonoLabel mb={20}>Runaway agent spend, stopped</MonoLabel>
             <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
               Your agent can run. Your API bill can&apos;t.
             </h1>
