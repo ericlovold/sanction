@@ -20,6 +20,20 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
+      // 2026-08: the Moral Intention Analyst moved to its own site, so this
+      // repo is the authorization product only. Permanent, and cross-origin —
+      // anything still linking to the old page lands on the real one instead
+      // of a 404.
+      {
+        source: "/moral-intention",
+        destination: "https://moralintention.com",
+        permanent: true,
+      },
+      {
+        source: "/moral-intention/:path*",
+        destination: "https://moralintention.com/:path*",
+        permanent: true,
+      },
     ];
   },
   // Standard security headers — a clean posture helps reputation/scanner scores.

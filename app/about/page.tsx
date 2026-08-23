@@ -3,23 +3,19 @@ import Link from "next/link"
 import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
 
-// Rebuilt 2026-08 for the Sanction AI reposition: we-voice firm story with the
-// two people behind it. Dr. Ping's photo: drop the file at
-// public/brand/ac-ping.jpg and set PING_PHOTO below — the card renders a
-// monogram until then, so shipping isn't blocked on the asset.
+// Rebuilt 2026-08 for the Sanction AI reposition: we-voice firm story.
+// The Moral Intention Analyst and its ethics authorship moved to their own
+// site in 2026-08 — getsanction.com is the authorization product only.
 
 export const metadata: Metadata = {
   title: "About Sanction AI — AI you can answer for",
   description:
-    "Sanction AI is an AI advisory and implementation firm. We install working AI on real business workflows, and we build the trust layer for it: the Sanction authorization platform and the Moral Intention Analyst, authored with Dr. A.C. Ping, PhD.",
+    "Sanction AI is an AI advisory and implementation firm. We install working AI on real business workflows, and we build the trust layer for it: the Sanction authorization platform.",
 }
 
 const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/ericlovold/30min"
 
 const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
-
-// Set to "/brand/ac-ping.jpg" once the photo lands in public/brand/.
-const PING_PHOTO: string | null = null
 
 const TEAM: {
   name: string
@@ -35,24 +31,10 @@ const TEAM: {
     photo: "/brand/eric-lovold.jpg",
     monogram: "EL",
     bio: [
-      "Eric builds and installs the systems: the Sanction Platform, the Moral Intention Analyst's productization, and every client implementation. A decade driving outcomes in healthcare and enterprise technology, now entirely focused on working AI for real businesses.",
+      "Eric builds and installs the systems: the Sanction Platform and every client implementation. A decade driving outcomes in healthcare and enterprise technology, now entirely focused on working AI for real businesses.",
       "Anthropic-certified across the Claude platform — Bedrock, Claude Code, MCP, and the API.",
     ],
     links: [["ericlovold.com", "https://www.ericlovold.com"]],
-  },
-  {
-    name: "Dr. A.C. Ping, PhD",
-    role: "Ethics Framework Author · Brain Trust, MIA",
-    photo: PING_PHOTO,
-    monogram: "AP",
-    bio: [
-      "Dr. Ping is the author of the ethical methodology the Moral Intention Analyst runs on, and its final authority — every framework interpretation, amendment, and version ships with his approval.",
-      "An ethicist and advisor with decades of practice helping people and organisations see what is at stake and choose consciously.",
-    ],
-    links: [
-      ["acping.net", "https://www.acping.net"],
-      ["Ethics Advisory Services", "https://www.ethicsadvisoryservices.com.au"],
-    ],
   },
 ]
 
@@ -64,10 +46,10 @@ export default function About() {
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 17, letterSpacing: "-0.02em" }}>
             <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 25 }} />
+            <span className="sn-lockup-tag" aria-hidden="true"><span>Agent authorization</span></span>
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <Link className="sanction-link" href="/">Services</Link>
-            <Link className="sanction-link" href="/moral-intention">Moral Intention</Link>
             <Link className="sanction-link" href="/platform">Platform</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
@@ -88,11 +70,8 @@ export default function About() {
         <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", margin: "24px 0 0", maxWidth: "58ch" }}>
           Everything we build and install holds one thesis: a human stays accountable. The Sanction
           Platform governs what autonomous agents may do — budgets, sign-off, a signed audit trail.
-          The Moral Intention Analyst works the human side: it reads the documents, decisions, and
-          processes people are responsible for and surfaces their ethical dimension, so whoever
-          holds the call can see what&apos;s at stake before they make it. Our services practice is
-          the same idea applied by hand: working AI, installed on real workflows, with your team in
-          charge of it.
+          Our services practice is the same idea applied by hand: working AI, installed on real
+          workflows, with your team in charge of it.
         </p>
       </header>
 
@@ -191,7 +170,6 @@ export default function About() {
           <span>Advisory · Implementation · Products</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
             <Link className="sanction-link" href="/">Services</Link>
-            <Link className="sanction-link" href="/moral-intention">Moral Intention</Link>
             <Link className="sanction-link" href="/platform">Platform</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>
             <Link className="sanction-link" href="/changelog">Changelog</Link>
