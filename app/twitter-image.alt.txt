@@ -1,0 +1,1 @@
+Sanction — Agent authorization. Your agent can run. Your API bill can't. Approve, escalate, or deny before the money moves.
