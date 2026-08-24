@@ -64,6 +64,7 @@ describe("GET /api/slack/oauth/start", () => {
     const res = await slackOAuthStart(startReq())
     expect(res.status).toBe(307)
     expect(res.headers.get("location")).toContain("/login?next=")
+    expect(res.headers.get("location")).toContain(encodeURIComponent("/api/slack/oauth/start"))
   })
 
   it("refuses a viewer", async () => {

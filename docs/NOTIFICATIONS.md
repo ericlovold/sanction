@@ -47,7 +47,8 @@ No Slack app. The webhook URL is the secret.
 
 The env `SANCTION_SLACK_BOT_TOKEN` plus a pasted channel archive URL
 (`https://slack.com/archives/C…`) remains a platform-token fallback when OAuth
-is not configured.
+is not configured. It posts the **Review in Sanction** link only; interactive
+decisions require a wallet-bound Slack app install.
 
 ## Route different events to different channels
 

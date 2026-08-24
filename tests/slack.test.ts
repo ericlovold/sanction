@@ -5,6 +5,7 @@ import {
   slackChannelIdFromUrl,
   slackDecisionFromPayload,
   slackInteractivePayload,
+  issueSlackActionToken,
   SLACK_APPROVE_ACTION,
   SLACK_DENY_ACTION,
   verifySlackSignature,
@@ -75,19 +76,25 @@ describe("slackChannelIdFromUrl", () => {
 })
 
 describe("slack interactive payload", () => {
-  it("parses approve/deny from a block_actions body", () => {
+  it("parses approve/deny and its Slack workspace context", async () => {
+    process.env.SANCTION_SIGNING_SECRET = "test-signing-secret"
+    const actionToken = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123" })
     const raw = new URLSearchParams({
       payload: JSON.stringify({
         type: "block_actions",
         user: { username: "eric" },
-        actions: [{ action_id: SLACK_APPROVE_ACTION, value: "appr_1" }],
+        team: { id: "T123" },
+        channel: { id: "C123" },
+        actions: [{ action_id: SLACK_APPROVE_ACTION, value: actionToken }],
       }),
     }).toString()
     const parsed = parseSlackInteractiveBody(raw)
     expect(slackDecisionFromPayload(parsed)).toEqual({
       decision: "approve",
-      approvalId: "appr_1",
+      actionToken,
       actor: "slack:eric",
+      teamId: "T123",
+      channelId: "C123",
     })
   })
 
@@ -97,6 +104,7 @@ describe("slack interactive payload", () => {
         "approval.created",
         { approval_id: "appr_9", approve_url: "https://getsanction.com/dashboard/approvals?review=req_1" },
         ":hourglass: needs approval",
+        "signed-action-token",
       ),
     )
     const ids = payload.blocks[1].elements.map((el: { action_id?: string }) => el.action_id)

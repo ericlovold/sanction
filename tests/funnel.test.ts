@@ -13,6 +13,7 @@ describe("funnel event taxonomy", () => {
       demoDecision: "demo_decision",
       tourStarted: "tour_started",
       tourCompleted: "tour_completed",
+      slackInstallStarted: "slack_install_started",
       walletCreated: "wallet_created",
       firstGatewayCall: "first_gateway_call",
     })

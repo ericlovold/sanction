@@ -1,8 +1,11 @@
 import { createHmac, timingSafeEqual } from "crypto"
+import { SignJWT, jwtVerify } from "jose"
 
 export const SLACK_APPROVE_ACTION = "sanction_approve"
 export const SLACK_DENY_ACTION = "sanction_deny"
 const SLACK_MAX_SKEW_MS = 5 * 60 * 1000
+const SLACK_ACTION_TTL_SECONDS = 2 * 60 * 60
+const SLACK_ACTION_PURPOSE = "slack-approval-action"
 const REVIEW_URL = "https://getsanction.com/dashboard/approvals"
 
 export function slackSigningSecret(): string | undefined {
@@ -66,8 +69,10 @@ export function parseSlackInteractiveBody(raw: string): unknown {
 
 export type SlackDecision = {
   decision: "approve" | "reject"
-  approvalId: string
+  actionToken: string
   actor: string
+  teamId: string
+  channelId: string
 }
 
 export function slackDecisionFromPayload(payload: unknown): SlackDecision | null {
@@ -80,11 +85,21 @@ export function slackDecisionFromPayload(payload: unknown): SlackDecision | null
   if (!action || typeof action !== "object") return null
   const row = action as Record<string, unknown>
   const actionId = typeof row.action_id === "string" ? row.action_id : ""
-  const approvalId = typeof row.value === "string" ? row.value.trim() : ""
-  if (!approvalId) return null
+  const actionToken = typeof row.value === "string" ? row.value.trim() : ""
+  if (!actionToken) return null
   const decision =
     actionId === SLACK_APPROVE_ACTION ? "approve" : actionId === SLACK_DENY_ACTION ? "reject" : null
   if (!decision) return null
+
+  const team = body.team
+  const channel = body.channel
+  const teamId = team && typeof team === "object" && typeof (team as Record<string, unknown>).id === "string"
+    ? (team as Record<string, string>).id
+    : ""
+  const channelId = channel && typeof channel === "object" && typeof (channel as Record<string, unknown>).id === "string"
+    ? (channel as Record<string, string>).id
+    : ""
+  if (!/^T[A-Z0-9]+$/i.test(teamId) || !/^C[A-Z0-9]+$/i.test(channelId)) return null
 
   const user = body.user
   let actor = "slack"
@@ -94,30 +109,69 @@ export function slackDecisionFromPayload(payload: unknown): SlackDecision | null
     else if (typeof u.name === "string" && u.name) actor = u.name
     else if (typeof u.id === "string" && u.id) actor = u.id
   }
-  return { decision, approvalId, actor: `slack:${actor}` }
+  return { decision, actionToken, actor: `slack:${actor}`, teamId, channelId }
 }
 
-export function slackInteractivePayload(event: string, data: Record<string, unknown>, text: string): string {
+function signingKey() {
+  const secret = process.env.SANCTION_SIGNING_SECRET
+  if (!secret) throw new Error("SANCTION_SIGNING_SECRET not set")
+  return new TextEncoder().encode(secret)
+}
+
+export type SlackActionBinding = {
+  walletId: string
+  approvalId: string
+  teamId: string
+  channelId: string
+}
+
+/** Bind a Slack button to one wallet, installation channel, and approval. */
+export async function issueSlackActionToken(binding: SlackActionBinding): Promise<string> {
+  return new SignJWT({ purpose: SLACK_ACTION_PURPOSE, ...binding })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("sanction")
+    .setIssuedAt()
+    .setExpirationTime(`${SLACK_ACTION_TTL_SECONDS}s`)
+    .sign(signingKey())
+}
+
+export async function verifySlackActionToken(token: string): Promise<SlackActionBinding | null> {
+  try {
+    const { payload } = await jwtVerify(token, signingKey(), { issuer: "sanction", algorithms: ["HS256"] })
+    if (payload.purpose !== SLACK_ACTION_PURPOSE) return null
+    const values = [payload.walletId, payload.approvalId, payload.teamId, payload.channelId]
+    if (!values.every((value) => typeof value === "string" && value.length > 0)) return null
+    return {
+      walletId: payload.walletId as string,
+      approvalId: payload.approvalId as string,
+      teamId: payload.teamId as string,
+      channelId: payload.channelId as string,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function slackInteractivePayload(event: string, data: Record<string, unknown>, text: string, actionToken?: string): string {
   const blocks: unknown[] = [{ type: "section", text: { type: "mrkdwn", text } }]
   if (event === "approval.created" || event === "escalation.created") {
-    const approvalId = typeof data.approval_id === "string" ? data.approval_id : ""
     const reviewUrl = typeof data.approve_url === "string" ? data.approve_url : REVIEW_URL
     const elements: unknown[] = []
-    if (approvalId) {
+    if (actionToken) {
       elements.push(
         {
           type: "button",
           style: "primary",
           text: { type: "plain_text", text: "Approve" },
           action_id: SLACK_APPROVE_ACTION,
-          value: approvalId,
+          value: actionToken,
         },
         {
           type: "button",
           style: "danger",
           text: { type: "plain_text", text: "Deny" },
           action_id: SLACK_DENY_ACTION,
-          value: approvalId,
+          value: actionToken,
         },
       )
     }

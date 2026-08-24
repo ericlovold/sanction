@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "crypto"
 import { decryptCredentialEnvelope } from "./credentialCrypto"
 import { db } from "./db"
 import { withTenant } from "./rls"
-import { postSlackChat, slackBotToken, slackChannelIdFromUrl, slackInteractivePayload } from "./slack"
+import { issueSlackActionToken, postSlackChat, slackBotToken, slackChannelIdFromUrl, slackInteractivePayload } from "./slack"
 import { slackOAuthLabel } from "./slackOAuth"
 
 // Owner-registered webhooks notified on events. Each delivery is signed with
@@ -189,11 +189,15 @@ async function deliverSlackInstalls(
     events: string[]
   }>,
 ) {
-  const payload = slackInteractivePayload(event, data, slackText(event, data))
   await Promise.allSettled(
     installs
       .filter((row) => row.events.includes(event) || row.events.includes("*"))
       .map(async (row) => {
+        const approvalId = typeof data.approval_id === "string" ? data.approval_id : undefined
+        const actionToken = approvalId && (event === "approval.created" || event === "escalation.created")
+          ? await issueSlackActionToken({ walletId, approvalId, teamId: row.teamId, channelId: row.channelId })
+          : undefined
+        const payload = slackInteractivePayload(event, data, slackText(event, data), actionToken)
         const token = await decryptCredentialEnvelope({
           encryptedValue: row.botTokenEnc,
           walletId,
@@ -219,7 +223,7 @@ export async function deliverEvent(walletId: string, event: string, data: Record
       const channelId = slackChannelIdFromUrl(h.url)
       if (channelId) {
         return slackBotToken()
-          ? postSlackChat(channelId, slackInteractivePayload(event, data, slackText(event, data)))
+          ? postSlackChat(channelId, slackPayload(event, data))
           : Promise.resolve()
       }
       return isSlackWebhookUrl(h.url)
