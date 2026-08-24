@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
 
   const member = await getSessionMember()
   if (!member) {
-    return redirectTo(`${origin}/login?next=${encodeURIComponent("/dashboard/approvals")}`)
+    // Preserve the install intent through sign-in: after a new admin creates a
+    // session, they resume the OAuth start route rather than having to find
+    // and click Add to Slack a second time.
+    return redirectTo(`${origin}/login?next=${encodeURIComponent("/api/slack/oauth/start")}`)
   }
   if (!hasRole(member.role, "admin")) {
     return redirectTo(`${origin}/dashboard/approvals?slack=forbidden`)

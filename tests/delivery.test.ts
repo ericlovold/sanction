@@ -146,7 +146,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(JSON.parse(String(slack[1].body)).blocks[0].text.text).toContain("84%")
   })
 
-  it("posts Approve/Deny via chat.postMessage when a channel URL and bot token are set", async () => {
+  it("posts a review link via chat.postMessage when a channel URL and bot token are set", async () => {
     vi.stubEnv("SANCTION_SLACK_BOT_TOKEN", "xoxb-test")
     const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
     dbMock.webhook.findMany.mockResolvedValue([
@@ -167,9 +167,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(new Headers(init.headers).get("authorization")).toBe("Bearer xoxb-test")
     const body = JSON.parse(String(init.body))
     expect(body.channel).toBe("C0123456789")
-    const actionIds = body.blocks[1].elements.map((el: { action_id?: string }) => el.action_id)
-    expect(actionIds).toContain("sanction_approve")
-    expect(actionIds).toContain("sanction_deny")
+    expect(body.blocks[1].elements[0]).toMatchObject({ text: { text: "Review in Sanction" } })
   })
 
   it("does not POST to slack.com/archives when the bot token is unset", async () => {
@@ -184,6 +182,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
   })
 
   it("posts Approve/Deny via an OAuth install token without the env bot token", async () => {
+    vi.stubEnv("SANCTION_SIGNING_SECRET", "test-signing-secret")
     decryptMock.mockResolvedValue("xoxb-install")
     dbMock.slackInstall.findMany.mockResolvedValue([
       {

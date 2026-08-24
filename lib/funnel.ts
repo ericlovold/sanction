@@ -19,6 +19,8 @@ export const FUNNEL = {
   tourStarted: "tour_started",
   /** Reached the last tour step / clicked Done. props: { via } */
   tourCompleted: "tour_completed",
+  /** Started the Slack OAuth install flow. props: { location } */
+  slackInstallStarted: "slack_install_started",
   /** Created a wallet — the conversion. (existing event) */
   walletCreated: "wallet_created",
   /** First metered model call through the gateway. (existing event) */

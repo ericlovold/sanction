@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { resolveApproval } from "@/lib/approvals"
 import { db } from "@/lib/db"
 import { clientIp, rateLimit } from "@/lib/rateLimit"
+import { withTenant } from "@/lib/rls"
 import {
   parseSlackInteractiveBody,
   slackDecisionFromPayload,
   slackReplacementMessage,
   slackSigningSecret,
+  verifySlackActionToken,
   verifySlackSignature,
 } from "@/lib/slack"
 
@@ -47,11 +49,32 @@ export async function POST(req: NextRequest) {
     return slackAck({ text: "Ignored" })
   }
 
+  const binding = await verifySlackActionToken(action.actionToken)
+  if (!binding || binding.teamId !== action.teamId || binding.channelId !== action.channelId) {
+    return slackAck({ response_type: "ephemeral", text: "This Slack action is no longer valid." })
+  }
+
+  const install = await withTenant(binding.walletId, (tx) =>
+    tx.slackInstall.findFirst({
+      where: {
+        walletId: binding.walletId,
+        teamId: binding.teamId,
+        channelId: binding.channelId,
+        revokedAt: null,
+      },
+      select: { id: true },
+    }),
+  )
+  if (!install) {
+    return slackAck({ response_type: "ephemeral", text: "This Slack channel is not authorized for that wallet." })
+  }
+
   const approval = await db.pendingApproval.findFirst({
     where: {
+      walletId: binding.walletId,
       OR: [
-        { id: action.approvalId },
-        { sourceType: "authorization_request", sourceId: action.approvalId },
+        { id: binding.approvalId },
+        { sourceType: "authorization_request", sourceId: binding.approvalId },
       ],
     },
     select: { id: true, walletId: true },
@@ -64,7 +87,7 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await resolveApproval(
-    approval.walletId,
+    binding.walletId,
     approval.id,
     action.decision,
     undefined,

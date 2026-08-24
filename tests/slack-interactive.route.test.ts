@@ -5,6 +5,9 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest"
 const { dbMock, rateLimitMock, resolveMock } = vi.hoisted(() => ({
   dbMock: {
     pendingApproval: { findFirst: vi.fn() },
+    slackInstall: { findFirst: vi.fn() },
+    $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
   },
   rateLimitMock: vi.fn(),
   resolveMock: vi.fn(),
@@ -20,7 +23,7 @@ vi.mock("@/lib/approvals", () => ({
 }))
 
 import { POST as slackInteractive } from "../app/api/slack/interactive/route"
-import { SLACK_APPROVE_ACTION, SLACK_DENY_ACTION } from "../lib/slack"
+import { issueSlackActionToken, SLACK_APPROVE_ACTION, SLACK_DENY_ACTION } from "../lib/slack"
 
 const SECRET = "slack-signing-secret"
 
@@ -42,10 +45,25 @@ function signedRequest(payload: unknown, opts?: { timestamp?: string; secret?: s
   })
 }
 
+async function approvalPayload(actionId: string, approvalId = "appr_1", opts?: { teamId?: string; channelId?: string }) {
+  const teamId = opts?.teamId ?? "T123"
+  const channelId = opts?.channelId ?? "C123"
+  return {
+    type: "block_actions",
+    team: { id: teamId },
+    channel: { id: channelId },
+    user: { username: "eric" },
+    actions: [{ action_id: actionId, value: await issueSlackActionToken({ walletId: "wallet_1", approvalId, teamId: "T123", channelId: "C123" }) }],
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv("SANCTION_SLACK_SIGNING_SECRET", SECRET)
+  vi.stubEnv("SANCTION_SIGNING_SECRET", "sanction-signing-secret")
   rateLimitMock.mockResolvedValue({ ok: true, limit: 60 })
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => await fn(dbMock))
+  dbMock.slackInstall.findFirst.mockResolvedValue({ id: "si_1" })
 })
 
 afterEach(() => {
@@ -76,11 +94,7 @@ describe("POST /api/slack/interactive", () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
     resolveMock.mockResolvedValue({ ok: true, status: 200 })
     const res = await slackInteractive(
-      signedRequest({
-        type: "block_actions",
-        user: { username: "eric" },
-        actions: [{ action_id: SLACK_APPROVE_ACTION, value: "appr_1" }],
-      }),
+      signedRequest(await approvalPayload(SLACK_APPROVE_ACTION)),
     )
     expect(res.status).toBe(200)
     expect(resolveMock).toHaveBeenCalledWith("wallet_1", "appr_1", "approve", undefined, "slack:eric")
@@ -93,11 +107,7 @@ describe("POST /api/slack/interactive", () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
     resolveMock.mockResolvedValue({ ok: true, status: 200 })
     await slackInteractive(
-      signedRequest({
-        type: "block_actions",
-        user: { id: "U123" },
-        actions: [{ action_id: SLACK_DENY_ACTION, value: "appr_1" }],
-      }),
+      signedRequest({ ...(await approvalPayload(SLACK_DENY_ACTION)), user: { id: "U123" } }),
     )
     expect(resolveMock).toHaveBeenCalledWith("wallet_1", "appr_1", "reject", undefined, "slack:U123")
   })
@@ -105,11 +115,7 @@ describe("POST /api/slack/interactive", () => {
   it("returns an ephemeral note when the approval is gone", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue(null)
     const res = await slackInteractive(
-      signedRequest({
-        type: "block_actions",
-        user: { username: "eric" },
-        actions: [{ action_id: SLACK_APPROVE_ACTION, value: "missing" }],
-      }),
+      signedRequest(await approvalPayload(SLACK_APPROVE_ACTION, "missing")),
     )
     expect(resolveMock).not.toHaveBeenCalled()
     const body = await res.json()
@@ -120,14 +126,26 @@ describe("POST /api/slack/interactive", () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
     resolveMock.mockResolvedValue({ ok: false, error: "Approval already approved", status: 409 })
     const res = await slackInteractive(
-      signedRequest({
-        type: "block_actions",
-        user: { username: "eric" },
-        actions: [{ action_id: SLACK_APPROVE_ACTION, value: "appr_1" }],
-      }),
+      signedRequest(await approvalPayload(SLACK_APPROVE_ACTION)),
     )
     const body = await res.json()
     expect(body.response_type).toBe("ephemeral")
     expect(body.text).toContain("already approved")
+  })
+
+  it("refuses a signed action from another Slack channel before reading approvals", async () => {
+    const res = await slackInteractive(signedRequest(await approvalPayload(SLACK_APPROVE_ACTION, "appr_1", { channelId: "C999" })))
+    expect(res.status).toBe(200)
+    expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
+    expect(resolveMock).not.toHaveBeenCalled()
+    expect((await res.json()).text).toContain("no longer valid")
+  })
+
+  it("refuses a workspace/channel with no active install before reading approvals", async () => {
+    dbMock.slackInstall.findFirst.mockResolvedValue(null)
+    const res = await slackInteractive(signedRequest(await approvalPayload(SLACK_APPROVE_ACTION)))
+    expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
+    expect(resolveMock).not.toHaveBeenCalled()
+    expect((await res.json()).text).toContain("not authorized")
   })
 })
