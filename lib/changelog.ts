@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-25",
+    title: "Slack is now a live approval surface",
+    tags: ["slack", "approvals", "distribution", "governance"],
+    body: "**Sanction for Slack is live at [`/slack`](/slack).** When an agent crosses a policy boundary, the person who can decide no longer has to find the dashboard: they connect a workspace and channel with **Add to Slack**, then receive an interactive card where the work is already happening. **Approve** mints the same one-use, expiring grant as the dashboard; **Deny** stops the action. Both outcomes retain the actor and the complete decision record.\n\nThe install is wallet-bound from the first redirect. Slack OAuth state names the admin's wallet, the workspace bot token is stored under that wallet's SEC-1 envelope, and a click is accepted only after Slack signature verification and a match to the installed workspace and channel. A channel archive URL and platform bot token remain a fallback for existing webhook routes, but the normal path is now a real install — no pasted URL, no shared platform token.\n\nThis is distribution, not a parallel approval system: MCP, the SDK, REST, and Slack all resolve through the same policy ladder and `resolveApproval` path. The agent still retries with its grant; the audit trail still tells one story.",
+  },
+  {
     date: "2026-08-22",
     title: "The x402 spend gate: authorized before the wallet signs",
     tags: ["engine", "api", "mcp", "broker"],
