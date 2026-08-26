@@ -170,6 +170,21 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
 
+- As of 2026-08-26: **`npm audit` in CI is `continue-on-error: true`, so a
+  green checkmark on "Dependency audit (high+)" means "did not block", not
+  "clean".** 16 advisories (12 high — Next.js SSRF/cache-confusion, undici,
+  postcss, sharp) accumulated behind that green check. Cleared by: `npm audit
+  fix` for the semver-compatible ones, `next` 16.2.9 → 16.3.3 (a MINOR bump —
+  npm only calls it "outside the stated dependency range" because the version
+  is pinned exactly, with no caret), and an `overrides` entry for
+  `deepmerge-ts`. **Do not run `npm audit fix --force` here**: for the
+  `deepmerge-ts` advisory npm proposes `prisma@6.12.0`, a MAJOR DOWNGRADE from
+  the installed 7.10.0 that would tear out the Prisma 7 driver adapter. When
+  npm's `fixAvailable` names a version, check it is not older than what is
+  installed. Surfacing now runs through `.github/dependabot.yml` (weekly,
+  grouped); the audit step stays non-blocking on purpose, so a new upstream
+  advisory can never redden `main` with no commit behind it.
+
 - As of 2026-08-25: **CI was red on `main` for 20 consecutive runs (six
   days) and every PR merged straight through it.** The v0.8.0 release (#244,
   2026-08-19) bumped `MCP_SERVER_VERSION` in `lib/mcpServer.ts` but did not
