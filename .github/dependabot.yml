@@ -1,0 +1,43 @@
+# Why this exists: 16 advisories (12 high) accumulated unnoticed because the
+# only thing watching was CI's `Dependency audit (high+)` step — which is
+# `continue-on-error: true`, so it reported and never blocked.
+#
+# Deliberately NOT solved by making that step blocking. A new upstream
+# advisory would then turn `main` red with no commit behind it, which is the
+# same permanently-red-main failure that made the merge gate decorative for
+# six days in Aug 2026 (see AGENTS.md). Surfacing belongs in a PR you can
+# schedule; blocking belongs on things a commit actually caused.
+#
+# Grouped + weekly to keep the PR volume low. Majors are opt-in: they arrive
+# as their own PR rather than inside a group, because a major needs the gate,
+# a build, and a render-check before it merges.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      production-minor-patch:
+        applies-to: version-updates
+        dependency-type: production
+        update-types: ["minor", "patch"]
+      development-minor-patch:
+        applies-to: version-updates
+        dependency-type: development
+        update-types: ["minor", "patch"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+    ignore:
+      # Majors land as individual PRs, never grouped — each needs its own
+      # gate + build + render-check.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
