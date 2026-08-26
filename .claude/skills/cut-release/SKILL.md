@@ -34,7 +34,18 @@ On a fresh branch off main:
 3. **Verify every count and claim in the entry against code** (tools
    registered, endpoints live — the "ten tools, not nine" lesson: grep the
    source, don't trust the draft).
-4. Full gate, then PR. The diff should be version bump + changelog only.
+4. **Regenerate every artifact that EMBEDS the version, then stage it.**
+   A bumped source constant is not a bumped build. Here that means
+   `npm run build:mcp` — the esbuild bundle at
+   `packages/sanction-mcp/mcp-server.js` inlines `MCP_SERVER_VERSION` from
+   `lib/mcpServer.ts`, so bumping the source without rebuilding leaves a
+   checked-in artifact claiming the *old* version. CI enforces this
+   (`build:mcp` then `git diff --exit-code packages/`), and it is the last
+   step in the job — so the failure arrives after everything else is green
+   and reads like a flake. It is not. Verify with:
+   `npm run build:mcp && git diff --exit-code packages/`
+5. Full gate, then PR. The diff is version bump + changelog + regenerated
+   artifacts, and nothing else.
 
 ## Step 3 — the publish handoff
 

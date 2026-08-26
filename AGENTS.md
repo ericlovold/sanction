@@ -170,6 +170,20 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
 
+- As of 2026-08-25: **CI was red on `main` for 20 consecutive runs (six
+  days) and every PR merged straight through it.** The v0.8.0 release (#244,
+  2026-08-19) bumped `MCP_SERVER_VERSION` in `lib/mcpServer.ts` but did not
+  rebuild `packages/sanction-mcp/mcp-server.js`, which inlines it. The CI job
+  regenerates the bundle and runs `git diff --exit-code packages/` as its
+  LAST step, so every run went green through 1,191 tests and 90% coverage,
+  then failed on a one-line version diff — which reads like a flake and got
+  treated as one. Two costs, and the second is the real one: the artifact on
+  disk claimed 0.7.0, and **a permanently-red main means nobody can tell a
+  new failure from the standing one.** The merge gate was decorative for six
+  days. Rule: a red `main` is an incident, not a backlog item — fix it or
+  revert the commit that caused it, the same day. Never merge into a red
+  main assuming the red is "the known one" without reading the log.
+
 - As of 2026-08-23: **a merge to `main` is not a deploy.** PR #259 merged at
   19:23 UTC and produced no Vercel build at all — production sat on #258 for
   nearly two hours while `main` was a merge ahead, and the live site silently
