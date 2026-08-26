@@ -671,6 +671,19 @@ as fact here.
       Interim mitigation is the dated AGENTS.md note. (gap, from /fresh-eyes)
 
 
+- [ ] 2026-08-26 — Vercel Connect follow-on arc (from /tailwind). The
+      shipped slice is docs-only: authorize the capability, then call
+      `getToken`. Cooperative, not enforced. The real arc is **enforcement at
+      the issuer** — Connect's token endpoint calling a policy decision point
+      before minting. Sanction already speaks that shape (AuthZEN PDP,
+      `docs/AUTHZEN.md`), which is the same veto-only posture as STABLE-2's
+      wallet co-signer: we can refuse, never initiate. Worth a conversation
+      with Vercel rather than speculative code. Secondary: a `connector:*`
+      policy pack in the PACK-1 catalog, and deciding whether the credential
+      vault's story changes for Vercel-hosted agents now that a credential
+      can avoid existing at rest at all. (arc, from /tailwind)
+
+
 ## Closed
 
 - [x] 2026-07-08 — Agent-fleet parity packaging (from a prospect's platform

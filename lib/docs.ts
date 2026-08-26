@@ -106,6 +106,12 @@ export const DOCS: Record<string, { file: string; title: string; description: st
     description:
       "Point any OpenID AuthZEN 1.0 enforcement point at Sanction as its policy decision point — standard subject/action/resource in, decision out, mapped onto the same ladders as the native API.",
   },
+  "vercel-connect": {
+    file: "VERCEL-CONNECT.md",
+    title: "Sanction + Vercel Connect",
+    description:
+      "Vercel Connect mints short-lived scoped credentials at runtime instead of storing them — but the requested scope comes from the caller. Put POST /v1/authorize/capability in front of getToken so a token is minted only when policy, budget, and a human (when required) say yes.",
+  },
   "pay-per-crawl": {
     file: "PAY-PER-CRAWL.md",
     title: "Pay-per-crawl — govern what your agents pay the web",
