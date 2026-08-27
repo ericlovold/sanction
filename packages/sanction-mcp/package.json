@@ -1,6 +1,6 @@
 {
   "name": "sanction-mcp",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "mcpName": "io.github.ericlovold/sanction",
   "description": "Agent wallet for Sanction — the mandate, budget, and credential vault an AI agent carries. Counterparties verify before they work or settle.",
   "type": "module",

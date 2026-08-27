@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-08-26",
+    title: "v0.9.0 — the engine stops asking permission to enforce",
+    version: "0.9.0",
+    tags: ["release", "engine", "broker", "slack", "x402", "security"],
+    body: "v0.8.0 made the wallet a thing you could paste, hand over, and verify. **v0.9.0 is the enforcement release: on governed paths, the engine no longer depends on the agent's cooperation.**\n\n**Interception.** The MCP broker fronts any upstream MCP server: register it, point the host at `/mcp/broker/<upstream>`, and every `tools/call` is authorized **before a byte reaches the upstream** — the upstream credential stays vaulted server-side, so the agent never holds it. And when a fronted upstream demands money with an x402 `402`, the broker prices the challenge and runs the ladder first; on anything but approval **the challenge is withheld** — an agent that never receives payment requirements cannot sign them. `POST /v1/authorize/quote` offers the same gate to any client. USD-pegged assets with known decimals only, worst case wins, no FX at decision time.\n\n**The tree and the clock.** Tool and capability rules now inherit down the wallet tree — a child may tighten, never loosen; block it at the org root and no team below can allow it back. Rules can also read context: `outside_hours_utc` escalates deploys after hours, and `after_model_calls_today` is the runaway breaker. Signals are captured once into evidence, so replay reads the snapshot, never the live clock.\n\n**The meter.** Every wallet counts decisions per month — approve, escalate, and deny each once; replays and simulations never. It surfaces on the spend console and `/v1/wallets/stats`. No fee attaches; the unit is measured honestly long before anything is priced in it.\n\n**Approvals where you are.** [Sanction for Slack](/slack) is a live install surface: **Add to Slack** binds a workspace and channel to your wallet over OAuth, the bot token lands in the wallet's encrypted vault, and interactive **Approve / Deny** cards resolve through the same grant-minting path as the dashboard, actor recorded.\n\n**Under the hood:** all 16 open dependency advisories cleared (`npm audit`: 0) — including Next.js SSRF and cache-confusion fixes via 16.3.3 — with weekly automated dependency PRs now standing guard; getsanction.com now speaks only for the authorization product; and a new guide covers composing Sanction with Vercel Connect: authorize the capability, then mint the token.",
+  },
+  {
     date: "2026-08-25",
     title: "Slack is now a live approval surface",
     tags: ["slack", "approvals", "distribution", "governance"],
