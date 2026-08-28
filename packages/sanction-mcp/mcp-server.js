@@ -31345,7 +31345,7 @@ function traceHeaders(ctx) {
 }
 
 // lib/mcpServer.ts
-var MCP_SERVER_VERSION = "0.8.0";
+var MCP_SERVER_VERSION = "0.9.0";
 var traceOf = (extra) => extractTraceContext(extra?._meta);
 async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
   const headers = {

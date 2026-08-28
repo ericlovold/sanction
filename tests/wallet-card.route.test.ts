@@ -49,7 +49,7 @@ describe("public/.well-known/mcp.json", () => {
       url: string
       tools: { name: string }[]
     }
-    expect(listed.version).toBe("0.8.0")
+    expect(listed.version).toBe("0.9.0")
     expect(listed.url).toBe("https://getsanction.com/mcp")
     expect(listed.tools.map((t) => t.name)).toEqual(MCP_WALLET_TOOLS.map((t) => t.name))
   })
