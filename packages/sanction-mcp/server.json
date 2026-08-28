@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ericlovold/sanction",
   "title": "Sanction",
-  "description": "The wallet an AI agent carries — mandate, budget, vault, and audit. Counterparties verify before they work or settle.",
+  "description": "The wallet an AI agent carries \u2014 mandate, budget, vault, and audit. Counterparties verify first.",
   "websiteUrl": "https://getsanction.com",
   "repository": {
     "url": "https://github.com/ericlovold/sanction",
