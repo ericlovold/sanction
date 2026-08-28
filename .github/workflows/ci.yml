@@ -12,7 +12,7 @@ jobs:
       # Prisma client generation needs no live DB; build must not run migrations in CI.
       DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -63,7 +63,7 @@ jobs:
       SANCTION_CREDENTIAL_ENCRYPTION_KEY: "Y2ktdGVzdC1lbmNyeXB0aW9uLWtleS1ub3QtcHJvZA=="
       SANCTION_SIGNING_SECRET: "Y2ktdGVzdC1zaWduaW5nLXNlY3JldC1ub3QtcHJvZA=="
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
