@@ -46,15 +46,15 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^3.2.7",
     "ajv": "^8.20.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.12",
     "typescript": "^5",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "deepmerge-ts": "^8.0.2"
