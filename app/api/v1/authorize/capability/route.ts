@@ -146,32 +146,33 @@ export async function POST(req: NextRequest) {
             idempotencyKey,
           },
         })
-        await createCapabilityPendingApproval(tx, {
+        const approval = await createCapabilityPendingApproval(tx, {
           walletId: agent.walletId,
           agentName: agent.name,
           request: { id: row.id, agentId: agent.id, capability, createdAt: row.createdAt },
           policy,
           reason: decision.reason ?? "Capability requires human approval",
         })
-        return row
+        return { row, approvalId: approval.id }
       })
       after(() => recordDecision(agent.walletId))
 
       after(() =>
         Promise.all([
           deliverEvent(agent.walletId, "approval.created", {
-            request_id: escalated.id,
+            approval_id: escalated.approvalId,
+            request_id: escalated.row.id,
             action_type: "capability.use",
             agent: agent.name,
             resource: { kind: "capability", capability },
             reason: decision.reason,
-            approve_url: approveUrlFor(escalated.id),
+            approve_url: approveUrlFor(escalated.row.id),
           }),
           deliverEvent(agent.walletId, "escalation.created", {
-            request_id: escalated.id, agent: agent.name, action: "use", capability, approve_url: approveUrlFor(escalated.id),
+            approval_id: escalated.approvalId, request_id: escalated.row.id, agent: agent.name, action: "use", capability, approve_url: approveUrlFor(escalated.row.id),
           }),
           sendEscalationEmail(agent.wallet.ownerEmail, {
-            agentName: agent.name, amountUsd: 0, merchant: capability, category: "capability", description: decision.reason ?? null, approveUrl: approveUrlFor(escalated.id),
+            agentName: agent.name, amountUsd: 0, merchant: capability, category: "capability", description: decision.reason ?? null, approveUrl: approveUrlFor(escalated.row.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
@@ -180,11 +181,11 @@ export async function POST(req: NextRequest) {
         {
           authorized: false,
           status: "escalated",
-          request_id: escalated.id,
+          request_id: escalated.row.id,
           code: decision.code,
           remediation: decision.code ? CAPABILITY_REMEDIATION[decision.code] : undefined,
           reason: decision.reason,
-          links: { record: `/api/v1/authorize/${escalated.id}`, evidence: `/api/v1/authorize/${escalated.id}/evidence` },
+          links: { record: `/api/v1/authorize/${escalated.row.id}`, evidence: `/api/v1/authorize/${escalated.row.id}/evidence` },
           agent: agent.name,
           capability,
         },
