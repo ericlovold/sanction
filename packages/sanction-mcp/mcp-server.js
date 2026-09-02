@@ -23237,8 +23237,17 @@ var UrlElicitationRequiredError = class extends McpError {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
+var STDIO_DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
 var ReadBuffer = class {
+  constructor(options) {
+    this._maxBufferSize = options?.maxBufferSize ?? STDIO_DEFAULT_MAX_BUFFER_SIZE;
+  }
   append(chunk) {
+    const newSize = (this._buffer?.length ?? 0) + chunk.length;
+    if (newSize > this._maxBufferSize) {
+      this.clear();
+      throw new Error(`ReadBuffer exceeded maximum size of ${this._maxBufferSize} bytes`);
+    }
     this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
   }
   readMessage() {
@@ -23266,18 +23275,24 @@ function serializeMessage(message) {
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 var StdioServerTransport = class {
-  constructor(_stdin = process3.stdin, _stdout = process3.stdout) {
+  constructor(_stdin = process3.stdin, _stdout = process3.stdout, options) {
     this._stdin = _stdin;
     this._stdout = _stdout;
-    this._readBuffer = new ReadBuffer();
     this._started = false;
     this._ondata = (chunk) => {
-      this._readBuffer.append(chunk);
-      this.processReadBuffer();
+      try {
+        this._readBuffer.append(chunk);
+        this.processReadBuffer();
+      } catch (error51) {
+        this.onerror?.(error51);
+        this.close().catch(() => {
+        });
+      }
     };
     this._onerror = (error51) => {
       this.onerror?.(error51);
     };
+    this._readBuffer = new ReadBuffer({ maxBufferSize: options?.maxBufferSize });
   }
   /**
    * Starts listening for messages on stdin.
@@ -27335,16 +27350,32 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
+function getDotPath(path) {
+  if (path.length === 0) {
+    return "object root";
+  }
+  return path.reduce((acc, seg, index) => {
+    if (index === 0) {
+      return String(seg);
+    }
+    if (typeof seg === "number") {
+      return `${acc}[${seg}]`;
+    }
+    return `${acc}.${seg}`;
+  }, "");
+}
 function getParseErrorMessage(error51) {
   if (error51 && typeof error51 === "object") {
+    if ("issues" in error51 && Array.isArray(error51.issues) && error51.issues.length > 0) {
+      return error51.issues.map((i) => {
+        if (!i.path?.length) {
+          return i.message;
+        }
+        return `${i.message} at ${getDotPath(i.path)}`;
+      }).join("\n");
+    }
     if ("message" in error51 && typeof error51.message === "string") {
       return error51.message;
-    }
-    if ("issues" in error51 && Array.isArray(error51.issues) && error51.issues.length > 0) {
-      const firstIssue = error51.issues[0];
-      if (firstIssue && typeof firstIssue === "object" && "message" in firstIssue) {
-        return String(firstIssue.message);
-      }
     }
     try {
       return JSON.stringify(error51);
@@ -30062,16 +30093,7 @@ var Server = class extends Protocol {
     if (!methodSchema) {
       throw new Error("Schema is missing a method literal");
     }
-    let methodValue;
-    if (isZ4Schema(methodSchema)) {
-      const v4Schema = methodSchema;
-      const v4Def = v4Schema._zod?.def;
-      methodValue = v4Def?.value ?? v4Schema.value;
-    } else {
-      const v3Schema = methodSchema;
-      const legacyDef = v3Schema._def;
-      methodValue = legacyDef?.value ?? v3Schema.value;
-    }
+    const methodValue = getLiteralValue(methodSchema);
     if (typeof methodValue !== "string") {
       throw new Error("Schema method literal must be a string");
     }
