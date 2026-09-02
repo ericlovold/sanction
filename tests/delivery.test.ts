@@ -215,6 +215,57 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(actionIds).toContain("sanction_deny")
   })
 
+  it("delivers ONE card per escalation to a default-events install — escalation.created yields to approval.created", async () => {
+    // Every escalation site fires the approval.created + escalation.created
+    // PAIR, and the model default subscribes an install to both. The alias
+    // dedupe must collapse that to a single Slack post per moment.
+    vi.stubEnv("SANCTION_SIGNING_SECRET", "test-signing-secret")
+    decryptMock.mockResolvedValue("xoxb-install")
+    const DEFAULT_EVENTS = ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.threshold"]
+    dbMock.slackInstall.findMany.mockResolvedValue([
+      { teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: DEFAULT_EVENTS },
+    ])
+    dbMock.webhook.findMany.mockResolvedValue([])
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true })))
+    global.fetch = fetchMock as never
+
+    // The pair, exactly as the authorize shells fire it.
+    await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_1", agent: "tenet", amount_usd: 60, merchant: "Vendor" })
+    await deliverEvent("wallet_1", "escalation.created", { approval_id: "appr_1", agent: "tenet", amount_usd: 60, merchant: "Vendor" })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Same on resolve: approval.resolved posts, escalation.resolved is silent.
+    await deliverEvent("wallet_1", "approval.resolved", { agent: "tenet", status: "approved" })
+    await deliverEvent("wallet_1", "escalation.resolved", { agent: "tenet", status: "approved" })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    // A wildcard subscription covers the approval.* twin too — still one card.
+    dbMock.slackInstall.findMany.mockResolvedValue([
+      { teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: ["*"] },
+    ])
+    await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_2", agent: "tenet" })
+    await deliverEvent("wallet_1", "escalation.created", { approval_id: "appr_2", agent: "tenet" })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it("an install subscribed ONLY to escalation.created still receives its card", async () => {
+    vi.stubEnv("SANCTION_SIGNING_SECRET", "test-signing-secret")
+    decryptMock.mockResolvedValue("xoxb-install")
+    dbMock.slackInstall.findMany.mockResolvedValue([
+      { teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: ["escalation.created"] },
+    ])
+    dbMock.webhook.findMany.mockResolvedValue([])
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true })))
+    global.fetch = fetchMock as never
+
+    await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_1", agent: "tenet" }) // not subscribed
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+    await deliverEvent("wallet_1", "escalation.created", { approval_id: "appr_1", agent: "tenet" })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it("formats the weekly digest for Slack: wk/wk delta, counts, busiest agent", async () => {
     const { slackPayload } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
     const payload = JSON.parse(

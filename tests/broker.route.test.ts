@@ -26,7 +26,7 @@ vi.mock("@/lib/webhooks", async (orig) => {
 vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
 vi.mock("@/lib/approvals", async (orig) => {
   const mod = await orig<typeof import("../lib/approvals")>()
-  return { ...mod, createToolPendingApproval: vi.fn(async () => {}) }
+  return { ...mod, createToolPendingApproval: vi.fn(async () => ({ id: "appr_1" })) }
 })
 vi.mock("@/lib/grants", async (orig) => {
   const mod = await orig<typeof import("../lib/grants")>()

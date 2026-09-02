@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
   if (decision.status === "escalated") {
     try {
       const escalated = await db.$transaction(async (tx) => {
+        let approvalId: string | null = null
         const row = await tx.authorizationRequest.create({
           data: {
             agentId: agent.id,
@@ -178,33 +179,35 @@ export async function POST(req: NextRequest) {
         })
         // Observed escalations log; they never page anyone (OBS-1).
         if (!observe) {
-          await createToolPendingApproval(tx, {
+          const approval = await createToolPendingApproval(tx, {
             walletId: agent.walletId,
             agentName: agent.name,
             request: { id: row.id, agentId: agent.id, tool, server: server ?? null, createdAt: row.createdAt },
             policy,
             reason: decision.reason ?? "Tool requires human approval",
           })
+          approvalId = approval.id
         }
-        return row
+        return { row, approvalId }
       })
       after(() => recordDecision(agent.walletId))
 
       if (!observe) after(() =>
         Promise.all([
           deliverEvent(agent.walletId, "approval.created", {
-            request_id: escalated.id,
+            approval_id: escalated.approvalId ?? undefined,
+            request_id: escalated.row.id,
             action_type: "tool.invoke",
             agent: agent.name,
             resource: { kind: "tool", tool, server: server ?? null },
             reason: decision.reason,
-            approve_url: approveUrlFor(escalated.id),
+            approve_url: approveUrlFor(escalated.row.id),
           }),
           deliverEvent(agent.walletId, "escalation.created", {
-            request_id: escalated.id, agent: agent.name, action: "invoke", tool, server: server ?? null, approve_url: approveUrlFor(escalated.id),
+            approval_id: escalated.approvalId ?? undefined, request_id: escalated.row.id, agent: agent.name, action: "invoke", tool, server: server ?? null, approve_url: approveUrlFor(escalated.row.id),
           }),
           sendEscalationEmail(agent.wallet.ownerEmail, {
-            agentName: agent.name, amountUsd: 0, merchant: server ? `${tool} (${server})` : tool, category: "tool", description: decision.reason ?? null, approveUrl: approveUrlFor(escalated.id),
+            agentName: agent.name, amountUsd: 0, merchant: server ? `${tool} (${server})` : tool, category: "tool", description: decision.reason ?? null, approveUrl: approveUrlFor(escalated.row.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
       )
@@ -221,7 +224,7 @@ export async function POST(req: NextRequest) {
               remediation: decision.code ? TOOL_REMEDIATION[decision.code] : undefined,
               reason: decision.reason,
             },
-            request_id: escalated.id,
+            request_id: escalated.row.id,
             agent: agent.name,
             tool,
             server,
@@ -233,7 +236,7 @@ export async function POST(req: NextRequest) {
         {
           authorized: false,
           status: "escalated",
-          request_id: escalated.id,
+          request_id: escalated.row.id,
           code: decision.code,
           remediation: decision.code ? TOOL_REMEDIATION[decision.code] : undefined,
           reason: decision.reason,

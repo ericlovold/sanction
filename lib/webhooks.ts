@@ -177,6 +177,21 @@ async function listSlackInstalls(walletId: string) {
   }
 }
 
+// approval.* and escalation.* fire in PAIRS for the same moment (every
+// escalation site delivers both). An install subscribed to both — which is
+// the model default — must receive ONE card per moment, not two: the
+// escalation.* member yields to its approval.* twin whenever the install
+// would receive that twin anyway. An install subscribed only to
+// escalation.* still gets its card.
+const EVENT_ALIAS: Record<string, string> = {
+  "escalation.created": "approval.created",
+  "escalation.resolved": "approval.resolved",
+}
+
+function installReceives(events: string[], event: string): boolean {
+  return events.includes(event) || events.includes("*")
+}
+
 async function deliverSlackInstalls(
   walletId: string,
   event: string,
@@ -191,7 +206,11 @@ async function deliverSlackInstalls(
 ) {
   await Promise.allSettled(
     installs
-      .filter((row) => row.events.includes(event) || row.events.includes("*"))
+      .filter((row) => {
+        if (!installReceives(row.events, event)) return false
+        const primary = EVENT_ALIAS[event]
+        return !(primary && installReceives(row.events, primary))
+      })
       .map(async (row) => {
         const approvalId = typeof data.approval_id === "string" ? data.approval_id : undefined
         const actionToken = approvalId && (event === "approval.created" || event === "escalation.created")
