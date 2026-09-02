@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, afterEach } from "vitest"
 
 vi.mock("@/lib/db", () => ({ db: { credentialVault: { findFirst: vi.fn() } } }))
 
-import { classifyBrokerBody, brokerRefusalResult, validateUpstreamRegistration, GRANT_META_KEY } from "../lib/broker"
+import { classifyBrokerBody, brokerRefusalResult, validateUpstreamRegistration, forwardToUpstream, GRANT_META_KEY, type UpstreamConfig } from "../lib/broker"
 
 describe("classifyBrokerBody — the interception boundary", () => {
   it("classifies tools/call with tool, args, and the grant meta", () => {
@@ -71,5 +71,31 @@ describe("validateUpstreamRegistration", () => {
     expect(validateUpstreamRegistration("x", { url: "http://mcp.example.com" })).toContain("https")
     expect(validateUpstreamRegistration("x", { url: "https://localhost:3000/mcp" })).toContain("https")
     expect(validateUpstreamRegistration("x", { ...base, auth_header: "authorization" })).toContain("together")
+  })
+})
+
+describe("forwardToUpstream never follows redirects (SSRF via redirect)", () => {
+  const upstream = { url: "https://mcp.example.com/mcp", auth_header: "authorization", auth_value: "Bearer up-secret" } as UpstreamConfig
+  const inbound = { method: "POST", headers: new Headers(), rawBody: "{}" }
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+
+  it("fetches with redirect: manual", async () => {
+    global.fetch = vi.fn(async () => new Response("{}", { status: 200 })) as unknown as typeof fetch
+    await forwardToUpstream(upstream, inbound)
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect((init as RequestInit).redirect).toBe("manual")
+  })
+
+  it("answers an upstream 3xx as a 502 refusal, never a hop", async () => {
+    global.fetch = vi.fn(
+      async () => new Response("", { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data" } }),
+    ) as unknown as typeof fetch
+    const res = await forwardToUpstream(upstream, inbound)
+    expect(res.status).toBe(502)
+    expect((await res.json()).error).toBe("upstream_redirect")
+    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 })
