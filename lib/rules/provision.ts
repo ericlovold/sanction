@@ -57,4 +57,4 @@ export const PROVISION_LADDER: Rule<ProvisionContext>[] = [resourceRule, categor
 export const PROVISION_STATELESS: Rule<ProvisionContext>[] = [resourceRule, categoryRule, perTransactionRule]
 
 // …and the stateful gates + ladder run inside it, against budget state read under the lock.
-export const PROVISION_STATEFUL: Rule<ProvisionContext>[] = [dailyBudgetRule, monthlyBudgetRule, executionBudgetRule, ladderRule]
+export const PROVISION_STATEFUL: Rule<ProvisionContext>[] = [dailyBudgetRule, monthlyBudgetRule, executionBudgetRule, costPerOutcomeRule, ladderRule]
