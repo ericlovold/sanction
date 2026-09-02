@@ -3,10 +3,15 @@ import { z } from "zod"
 import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { withTenant } from "@/lib/rls"
+import { isReservedVaultLabel } from "@/lib/providers"
 
 const schema = z.object({
   wallet_id: z.string(),
-  label: z.string().min(1).max(64),
+  label: z
+    .string()
+    .min(1)
+    .max(64)
+    .refine((l) => !isReservedVaultLabel(l), "provider:* and mcp:* labels are reserved for Providers and the MCP broker"),
   type: z.enum(["api_key", "oauth_token", "certificate", "license", "password"]),
   value: z.string().min(1),
   allowed_agent_ids: z.array(z.string()).default([]),
@@ -76,7 +81,12 @@ export async function GET(req: NextRequest) {
 const patchSchema = z.object({
   wallet_id: z.string(),
   id: z.string(),
-  label: z.string().min(1).max(64).optional(),
+  label: z
+    .string()
+    .min(1)
+    .max(64)
+    .refine((l) => !isReservedVaultLabel(l), "provider:* and mcp:* labels are reserved for Providers and the MCP broker")
+    .optional(),
   allowed_agent_ids: z.array(z.string()).optional(),
   scopes: z.array(z.string()).optional(),
   min_clearance: z.number().int().min(1).max(5).optional(),

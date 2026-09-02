@@ -5,6 +5,7 @@ import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { issueExecutionJWT } from "@/lib/jwt"
 import { withTenant } from "@/lib/rls"
+import { isReservedVaultLabel } from "@/lib/providers"
 
 const schema = z.object({
   scope: z.array(z.string()).min(1),   // credential labels this execution needs
@@ -30,6 +31,18 @@ export async function POST(req: NextRequest) {
   }
 
   const { scope, budget_usd, ttl_seconds, container_id } = parsed.data
+
+  // Reserved labels (`provider:*` gateway keys, `mcp:*` broker configs) are
+  // server-side only. Refused here, before any lookup, regardless of the row's
+  // allow-list or the agent's clearance — the invariant the Providers page
+  // states ("never injectable by agents") must not depend on row data.
+  const reserved = scope.filter(isReservedVaultLabel)
+  if (reserved.length > 0) {
+    return NextResponse.json(
+      { error: "Reserved credential labels are server-side only and cannot be injected", denied: reserved },
+      { status: 403 },
+    )
+  }
 
   // Get agent clearance level (RLS-scoped to the agent's wallet)
   const clearance = await withTenant(agent.walletId, (tx) =>

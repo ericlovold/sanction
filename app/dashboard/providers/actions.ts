@@ -6,13 +6,14 @@ import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
 import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { requireSessionRole } from "@/lib/session"
-import { PROVIDERS } from "@/lib/providers"
+import { GATEWAY_ONLY_SENTINEL, PROVIDERS } from "@/lib/providers"
 
 const providerIds = z.enum(["anthropic", "openai", "gemini", "perplexity"])
 
 // Connect a provider: vault-encrypt the API key under the reserved
-// provider:<id> label. minClearance 5 + empty allow-list means no agent can
-// inject it directly — only the gateway uses it, server-side. Reconnecting
+// provider:<id> label. The allow-list carries a sentinel no agent id can match
+// (an EMPTY allow-list would mean every agent in the wallet), and /exec refuses
+// reserved labels outright — only the gateway reads it, server-side. Reconnecting
 // revokes the previous key first (rotation is one action, not two).
 export async function connectProviderAction(form: FormData): Promise<void> {
   const wallet = await requireSessionRole("admin")
@@ -38,7 +39,7 @@ export async function connectProviderAction(form: FormData): Promise<void> {
         type: "api_key",
         encryptedValue: blob,
         keyId,
-        allowedAgentIds: [],
+        allowedAgentIds: [GATEWAY_ONLY_SENTINEL],
         scopes: [],
         minClearance: 5,
       },
