@@ -110,6 +110,7 @@ become an identity provider or a payment rail.
 ## Honesty
 
 stdio MCP and the hosted `/mcp` URL are agent-invoked. Skipping
-`sanction_authorize*` is possible. The LLM gateway is the one interception
-point that does not require cooperation. Hosted broker interception is the
-next product, not a claim we make today.
+`sanction_authorize*` is possible — those surfaces stay cooperative. The
+LLM gateway and the MCP broker at `/mcp/broker/<name>` are interception:
+inference and `tools/call` are authorized before they are forwarded. Traffic
+that skips the broker or the gateway is not governed.
