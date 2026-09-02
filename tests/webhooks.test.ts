@@ -7,7 +7,7 @@ import { createHmac } from "crypto"
 // exercised via the route tests (mocked) and the DB e2e.
 vi.mock("@/lib/db", () => ({ db: {} }))
 
-import { isPublicHttpsUrl, signBody, generateWebhookSecret } from "../lib/webhooks"
+import { isPublicHttpsUrl, signBody, generateWebhookSecret, deliverPing } from "../lib/webhooks"
 
 describe("isPublicHttpsUrl — SSRF guard on owner-registered webhook URLs", () => {
   it("accepts a normal public https URL", () => {
@@ -84,5 +84,23 @@ describe("approveUrlFor (APPROVE-UX)", () => {
     expect(approveUrlFor(undefined)).toBe(APPROVE_URL)
     // ids are URL-encoded so a hostile id can't break out of the query
     expect(approveUrlFor("a b&c")).toBe(`${APPROVE_URL}?review=a%20b%26c`)
+  })
+})
+
+describe("delivery never follows redirects (SSRF via redirect)", () => {
+  it("deliverPing posts with redirect: manual", async () => {
+    const calls: unknown[][] = []
+    const realFetch = global.fetch
+    global.fetch = vi.fn(async (...args: unknown[]) => {
+      calls.push(args)
+      return new Response("", { status: 200 })
+    }) as unknown as typeof fetch
+    try {
+      await deliverPing("https://hooks.example.com/sanction", "whsec_test")
+    } finally {
+      global.fetch = realFetch
+    }
+    expect(calls).toHaveLength(1)
+    expect((calls[0][1] as RequestInit).redirect).toBe("manual")
   })
 })

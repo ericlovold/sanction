@@ -148,10 +148,22 @@ export async function forwardToUpstream(
     if (v) headers.set(h, v)
   }
   if (upstream.auth_header && upstream.auth_value) headers.set(upstream.auth_header, upstream.auth_value)
-  return fetch(upstream.url, {
+  // The upstream URL was validated as public https when it was registered. A
+  // redirect issued later could send this server-side fetch — carrying the
+  // vaulted auth header — to loopback, a private range, or a metadata endpoint.
+  // Never follow one: a 3xx is answered as a broker refusal (invariant 3).
+  const res = await fetch(upstream.url, {
     method: inbound.method,
     headers,
     body: inbound.rawBody,
+    redirect: "manual",
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   })
+  if (res.status >= 300 && res.status < 400) {
+    return new Response(
+      JSON.stringify({ error: "upstream_redirect", message: "The upstream answered with a redirect; the broker does not follow redirects. Re-register the upstream at its final URL." }),
+      { status: 502, headers: { "content-type": "application/json" } },
+    )
+  }
+  return res
 }

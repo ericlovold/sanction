@@ -73,10 +73,13 @@ async function post(url: string, secret: string | null, event: string, body: str
     }
     // Slack deliveries carry no HMAC — the webhook URL is Slack's own secret.
     if (secret !== null) headers["x-sanction-signature"] = signBody(secret, body)
+    // The URL was validated as public https at registration; a redirect could
+    // point the delivery at loopback or metadata afterwards. Never follow one.
     await fetch(url, {
       method: "POST",
       headers,
       body,
+      redirect: "manual",
       signal: ctrl.signal,
     })
   } catch {
