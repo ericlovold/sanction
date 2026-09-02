@@ -28,7 +28,7 @@ import { PATCH as patchAgent } from "../app/api/v1/agents/route"
 import { POST as createWallet, PATCH as patchWallet } from "../app/api/v1/wallets/route"
 import { GET as walletTree } from "../app/api/v1/wallets/tree/route"
 import { PATCH as patchWebhook } from "../app/api/v1/webhooks/route"
-import { DELETE as retireCredential } from "../app/api/v1/credentials/vault/route"
+import { DELETE as retireCredential, POST as storeCredential, PATCH as editCredential } from "../app/api/v1/credentials/vault/route"
 
 const SK = "sk_testmanagementkey"
 const WID = "wallet_1"
@@ -157,5 +157,23 @@ describe("credential retire (DELETE /credentials/vault)", () => {
   it("404 when the credential is not in the wallet", async () => {
     dbMock.credentialVault.findUnique.mockResolvedValue({ id: "cr1", walletId: "other" })
     expect((await retireCredential(req("DELETE", "/api/v1/credentials/vault?wallet_id=" + WID + "&id=cr1", { headers: mgmt }))).status).toBe(404)
+  })
+})
+
+describe("reserved vault labels are feature-owned (PROV-1 fix)", () => {
+  it("POST /credentials/vault rejects provider:* and mcp:* labels", async () => {
+    for (const label of ["provider:anthropic", "mcp:github"]) {
+      const res = await storeCredential(
+        req("POST", "/api/v1/credentials/vault", { headers: mgmt, body: { wallet_id: WID, label, type: "api_key", value: "sk-x" } }),
+      )
+      expect(res.status).toBe(400)
+      expect(JSON.stringify(await res.json())).toMatch(/reserved/)
+    }
+  })
+  it("PATCH cannot rename an ordinary credential onto a reserved label", async () => {
+    const res = await editCredential(
+      req("PATCH", "/api/v1/credentials/vault", { headers: mgmt, body: { wallet_id: WID, id: "cr1", label: "provider:openai" } }),
+    )
+    expect(res.status).toBe(400)
   })
 })

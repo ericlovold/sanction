@@ -72,6 +72,25 @@ describe("exec — issuance gates", () => {
     expect((await issueExec(req({ scope: ["openai"], budget_usd: 5, ttl_seconds: 7200 }))).status).toBe(400)
   })
 
+  it("403 for a reserved provider:* label even at clearance 5 with an open allow-list (PROV-1 fix)", async () => {
+    // The row is exactly what a hand-edited or pre-fix Providers connect would
+    // leave: empty allow-list (= every agent), minClearance 5. The refusal must
+    // not depend on row data — it fires before the lookup.
+    dbMock.agentClearance.findUnique.mockResolvedValue({ level: 5 })
+    dbMock.credentialVault.findMany.mockResolvedValue([{ label: "provider:anthropic", allowedAgentIds: [], minClearance: 5 }])
+    const res = await issueExec(req({ scope: ["provider:anthropic"], budget_usd: 5 }))
+    expect(res.status).toBe(403)
+    expect((await res.json()).denied).toEqual(["provider:anthropic"])
+    expect(dbMock.credentialVault.findMany).not.toHaveBeenCalled()
+    expect(dbMock.executionToken.create).not.toHaveBeenCalled()
+  })
+
+  it("403 for a broker mcp:* label the same way", async () => {
+    const res = await issueExec(req({ scope: ["openai", "mcp:github"], budget_usd: 5 }))
+    expect(res.status).toBe(403)
+    expect((await res.json()).denied).toEqual(["mcp:github"])
+  })
+
   it("403 with the denied labels when a scoped credential doesn't exist", async () => {
     dbMock.credentialVault.findMany.mockResolvedValue([])
     const res = await issueExec(req({ scope: ["openai"], budget_usd: 5 }))

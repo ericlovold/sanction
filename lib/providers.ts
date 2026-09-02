@@ -4,6 +4,18 @@
 
 export type ProviderId = "anthropic" | "openai" | "gemini" | "perplexity"
 
+// Vault rows that only the server may read. `allowedAgentIds` empty means
+// "every agent in the wallet" (prisma/schema.prisma), so a gateway-only key
+// must carry an allow-list no real agent id can ever match — the same pattern
+// the MCP broker uses for `mcp:<name>` rows. Belt: the sentinel. Braces:
+// `isReservedVaultLabel`, which /exec refuses regardless of allow-list or
+// clearance, so a hand-edited row can never open the key to an agent either.
+export const GATEWAY_ONLY_SENTINEL = "gateway-internal-only"
+export const RESERVED_LABEL_PREFIXES = ["provider:", "mcp:"] as const
+export function isReservedVaultLabel(label: string): boolean {
+  return RESERVED_LABEL_PREFIXES.some((p) => label.startsWith(p))
+}
+
 export type ProviderInfo = {
   id: ProviderId
   name: string

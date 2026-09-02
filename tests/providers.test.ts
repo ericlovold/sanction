@@ -2,7 +2,7 @@
 // header each upstream expects, when injection may fire, and model attribution.
 
 import { describe, expect, it } from "vitest"
-import { PROVIDERS, hasProviderAuth, providerAuthHeader, providerNameOf } from "../lib/providers"
+import { GATEWAY_ONLY_SENTINEL, PROVIDERS, hasProviderAuth, isReservedVaultLabel, providerAuthHeader, providerNameOf } from "../lib/providers"
 
 describe("providerAuthHeader", () => {
   it("maps each provider to its native auth header", () => {
@@ -38,5 +38,21 @@ describe("providerNameOf attribution", () => {
 describe("vault labels are reserved and stable", () => {
   it("every provider stores under provider:<id>", () => {
     for (const p of PROVIDERS) expect(p.vaultLabel).toBe(`provider:${p.id}`)
+  })
+})
+
+describe("reserved vault labels (PROV-1 fix)", () => {
+  it("provider:* and mcp:* are reserved; ordinary labels are not", () => {
+    expect(isReservedVaultLabel("provider:anthropic")).toBe(true)
+    expect(isReservedVaultLabel("mcp:github")).toBe(true)
+    expect(isReservedVaultLabel("openai")).toBe(false)
+    expect(isReservedVaultLabel("my-provider:key")).toBe(false)
+  })
+  it("the gateway-only sentinel can never equal a real agent id", () => {
+    // Agent ids are cuids (no colon-free english words); the sentinel is
+    // deliberately a phrase. Non-empty is the property that matters: an empty
+    // allow-list means every agent in the wallet.
+    expect(GATEWAY_ONLY_SENTINEL.length).toBeGreaterThan(0)
+    expect(/^[a-z0-9]{20,}$/.test(GATEWAY_ONLY_SENTINEL)).toBe(false)
   })
 })
