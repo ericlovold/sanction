@@ -4,7 +4,7 @@
 > capped, and authorize spend actions before they happen. You keep your own provider key;
 > Sanction sits in front of it.
 
-> **Prerequisites:** a Sanction wallet and agent key (`pxy_…`). See the [Quickstart](./quickstart.md).
+> **Prerequisites:** a Sanction wallet and agent key (`pxy_…`). See the [Quickstart](./QUICKSTART.md).
 
 > **Runnable version:** [`examples/langchain/`](../examples/langchain/) runs the
 > metered call + a real authorize decision end to end in ~2 minutes
@@ -128,5 +128,5 @@ export ANTHROPIC_API_KEY=sk-ant-...       # your provider key (forwarded through
 
 ## Reference
 
-- [Quickstart](./quickstart.md) · [CrewAI](./crewai.md) · [Vercel AI SDK](./vercel-ai-sdk.md)
+- [Quickstart](./QUICKSTART.md) · [CrewAI](./CREWAI.md) · [Vercel AI SDK](./VERCEL-AI-SDK.md)
 - [OpenAPI spec](https://getsanction.com/api/openapi.json)

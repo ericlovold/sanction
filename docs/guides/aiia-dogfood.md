@@ -1,7 +1,7 @@
 # AIIA × Sanction — Dogfood Reference Architecture
 
 > How AIIA (a real autonomous agent on a Mac Mini M4) runs under Sanction governance.
-> This is `DIST-3` from the [roadmap](../ROADMAP.md): the reference architecture and OSS
+> The reference architecture and OSS
 > quickstart, proven by dogfooding before we ask anyone else to trust it.
 >
 > **Why it matters:** AIIA's existing three-tier execution model (`AUTO` / `SUPERVISED` /

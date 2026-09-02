@@ -4,7 +4,7 @@
 > capped, and give the crew an `authorize` tool it must call before any spend. CrewAI uses
 > LiteLLM under the hood, so the integration is a base-URL swap plus a tool.
 
-> **Prerequisites:** a Sanction wallet and agent key (`pxy_…`). See the [Quickstart](./quickstart.md).
+> **Prerequisites:** a Sanction wallet and agent key (`pxy_…`). See the [Quickstart](./QUICKSTART.md).
 
 ---
 
@@ -132,5 +132,5 @@ export ANTHROPIC_API_KEY=sk-ant-...       # your provider key (forwarded through
 
 ## Reference
 
-- [Quickstart](./quickstart.md) · [LangChain](./langchain.md) · [Vercel AI SDK](./vercel-ai-sdk.md)
+- [Quickstart](./QUICKSTART.md) · [LangChain](./LANGCHAIN.md) · [Vercel AI SDK](./VERCEL-AI-SDK.md)
 - [OpenAPI spec](https://getsanction.com/api/openapi.json)
