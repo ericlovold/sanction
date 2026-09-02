@@ -1,11 +1,15 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
+import { track } from "@vercel/analytics"
+import { FUNNEL } from "@/lib/funnel"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   addWebhookAction,
   removeWebhookAction,
   revokeSlackInstallAction,
+  sendTestEscalationAction,
+  type ApprovalActionState,
   type WebhookActionState,
 } from "@/app/dashboard/approvals/actions"
 
@@ -42,7 +46,16 @@ export function WebhookSettings({
   editable: boolean
 }) {
   const [state, formAction, pending] = useActionState(addWebhookAction, initial)
+  const [testState, testAction, testPending] = useActionState(sendTestEscalationAction, { ok: false, message: "" } as ApprovalActionState)
   const status = slackStatus ? SLACK_STATUS[slackStatus] : undefined
+
+  // The funnel's missing middle: install started → completed → first card.
+  useEffect(() => {
+    if (slackStatus === "connected") track(FUNNEL.slackInstallCompleted)
+  }, [slackStatus])
+  useEffect(() => {
+    if (testState.ok) track(FUNNEL.slackTestEscalationSent)
+  }, [testState.ok])
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -91,6 +104,25 @@ export function WebhookSettings({
               </div>
             ))}
           </div>
+        )}
+
+        {editable && slackInstalls.length > 0 && (
+          <form action={testAction} className="space-y-1">
+            <button
+              type="submit"
+              disabled={testPending}
+              className="inline-flex items-center rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 disabled:opacity-60"
+            >
+              {testPending ? "Sending…" : "Send a test escalation"}
+            </button>
+            <p className="text-[11px] text-zinc-500">
+              Raises a real $30 escalation on one of your agents so the Approve / Deny card lands in your channel.
+              Anyone in that channel can decide — pick a private channel for approvals.
+            </p>
+            {testState.message && (
+              <p className={`text-xs ${testState.ok ? "text-emerald-400" : "text-red-400"}`}>{testState.message}</p>
+            )}
+          </form>
         )}
 
         {editable && oauthEnabled && (

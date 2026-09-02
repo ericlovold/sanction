@@ -9,9 +9,13 @@ const { dbMock, sessionMock, approvalsMock, subtreeMock, revalidateMock, tenantM
   dbMock: {
     webhook: { findUnique: vi.fn(), delete: vi.fn() },
     slackInstall: { updateMany: vi.fn() },
+    agent: { findFirst: vi.fn() },
+    policy: { findUnique: vi.fn() },
+    authorizationRequest: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
   sessionMock: { requireSessionRole: vi.fn() },
-  approvalsMock: { resolveApproval: vi.fn() },
+  approvalsMock: { resolveApproval: vi.fn(), createSpendPendingApproval: vi.fn() },
   subtreeMock: { subtreeWalletIds: vi.fn(async () => ({ ids: ["wallet_1"] })) },
   revalidateMock: vi.fn(),
   tenantMock: vi.fn(),
@@ -23,6 +27,8 @@ vi.mock("@/lib/walletSubtree", () => subtreeMock)
 vi.mock("@/lib/webhooks", () => ({
   generateWebhookSecret: vi.fn(() => "whsec_x"),
   deliverPing: vi.fn(async () => {}),
+  deliverEvent: vi.fn(async () => {}),
+  approveUrlFor: (id?: string) => `https://test.local/approve${id ? `?review=${id}` : ""}`,
   isPublicHttpsUrl: vi.fn(() => true),
   KNOWN_EVENTS: ["*", "budget.threshold"],
   DEFAULT_EVENTS: ["*"],
@@ -32,11 +38,13 @@ vi.mock("next/server", async (orig) => {
   return { ...mod, after: (fn: () => void) => fn() }
 })
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
+vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
 vi.mock("@/lib/rls", () => ({
   withTenant: (...args: unknown[]) => tenantMock(...args),
 }))
 
-import { resolveApprovalAction, removeWebhookAction, revokeSlackInstallAction } from "../app/dashboard/approvals/actions"
+import { resolveApprovalAction, removeWebhookAction, revokeSlackInstallAction, sendTestEscalationAction, TEST_ESCALATION } from "../app/dashboard/approvals/actions"
+import { deliverEvent } from "../lib/webhooks"
 
 const WALLET = { id: "wallet_1", ownerEmail: "cto@meridian.test" }
 
@@ -100,5 +108,46 @@ describe("revokeSlackInstallAction — role floor", () => {
       where: { id: "si_1", walletId: "wallet_1", revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     })
+  })
+})
+
+describe("sendTestEscalationAction — SLACK-2, prove the loop", () => {
+  const state = { ok: false, message: "" }
+  beforeEach(() => {
+    dbMock.agent.findFirst.mockResolvedValue({ id: "agent_1", name: "nightly-coder" })
+    dbMock.policy.findUnique.mockResolvedValue({ escalationTimeoutMins: 60, escalationTimeoutAction: "deny" })
+    dbMock.authorizationRequest.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "req_t", createdAt: new Date(), ...data }))
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
+    approvalsMock.createSpendPendingApproval.mockResolvedValue({ id: "pa_t", actionType: "spend.purchase", resourceJson: { kind: "spend" }, reason: null })
+  })
+
+  it("role floor: nothing is raised without an admin session", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(null)
+    const res = await sendTestEscalationAction(state, form({}))
+    expect(res.ok).toBe(false)
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("tells the admin to add an agent when the wallet has none", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    dbMock.agent.findFirst.mockResolvedValue(null)
+    const res = await sendTestEscalationAction(state, form({}))
+    expect(res.ok).toBe(false)
+    expect(res.message).toMatch(/agent/i)
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("raises a real, labeled escalation and fans it out like the route does", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    const res = await sendTestEscalationAction(state, form({}))
+    expect(res.ok).toBe(true)
+    const row = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(row).toMatchObject({ agentId: "agent_1", status: "escalated", amountUsd: TEST_ESCALATION.amountUsd, merchant: TEST_ESCALATION.merchant, detailsJson: { tags: ["test"] } })
+    expect(approvalsMock.createSpendPendingApproval).toHaveBeenCalledOnce()
+    expect(approvalsMock.createSpendPendingApproval.mock.calls[0][1]).toMatchObject({ walletId: "wallet_1", agentName: "nightly-coder" })
+    const events = vi.mocked(deliverEvent).mock.calls.map((c) => c[1])
+    expect(events).toEqual(["approval.created", "escalation.created"])
+    expect(vi.mocked(deliverEvent).mock.calls[0][2]).toMatchObject({ approval_id: "pa_t", request_id: "req_t", approve_url: "https://test.local/approve?review=req_t" })
+    expect(revalidateMock).toHaveBeenCalledWith("/dashboard/approvals")
   })
 })
