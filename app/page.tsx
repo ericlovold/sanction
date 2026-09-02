@@ -225,8 +225,8 @@ export default function Landing() {
           </Link>
           <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
             <a className="sanction-link" href="#workflows">Workflows</a>
-            <a className="sanction-link" href="#how">How it works</a>
-            <a className="sanction-link" href="#agent-wallet">Agent wallet</a>
+            <Link className="sanction-link" href="/platform">Platform</Link>
+            <Link className="sanction-link" href="/slack">Slack</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
@@ -412,6 +412,7 @@ export default function Landing() {
           <span>Sanction authorizes the spend. Any rail settles it.</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
             <Link className="sanction-link" href="/platform">Platform</Link>
+            <Link className="sanction-link" href="/slack">Slack</Link>
             <Link className="sanction-link" href="/about">About</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>
             <Link className="sanction-link" href="/changelog">Changelog</Link>
