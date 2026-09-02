@@ -64,3 +64,6 @@ sdk/node_modules/
 # demo-company driver key stores (raw sk_/pxy_ keys — never commit)
 scripts/demo/.keys.*.json
 scripts/demo/.local-keys/
+
+# stray tool output (never repo content)
+/output/

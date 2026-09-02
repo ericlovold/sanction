@@ -417,6 +417,8 @@ export default function Landing() {
             <Link className="sanction-link" href="/changelog">Changelog</Link>
             <a className="sanction-link" href="/api/openapi.json">API</a>
             <a className="sanction-link" href="https://www.npmjs.com/package/sanction-mcp">MCP</a>
+            <Link className="sanction-link" href="/support">Support</Link>
+            <Link className="sanction-link" href="/privacy">Privacy</Link>
           </span>
         </div>
       </footer>
