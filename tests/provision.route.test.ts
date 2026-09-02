@@ -26,6 +26,12 @@ vi.mock("next/server", async (orig) => {
 })
 vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_URL: "https://test.local/approve", approveUrlFor: (id?: string) => `https://test.local/approve${id ? `?review=${encodeURIComponent(id)}` : ""}` }))
 vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
+// The cost-per-outcome snapshot is computed in lib/outcomes.ts (its own tests);
+// here we hand the route a breached window and prove the provision ladder acts on it.
+vi.mock("@/lib/outcomes", async (orig) => {
+  const mod = await orig<typeof import("@/lib/outcomes")>()
+  return { ...mod, cpoContext: vi.fn(async () => undefined) }
+})
 vi.mock("@/lib/thresholds", () => ({
   notifySpendBudgetThreshold: vi.fn(async () => {}),
   notifyPoolCapThresholds: vi.fn(async () => {}),
@@ -51,6 +57,7 @@ vi.mock("@/lib/grants", async (orig) => {
   return { ...mod, consumeProvisionGrant: vi.fn() }
 })
 
+import { cpoContext } from "../lib/outcomes"
 import { POST as provision } from "../app/api/v1/authorize/provision/route"
 import { createProvisionPendingApproval } from "../lib/approvals"
 import { consumeProvisionGrant } from "../lib/grants"
@@ -367,5 +374,40 @@ describe("provision route — subtree cap breach rolls back, then persists (D1 p
         }),
       }),
     )
+  })
+})
+
+describe("provision route — cost-per-outcome ceiling (CPO-1 parity with spend and the AuthZEN PDP)", () => {
+  const CPO_POLICY = { ...POLICY, outcomeKind: "enrollment", costPerOutcomeCeilingUsd: 1_000, costPerOutcomeWindowDays: 30, costPerOutcomeMinOutcomes: 5 }
+  // $100 spent for 5 outcomes = $20/outcome against a $10 ceiling: breached.
+  const BREACHED = { ceilingCents: 1_000, windowSpendUsd: 100, windowOutcomes: 5, minOutcomes: 5 }
+
+  it("a breached window escalates a sub-floor provision with COST_PER_OUTCOME_CEILING", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: CPO_POLICY } })
+    vi.mocked(cpoContext).mockResolvedValue(BREACHED)
+    const res = await provision(req({ ...SEATS, amount_usd: 5 })) // under the $10 auto-approve floor
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.status).toBe("escalated")
+    expect(body.code).toBe("COST_PER_OUTCOME_CEILING")
+    expect(createProvisionPendingApproval).toHaveBeenCalledOnce()
+    // The snapshot is read inside the transaction, like the spend route.
+    expect(vi.mocked(cpoContext).mock.calls[0][0]).toBe(dbMock)
+    expect(vi.mocked(cpoContext).mock.calls[0][2]).toMatchObject({ costPerOutcomeCeilingUsd: 1_000 })
+  })
+
+  it("simulate reports the same escalation without persisting", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: CPO_POLICY } })
+    vi.mocked(cpoContext).mockResolvedValue(BREACHED)
+    const res = await provision(req({ ...SEATS, amount_usd: 5 }, { simulate: true }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).status).toBe("escalated")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("no ceiling configured → the rule stays out of the way (existing behavior)", async () => {
+    vi.mocked(cpoContext).mockResolvedValue(undefined)
+    const res = await provision(req({ ...SEATS, amount_usd: 5 }))
+    expect((await res.json()).status).toBe("approved")
   })
 })

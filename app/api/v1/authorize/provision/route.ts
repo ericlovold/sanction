@@ -16,6 +16,7 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import { createProvisionPendingApproval } from "@/lib/approvals"
 import { recordDecision } from "@/lib/decisionMeter"
+import { cpoContext } from "@/lib/outcomes"
 import { consumeProvisionGrant } from "@/lib/grants"
 import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thresholds"
 import type { CascadeCrossing } from "@/lib/cascadeBudget"
@@ -240,7 +241,7 @@ export async function POST(req: NextRequest) {
   // Simulation mirrors live precedence: run the full rule sequence first, then
   // check subtree caps only for would-be approvals.
   if (simulate) {
-    const [dailySpend, monthlySpend] = await Promise.all([
+    const [dailySpend, monthlySpend, cpo] = await Promise.all([
       db.authorizationRequest.aggregate({
         where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
         _sum: { amountUsd: true },
@@ -249,6 +250,9 @@ export async function POST(req: NextRequest) {
         where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
         _sum: { amountUsd: true },
       }),
+      // CPO-1 parity with the spend route and the AuthZEN PDP: provisions count
+      // toward the window's spend, so they must face the same ceiling.
+      cpoContext(db, agent.walletId, policy),
     ])
 
     let exec: SpendContext["exec"]
@@ -259,7 +263,7 @@ export async function POST(req: NextRequest) {
     }
 
     const decision = evaluate(
-      { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec },
+      { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec, cpo },
       [...PROVISION_STATELESS, ...PROVISION_STATEFUL],
     )
     const status = decision.effect === "allow" ? "approved" : decision.effect === "escalate" ? "escalated" : "denied"
@@ -284,8 +288,10 @@ export async function POST(req: NextRequest) {
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
-      const escalateNow = async (reason: string, evid: Record<string, unknown>) => {
-        const escalated = await tx.authorizationRequest.create({ data: { ...base, ...evid, status: "escalated" } })
+      // `note` persists only for the CPO throttle (spend-route parity): the
+      // stable code is derived from (status, decisionNote) on every replay.
+      const escalateNow = async (reason: string, evid: Record<string, unknown>, note?: string) => {
+        const escalated = await tx.authorizationRequest.create({ data: { ...base, ...evid, status: "escalated", decisionNote: note } })
         await createProvisionPendingApproval(tx, {
           walletId: agent.walletId,
           agentName: agent.name,
@@ -313,7 +319,7 @@ export async function POST(req: NextRequest) {
         return escalateNow(preDecision.reason ?? "Resource requires human approval", gateEvidence())
       }
 
-      const [dailySpend, monthlySpend] = await Promise.all([
+      const [dailySpend, monthlySpend, cpo] = await Promise.all([
         tx.authorizationRequest.aggregate({
           where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
           _sum: { amountUsd: true },
@@ -322,6 +328,7 @@ export async function POST(req: NextRequest) {
           where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
           _sum: { amountUsd: true },
         }),
+        cpoContext(tx, agent.walletId, policy),
       ])
       let exec: SpendContext["exec"]
       if (execTokenId) {
@@ -330,7 +337,7 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec }
+      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec, cpo }
       const decision = evaluate(ctxFull, PROVISION_STATEFUL)
       // EVID-1: revision in force + exact evaluated context — replayable later.
       const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("provision", ctxFull) }
@@ -340,7 +347,11 @@ export async function POST(req: NextRequest) {
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
       }
       if (decision.effect === "escalate") {
-        return escalateNow(decision.reason ?? "Exceeds escalation threshold", evidence)
+        return escalateNow(
+          decision.reason ?? "Exceeds escalation threshold",
+          evidence,
+          decision.code === "COST_PER_OUTCOME_CEILING" ? decision.reason : undefined,
+        )
       }
 
       // Deliberately unguarded: a cap breach must roll back every ancestor
