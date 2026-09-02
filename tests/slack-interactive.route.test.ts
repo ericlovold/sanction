@@ -13,6 +13,7 @@ const { dbMock, rateLimitMock, resolveMock } = vi.hoisted(() => ({
   resolveMock: vi.fn(),
 }))
 
+vi.mock("@vercel/analytics/server", () => ({ track: vi.fn(async () => {}) }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/rateLimit", async (orig) => {
   const mod = await orig<typeof import("../lib/rateLimit")>()

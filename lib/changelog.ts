@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-02",
+    title: "Slack proves itself in one click",
+    tags: ["slack", "approvals", "onboarding"],
+    body: "After **Add to Slack**, the channel used to stay silent until a real agent escalated — so a new admin never saw the card, the Approve button, or the grant. The Approvals page now has **Send a test escalation**: it raises a genuine $30 escalation on one of your agents (labeled as a test, tagged `test` in the audit feed), delivers it through the same fan-out as any other — the Slack card, the email, your webhooks — and resolves through the same `resolveApproval` path. Approve it in the channel and the grant shows up on the page. The install funnel now records completed installs, test escalations, and Approve/Deny clicks, so the drop-off between \"connected\" and \"decided\" is visible. The [Slack guide](/docs/notifications) now leads with the one path and says plainly who can decide: anyone in the channel — pick a private one.",
+  },
+  {
     date: "2026-08-26",
     title: "v0.9.0 — the engine stops asking permission to enforce",
     version: "0.9.0",

@@ -27,14 +27,16 @@ export default function SlackPage() {
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-4">
           <SlackInstallCta />
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>A Sanction admin account is required.</span>
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+            No wallet yet? <Link href="/start" className="sanction-link">Create one first</Link> — Add to Slack needs an admin session.
+          </span>
         </div>
 
         <section className="mt-20 grid gap-5 md:grid-cols-3">
           {[
-            ["1. Connect", "An admin chooses the Slack workspace and channel. Sanction stores the workspace bot token encrypted."],
-            ["2. Decide", "Escalations arrive with Approve, Deny, and Review in Sanction controls."],
-            ["3. Continue safely", "Approval produces a single-use, expiring grant; denial stops the agent. Every outcome remains auditable."],
+            ["1. Connect", "An admin picks the workspace and channel. Sanction stores the bot token encrypted under the wallet's key. Then press Send a test escalation: the first card lands in under a minute."],
+            ["2. Decide", "Escalations arrive with Approve, Deny, and Review in Sanction. Anyone in the channel can decide — the channel is the approver group, so pick a private one."],
+            ["3. Continue safely", "Approve mints a single-use, expiring grant the agent redeems on retry; Deny stops it. Every outcome records who decided and where."],
           ].map(([title, body]) => (
             <article key={title} className="rounded-lg border p-5" style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)" }}>
               <h2 className="font-semibold">{title}</h2>

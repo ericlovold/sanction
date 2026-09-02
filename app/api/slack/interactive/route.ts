@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { track } from "@vercel/analytics/server"
 import { resolveApproval } from "@/lib/approvals"
+import { FUNNEL } from "@/lib/funnel"
 import { db } from "@/lib/db"
 import { clientIp, rateLimit } from "@/lib/rateLimit"
 import { withTenant } from "@/lib/rls"
@@ -100,5 +102,8 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // Funnel: the click is the moment Slack proved itself. Best-effort, never
+  // on the critical path of the ack (Slack allows 3s).
+  track(FUNNEL.slackApprovalClicked, { decision: action.decision }).catch(() => {})
   return slackAck(slackReplacementMessage(action.decision, action.actor))
 }

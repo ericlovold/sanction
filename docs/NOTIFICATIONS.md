@@ -10,45 +10,47 @@ heads-up when any budget crosses its 80% line. Nothing to configure.
 
 ## Slack
 
-Two setups. Incoming webhooks stay a deep-link. In-Slack Approve/Deny needs a
-Slack app — incoming webhooks cannot receive button clicks.
+One path: **Add to Slack**. Escalations arrive as a card with **Approve**,
+**Deny**, and **Review in Sanction**; a click resolves the approval through the
+same path as the dashboard and mints the same one-use grant.
 
-### Add to Slack (Approve / Deny)
+1. Have a wallet and an admin session ([create one](/start) if you don't).
+2. Dashboard → Approvals → **Add to Slack**. Pick the channel at install.
+   Sanction stores the workspace bot token under the wallet's encrypted vault.
+3. Press **Send a test escalation**. A real $30 escalation is raised on one of
+   your agents, labeled as a test, and the card lands in the channel within
+   seconds. Approve it there; the grant shows on the Approvals page.
 
-1. Create a Slack app. Scopes: `chat:write`, `incoming-webhook`. Enable
-   **Interactivity** with Request URL
-   `https://getsanction.com/api/slack/interactive`. Redirect URL:
-   `https://getsanction.com/api/slack/oauth/callback`.
-2. Set `SANCTION_SLACK_SIGNING_SECRET`, `SANCTION_SLACK_CLIENT_ID`, and
-   `SANCTION_SLACK_CLIENT_SECRET` on the Sanction deployment. The interactive
-   endpoint **fails closed** (503) if the signing secret is unset. OAuth start
-   is 503 if the client id is unset.
-3. Dashboard → Approvals → **Add to Slack**. Pick the channel at install.
+**Who can decide:** anyone in that channel. The channel is the approver group,
+so connect a private channel for approvals. The actor is recorded as
+`slack:<username>` on the decision.
 
-Escalations then carry **Approve** / **Deny** plus the Review link. The click
-runs the same `resolveApproval` path as the dashboard (grant, audit, resolved
-events). The actor is recorded as `slack:<username>`. Anyone in that channel
-can decide — the channel is the ACL. Disconnect on the same page revokes the
-install (the row stays; delivery stops).
+Security: Slack's `v0` HMAC over the raw body; timestamps older than five
+minutes and bad signatures are 401; each button carries a two-hour token bound
+to the wallet, approval, workspace, and channel; the endpoint fails closed (503)
+if the signing secret is unset. Disconnect on the same page revokes the install.
 
-Signature: Slack's `v0` HMAC over the raw body. Stale timestamps (>5 minutes)
-and bad signatures are 401. Rate-limited per IP.
+<details>
+<summary>Self-hosting: the Slack app you need</summary>
 
-### Incoming webhook (Review link)
+Create a Slack app with scopes `chat:write` and `incoming-webhook`. Enable
+**Interactivity** with Request URL `https://<your-host>/api/slack/interactive`
+and set the OAuth Redirect URL to `https://<your-host>/api/slack/oauth/callback`.
+Set `SANCTION_SLACK_SIGNING_SECRET`, `SANCTION_SLACK_CLIENT_ID`, and
+`SANCTION_SLACK_CLIENT_SECRET` on the deployment. OAuth start returns 503 until
+the client id is set.
+</details>
 
-1. In Slack: create an **incoming webhook** for the channel (Slack admin → Apps
-   → Incoming Webhooks → Add to channel). You get a `https://hooks.slack.com/...`
-   URL.
-2. In Sanction: **Dashboard → Approvals → Notification routes** → paste the URL.
-   Sanction detects Slack automatically and sends a connect ping.
+<details>
+<summary>Notification-only routes (no buttons)</summary>
 
-Escalations arrive as readable Block Kit with a **Review in Sanction** button.
-No Slack app. The webhook URL is the secret.
-
-The env `SANCTION_SLACK_BOT_TOKEN` plus a pasted channel archive URL
-(`https://slack.com/archives/C…`) remains a platform-token fallback when OAuth
-is not configured. It posts the **Review in Sanction** link only; interactive
-decisions require a wallet-bound Slack app install.
+An **incoming webhook** URL (`https://hooks.slack.com/...`) pasted into
+Notification routes gets readable Block Kit messages with a **Review in
+Sanction** link — no app, the URL is the secret, but Slack cannot send button
+clicks back. The env `SANCTION_SLACK_BOT_TOKEN` plus a pasted channel archive
+URL (`https://slack.com/archives/C…`) is the older platform-token fallback and
+also posts the link only. Interactive decisions require Add to Slack.
+</details>
 
 ## Route different events to different channels
 

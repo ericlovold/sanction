@@ -21,6 +21,12 @@ export const FUNNEL = {
   tourCompleted: "tour_completed",
   /** Started the Slack OAuth install flow. props: { location } */
   slackInstallStarted: "slack_install_started",
+  /** Slack OAuth completed; a workspace + channel is bound to the wallet. */
+  slackInstallCompleted: "slack_install_completed",
+  /** Admin sent the one-click test escalation after connecting Slack. */
+  slackTestEscalationSent: "slack_test_escalation_sent",
+  /** A human clicked Approve/Deny on a Slack card (server-side). props: { decision } */
+  slackApprovalClicked: "slack_approval_clicked",
   /** Created a wallet — the conversion. (existing event) */
   walletCreated: "wallet_created",
   /** First metered model call through the gateway. (existing event) */
