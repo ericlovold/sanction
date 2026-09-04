@@ -168,8 +168,10 @@ model BudgetReallocation {
 
 // ── Better Auth (human identity) ────────────────────────────────────────────
 // These four models are Better Auth's core schema (betterAuth() in lib/auth-config.ts).
-// Field names/types match its contract exactly — do not rename. Sign-in methods
+// Field names/types match its contract — do not rename. Sign-in methods
 // (Google, GitHub) write here; a User then owns one or more Wallets above.
+// Account.issuer is the 1.7 lookup key (findAccountOwnerByKey). It stays
+// nullable so existing rows can be backfilled; the adapter writes it on create.
 model User {
   id            String    @id
   name          String
@@ -208,6 +210,7 @@ model Account {
   userId                String
   accountId             String
   providerId            String
+  issuer                String?
   accessToken           String?
   refreshToken          String?
   accessTokenExpiresAt  DateTime?
@@ -220,6 +223,7 @@ model Account {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([issuer, accountId])
   @@index([userId])
   @@map("account")
 }

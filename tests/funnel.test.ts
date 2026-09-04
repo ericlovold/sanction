@@ -14,6 +14,9 @@ describe("funnel event taxonomy", () => {
       tourStarted: "tour_started",
       tourCompleted: "tour_completed",
       slackInstallStarted: "slack_install_started",
+      slackInstallCompleted: "slack_install_completed",
+      slackTestEscalationSent: "slack_test_escalation_sent",
+      slackApprovalClicked: "slack_approval_clicked",
       walletCreated: "wallet_created",
       firstGatewayCall: "first_gateway_call",
     })
