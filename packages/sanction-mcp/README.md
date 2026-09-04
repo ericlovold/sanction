@@ -11,7 +11,7 @@ counterparty — never the root key. They check it at `POST /mandate/verify` wit
 stdio MCP is cooperative: the host must ask before acting. Prefer the hosted URL
 when your host accepts remote MCP: `https://getsanction.com/mcp` with
 `x-api-key: pxy_...`. The LLM gateway intercepts inference spend without
-cooperation. A hosted broker that intercepts `tools/call` is next.
+cooperation. The hosted broker at `/mcp/broker/<name>` intercepts `tools/call`.
 
 This package is the stdio client. The hosted endpoint is the same wallet over
 Streamable HTTP. Discovery: [Wallet Card](https://getsanction.com/.well-known/wallet-card.json).
