@@ -58,6 +58,40 @@ different payment rail, the plugin that exfiltrates before any purchase.
 Governing acquisition means the blast radius of an agent is a policy
 decision, not an emergent property.
 
+## Try the coding-agent pack
+
+In Dashboard → Policy, apply **Coding agent seat** (or owner-authenticated
+`POST /api/v1/policy/packs/coding-agent-seat/apply` with `wallet_id`). This
+replaces the pack's fields, including tool lists, capability rules, budgets,
+and enforcement mode: an observe-mode wallet becomes enforcing. Existing
+ancestor restrictions still apply. Review the changes before applying.
+
+The pack escalates every capability acquisition, including `skill:install:*`,
+`plugin:*`, and `mcp:add:*`. With the cooperative hosted MCP connected, call
+`sanction_authorize_capability` with `{"capability":"skill:install:demo"}`.
+This is a real $0 approval request, not a simulation. Wait for the owner to
+approve from email, Slack (if connected), or the inbox; poll with
+`sanction_check_authorization`, then retry the original call with `grant_id`.
+Do not install until the retry returns `authorized: true`.
+
+Tool lists use **exact names**. The pack permits three starter read names:
+`github.get_file_contents`, `filesystem.read_file`, and
+`filesystem.list_directory`. Match these to your upstream's actual tools
+before use. Every unlisted name is denied, including shell aliases and a
+literal `rm -rf /` tool name. Sanction does not inspect shell arguments;
+read-tool arguments are not constrained by this pack either. Tool grants bind
+the tool and server, not arguments. Do not treat approval of a generic shell
+tool as approval of one specific command.
+
+The spend baseline is $10 auto-approval, a $25 escalation threshold, $50
+per-transaction and daily spend caps, and a $10 daily token budget. Pack
+preview currently simulates spend and capability only; tool-list changes
+appear in `ignored_fields` and require direct decision checks.
+
+The hosted wallet asks cooperatively; it does not intercept local installs.
+The broker enforces tool calls routed through it. Applying this pack changes
+neither transport boundary nor the defaults of other wallets.
+
 ## Where to go next
 
 - [Authorization: the decision](/docs/authorization) — the shared lifecycle.
