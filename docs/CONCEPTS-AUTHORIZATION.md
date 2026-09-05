@@ -81,3 +81,33 @@ appeal to a human instead of waiting for midnight.
 - [Capability governance](/docs/capability-governance) — the same engine,
   pointed at new powers instead of money.
 - [Quickstart](/docs/quickstart) — make your first governed call.
+
+
+## Tool approvals bind the request
+
+A new tool approval covers the tool, server, and complete arguments object.
+Changing a deployment target, revision, or any other argument requires fresh
+approval. JSON object key order is ignored; array order and value types matter.
+Omitted arguments mean an empty object. The legacy SDK `input` field is an
+alias; sending both fields is rejected. Tool rules still evaluate the tool name,
+not argument contents; this binding applies to human-approved exceptions.
+
+The request snapshot is encrypted with the wallet's envelope key. In Approvals,
+an admin selects **Review exact request** to decrypt it. Arguments are excluded
+from notification bodies and audit exports; the encrypted binding stays on the
+approval and grant. Treat the reviewed request as sensitive. Requests are limited to 64 KiB
+and 32 nesting levels.
+
+Retry with the one-use `grant_id` (broker: `_meta["sanction/grant_id"]`). An
+idempotent replay reports `approval_status` but never authorizes a new attempt;
+a replay of an approved request returns `authorized: false`, `status: denied`.
+Existing tool grants without a bound snapshot fail closed: request a new
+escalation with a fresh idempotency key. Spend and capability grants are unchanged.
+AuthZEN/AARP tool requests do not carry arguments; use the native
+tool route or broker for argument-bound actions.
+
+A consumed grant authorizes one attempt, not proof of completion. If broker
+forwarding fails, `TOOL_EXECUTION_OUTCOME_UNKNOWN` means to check the target
+system before requesting another attempt. Sanction does not retry the tool or
+restore its consumed grant. Upstream resources can change independently; binding
+a request does not freeze their state or provide exactly-once execution.

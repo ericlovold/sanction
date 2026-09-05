@@ -2,7 +2,7 @@
 
 import { useOptimistic, useActionState, useEffect, useRef, useState } from "react"
 import { Check, Plus, X } from "lucide-react"
-import { resolveApprovalAction, type ApprovalActionState } from "@/app/dashboard/approvals/actions"
+import { reviewToolRequestAction, resolveApprovalAction, type ApprovalActionState } from "@/app/dashboard/approvals/actions"
 
 export type PendingApproval = {
   id: string
@@ -102,7 +102,7 @@ function consequence(a: PendingApproval) {
   }
   if (a.resource.kind === "tool") {
     const tool = stringValue(a.resource.tool) ?? "this tool"
-    return `Approving issues a ${oneUse}grant letting ${a.agentName} invoke ${tool}${ttlText}.`
+    return `Approving issues a ${oneUse}grant letting ${a.agentName} attempt ${tool} with the reviewed arguments${ttlText}.`
   }
   return `Approving grants ${a.agentName} this authority${ttlText}.`
 }
@@ -128,6 +128,8 @@ function ApprovalRow({
   const [armed, setArmed] = useState(false)
   const disarmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [noteOpen, setNoteOpen] = useState(false)
+  const [review, setReview] = useState<{ request?: string; error?: string }>({})
+  const [reviewing, setReviewing] = useState(false)
   const details = approvalDetails(a)
 
   useEffect(
@@ -160,6 +162,18 @@ function ApprovalRow({
         <p className="mt-1 font-mono text-xs text-muted-foreground">
           {a.agentName} · {a.reason ?? "Needs approval"} · {new Date(a.createdAt).toLocaleString()}
         </p>
+        {editable && a.resource.kind === "tool" ? (
+          <div className="mt-3">
+            <button type="button" disabled={reviewing} className="text-sm underline disabled:opacity-50" onClick={async () => {
+              setReviewing(true)
+              try { setReview(await reviewToolRequestAction(a.id)) }
+              catch { setReview({ error: "Request review failed. Try again." }) }
+              finally { setReviewing(false) }
+            }}>{reviewing ? "Loading request…" : "Review exact request"}</button>
+            {review.request ? <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded border border-border p-3 text-xs">{JSON.stringify(JSON.parse(review.request), null, 2)}</pre> : null}
+            {review.error ? <p className="mt-2 text-sm text-destructive">{review.error}</p> : null}
+          </div>
+        ) : null}
         {details && <p className="mt-1 text-xs text-muted-foreground">{details}</p>}
         <p className="mt-2 text-xs text-muted-foreground">{consequence(a)}</p>
       </div>

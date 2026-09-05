@@ -148,12 +148,22 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
         if (Object.keys(msg.params._meta).length === 0) delete msg.params._meta
       }
     }
-    const res = await forwardToUpstream(upstream, {
-      method: req.method,
-      headers: req.headers,
-      rawBody: JSON.stringify(body),
-    })
-    return gateOrPassthrough(res, apiKey, { upstream: upstreamName, agentId: agent.id, rpcId: call.id })
+    try {
+      const res = await forwardToUpstream(upstream, {
+        method: req.method,
+        headers: req.headers,
+        rawBody: JSON.stringify(body),
+      })
+      return await gateOrPassthrough(res, apiKey, { upstream: upstreamName, agentId: agent.id, rpcId: call.id })
+    } catch {
+      // A timeout does not prove the upstream did nothing. The grant remains
+      // consumed; do not advise a blind retry of a possibly completed action.
+      return NextResponse.json(brokerRefusalResult(call.id, {
+        status: "unknown", code: "TOOL_EXECUTION_OUTCOME_UNKNOWN",
+        reason: "The upstream outcome is unknown. Check the target system before requesting another attempt. A consumed grant cannot be reused.",
+        request_id: decision.request_id,
+      }), { headers: NO_STORE })
+    }
   }
 
   const res = await forwardToUpstream(upstream, { method: req.method, headers: req.headers, rawBody })

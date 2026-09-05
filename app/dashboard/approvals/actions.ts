@@ -1,5 +1,6 @@
 "use server"
 
+import { openToolRequest } from "@/lib/toolRequest"
 import { revalidatePath } from "next/cache"
 import { after } from "next/server"
 import { db } from "@/lib/db"
@@ -102,7 +103,7 @@ export async function revokeSlackInstallAction(form: FormData): Promise<void> {
 // through the same resolveApproval path. It is labeled as a test in the
 // description and tagged `test` so it reads honestly in the audit feed. It does
 // not run the rules engine — it is the escalation branch, not a decision.
-export const TEST_ESCALATION = {
+const TEST_ESCALATION = {
   amountUsd: 30,
   merchant: "Sanction test",
   category: "software",
@@ -155,4 +156,23 @@ export async function sendTestEscalationAction(_prev: ApprovalActionState, _form
 
   revalidatePath("/dashboard/approvals")
   return { ok: true, message: `Test escalation sent as ${agent.name} ($${amountUsd}). Approve or deny it in Slack — the grant shows up here.` }
+}
+
+// Request contents are decrypted only on an explicit, admin-authorized read.
+// They never enter the public demo, notification payload, or audit export.
+export async function reviewToolRequestAction(approvalId: string): Promise<{ request?: string; error?: string }> {
+  const wallet = await requireSessionRole("admin")
+  if (!wallet) return { error: "Admin access required." }
+  const { ids } = await subtreeWalletIds(wallet.id)
+  const approval = await db.pendingApproval.findFirst({
+    where: { id: approvalId, walletId: { in: ids }, actionType: "tool.invoke" },
+    select: { walletId: true, resourceJson: true },
+  })
+  if (!approval) return { error: "Approval not found." }
+  try {
+    const request = await openToolRequest(approval.walletId, approval.resourceJson)
+    return request ? { request } : { error: "Legacy approval has no bound request. Ask the agent to request fresh approval." }
+  } catch {
+    return { error: "Request could not be decrypted. Do not approve; retry review later." }
+  }
 }

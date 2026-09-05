@@ -1,3 +1,5 @@
+import { reviewToolRequestAction } from "../app/dashboard/approvals/actions"
+import { sealToolRequest } from "../lib/toolRequest"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 // WALLET-MEMBERS follow-up, part 1: approvals/actions.ts mutations (resolve,
@@ -7,6 +9,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // by tests/webhook-routing.test.ts; this file is just the role floor.
 const { dbMock, sessionMock, approvalsMock, subtreeMock, revalidateMock, tenantMock } = vi.hoisted(() => ({
   dbMock: {
+    pendingApproval: { findFirst: vi.fn() },
     webhook: { findUnique: vi.fn(), delete: vi.fn() },
     slackInstall: { updateMany: vi.fn() },
     agent: { findFirst: vi.fn() },
@@ -20,6 +23,15 @@ const { dbMock, sessionMock, approvalsMock, subtreeMock, revalidateMock, tenantM
   revalidateMock: vi.fn(),
   tenantMock: vi.fn(),
 }))
+vi.mock("@/lib/credentialCrypto", async (orig) => {
+  const mod = await orig<typeof import("@/lib/credentialCrypto")>()
+  const key = Buffer.alloc(32, 7)
+  return { ...mod,
+    encryptCredentialEnvelope: async (text: string, wallet: string, label: string) => ({ blob: mod.encryptV3(text, key, wallet, label), keyId: "test-key" }),
+    decryptCredentialEnvelope: async (r: { encryptedValue: string; walletId: string; label: string }) => mod.decryptV3(r.encryptedValue, key, r.walletId, r.label),
+  }
+})
+
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/session", () => sessionMock)
 vi.mock("@/lib/approvals", () => approvalsMock)
@@ -43,7 +55,7 @@ vi.mock("@/lib/rls", () => ({
   withTenant: (...args: unknown[]) => tenantMock(...args),
 }))
 
-import { resolveApprovalAction, removeWebhookAction, revokeSlackInstallAction, sendTestEscalationAction, TEST_ESCALATION } from "../app/dashboard/approvals/actions"
+import { resolveApprovalAction, removeWebhookAction, revokeSlackInstallAction, sendTestEscalationAction } from "../app/dashboard/approvals/actions"
 import { deliverEvent } from "../lib/webhooks"
 
 const WALLET = { id: "wallet_1", ownerEmail: "cto@meridian.test" }
@@ -142,12 +154,32 @@ describe("sendTestEscalationAction — SLACK-2, prove the loop", () => {
     const res = await sendTestEscalationAction(state, form({}))
     expect(res.ok).toBe(true)
     const row = dbMock.authorizationRequest.create.mock.calls[0][0].data
-    expect(row).toMatchObject({ agentId: "agent_1", status: "escalated", amountUsd: TEST_ESCALATION.amountUsd, merchant: TEST_ESCALATION.merchant, detailsJson: { tags: ["test"] } })
+    expect(row).toMatchObject({ agentId: "agent_1", status: "escalated", amountUsd: 30, merchant: "Sanction test", detailsJson: { tags: ["test"] } })
     expect(approvalsMock.createSpendPendingApproval).toHaveBeenCalledOnce()
     expect(approvalsMock.createSpendPendingApproval.mock.calls[0][1]).toMatchObject({ walletId: "wallet_1", agentName: "nightly-coder" })
     const events = vi.mocked(deliverEvent).mock.calls.map((c) => c[1])
     expect(events).toEqual(["approval.created", "escalation.created"])
     expect(vi.mocked(deliverEvent).mock.calls[0][2]).toMatchObject({ approval_id: "pa_t", request_id: "req_t", approve_url: "https://test.local/approve?review=req_t" })
     expect(revalidateMock).toHaveBeenCalledWith("/dashboard/approvals")
+  })
+})
+
+describe("reviewToolRequestAction", () => {
+  it("denies viewers before reading or decrypting", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(null)
+    expect(await reviewToolRequestAction("a")).toHaveProperty("error")
+    expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
+  })
+  it("scopes the lookup to authorized wallets and hides out-of-subtree requests", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    dbMock.pendingApproval.findFirst.mockResolvedValue(null)
+    expect(await reviewToolRequestAction("other")).toHaveProperty("error")
+    expect(dbMock.pendingApproval.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "other", walletId: { in: ["wallet_1"] }, actionType: "tool.invoke" } }))
+  })
+  it("decrypts an authorized request on demand", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ walletId: "wallet_1", resourceJson: { requestBinding: await sealToolRequest("wallet_1", { tool: "deploy", arguments: { ref: "abc" } }) } })
+    const result = await reviewToolRequestAction("a")
+    expect(JSON.parse(result.request!).arguments.ref).toBe("abc")
   })
 })

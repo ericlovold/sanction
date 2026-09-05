@@ -1,3 +1,4 @@
+import { sealToolRequest } from "./toolRequest"
 import { after } from "next/server"
 import { db } from "./db"
 import { deliverEvent } from "./webhooks"
@@ -99,6 +100,7 @@ type ToolApprovalRequest = {
   agentId: string
   tool: string
   server: string | null
+  arguments?: Record<string, unknown>
   createdAt: Date
 }
 
@@ -121,6 +123,8 @@ export async function createToolPendingApproval(
       ? new Date(request.createdAt.getTime() + policy.escalationTimeoutMins * 60_000)
       : null
 
+  const requestBinding = await sealToolRequest(walletId, request)
+
   return client.pendingApproval.create({
     data: {
       walletId,
@@ -131,6 +135,7 @@ export async function createToolPendingApproval(
         kind: "tool",
         tool: request.tool,
         server: request.server,
+        requestBinding,
       },
       constraintsJson: {
         one_use: true,

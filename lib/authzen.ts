@@ -229,7 +229,7 @@ export function validateAuthZenSemantics(r: AuthZenRequest): void {
     const approvalId = stringProp(asRecord(r.context.approval), "id")
     if (!approvalId) throw new AuthZenBadRequest("context.approval requires a string id")
   }
-  if (r.resource.type === "spend" || r.resource.type === "provision") {
+  if (r.resource.type === "tool" || r.resource.type === "spend" || r.resource.type === "provision") {
     canonicalSarc(r) // throws AuthZenBadRequest on missing amount / bad arithmetic
   }
 }
@@ -266,6 +266,8 @@ export async function evaluateAuthZen(
   if (freeze.frozen) {
     return deny("WALLET_FROZEN", frozenNote(freeze), REMEDIATION.WALLET_FROZEN)
   }
+
+  if (r.resource.type === "tool") canonicalSarc(r)
 
   // AARP re-evaluation: context.approval redeems the grant. Runs before the
   // policy check, exactly like grant_id on the native routes.
@@ -532,6 +534,7 @@ export function canonicalSarc(r: AuthZenRequest): CanonicalSarc {
   const props = { ...r.resource.properties, ...r.action.properties }
   switch (r.resource.type) {
     case "tool":
+      if (props.arguments !== undefined) throw new AuthZenBadRequest("Argument-bound tool approvals use /api/v1/authorize/tool; AARP tool requests do not accept arguments")
       return { t: "tool", tool: r.resource.id, server: stringProp(props, "server") ?? null }
     case "capability":
       return { t: "capability", capability: r.resource.id }
@@ -673,7 +676,7 @@ async function redeemApproval(agent: AuthZenAgent, r: AuthZenRequest, grantId: s
             grantId,
             walletId: agent.walletId,
             agentId: agent.id,
-            request: { tool: r.resource.id, server: stringProp(props, "server") ?? undefined },
+            request: { tool: r.resource.id, server: stringProp(props, "server") ?? undefined, arguments: props.arguments as Record<string, unknown> | undefined },
           }),
         )
         break
