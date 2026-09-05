@@ -21,6 +21,15 @@ const { dbMock } = vi.hoisted(() => ({
     $executeRaw: vi.fn(),
   },
 }))
+vi.mock("@/lib/credentialCrypto", async (orig) => {
+  const mod = await orig<typeof import("@/lib/credentialCrypto")>()
+  const key = Buffer.alloc(32, 7)
+  return { ...mod,
+    encryptCredentialEnvelope: async (text: string, wallet: string, label: string) => ({ blob: mod.encryptV3(text, key, wallet, label), keyId: "test-key" }),
+    decryptCredentialEnvelope: async (r: { encryptedValue: string; walletId: string; label: string }) => mod.decryptV3(r.encryptedValue, key, r.walletId, r.label),
+  }
+})
+
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("next/server", async (orig) => {
   const mod = await orig<typeof import("next/server")>()

@@ -1,3 +1,4 @@
+import { canonicalToolRequest, openToolRequest } from "./toolRequest"
 import type { db } from "./db"
 import { reserveCascadeDailySpend, type CascadeTx, type WalletBudgetNode } from "./cascadeBudget"
 import type { DecisionCode } from "./decisions"
@@ -113,6 +114,7 @@ export async function consumeProvisionGrant(
 export type ToolGrantRequest = {
   tool: string
   server?: string
+  arguments?: Record<string, unknown>
 }
 
 // Tool grants carry no dollar amount — the cascade reserve is a 0-cent no-op —
@@ -135,7 +137,7 @@ export async function consumeToolGrant(
     ancestorChain: [],
     execTokenId: null,
     expectedActionType: "tool.invoke",
-    matches: (resourceJson) => toolGrantMatches(resourceJson, input.request),
+    matches: (resourceJson) => toolGrantMatches(resourceJson, input.request, input.walletId),
     unsupportedReason: "Grant is not valid for this tool invocation",
     mismatchReason: "Grant does not authorize this tool invocation",
   })
@@ -183,7 +185,7 @@ async function consumeGrantCore(
     execTokenId: string | null
     now?: Date
     expectedActionType: string
-    matches: (resourceJson: unknown) => boolean
+    matches: (resourceJson: unknown) => boolean | Promise<boolean>
     unsupportedReason: string
     mismatchReason: string
   },
@@ -203,7 +205,7 @@ async function consumeGrantCore(
     await client.grant.updateMany({ where: { id: grant.id, status: "active" }, data: { status: "expired" } })
     return denyGrant("GRANT_EXPIRED", 403, "Grant expired")
   }
-  if (!input.matches(grant.resourceJson)) {
+  if (!(await input.matches(grant.resourceJson))) {
     return denyGrant("GRANT_MISMATCH", 403, input.mismatchReason)
   }
 
@@ -252,12 +254,15 @@ export function spendGrantMatches(resourceJson: unknown, request: SpendGrantRequ
   )
 }
 
-export function toolGrantMatches(resourceJson: unknown, request: ToolGrantRequest): boolean {
-  const resource = asRecord(resourceJson)
-  const approvedServer = stringValue(resource.server)
-  const requestServer = stringValue(request.server)
-
-  return resource.kind === "tool" && resource.tool === request.tool && approvedServer === requestServer
+export async function toolGrantMatches(resourceJson: unknown, request: ToolGrantRequest, walletId: string): Promise<boolean> {
+  // Old grants contain no argument evidence. Fail closed; request a fresh
+  // escalation rather than silently widening legacy authority.
+  try {
+    const approved = await openToolRequest(walletId, resourceJson)
+    return approved !== null && approved === canonicalToolRequest(request)
+  } catch {
+    return false // corrupt ciphertext, unavailable key, or invalid request
+  }
 }
 
 export function provisionGrantMatches(resourceJson: unknown, request: ProvisionGrantRequest): boolean {

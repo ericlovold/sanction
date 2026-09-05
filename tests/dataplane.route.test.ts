@@ -1,3 +1,4 @@
+import { sealToolRequest } from "../lib/toolRequest"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
 import { hashApiKey } from "../lib/apiKey"
@@ -21,6 +22,15 @@ const { dbMock } = vi.hoisted(() => ({
     $executeRaw: vi.fn(),
   },
 }))
+vi.mock("@/lib/credentialCrypto", async (orig) => {
+  const mod = await orig<typeof import("@/lib/credentialCrypto")>()
+  const key = Buffer.alloc(32, 7)
+  return { ...mod,
+    encryptCredentialEnvelope: async (text: string, wallet: string, label: string) => ({ blob: mod.encryptV3(text, key, wallet, label), keyId: "test-key" }),
+    decryptCredentialEnvelope: async (r: { encryptedValue: string; walletId: string; label: string }) => mod.decryptV3(r.encryptedValue, key, r.walletId, r.label),
+  }
+})
+
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("next/server", async (orig) => {
   const mod = await orig<typeof import("next/server")>()
@@ -194,7 +204,7 @@ describe("authorize/tool — tool governance", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           actionType: "tool.invoke",
-          resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe" },
+          resourceJson: expect.objectContaining({ kind: "tool", tool: "payments.charge", server: "stripe", requestBinding: expect.objectContaining({ version: 1 }) }),
           sourceId: "req_t1",
         }),
       }),
@@ -209,6 +219,39 @@ describe("authorize/tool — tool governance", () => {
     expect(res.status).toBe(200)
     expect((await res.json())).toMatchObject({ status: "escalated", request_id: "req_t1", code: "TOOL_ESCALATION_REQUIRED" })
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it.each(["Owner approved", "Grant consumed"])("approved replay is status-only: %s", async (decisionNote) => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_t1", status: "approved", decisionNote })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: { ...agentH, "idempotency-key": "idem" }, body: { tool: "shell.exec", arguments: { command: "changed" } } }))
+    expect(await res.json()).toMatchObject({ authorized: false, status: "denied", approval_status: "approved" })
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it("observed tool replays never become fresh permission after enforcement changes", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "r", status: "denied", decisionNote: "Blocked", detailsJson: { observed: true } })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: { ...agentH, "idempotency-key": "old" }, body: { tool: "shell.exec" } }))
+    expect(await res.json()).toMatchObject({ authorized: false, status: "denied", mode: "observe" })
+  })
+
+  it("binds the legacy SDK input field and rejects conflicting aliases", async () => {
+    dbMock.grant.findUnique.mockResolvedValue({ id: "g", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active", sourceType: "authorization_request", sourceId: "r", expiresAt: null, resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "deploy", arguments: { ref: "abc" } }) } })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "deploy", input: { ref: "changed" }, grant_id: "g" } }))
+    expect(await res.json()).toMatchObject({ authorized: false, code: "GRANT_MISMATCH" })
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+    dbMock.grant.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.authorizationRequest.update.mockResolvedValue({ id: "r" })
+    const same = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "deploy", input: { ref: "abc" }, grant_id: "g" } }))
+    expect(await same.json()).toMatchObject({ authorized: true, grant_status: "consumed" })
+    const invalid = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "deploy", arguments: {}, input: { ref: "abc" } } }))
+    expect(invalid.status).toBe(400)
+  })
+
+  it("rejects legacy tool grants even when tool/server match", async () => {
+    dbMock.grant.findUnique.mockResolvedValue({ id: "g", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active", resourceJson: { kind: "tool", tool: "read", server: null }, sourceType: "authorization_request", sourceId: "r", expiresAt: null })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "read", grant_id: "g" } }))
+    expect(await res.json()).toMatchObject({ authorized: false, code: "GRANT_MISMATCH" })
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
   })
 
   it("replays a timed-out escalation with ESCALATION_TIMED_OUT, not a bare denial (F-1)", async () => {
@@ -227,7 +270,7 @@ describe("authorize/tool — tool governance", () => {
   it("redeems an approved tool grant: one-use consumption authorizes the invocation", async () => {
     dbMock.grant.findUnique.mockResolvedValue({
       id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",
-      resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe" },
+      resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe", requestBinding: await sealToolRequest(WID, { tool: "payments.charge", server: "stripe" }) },
       sourceType: "authorization_request", sourceId: "req_t1", expiresAt: null,
     })
     dbMock.grant.updateMany.mockResolvedValue({ count: 1 })

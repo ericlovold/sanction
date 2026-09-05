@@ -1,3 +1,4 @@
+import { canonicalToolRequest } from "@/lib/toolRequest"
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
 import { z } from "zod"
@@ -30,9 +31,10 @@ const log = logger("v1/authorize/tool")
 const schema = z.object({
   tool: z.string().min(1),
   server: z.string().optional(), // MCP server name, e.g. "github", "filesystem"
-  arguments: z.record(z.string(), z.unknown()).optional(), // advisory — not policy-evaluated or persisted
+  arguments: z.record(z.string(), z.unknown()).optional(), // encrypted for approval binding; not policy-evaluated
+  input: z.record(z.string(), z.unknown()).optional(), // legacy TypeScript SDK wire alias
   grant_id: z.string().optional(),
-})
+}).refine(v => v.arguments === undefined || v.input === undefined, { message: "Send arguments or input, not both" })
 
 export async function POST(req: NextRequest) {
   const { agent, error } = await authenticateAgent(req)
@@ -52,6 +54,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
   const { tool, server, grant_id } = parsed.data
+  const args = parsed.data.arguments ?? parsed.data.input
+  try { canonicalToolRequest({ tool, server, arguments: args }) } catch {
+    return NextResponse.json({ error: "Invalid tool request: maximum 64 KiB and 32 nesting levels; finite JSON values required" }, { status: 400 })
+  }
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
 
   // Idempotent replay: only escalated tool calls persist, so this replays the
@@ -64,11 +70,11 @@ export async function POST(req: NextRequest) {
     if (existing) return NextResponse.json(replayResponse(existing, agent.name, tool, server), { status: httpFor(existing) })
   }
 
-  // Grant redemption: the owner approved this exact tool (and server) — consume
+  // Grant redemption: the owner approved this tool, server, and arguments — consume
   // the one-use grant and the invocation is authorized.
   if (grant_id) {
     const result = await db.$transaction((tx) =>
-      consumeToolGrant(tx, { grantId: grant_id, walletId: agent.walletId, agentId: agent.id, request: { tool, server } }),
+      consumeToolGrant(tx, { grantId: grant_id, walletId: agent.walletId, agentId: agent.id, request: { tool, server, arguments: args } }),
     )
     if (result.ok) {
       return NextResponse.json(
@@ -182,7 +188,7 @@ export async function POST(req: NextRequest) {
           const approval = await createToolPendingApproval(tx, {
             walletId: agent.walletId,
             agentName: agent.name,
-            request: { id: row.id, agentId: agent.id, tool, server: server ?? null, createdAt: row.createdAt },
+            request: { id: row.id, agentId: agent.id, tool, server: server ?? null, arguments: args, createdAt: row.createdAt },
             policy,
             reason: decision.reason ?? "Tool requires human approval",
           })
@@ -344,10 +350,12 @@ function replayResponse(r: PersistedTool, agentName: string, tool: string, serve
     remediation: TOOL_REMEDIATION.TOOL_ESCALATION_REQUIRED,
   })
   if (isObserved(r)) {
-    // OBS-1: an observed row replays as allowed with the truthful would_be.
+    // Historical observation is status only, including after a switch to enforce.
     return {
-      authorized: true,
-      status: "allowed",
+      authorized: false,
+      status: "denied",
+      approval_status: r.status,
+      reason: "Historical observation only; submit a fresh request for authorization",
       mode: "observe",
       would_be: { status: r.status, reason: r.decisionNote ?? undefined, code, remediation },
       request_id: r.id,
@@ -357,10 +365,11 @@ function replayResponse(r: PersistedTool, agentName: string, tool: string, serve
     }
   }
   return {
-    authorized: r.status === "approved",
-    status: r.status === "approved" ? "allowed" : r.status,
+    authorized: false,
+    status: r.status === "approved" ? "denied" : r.status,
+    approval_status: r.status,
     request_id: r.id,
-    reason: r.decisionNote ?? undefined,
+    reason: r.status === "approved" ? "Approval status only; redeem the one-use grant to authorize an attempt" : r.decisionNote ?? undefined,
     code,
     remediation,
     agent: agentName,

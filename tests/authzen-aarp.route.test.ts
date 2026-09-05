@@ -1,3 +1,4 @@
+import { sealToolRequest } from "../lib/toolRequest"
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest"
 import { NextRequest } from "next/server"
 import { SignJWT } from "jose"
@@ -21,6 +22,15 @@ const { dbMock } = vi.hoisted(() => ({
     $executeRaw: vi.fn(),
   },
 }))
+vi.mock("@/lib/credentialCrypto", async (orig) => {
+  const mod = await orig<typeof import("@/lib/credentialCrypto")>()
+  const key = Buffer.alloc(32, 7)
+  return { ...mod,
+    encryptCredentialEnvelope: async (text: string, wallet: string, label: string) => ({ blob: mod.encryptV3(text, key, wallet, label), keyId: "test-key" }),
+    decryptCredentialEnvelope: async (r: { encryptedValue: string; walletId: string; label: string }) => mod.decryptV3(r.encryptedValue, key, r.walletId, r.label),
+  }
+})
+
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/authzenRateLimit", () => ({ authzenRateLimit: vi.fn(async () => null) })) // limiter has its own tests
 vi.mock("next/server", async (orig) => {
@@ -430,8 +440,14 @@ describe("re-evaluation with context.approval", () => {
 
   const redemption = { ...escalatedTool, context: { approval: { id: "grant_1" } } }
 
+  it("rejects argument-bearing AARP requests before any grant is consumed", async () => {
+    const res = await evaluation(req("/api/access/v1/evaluation", { ...redemption, resource: { ...redemption.resource, properties: { arguments: { ref: "changed" } } } }))
+    expect(res.status).toBe(400)
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+  })
+
   it("redeems the grant atomically and permits", async () => {
-    dbMock.grant.findUnique.mockResolvedValue(activeToolGrant)
+    dbMock.grant.findUnique.mockResolvedValue({ ...activeToolGrant, resourceJson: { ...activeToolGrant.resourceJson, requestBinding: await sealToolRequest(WID, { tool: "github.merge_pr" }) } })
     const res = await evaluation(req("/api/access/v1/evaluation", redemption))
     const body = await res.json()
     expect(body.decision).toBe(true)
@@ -452,7 +468,7 @@ describe("re-evaluation with context.approval", () => {
   })
 
   it("denies an out-of-scope redemption when the tuple differs from the approval", async () => {
-    dbMock.grant.findUnique.mockResolvedValue(activeToolGrant)
+    dbMock.grant.findUnique.mockResolvedValue({ ...activeToolGrant, resourceJson: { ...activeToolGrant.resourceJson, requestBinding: await sealToolRequest(WID, { tool: "github.merge_pr" }) } })
     const other = { ...redemption, resource: { type: "tool", id: "some.other.tool" } }
     const res = await evaluation(req("/api/access/v1/evaluation", other))
     const body = await res.json()

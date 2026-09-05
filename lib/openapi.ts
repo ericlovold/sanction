@@ -181,10 +181,11 @@ export const spec = {
         properties: {
           tool: { type: "string", description: "Exact name of the tool/action about to be invoked (e.g. github.create_deployment, shell.exec)" },
           server: { type: "string", description: "MCP server or integration the tool belongs to (e.g. github, filesystem) — matched on grant redemption" },
-          arguments: { type: "object", additionalProperties: true, description: "Arguments the tool would be called with — advisory, not persisted" },
+          arguments: { type: "object", additionalProperties: true, description: "Arguments bound to a one-use approval. Encrypted at rest; reviewed by an admin in the dashboard. Not policy-evaluated. Maximum request size 64 KiB and nesting depth 32." },
+          input: { type: "object", additionalProperties: true, deprecated: true, description: "Legacy SDK alias for arguments. Send only one of input or arguments." },
           grant_id: {
             type: "string",
-            description: "One-use grant minted when a human approves the escalation. Retry the same tool (and server) with this field to consume it.",
+            description: "One-use grant minted when a human approves the escalation. Retry the same tool, server, and arguments with this field to consume it. Legacy unbound tool grants require fresh approval.",
           },
         },
       },
@@ -192,6 +193,7 @@ export const spec = {
         type: "object",
         properties: {
           authorized: { type: "boolean" },
+          approval_status: { type: "string", description: "Historical status on an idempotent replay; never permission to execute. Redeem the grant for an attempt." },
           status: { type: "string", enum: ["allowed", "denied", "escalated"] },
           request_id: { type: "string", description: "Present on escalations — poll /authorize/{id} or replay the Idempotency-Key for the terminal decision" },
           reason: { type: "string" },

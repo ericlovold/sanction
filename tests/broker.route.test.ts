@@ -8,8 +8,9 @@ const { dbMock } = vi.hoisted(() => ({
     agent: { findUnique: vi.fn(), update: vi.fn(async () => ({})) },
     wallet: { findUnique: vi.fn() },
     credentialVault: { findFirst: vi.fn() },
-    authorizationRequest: { create: vi.fn(), findUnique: vi.fn() },
+    authorizationRequest: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     tokenLog: { count: vi.fn() },
+    grant: { findUnique: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(async () => 0),
   },
@@ -32,11 +33,16 @@ vi.mock("@/lib/grants", async (orig) => {
   const mod = await orig<typeof import("../lib/grants")>()
   return { ...mod, consumeToolGrant: vi.fn(async () => ({ ok: true, grantId: "grant_1", consumedAt: new Date(), request: { id: "req_g" } })) }
 })
-vi.mock("@/lib/credentialCrypto", () => ({
-  decryptCredentialEnvelope: vi.fn(async () =>
-    JSON.stringify({ url: "https://upstream.example.com/mcp", auth_header: "authorization", auth_value: "Bearer upstream-secret" }),
-  ),
-}))
+vi.mock("@/lib/credentialCrypto", async (orig) => {
+  const mod = await orig<typeof import("@/lib/credentialCrypto")>()
+  const key = Buffer.alloc(32, 7)
+  return { ...mod,
+    encryptCredentialEnvelope: async (text: string, wallet: string, label: string) => ({ blob: mod.encryptV3(text, key, wallet, label), keyId: "test-key" }),
+    decryptCredentialEnvelope: vi.fn(async (r: { encryptedValue: string; walletId: string; label: string }) => r.label.startsWith("tool-approval:")
+      ? mod.decryptV3(r.encryptedValue, key, r.walletId, r.label)
+      : JSON.stringify({ url: "https://upstream.example.com/mcp", auth_header: "authorization", auth_value: "Bearer upstream-secret" })),
+  }
+})
 vi.mock("@/lib/rateLimit", () => ({ clientIp: () => "1.2.3.4", rateLimit: vi.fn(async () => ({ ok: true })) }))
 // STABLE-1: the spend ladder has its own suite; here we only prove the broker
 // routes an upstream 402 through it and honors the verdict.
@@ -245,4 +251,38 @@ describe("/mcp/broker/[upstream] — the x402 spend gate (STABLE-1)", () => {
     expect(spendMock).not.toHaveBeenCalled()
     expect(await res.text()).toContain("subscription required")
   })
+})
+
+
+it("reports unknown outcome after a forwarding failure without retrying", async () => {
+  vi.mocked(global.fetch).mockRejectedValueOnce(new Error("timeout with sensitive detail"))
+  const res = await brokerPOST(rpc("tools/call", { name: "read", _meta: { "sanction/grant_id": "grant_1" } }), ctx)
+  const body = await res.json()
+  expect(body.result.isError).toBe(true)
+  expect(JSON.stringify(body)).toContain("TOOL_EXECUTION_OUTCOME_UNKNOWN")
+  expect(JSON.stringify(body)).not.toContain("sensitive detail")
+  expect(global.fetch).toHaveBeenCalledTimes(1)
+})
+
+
+it("checks the actual grant binding before forwarding; only the reviewed arguments pass", async () => {
+  const { sealToolRequest } = await import("../lib/toolRequest")
+  const mocked = await import("../lib/grants")
+  const actual = await vi.importActual<typeof import("../lib/grants")>("../lib/grants")
+  const request = { tool: "deploy.production", server: "github", arguments: { ref: "abc", target: "staging" } }
+  dbMock.grant.findUnique.mockResolvedValue({ id: "g", walletId: "wallet_1", agentId: "agent_1", status: "active", actionType: "tool.invoke", sourceType: "authorization_request", sourceId: "r", expiresAt: null, resourceJson: { requestBinding: await sealToolRequest("wallet_1", request) } })
+  dbMock.grant.updateMany.mockResolvedValue({ count: 1 })
+  dbMock.authorizationRequest.update.mockResolvedValue({ id: "r" })
+  vi.mocked(mocked.consumeToolGrant).mockImplementationOnce(actual.consumeToolGrant)
+  const denied = await brokerPOST(rpc("tools/call", { name: request.tool, arguments: { ...request.arguments, target: "production" }, _meta: { "sanction/grant_id": "g" } }), ctx)
+  expect(JSON.stringify(await denied.json())).toContain("GRANT_MISMATCH")
+  expect(global.fetch).not.toHaveBeenCalled()
+  expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+  vi.mocked(mocked.consumeToolGrant).mockImplementationOnce(actual.consumeToolGrant)
+  const allowed = await brokerPOST(rpc("tools/call", { name: request.tool, arguments: { target: "staging", ref: "abc" }, _meta: { "sanction/grant_id": "g" } }), ctx)
+  expect((await allowed.json()).result.isError).not.toBe(true)
+  expect(global.fetch).toHaveBeenCalledTimes(1)
+  const forwarded = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]!.body as string)
+  expect(forwarded.params.arguments).toEqual(request.arguments)
+  expect(forwarded.params._meta).toBeUndefined()
 })
