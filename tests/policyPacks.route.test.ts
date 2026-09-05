@@ -27,6 +27,8 @@ vi.mock("@/lib/policy", async (orig) => {
 
 import { policyInputSchema } from "../lib/policy"
 import { POLICY_PACKS, findPack } from "../lib/policyPacks"
+import { decideCapability, parseCapabilityRules } from "../lib/capability"
+import { decideTool } from "../lib/toolDecisions"
 import { decisionEvidence } from "../lib/evidence"
 import { GET as catalog } from "../app/api/v1/policy/packs/route"
 import { POST as preview } from "../app/api/v1/policy/packs/[id]/preview/route"
@@ -141,5 +143,29 @@ describe("POST /v1/policy/packs/{id}/apply", () => {
     applyMock.mockResolvedValue({ ok: false as const, error: "Invalid policy" })
     const res = await apply(post("/x", { wallet_id: WID }), params("team-workspace"))
     expect(res.status).toBe(400)
+  })
+})
+
+
+describe("coding-agent pack decisions", () => {
+  const policy = findPack("coding-agent-seat")!.policy
+  it.each(["skill:install:demo", "plugin:add:browser", "plugin:browser", "mcp:add:github", "mcp:server:add:github", "api:new.example", "unknown:power"])("requires approval for %s independently of spend", (capability) => {
+    expect(decideCapability({ capability, rules: parseCapabilityRules(policy.capability_rules) }))
+      .toMatchObject({ status: "escalated", code: "CAPABILITY_ESCALATION_REQUIRED" })
+  })
+  it.each(["rm -rf /", "shell.exec", "shell:exec", "bash", "github.delete_repository", "unknown", "filesystem.read_file; rm -rf /"])("denies %s", (tool) => {
+    expect(decideTool({ tool, allowedTools: policy.allowed_tools!, blockedTools: policy.blocked_tools!, escalateTools: policy.escalate_tools! }).status).toBe("denied")
+  })
+  it("allows a named read through the real ladder", () => {
+    expect(decideTool({ tool: "filesystem.read_file", allowedTools: policy.allowed_tools!, blockedTools: policy.blocked_tools!, escalateTools: policy.escalate_tools! }).status).toBe("allowed")
+  })
+  it("applies enforcement and restrictive lists through the existing owner path", async () => {
+    const res = await apply(post("/x", { wallet_id: WID }), params("coding-agent-seat"))
+    expect(res.status).toBe(200)
+    expect(applyMock).toHaveBeenCalledWith(WID, expect.objectContaining({
+      enforcement_mode: "enforce", allowed_tools: policy.allowed_tools,
+      capability_rules: policy.capability_rules, per_transaction_max_usd: 50,
+      daily_spend_budget_usd: 50, daily_token_budget_usd: 10,
+    }))
   })
 })
