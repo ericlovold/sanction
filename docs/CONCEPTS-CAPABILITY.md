@@ -79,9 +79,8 @@ Tool lists use **exact names**. The pack permits three starter read names:
 `filesystem.list_directory`. Match these to your upstream's actual tools
 before use. Every unlisted name is denied, including shell aliases and a
 literal `rm -rf /` tool name. Sanction does not inspect shell arguments;
-read-tool arguments are not constrained by this pack either. Tool grants bind
-the tool and server, not arguments. Do not treat approval of a generic shell
-tool as approval of one specific command.
+read-tool arguments are not constrained by this pack either. Approval of a
+generic shell invocation does not contain its filesystem or network effects.
 
 The spend baseline is $10 auto-approval, a $25 escalation threshold, $50
 per-transaction and daily spend caps, and a $10 daily token budget. Pack
