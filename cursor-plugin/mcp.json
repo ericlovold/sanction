@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sanction": {
+      "url": "https://getsanction.com/mcp",
+      "headers": {
+        "x-api-key": "${SANCTION_AGENT_KEY}"
+      }
+    }
+  }
+}
