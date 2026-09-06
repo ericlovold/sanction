@@ -7,6 +7,13 @@ import { getViewWallet } from "@/lib/session"
 import { fmtUsd } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
 import { getRoster, type RosterAgent, type RosterGroup } from "@/lib/roster"
+import { FirstHourChecklist } from "@/components/first-hour-checklist"
+import {
+  looksLikeCodingAgentPack,
+  shouldShowFirstHourChecklist,
+  type FirstHourSignals,
+} from "@/lib/firstHour"
+import { withTenant } from "@/lib/rls"
 import { OnboardingTour, TourLauncher } from "./onboarding-tour"
 import { FunnelBeacon } from "@/components/funnel-beacon"
 import { FUNNEL } from "@/lib/funnel"
@@ -115,6 +122,33 @@ export default async function Dashboard() {
   const isDemo = !view.isSession && process.env.SANCTION_WALLET_ID === view.id
   const canAdd = hasRole(view.role, "admin")
 
+  const [policy, slackCount, webhookCount, decisionCount, tokenCount] = await Promise.all([
+    db.policy.findUnique({
+      where: { walletId: view.id },
+      select: { allowedTools: true, blockedTools: true, capabilityRules: true },
+    }),
+    withTenant(view.id, (tx) => tx.slackInstall.count({ where: { walletId: view.id, revokedAt: null } })).catch(() => 0),
+    db.webhook.count({ where: { walletId: view.id } }),
+    db.authorizationRequest.count({ where: { agent: { walletId: view.id } } }),
+    db.tokenLog.count({ where: { agent: { walletId: view.id } } }),
+  ])
+
+  const firstHour: FirstHourSignals = {
+    hasAgent: roster.agentCount > 0,
+    hasDecision: decisionCount > 0,
+    hasSlack: slackCount > 0,
+    hasWebhook: webhookCount > 0,
+    hasGatewayUsage: tokenCount > 0,
+    codingAgentPackApplied: policy
+      ? looksLikeCodingAgentPack({
+          allowedTools: policy.allowedTools,
+          blockedTools: policy.blockedTools,
+          capabilityRules: policy.capabilityRules,
+        })
+      : false,
+  }
+  const showFirstHour = shouldShowFirstHourChecklist(firstHour, { isSession: view.isSession, isDemo })
+
   return (
     <div className="roster px-6 py-8">
       {isDemo && <FunnelBeacon event={FUNNEL.demoView} />}
@@ -134,6 +168,8 @@ export default async function Dashboard() {
           </div>
           <TourLauncher />
         </div>
+
+        {showFirstHour && <FirstHourChecklist signals={firstHour} />}
 
         {roster.pendingTotal > 0 && (
           <Link

@@ -155,7 +155,7 @@ export async function sendTestEscalationAction(_prev: ApprovalActionState, _form
   )
 
   revalidatePath("/dashboard/approvals")
-  return { ok: true, message: `Test escalation sent as ${agent.name} ($${amountUsd}). Approve or deny it in Slack — the grant shows up here.` }
+  return { ok: true, message: `Test escalation sent as ${agent.name} ($${amountUsd}). It is in Approvals and on its way to email (and Slack, if connected).` }
 }
 
 // Request contents are decrypted only on an explicit, admin-authorized read.

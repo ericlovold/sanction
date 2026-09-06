@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-06",
+    title: "First hour: roster checklist and an Approvals inbox that is not empty",
+    tags: ["onboarding", "approvals"],
+    body: "After **/start**, the roster now lists the next three clicks: see a decision, connect Slack / the gateway / MCP, then apply the **coding-agent pack**. The Approvals empty state is no longer a dead end — **Send a test escalation** lives on the inbox itself (email works without Slack). The pack step does not claim tool governance until the policy actually matches Coding agent seat. Hosted MCP stays cooperative; the broker intercepts `tools/call`.",
+  },
+  {
     date: "2026-09-02",
     title: "Slack proves itself in one click",
     tags: ["slack", "approvals", "onboarding"],

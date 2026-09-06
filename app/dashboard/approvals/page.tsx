@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { NoWallet } from "@/components/no-wallet"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
+import { TestEscalationControl } from "@/components/test-escalation"
 import { WebhookSettings } from "@/components/webhook-settings"
+import { approvalsEmptyCopy } from "@/lib/firstHour"
 import { listPendingApprovals } from "@/lib/approvals"
 import { withTenant } from "@/lib/rls"
 import { getViewWallet } from "@/lib/session"
@@ -112,7 +114,7 @@ export default async function ApprovalsPage({
 
   // Runs after listPendingApprovals on purpose: that read settles expired
   // escalations, and the resolved list below should include them.
-  const [resolved, webhooks, slackInstalls, orgPendingRows] = await Promise.all([
+  const [resolved, webhooks, slackInstalls, orgPendingRows, agentCount] = await Promise.all([
     db.pendingApproval.findMany({
       // Subtree-wide, like the pending inbox above it: a decision made here on
       // a pool's escalation must not vanish from the page that made it.
@@ -149,6 +151,7 @@ export default async function ApprovalsPage({
           include: { agent: { select: { name: true } }, wallet: { select: { name: true } } },
         })
       : [],
+    db.agent.count({ where: { walletId, isActive: true } }),
   ])
 
   // Descendant escalations, in the same shape the queue renders, tagged with the
@@ -338,7 +341,23 @@ export default async function ApprovalsPage({
           <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{allPending.length}</Badge>
         )}
       </div>
-      <ApprovalQueue pending={allPending} editable={hasRole(view.role, "admin")} focusId={review} />
+      <ApprovalQueue
+        pending={allPending}
+        editable={hasRole(view.role, "admin")}
+        focusId={review}
+        empty={{
+          ...approvalsEmptyCopy({ hasAgent: agentCount > 0, editable: hasRole(view.role, "admin") }),
+          action: hasRole(view.role, "admin")
+            ? agentCount > 0
+              ? <TestEscalationControl />
+              : (
+                <Link href="/dashboard" className="text-xs font-medium text-foreground underline underline-offset-2">
+                  Add an agent on the roster →
+                </Link>
+              )
+            : undefined,
+        }}
+      />
 
       <Card className="bg-card border-border">
         <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
