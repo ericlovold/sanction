@@ -110,6 +110,7 @@ export function CreateWallet() {
           <Link href="/" className="sanction-link text-sm">Back to home</Link>
         </div>
         <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+          The roster lists the next clicks — a test decision, then Slack or MCP, then the coding-agent pack.
           You&apos;re signed in on this device. To return later, go to <span className="font-mono">/login</span> and paste your management key.
         </p>
       </div>

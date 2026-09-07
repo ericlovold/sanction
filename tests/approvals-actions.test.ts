@@ -161,6 +161,9 @@ describe("sendTestEscalationAction — SLACK-2, prove the loop", () => {
     expect(events).toEqual(["approval.created", "escalation.created"])
     expect(vi.mocked(deliverEvent).mock.calls[0][2]).toMatchObject({ approval_id: "pa_t", request_id: "req_t", approve_url: "https://test.local/approve?review=req_t" })
     expect(revalidateMock).toHaveBeenCalledWith("/dashboard/approvals")
+    expect(res.message).toMatch(/Approvals/)
+    expect(res.message).toMatch(/email/)
+    expect(res.message).not.toMatch(/Approve or deny it in Slack/)
   })
 })
 

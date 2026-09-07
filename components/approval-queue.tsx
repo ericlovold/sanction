@@ -1,8 +1,10 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { useOptimistic, useActionState, useEffect, useRef, useState } from "react"
 import { Check, Plus, X } from "lucide-react"
 import { reviewToolRequestAction, resolveApprovalAction, type ApprovalActionState } from "@/app/dashboard/approvals/actions"
+import { EmptyState } from "@/components/ui/empty-state"
 
 export type PendingApproval = {
   id: string
@@ -260,7 +262,17 @@ function ApprovalRow({
   )
 }
 
-export function ApprovalQueue({ pending, editable, focusId }: { pending: PendingApproval[]; editable: boolean; focusId?: string }) {
+export function ApprovalQueue({
+  pending,
+  editable,
+  focusId,
+  empty,
+}: {
+  pending: PendingApproval[]
+  editable: boolean
+  focusId?: string
+  empty?: { title: string; hint: string; action?: ReactNode }
+}) {
   // Optimistic list: a submitted decision removes its card immediately; the
   // server action + revalidation settle the real state behind it.
   const [visible, removeOptimistic] = useOptimistic(pending, (current, id: string) =>
@@ -277,15 +289,11 @@ export function ApprovalQueue({ pending, editable, focusId }: { pending: Pending
   }, [focusId, pending])
 
   if (visible.length === 0) {
-    return (
-      <div className="rounded-md border border-border bg-card p-10 text-center">
-        <p className="text-sm text-muted-foreground">Nothing waiting</p>
-        <p className="mt-1 font-mono text-xs text-muted-foreground">
-          When an agent&apos;s request crosses your policy&apos;s escalation line it lands here, and the agent
-          waits on your decision. Add a webhook below to get pinged the moment that happens.
-        </p>
-      </div>
-    )
+    const title = empty?.title ?? "Nothing waiting"
+    const hint =
+      empty?.hint ??
+      "When an agent's request crosses your policy's escalation line it lands here, and the agent waits on your decision."
+    return <EmptyState title={title} hint={hint} action={empty?.action} />
   }
   return (
     <div className="space-y-3">
