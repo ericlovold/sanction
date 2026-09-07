@@ -1,0 +1,34 @@
+{
+  "name": "sanction",
+  "displayName": "Sanction",
+  "version": "0.1.0",
+  "description": "Independent authorization plane for AI agents — approve, escalate, or deny spend, tools, credentials, and provisioning. Wires the hosted wallet MCP; the host must ask before acting.",
+  "author": {
+    "name": "Sanction / getsanction.com (ericlovold)"
+  },
+  "homepage": "https://getsanction.com",
+  "repository": "https://github.com/ericlovold/sanction",
+  "license": "MIT",
+  "keywords": [
+    "sanction",
+    "mcp",
+    "authorization",
+    "agent-orchestration",
+    "wallet",
+    "spend",
+    "governance"
+  ],
+  "category": "Agent Orchestration",
+  "logo": "assets/logo.svg",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "SANCTION_AGENT_KEY": {
+        "type": "string",
+        "title": "Sanction agent key (secret)",
+        "description": "Secret. Agent API key from the Sanction console (pxy_…). Create a wallet, then an agent, and paste the key here. Never commit this value."
+      }
+    },
+    "required": ["SANCTION_AGENT_KEY"]
+  }
+}

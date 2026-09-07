@@ -274,6 +274,7 @@ Full schemas: [`/api/openapi.json`](https://getsanction.com/api/openapi.json).
 
 The agent carries a Sanction wallet. Discovery: `GET /.well-known/wallet-card.json`.
 stdio MCP is cooperative — the host must ask before acting.
+Cursor plugin (MCP + skills): [`cursor-plugin/`](cursor-plugin/).
 
 ```json
 {

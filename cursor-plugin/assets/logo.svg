@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Sanction">
+  <rect width="128" height="128" rx="28" fill="#18181b"/>
+  <path
+    fill="none"
+    stroke="#10b981"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    d="M88 40c0-10-10-16-24-16s-24 7-24 16c0 22 48 12 48 36 0 12-11 20-24 20s-26-8-26-18"
+  />
+</svg>
