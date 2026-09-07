@@ -20,6 +20,15 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
+      // Pricing lives on the platform page. Bookmarks and old nav still hit
+      // /pricing; send them to the section, not a bare Next.js 404. Different
+      // path than /platform, so the hash does not loop (browsers omit fragments
+      // on the follow-up request).
+      {
+        source: "/pricing",
+        destination: "/platform#pricing",
+        permanent: true,
+      },
       // 2026-08: the Moral Intention Analyst moved to its own site, so this
       // repo is the authorization product only. Permanent, and cross-origin —
       // anything still linking to the old page lands on the real one instead
