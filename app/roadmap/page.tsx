@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { DocsHeader } from "@/components/docs-header"
 import { IdeaBoard } from "@/components/idea-board"
+import { Markdown } from "@/components/markdown"
 import { ROADMAP, type RoadmapItem } from "@/lib/roadmap"
 import { listPublishedIdeas } from "@/lib/ideas"
 
@@ -28,7 +29,9 @@ function Column({ label, tone, items }: { label: string; tone: string; items: Ro
         {items.map((it) => (
           <div key={it.title}>
             <p className="text-sm font-medium text-zinc-100">{it.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{it.note}</p>
+            <div className="mt-0.5 text-xs leading-relaxed text-zinc-500 [&_p]:my-0 [&_p]:text-xs [&_p]:leading-relaxed [&_p]:text-zinc-500 [&_code]:text-[0.85em]">
+              <Markdown source={it.note} />
+            </div>
           </div>
         ))}
       </div>
