@@ -125,7 +125,7 @@ export default async function Dashboard() {
   const [policy, slackCount, webhookCount, decisionCount, tokenCount] = await Promise.all([
     db.policy.findUnique({
       where: { walletId: view.id },
-      select: { allowedTools: true, blockedTools: true, capabilityRules: true },
+      select: { allowedTools: true, blockedTools: true, capabilityRules: true, enforcementMode: true },
     }),
     withTenant(view.id, (tx) => tx.slackInstall.count({ where: { walletId: view.id, revokedAt: null } })).catch(() => 0),
     db.webhook.count({ where: { walletId: view.id } }),
@@ -141,6 +141,7 @@ export default async function Dashboard() {
     hasGatewayUsage: tokenCount > 0,
     codingAgentPackApplied: policy
       ? looksLikeCodingAgentPack({
+          enforcementMode: policy.enforcementMode,
           allowedTools: policy.allowedTools,
           blockedTools: policy.blockedTools,
           capabilityRules: policy.capabilityRules,
