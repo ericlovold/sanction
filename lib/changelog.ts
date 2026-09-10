@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-09",
+    title: "Prove one governed tool call",
+    tags: ["broker", "onboarding", "approvals"],
+    body: "Admins can run a harmless broker walkthrough from the roster: pause a virtual file read, review its exact arguments, approve it, and verify one execution. Changed arguments and grant reuse must be refused before the walkthrough is marked complete. The upstream records its own call count; the result survives reload. The test pool inherits existing restrictions, and the test agent expires after one hour. This proves the controlled broker path only, not traffic outside Sanction.",
+  },
+  {
     date: "2026-09-06",
     title: "First hour: roster checklist and an Approvals inbox that is not empty",
     tags: ["onboarding", "approvals"],

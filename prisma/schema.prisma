@@ -728,3 +728,25 @@ model IdeaVote {
   @@unique([ideaId, voterKey])
   @@index([ideaId])
 }
+
+// Bounded onboarding proof. Credentials are encrypted; only the harmless
+// upstream increments executionCount. This is not a general execution ledger.
+model BrokerWalkthrough {
+  id String @id @default(cuid())
+  ownerWalletId String
+  testWalletId String @unique
+  agentId String @unique
+  upstreamTokenHash String
+  encryptedAgentKey String?
+  keyId String?
+  state String @default("initializing")
+  requestId String?
+  initialStopped Boolean @default(false)
+  changedStopped Boolean @default(false)
+  reuseStopped Boolean @default(false)
+  executionCount Int @default(0)
+  completedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([ownerWalletId, createdAt])
+}
