@@ -20,13 +20,13 @@ const emptySignals: FirstHourSignals = {
 
 describe("looksLikeCodingAgentPack", () => {
   it("rejects the default empty tool and capability lists", () => {
-    expect(looksLikeCodingAgentPack({ allowedTools: [], blockedTools: [], capabilityRules: [] })).toBe(false)
+    expect(looksLikeCodingAgentPack({ enforcementMode: "enforce", allowedTools: [], blockedTools: [], capabilityRules: [] })).toBe(false)
   })
 
   it("rejects a spend-only tweak that never set tool or capability rails", () => {
     expect(
       looksLikeCodingAgentPack({
-        allowedTools: [],
+        enforcementMode: "enforce", allowedTools: [],
         blockedTools: [],
         capabilityRules: [{ pattern: "*", effect: "escalate" }],
       }),
@@ -38,11 +38,43 @@ describe("looksLikeCodingAgentPack", () => {
     expect(pack).not.toBeNull()
     expect(
       looksLikeCodingAgentPack({
+        enforcementMode: pack!.policy.enforcement_mode ?? "enforce",
         allowedTools: pack!.policy.allowed_tools ?? [],
         blockedTools: pack!.policy.blocked_tools ?? [],
         capabilityRules: pack!.policy.capability_rules ?? [],
       }),
     ).toBe(true)
+  })
+})
+
+describe("coding-agent policy truth", () => {
+  const pack = findPack("coding-agent-seat")!.policy
+  const policy = {
+    enforcementMode: "enforce",
+    allowedTools: pack.allowed_tools!,
+    blockedTools: pack.blocked_tools!,
+    capabilityRules: pack.capability_rules!,
+  }
+
+  it.each(["observe", "", "unknown"])("rejects %s mode", (enforcementMode) => {
+    expect(looksLikeCodingAgentPack({ ...policy, enforcementMode })).toBe(false)
+  })
+
+  it.each(["allow", "block", "invalid"])("rejects patterns with %s effects", (effect) => {
+    const capabilityRules = policy.capabilityRules.map((rule) => ({ ...rule, effect }))
+    expect(looksLikeCodingAgentPack({ ...policy, capabilityRules })).toBe(false)
+  })
+
+  it("requires each acquisition namespace and the fallback to escalate", () => {
+    for (const changed of policy.capabilityRules) {
+      const capabilityRules = policy.capabilityRules.map((rule) => rule === changed ? { ...rule, effect: "allow" } : rule)
+      expect(looksLikeCodingAgentPack({ ...policy, capabilityRules })).toBe(false)
+    }
+  })
+
+  it("does not normalize patterns differently from the engine", () => {
+    const capabilityRules = policy.capabilityRules.map((rule) => ({ ...rule, pattern: ` ${rule.pattern} ` }))
+    expect(looksLikeCodingAgentPack({ ...policy, capabilityRules })).toBe(false)
   })
 })
 

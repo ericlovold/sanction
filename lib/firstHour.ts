@@ -1,3 +1,5 @@
+import { parseCapabilityRules } from "./capability"
+
 // First-hour continuity: the three clicks after /start. Pure over wallet
 // signals so the roster checklist and Approvals empty state cannot drift,
 // and so we can unit-test the honesty rules without rendering the console.
@@ -36,28 +38,19 @@ export type FirstHourStep = {
 }
 
 export type CodingAgentPolicyShape = {
+  enforcementMode: string
   allowedTools: string[]
   blockedTools: string[]
   capabilityRules: unknown
 }
 
-function capabilityPatterns(rules: unknown): string[] {
-  if (!Array.isArray(rules)) return []
-  const out: string[] = []
-  for (const row of rules) {
-    if (!row || typeof row !== "object") continue
-    const pattern = (row as { pattern?: unknown }).pattern
-    if (typeof pattern === "string" && pattern.trim()) out.push(pattern.trim())
-  }
-  return out
-}
-
 /** Distinctive coding-agent-seat posture — not the default empty tool/capability lists. */
 export function looksLikeCodingAgentPack(policy: CodingAgentPolicyShape): boolean {
+  if (policy.enforcementMode !== "enforce") return false
   const allowed = new Set(policy.allowedTools)
   if (!CODING_AGENT_STARTER_READS.every((name) => allowed.has(name))) return false
   if (!policy.blockedTools.includes(CODING_AGENT_SHELL_DENY)) return false
-  const patterns = new Set(capabilityPatterns(policy.capabilityRules))
+  const patterns = new Set(parseCapabilityRules(policy.capabilityRules).filter((rule) => rule.effect === "escalate").map((rule) => rule.pattern))
   return patterns.has("skill:install:*") && patterns.has("plugin:*") && patterns.has("mcp:add:*") && patterns.has("*")
 }
 
