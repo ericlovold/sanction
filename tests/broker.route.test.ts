@@ -49,6 +49,7 @@ vi.mock("@/lib/rateLimit", () => ({ clientIp: () => "1.2.3.4", rateLimit: vi.fn(
 const { spendMock } = vi.hoisted(() => ({ spendMock: vi.fn() }))
 vi.mock("@/app/api/v1/authorize/route", () => ({ POST: spendMock }))
 
+import { LIST_ACTION, LIST_FILTER_META_KEY } from "../lib/brokerListFilter"
 import { POST as brokerPOST } from "../app/mcp/broker/[upstream]/route"
 
 const KEY = "pxy_" + "b".repeat(64)
@@ -146,8 +147,8 @@ describe("/mcp/broker/[upstream] — interception before forwarding", () => {
     expect(forwarded.params._meta).toBeUndefined()
   })
 
-  it("initialize and tools/list pass through untouched", async () => {
-    const res = await brokerPOST(rpc("tools/list"), ctx)
+  it("initialize still forwards untouched", async () => {
+    const res = await brokerPOST(rpc("initialize", { protocolVersion: "2025-03-26" }), ctx)
     expect(res.status).toBe(200)
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
@@ -178,6 +179,84 @@ describe("/mcp/broker/[upstream] — interception before forwarding", () => {
         method: "POST",
         headers: { "x-api-key": KEY, "content-type": "application/json" },
         body: JSON.stringify([{ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "x" } }]),
+      }),
+      ctx,
+    )
+    expect(res.status).toBe(400)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+})
+
+const upstreamList = (tools: { name: string; description?: string }[] | string) =>
+  vi.fn(async () =>
+    new Response(typeof tools === "string" ? tools : JSON.stringify({ jsonrpc: "2.0", id: 1, result: { tools } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  ) as never
+
+describe("/mcp/broker/[upstream] — tools/list filtering (BROKER-2)", () => {
+  it("withholds a blocked tool from the list and persists a readable deny receipt", async () => {
+    global.fetch = upstreamList([
+      { name: "github.read_file", description: "read" },
+      { name: "payments.charge", description: "charge" },
+    ])
+    const res = await brokerPOST(rpc("tools/list", {}, 11), ctx)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual(["github.read_file"])
+    expect(JSON.stringify(body.result.tools)).not.toContain("payments.charge")
+
+    const meta = body.result._meta[LIST_FILTER_META_KEY]
+    expect(meta.withheld).toBe(1)
+    const deny = meta.receipts.find((r: { what: { tool: string } }) => r.what.tool === "payments.charge")
+    expect(deny.who).toEqual({ agent_id: "agent_1", agent: "tenet", wallet_id: "wallet_1" })
+    expect(deny.what).toMatchObject({ surface: "mcp.broker.tools/list", upstream: "github", tool: "payments.charge" })
+    expect(deny.why).toMatchObject({ effect: "deny", code: "TOOL_BLOCKED", visible: false })
+    expect(typeof deny.when).toBe("string")
+    expect(Number.isNaN(Date.parse(deny.when))).toBe(false)
+
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+    const persisted = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(persisted.action).toBe(LIST_ACTION)
+    expect(persisted.status).toBe("denied")
+    expect(persisted.detailsJson.withheld).toEqual(["payments.charge"])
+    expect(persisted.detailsJson.receipts[1].why.code).toBe("TOOL_BLOCKED")
+    expect(res.headers.get("x-sanction-request-id")).toBe("req_1")
+  })
+
+  it("an allow-list hides unlisted tools at list-time (fail-closed)", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({
+      ...AGENT,
+      wallet: { ...AGENT.wallet, policy: { ...AGENT.wallet.policy, allowedTools: ["repo.read"] } },
+    })
+    global.fetch = upstreamList([{ name: "repo.read" }, { name: "shell.exec" }, { name: "payments.charge" }])
+    const res = await brokerPOST(rpc("tools/list"), ctx)
+    const body = await res.json()
+    expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual(["repo.read"])
+    const meta = body.result._meta[LIST_FILTER_META_KEY]
+    expect(meta.listed).toBe(1)
+    expect(meta.withheld).toBe(2)
+    const unlisted = meta.receipts.find((r: { what: { tool: string } }) => r.what.tool === "shell.exec")
+    expect(unlisted.why.code).toBe("TOOL_NOT_ALLOWED")
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("unparseable upstream tools/list fails closed — empty tools, never a leak", async () => {
+    global.fetch = upstreamList("this is not jsonrpc")
+    const res = await brokerPOST(rpc("tools/list", {}, 12), ctx)
+    const body = await res.json()
+    expect(body.result.tools).toEqual([])
+    expect(body.result._meta[LIST_FILTER_META_KEY].receipts[0].why.code).toBe("TOOL_LIST_UNPARSEABLE")
+    expect(JSON.stringify(body)).not.toContain("this is not jsonrpc")
+  })
+
+  it("a batched tools/list is refused, not smuggled unfiltered", async () => {
+    const res = await brokerPOST(
+      new NextRequest("https://test.local/mcp/broker/github", {
+        method: "POST",
+        headers: { "x-api-key": KEY, "content-type": "application/json" },
+        body: JSON.stringify([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]),
       }),
       ctx,
     )

@@ -1,10 +1,12 @@
-// BROKER-1: the hosted MCP broker — Sanction fronts another MCP server and
-// INTERCEPTS tools/call through the same tool-authorization shell the REST
-// route uses, the way the LLM gateway already intercepts inference. This is
-// the slice that makes "a hijacked agent cannot spend" true for MCP traffic
-// that flows through the broker: the host configures the broker URL instead
-// of the upstream, holds only its Sanction agent key, and the wallet carries
-// the upstream credential.
+// BROKER-1 + BROKER-2: the hosted MCP broker — Sanction fronts another MCP
+// server and INTERCEPTS tools/call (BROKER-1) and tools/list (BROKER-2 spike)
+// through the same tool-authorization ladder the REST route uses, the way
+// the LLM gateway already intercepts inference. This is the slice that
+// makes "a hijacked agent cannot spend" true for MCP traffic that flows
+// through the broker: the host configures the broker URL instead of the
+// upstream, holds only its Sanction agent key, and the wallet carries the
+// upstream credential. tools/list is filtered fail-closed to the policy
+// allow-list so the host never sees a tool the ladder would refuse.
 //
 // Two security invariants, load-bearing:
 //   1. Outbound upstream headers are BUILT FRESH, never copied from the
@@ -75,6 +77,7 @@ type JsonRpcMessage = {
 
 export type BrokerCall =
   | { kind: "tools_call"; id: string | number | null; tool: string; args?: Record<string, unknown>; grantId?: string }
+  | { kind: "tools_list"; id: string | number | null }
   | { kind: "passthrough" }
   | { kind: "invalid"; reason: string }
 
@@ -83,18 +86,25 @@ export const GRANT_META_KEY = "sanction/grant_id"
 
 /**
  * Classify one JSON-RPC message. Batches are passed through untouched only
- * when they contain no tools/call — a batched tools/call is refused rather
- * than silently forwarded around the ladder (fail closed, never around).
+ * when they contain no tools/call and no tools/list — a batched intercept
+ * method is refused rather than silently forwarded around the ladder
+ * (fail closed, never around).
  */
 export function classifyBrokerBody(body: unknown): BrokerCall {
   if (Array.isArray(body)) {
     const hasToolsCall = body.some((m) => (m as JsonRpcMessage)?.method === "tools/call")
-    return hasToolsCall
-      ? { kind: "invalid", reason: "Batched tools/call is not supported through the broker; send it as a single request" }
+    if (hasToolsCall) {
+      return { kind: "invalid", reason: "Batched tools/call is not supported through the broker; send it as a single request" }
+    }
+    const hasToolsList = body.some((m) => (m as JsonRpcMessage)?.method === "tools/list")
+    return hasToolsList
+      ? { kind: "invalid", reason: "Batched tools/list is not supported through the broker; send it as a single request" }
       : { kind: "passthrough" }
   }
   const msg = body as JsonRpcMessage
-  if (!msg || typeof msg !== "object" || msg.method !== "tools/call") return { kind: "passthrough" }
+  if (!msg || typeof msg !== "object") return { kind: "passthrough" }
+  if (msg.method === "tools/list") return { kind: "tools_list", id: msg.id ?? null }
+  if (msg.method !== "tools/call") return { kind: "passthrough" }
   const tool = msg.params?.name
   if (typeof tool !== "string" || tool.length === 0) {
     return { kind: "invalid", reason: "tools/call requires params.name" }
