@@ -167,3 +167,7 @@ single source of truth is `vitest.config.ts`; branches is the binding floor.
 Keep this line, `CONTRIBUTING.md`, and the README in step with it. Static page-content modules
 (changelog, roadmap, docs, integrations, auth-client stub) are excluded from
 measurement — they hold prose and SVG paths, not decisions.
+
+## Broker walkthrough
+
+`lib/brokerWalkthrough.ts` and `/dashboard/walkthrough` prove the existing broker approval loop with a harmless upstream that records its own invocation count. Completion requires an initial stop, argument-mismatch refusal without grant consumption, one execution, and reuse refusal. `tests/broker-walkthrough.db.test.ts` covers the real decision/approval/grant paths, concurrent clicks, inherited denial, tenant ownership and reparenting, expiry, and uncertain outcomes. Unit tests cover the upstream credential boundary and admin action authority. See [the walkthrough guide](BROKER-WALKTHROUGH.md) for its limits.

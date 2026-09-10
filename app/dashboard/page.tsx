@@ -118,6 +118,10 @@ export default async function Dashboard() {
     })
   }
 
+  const brokerProof = await db.brokerWalkthrough.findFirst({
+    where: { ownerWalletId: view.id, completedAt: { not: null }, executionCount: 1, initialStopped: true, changedStopped: true, reuseStopped: true },
+    select: { id: true },
+  })
   const roster = await getRoster(view.id)
   const isDemo = !view.isSession && process.env.SANCTION_WALLET_ID === view.id
   const canAdd = hasRole(view.role, "admin")
@@ -156,6 +160,7 @@ export default async function Dashboard() {
       <OnboardingTour autoStart={isDemo || roster.agentCount === 0} />
 
       <div className="mx-auto max-w-5xl space-y-6">
+        {canAdd && <Link href="/dashboard/walkthrough" className="text-sm underline">{brokerProof ? "Broker walkthrough verified" : "Prove a governed tool call"} →</Link>}
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--roster-brass)]">Roster</p>
