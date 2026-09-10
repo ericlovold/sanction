@@ -72,7 +72,7 @@ export function walletCard(origin: string): WalletCard {
       mcp_broker: {
         url_template: `${origin}/mcp/broker/{upstream}`,
         register: `${api}/broker/upstreams`,
-        note: "Point the host at the broker instead of the upstream MCP server: every tools/call is authorized by the wallet's policy before it is forwarded, and the upstream credential lives in the wallet's vault, never with the agent.",
+        note: "Point the host at the broker instead of the upstream MCP server: every tools/call is authorized by the wallet's policy before it is forwarded, tools/list is filtered through the same ladder (empty allow-list stays opt-in — allow all except blocked), and the upstream credential lives in the wallet's vault, never with the agent.",
       },
       rest: api,
     },
@@ -94,7 +94,7 @@ export function walletCard(origin: string): WalletCard {
       enforcement: "cooperative+broker",
       interception: "gateway+mcp-broker",
       note:
-        "Two enforcement modes, named precisely. INTERCEPTED: the LLM gateway (inference spend) and the MCP broker (`/mcp/broker/{upstream}` — tools/call is authorized before it is forwarded, so on brokered traffic a hijacked agent cannot invoke what policy forbids). COOPERATIVE: stdio MCP and the hosted wallet URL (`/mcp`) — the host must call Sanction before acting. Traffic that goes straight to an upstream without the broker is not governed; route it through the broker if it must be.",
+        "Two enforcement modes, named precisely. INTERCEPTED: the LLM gateway (inference spend) and the MCP broker (`/mcp/broker/{upstream}` — tools/call is authorized before forward; tools/list is filtered through the same ladder). Empty allow-list stays opt-in (allow all except blocked). COOPERATIVE: stdio MCP and the hosted wallet URL (`/mcp`) — the host must call Sanction before acting. Traffic that goes straight to an upstream without the broker is not governed; route it through the broker if it must be.",
     },
   }
 }

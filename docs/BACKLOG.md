@@ -631,6 +631,11 @@ as fact here.
       `mcp:<name>`; outbound headers built fresh (agent's Sanction key never
       forwarded). Remainder of this item: OAuth onboarding + tools/list
       filtering.
+      · 2026-09-10: **tools/list filtering shipped** (BROKER-2, #292) —
+      fail-closed list filter through `decideToolLayered`, receipts on
+      `_meta["sanction/list_filter"]` and `AuthorizationRequest action=list`.
+      Empty allow-list stays opt-in (allow all except blocked). Remainder
+      of this item: OAuth onboarding.
 - [ ] 2026-07-05 — Implementation kit: packaged onboarding artifacts (policy
       workshop worksheet, pilot checklist, go-live runbook). Harvest from the
       first real customer engagement rather than authoring in a vacuum.

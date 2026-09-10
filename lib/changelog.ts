@@ -27,6 +27,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     body: "Connect Claude Code and Codex through native OTLP HTTP JSON logs. Developer usage shows sessions, delivery freshness, token counts, and available client estimates, separately from governed spend. Duplicate exports count once; over-budget observations remain visible. An optional Claude Code hook and dedicated test pack pause a file read for the existing approval inbox, then redeem a grant for the exact request. Telemetry alone does not enforce policy or control subscription billing. Setup: [Developer usage](/docs/developer-usage).",
   },
   {
+    date: "2026-09-10",
+    title: "The broker now filters tools/list",
+    tags: ["mcp", "broker"],
+    body: "BROKER-2 is a production claim. On `/mcp/broker/<upstream>`, `tools/list` is filtered through the same layered tool ladder as `tools/call`. The host's picker sees only tools policy would allow or escalate; blocked, unlisted, and unnamed tools are withheld, each with a who/what/why/when receipt on `_meta[\"sanction/list_filter\"]` and an `AuthorizationRequest` (`action: list`). Unparseable, frozen, or batched lists fail closed. Empty allow-list stays the existing opt-in contract — allow all except blocked. OAuth onboarding is still Next.",
+  },
+  {
     date: "2026-09-09",
     title: "Prove one governed tool call",
     tags: ["broker", "onboarding", "approvals"],
