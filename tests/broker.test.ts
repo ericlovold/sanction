@@ -15,8 +15,12 @@ describe("classifyBrokerBody — the interception boundary", () => {
     expect(call).toEqual({ kind: "tools_call", id: 7, tool: "github.create_pr", args: { title: "x" }, grantId: "grant_1" })
   })
 
-  it("everything that is not tools/call passes through", () => {
-    for (const method of ["initialize", "tools/list", "resources/list", "ping", "notifications/initialized"]) {
+  it("tools/list is classified for fail-closed filtering, not passthrough", () => {
+    expect(classifyBrokerBody({ jsonrpc: "2.0", id: 4, method: "tools/list" })).toEqual({ kind: "tools_list", id: 4 })
+  })
+
+  it("everything that is not tools/call or tools/list passes through", () => {
+    for (const method of ["initialize", "resources/list", "ping", "notifications/initialized"]) {
       expect(classifyBrokerBody({ jsonrpc: "2.0", id: 1, method }).kind).toBe("passthrough")
     }
   })
@@ -35,6 +39,14 @@ describe("classifyBrokerBody — the interception boundary", () => {
 
   it("a batch without tools/call passes through", () => {
     expect(classifyBrokerBody([{ method: "ping", id: 1 }]).kind).toBe("passthrough")
+  })
+
+  it("a batch smuggling a tools/list is refused — fail closed, never around", () => {
+    const call = classifyBrokerBody([
+      { method: "ping", id: 1 },
+      { method: "tools/list", id: 2 },
+    ])
+    expect(call.kind).toBe("invalid")
   })
 })
 

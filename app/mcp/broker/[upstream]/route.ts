@@ -3,10 +3,25 @@ import { authenticateAgent } from "@/lib/auth"
 import { agentKeyFromMcpRequest, isBrowserMcpProbe } from "@/lib/mcpRemote"
 import { publicOrigin } from "@/lib/authzen"
 import { clientIp, rateLimit } from "@/lib/rateLimit"
-import { brokerRefusalResult, classifyBrokerBody, forwardToUpstream, loadUpstream, GRANT_META_KEY } from "@/lib/broker"
+import { brokerRefusalResult, classifyBrokerBody, forwardToUpstream, loadUpstream, GRANT_META_KEY, type UpstreamConfig } from "@/lib/broker"
+import {
+  LIST_ACTION,
+  buildFilteredListResponse,
+  failClosedEmptyList,
+  filterToolsList,
+  listFilterDetails,
+  listFilterNote,
+  parseToolsListResult,
+  parseUpstreamJsonRpc,
+  type ListFilterActor,
+  type ListFilterResult,
+} from "@/lib/brokerListFilter"
 import { POST as authorizeToolPOST } from "@/app/api/v1/authorize/tool/route"
 import { POST as authorizeSpendPOST } from "@/app/api/v1/authorize/route"
 import { gateX402Response, type SpendAuthorizer } from "@/lib/x402Gate"
+import { policyLayerChain, decideToolLayered } from "@/lib/inheritance"
+import { walletFreezeState, frozenNote } from "@/lib/freeze"
+import { db } from "@/lib/db"
 import { logger } from "@/lib/log"
 
 export const maxDuration = 60
@@ -14,10 +29,13 @@ export const maxDuration = 60
 const log = logger("mcp/broker")
 const NO_STORE = { "Cache-Control": "no-store" } as const
 
-// BROKER-1: /mcp/broker/{upstream} — the host configures THIS URL instead of
-// the upstream MCP server. Every tools/call is authorized through the same
-// shell as POST /v1/authorize/tool BEFORE anything reaches the upstream; all
-// other MCP traffic (initialize, tools/list, resources, ping) forwards.
+// BROKER-1 + BROKER-2: /mcp/broker/{upstream} — the host configures THIS URL
+// instead of the upstream MCP server. Every tools/call is authorized through
+// the same shell as POST /v1/authorize/tool BEFORE anything reaches the
+// upstream. tools/list is forwarded, then filtered fail-closed through the
+// same layered tool ladder; unlisted/blocked tools are withheld and every
+// allow/deny writes a who/what/why/when receipt. Other MCP traffic
+// (initialize, resources, ping) still forwards.
 //
 // The authorization is a direct in-process call to the REST route's handler —
 // deliberately NOT a re-implementation. One shell means broker decisions get
@@ -94,6 +112,17 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
   const call = classifyBrokerBody(body)
   if (call.kind === "invalid") return jsonRpcError(null, -32600, call.reason, 400)
 
+  if (call.kind === "tools_list") {
+    return handleToolsList(req, {
+      agent,
+      apiKey,
+      upstream,
+      upstreamName,
+      rpcId: call.id,
+      rawBody,
+    })
+  }
+
   if (call.kind === "tools_call") {
     // THE interception: the same enforcement shell as POST /v1/authorize/tool.
     const decisionRes = await authorizeToolPOST(
@@ -168,6 +197,141 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
 
   const res = await forwardToUpstream(upstream, { method: req.method, headers: req.headers, rawBody })
   return gateOrPassthrough(res, apiKey, { upstream: upstreamName, agentId: agent.id, rpcId: null })
+}
+
+type BrokerAgent = {
+  id: string
+  name: string
+  walletId: string
+  wallet: {
+    id: string
+    parentId: string | null
+    policy: {
+      currentRevision: number
+      blockedTools: string[]
+      allowedTools: string[]
+      escalateTools: string[]
+      capabilityRules: unknown
+      toolConditions?: unknown
+      enforcementMode?: string
+    } | null
+  }
+}
+
+// BROKER-2: forward tools/list, then filter through the same layered ladder
+// as tools/call. Unparseable / frozen / no-policy fail closed (empty tools,
+// never an unfiltered pass-through). x402 402s still hit the spend gate.
+async function handleToolsList(
+  req: NextRequest,
+  ctx: {
+    agent: BrokerAgent
+    apiKey: string
+    upstream: UpstreamConfig
+    upstreamName: string
+    rpcId: string | number | null
+    rawBody: string
+  },
+): Promise<Response> {
+  const who: ListFilterActor = { agent_id: ctx.agent.id, agent: ctx.agent.name, wallet_id: ctx.agent.walletId }
+  const when = new Date().toISOString()
+
+  const refuse = async (code: string, reason: string): Promise<Response> => {
+    const empty = failClosedEmptyList({ who, upstream: ctx.upstreamName, when, id: ctx.rpcId, code, reason })
+    const requestId = await persistListFilter(ctx.agent, ctx.upstreamName, empty.result, false)
+    return NextResponse.json(buildFilteredListResponse(ctx.rpcId, {}, empty.result, requestId), { status: 200, headers: NO_STORE })
+  }
+
+  const freeze = await walletFreezeState(db, ctx.agent.walletId)
+  if (freeze.frozen) return refuse("WALLET_FROZEN", frozenNote(freeze))
+  const policy = ctx.agent.wallet.policy
+  if (!policy) return refuse("NO_POLICY", "No policy configured")
+
+  let res: Response
+  try {
+    res = await forwardToUpstream(ctx.upstream, { method: req.method, headers: req.headers, rawBody: ctx.rawBody })
+  } catch {
+    return refuse("TOOL_LIST_UPSTREAM_UNREACHABLE", "The upstream tools/list could not be retrieved; withheld fail-closed")
+  }
+
+  if (res.status === 402) {
+    return gateOrPassthrough(res, ctx.apiKey, { upstream: ctx.upstreamName, agentId: ctx.agent.id, rpcId: ctx.rpcId })
+  }
+
+  const parsed = parseToolsListResult(parseUpstreamJsonRpc(await res.text(), res.headers.get("content-type")))
+  if (!parsed) {
+    return refuse("TOOL_LIST_UNPARSEABLE", "Upstream tools/list was not a JSON-RPC result with a tools array; withheld fail-closed")
+  }
+
+  const observe = policy.enforcementMode === "observe"
+  const layers = await policyLayerChain(db, { id: ctx.agent.wallet.id, parentId: ctx.agent.wallet.parentId, policy })
+  const needsCallCount = layers.some((l) => l.toolConditions.some((r) => r.when.after_model_calls_today !== undefined))
+  const signalDayStart = new Date()
+  signalDayStart.setHours(0, 0, 0, 0)
+  const signals = {
+    requestHourUtc: new Date().getUTCHours(),
+    modelCallsToday: needsCallCount
+      ? await db.tokenLog.count({ where: { agentId: ctx.agent.id, createdAt: { gte: signalDayStart } } })
+      : undefined,
+  }
+  const filtered = filterToolsList(parsed.tools, {
+    who,
+    upstream: ctx.upstreamName,
+    when,
+    observe,
+    decide: (tool) => {
+      const outcome = decideToolLayered(tool, layers, signals)
+      return { effect: outcome.effect, code: outcome.code, reason: outcome.reason }
+    },
+  })
+
+  const requestId = await persistListFilter(ctx.agent, ctx.upstreamName, filtered, observe)
+  log.info("broker filtered tools/list", {
+    agentId: ctx.agent.id,
+    upstream: ctx.upstreamName,
+    listed: filtered.listed.length,
+    withheld: filtered.withheld.length,
+    requestId,
+  })
+
+  const headers = new Headers({ "content-type": "application/json", "Cache-Control": "no-store" })
+  for (const h of ["mcp-session-id", "mcp-protocol-version"]) {
+    const v = res.headers.get(h)
+    if (v) headers.set(h, v)
+  }
+  if (requestId) headers.set("x-sanction-request-id", requestId)
+  return new Response(JSON.stringify(buildFilteredListResponse(parsed.id ?? ctx.rpcId, parsed.rest, filtered, requestId)), {
+    status: 200,
+    headers,
+  })
+}
+
+async function persistListFilter(
+  agent: BrokerAgent,
+  upstream: string,
+  filtered: ListFilterResult,
+  observe: boolean,
+): Promise<string | undefined> {
+  try {
+    const row = await db.authorizationRequest.create({
+      data: {
+        agentId: agent.id,
+        kind: "tool",
+        action: LIST_ACTION,
+        amountUsd: 0,
+        merchant: upstream,
+        category: "tool",
+        detailsJson: listFilterDetails({ upstream, observe, filtered }),
+        status: filtered.withheld.length > 0 && !observe ? "denied" : "approved",
+        decidedAt: new Date(),
+        decisionNote: listFilterNote(filtered),
+        policyRevision: agent.wallet.policy?.currentRevision ?? null,
+      },
+    })
+    return row.id
+  } catch (err) {
+    log.warn("list-filter receipt persist failed", { err: String(err) })
+    return undefined
+  }
 }
 
 // STABLE-1: a brokered upstream that answers 402 is demanding money. Price the
