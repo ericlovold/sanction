@@ -84,7 +84,7 @@ export function DashboardSidebar({
       {/* Desktop: the deep-pine control rail framing the light workpaper */}
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-0 text-sidebar-foreground md:flex">
         <div className="border-b border-sidebar-border px-4 py-4">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_var(--sidebar-primary)]" />
             <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[16px] w-auto" />
           </Link>
@@ -111,7 +111,7 @@ export function DashboardSidebar({
       {/* Mobile: top bar with a horizontally scrollable nav */}
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground backdrop-blur md:hidden">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-sidebar-primary" />
             <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[16px] w-auto" />
           </Link>
