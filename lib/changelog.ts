@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-11",
+    title: "Developer usage and a native approval test",
+    tags: ["usage", "integrations", "approvals"],
+    body: "Connect Claude Code and Codex through native OTLP HTTP JSON logs. Developer usage shows sessions, delivery freshness, token counts, and available client estimates, separately from governed spend. Duplicate exports count once; over-budget observations remain visible. An optional Claude Code hook and dedicated test pack pause a file read for the existing approval inbox, then redeem a grant for the exact request. Telemetry alone does not enforce policy or control subscription billing. Setup: [Developer usage](/docs/developer-usage).",
+  },
+  {
     date: "2026-09-09",
     title: "Prove one governed tool call",
     tags: ["broker", "onboarding", "approvals"],

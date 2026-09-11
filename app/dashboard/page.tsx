@@ -160,6 +160,7 @@ export default async function Dashboard() {
       <OnboardingTour autoStart={isDemo || roster.agentCount === 0} />
 
       <div className="mx-auto max-w-5xl space-y-6">
+        <Link href="/dashboard/usage" className="mr-5 text-sm underline">Developer usage</Link>
         {canAdd && <Link href="/dashboard/walkthrough" className="text-sm underline">{brokerProof ? "Broker walkthrough verified" : "Prove a governed tool call"} →</Link>}
         <div className="flex items-start justify-between gap-4">
           <div>
