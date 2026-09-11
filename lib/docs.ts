@@ -4,6 +4,7 @@ import path from "node:path"
 // On-site docs rendered from the repo's markdown guides. Server-only (reads fs).
 // Only public-facing guides are listed here.
 export const DOCS: Record<string, { file: string; title: string; description: string }> = {
+  "developer-usage": { file: "DEVELOPER-USAGE.md", title: "Developer usage", description: "Connect Claude Code and Codex telemetry, then prove one native tool approval." },
   authorization: {
     file: "CONCEPTS-AUTHORIZATION.md",
     title: "Authorization: the decision",

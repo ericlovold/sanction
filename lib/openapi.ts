@@ -791,6 +791,26 @@ export const spec = {
     },
   },
   paths: {
+    "/usage/otlp/{source}": {
+      post: {
+        operationId: "observeDeveloperUsage",
+        summary: "Ingest client-reported developer usage",
+        description: "OTLP HTTP JSON ExportLogsServiceRequest, uncompressed, up to 1 MiB and 500 records. Selected Claude Code/Codex log events are stored separately from governed spend. Unsupported events are ignored. Duplicate source event identities per seat count once. Observation does not authorize execution or stop billing.",
+        security: [{ AgentApiKey: [] }],
+        parameters: [{ name: "source", in: "path", required: true, schema: { type: "string", enum: ["claude-code", "codex"] } }],
+        requestBody: { required: true, content: { "application/json": { schema: {
+          type: "object", required: ["resourceLogs"], properties: { resourceLogs: { type: "array", items: { type: "object" } } },
+        } } } },
+        responses: {
+          "200": { description: "OTLP ExportLogsServiceResponse; observations accepted, duplicates ignored" },
+          "400": { description: "Invalid OTLP JSON, usage values, or original event time" },
+          "401": { description: "Missing, revoked, expired, or invalid seat key" },
+          "404": { description: "Unknown client source" },
+          "413": { description: "Body exceeds 1 MiB" },
+          "415": { description: "Requires uncompressed application/json" },
+        },
+      },
+    },
     "/authorize": {
       post: {
         operationId: "authorizeSpend",

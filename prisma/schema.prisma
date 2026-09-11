@@ -324,6 +324,7 @@ model Agent {
 
   wallet          Wallet                 @relation(fields: [walletId], references: [id])
   tokenLogs       TokenLog[]
+  usageObservations UsageObservation[]
   authRequests    AuthorizationRequest[]
   clearance       AgentClearance?
   executionTokens ExecutionToken[]
@@ -439,6 +440,29 @@ model PolicyRevision {
 
   @@unique([policyId, revision])
   @@index([walletId, createdAt])
+}
+
+// Client-reported telemetry, never authority to spend and never added to TokenLog.
+model UsageObservation {
+  id String @id @default(cuid())
+  agentId String
+  source String
+  eventId String
+  sessionId String
+  eventName String
+  model String?
+  tokensIn Int?
+  tokensOut Int?
+  cacheReadTokens Int?
+  cacheWriteTokens Int?
+  estimatedCostUsd Float?
+  occurredAt DateTime
+  receivedAt DateTime @default(now())
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, source, eventId])
+  @@index([agentId, occurredAt])
+  @@index([agentId, source, receivedAt])
 }
 
 model TokenLog {

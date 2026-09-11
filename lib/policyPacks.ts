@@ -24,6 +24,29 @@ export type PolicyPack = {
 
 export const POLICY_PACKS: PolicyPack[] = [
   {
+    id: "claude-code-approval-test",
+    name: "Claude Code approval test",
+    tagline: "Ask before a file read; deny every other configured tool.",
+    audience: "A dedicated test seat for the native Claude Code hook approval loop.",
+    maturity: "governance",
+    channel: "coding-agent",
+    useCases: ["native hook verification"],
+    policy: {
+      allowed_tools: ["claude-code.Read"],
+      escalate_tools: ["claude-code.Read"],
+      blocked_tools: [],
+      capability_rules: [{ pattern: "*", effect: "block" }],
+      enforcement_mode: "enforce",
+      escalation_timeout_mins: 30,
+      escalation_timeout_action: "deny",
+      auto_approve_under_usd: 0,
+      escalate_over_usd: 0,
+      per_transaction_max_usd: 0,
+      daily_spend_budget_usd: 0,
+      daily_token_budget_usd: 0,
+    },
+  },
+  {
     id: "metering-first",
     name: "Metering first",
     tagline: "Watch before you govern — everything passes, everything is measured.",
