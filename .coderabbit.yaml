@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "Terse. No praise, no restating the diff. Lead with the defect, cite the line, propose the fix. Skip style nits that eslint already catches."
+early_access: false
+enable_free_tier: false
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    ignore_title_keywords: ["WIP", "[skip review]"]
+    labels: ["!do-not-review"]
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!.next/**"
+    - "!coverage/**"
+    - "!package-lock.json"
+    - "!**/*.snap"
+  path_instructions:
+    - path: "lib/**"
+      instructions: |
+        This is an authorization plane. Every decision path must fail closed: an unknown, unparseable, errored, or missing input must deny, never allow. Flag any branch where an error is swallowed into a success-shaped response (e.g. an upstream error becoming an empty successful list) as a correctness bug. Every allow and deny must emit a receipt with who / what / why / when. Flag any new way to bypass the policy ladder (decideToolLayered, spend caps, wallet freeze).
+    - path: "app/api/**"
+      instructions: |
+        Public HTTP surface. Check auth on every handler, that error responses never leak secrets or internal ids, that rate/spend limits are enforced before side effects, and that responses are marked no-store where they carry authorization state.
+    - path: "app/mcp/**"
+      instructions: |
+        MCP broker. Refusals are returned as MCP results (isError / withheld) and not as JSON-RPC protocol errors, per repo convention. Distinguish upstream protocol errors from unparseable bodies; both must be withheld, but the receipt reason must name which. Batched requests are refused.
+    - path: "prisma/**"
+      instructions: |
+        Every schema change needs a migration in prisma/migrations. Flag destructive migrations (drop column/table, type narrowing) and any migration that is not safe to run against live rows. Encrypted or hashed fields must never be logged or returned.
+    - path: "sdk/**"
+      instructions: |
+        Published npm package. Flag any breaking change to exported types or function signatures; it needs a major version bump and a CHANGELOG line. No runtime dependency additions without justification.
+    - path: "packages/**"
+      instructions: |
+        Published packages (sanction-mcp). Same rules as sdk/: public API stability, semver, CHANGELOG.
+    - path: "docs/**"
+      instructions: |
+        Claims must match shipped behavior. The pricing posture is exactly "it's free, or it's an agreement"; flag any wording that contradicts it. Flag "shipped" or "live" claims for features still marked spike or draft elsewhere in the PR. Cut prose; do not suggest adding prose.
+    - path: "tests/**"
+      instructions: |
+        Tests must exercise a deny path for every new allow path. Flag tests that only assert the happy path on an authorization decision.
+  tools:
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+    prismaLint:
+      enabled: true
+    markdownlint:
+      enabled: false
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: true
+chat:
+  auto_reply: true
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: "local"
+  code_guidelines:
+    enabled: true
