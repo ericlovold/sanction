@@ -31,7 +31,7 @@ export function SetupContinuation({ proofComplete, children }: {
           <h3 className="font-medium">Connect your agent</h3>
           <p className="text-sm text-[var(--roster-fog)]">Choose the path your tool supports. Each has a different scope of control.</p>
           <ul className="space-y-3 text-sm">
-            <li><Link className="underline" href="/docs/developer-usage">Claude Code or Codex</Link><p className="text-[var(--roster-fog)]">Report usage. Claude Code also has an optional approval hook for configured tool calls. Telemetry alone does not enforce limits.</p></li>
+            <li><Link className="underline" href="/dashboard/connect">Claude Code or Codex</Link><p className="text-[var(--roster-fog)]">Report usage. Claude Code also has an optional approval hook for configured tool calls. Telemetry alone does not enforce limits.</p></li>
             <li><Link className="underline" href="/docs/gateway">Model API through the gateway</Link><p className="text-[var(--roster-fog)]">Meter model calls and enforce budgets on traffic routed through Sanction.</p></li>
             <li><Link className="underline" href="/docs/agent-wallet">MCP tools</Link><p className="text-[var(--roster-fog)]">Use the broker to intercept calls to an upstream. Hosted MCP relies on your agent asking for authorization.</p></li>
           </ul>

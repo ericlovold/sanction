@@ -8,6 +8,10 @@ auto-refills. Codex here means the local client, not ChatGPT web.
 
 ## Connect a client
 
+Use [guided connection setup](/dashboard/connect) to choose a tool and seat,
+copy its configuration, and check delivery for that seat. Delivery history
+does not attest to a new configuration or enforcement.
+
 Create a dedicated seat for each client in **Roster → Add agent**. Keep its key
 in your local environment or private user configuration, never in the repo.
 Use **Roster → Developer usage** to verify delivery. The page covers the selected
@@ -26,6 +30,7 @@ export OTEL_EXPORTER_OTLP_LOGS_PROTOCOL=http/json
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://getsanction.com/api/v1/usage/otlp/claude-code
 export OTEL_EXPORTER_OTLP_LOGS_HEADERS="x-api-key=$SANCTION_AGENT_KEY"
 export OTEL_LOG_USER_PROMPTS=0
+export OTEL_LOG_ASSISTANT_RESPONSES=0
 export OTEL_LOG_TOOL_DETAILS=0
 claude
 ```

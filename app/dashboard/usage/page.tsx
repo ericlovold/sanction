@@ -46,7 +46,7 @@ export default async function UsagePage() {
     <section className="space-y-3 rounded-lg border p-5">
       <h2 className="text-xl font-medium">Connect your tools</h2>
       <p className="text-sm text-muted-foreground">Use a dedicated seat key for each client. Configure native OTLP HTTP JSON logs, then run a task and refresh this page. Keep prompt and tool-detail export disabled.</p>
-      <div className="flex flex-wrap gap-4 text-sm underline"><Link href="/dashboard/agents">Create a seat</Link><Link href="/docs/developer-usage">Setup and approval test</Link><Link href="/dashboard/approvals">Review approvals</Link></div>
+      <div className="flex flex-wrap gap-4 text-sm underline"><Link href="/dashboard/agents">Create a seat</Link><Link href="/dashboard/connect">Guided connection setup</Link><Link href="/dashboard/approvals">Review approvals</Link></div>
       <p className="text-xs text-muted-foreground">The optional Claude Code hook gates configured tool calls. Receiving telemetry does not prove the hook is installed or enforcing.</p>
     </section>
   </div>
