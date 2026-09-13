@@ -7,6 +7,7 @@ import { getViewWallet } from "@/lib/session"
 import { fmtUsd } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
 import { getRoster, type RosterAgent, type RosterGroup } from "@/lib/roster"
+import { SetupContinuation } from "@/components/setup-continuation"
 import { FirstHourChecklist } from "@/components/first-hour-checklist"
 import {
   looksLikeCodingAgentPack,
@@ -157,11 +158,10 @@ export default async function Dashboard() {
   return (
     <div className="roster px-6 py-8">
       {isDemo && <FunnelBeacon event={FUNNEL.demoView} />}
-      <OnboardingTour autoStart={isDemo || roster.agentCount === 0} />
+      <OnboardingTour autoStart={isDemo || roster.agentCount === 0} canRunProof={view.isSession && canAdd} />
 
       <div className="mx-auto max-w-5xl space-y-6">
         <Link href="/dashboard/usage" className="mr-5 text-sm underline">Developer usage</Link>
-        {canAdd && <Link href="/dashboard/walkthrough" className="text-sm underline">{brokerProof ? "Broker walkthrough verified" : "Prove a governed tool call"} →</Link>}
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--roster-brass)]">Roster</p>
@@ -176,7 +176,11 @@ export default async function Dashboard() {
           <TourLauncher />
         </div>
 
-        {showFirstHour && <FirstHourChecklist signals={firstHour} />}
+        {view.isSession && canAdd ? (
+          <SetupContinuation key={view.id} proofComplete={Boolean(brokerProof)}>
+            {showFirstHour && <FirstHourChecklist signals={firstHour} />}
+          </SetupContinuation>
+        ) : showFirstHour ? <FirstHourChecklist signals={firstHour} /> : null}
 
         {roster.pendingTotal > 0 && (
           <Link

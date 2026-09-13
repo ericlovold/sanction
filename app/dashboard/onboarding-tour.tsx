@@ -7,6 +7,7 @@
 // positioned beside the target, Back/Next/Skip.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { track } from "@vercel/analytics"
 import { FUNNEL } from "@/lib/funnel"
 
@@ -46,7 +47,7 @@ function targetRect(name: string): DOMRect | null {
   return el ? el.getBoundingClientRect() : null
 }
 
-export function OnboardingTour({ autoStart }: { autoStart: boolean }) {
+export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: boolean; canRunProof?: boolean }) {
   const [step, setStep] = useState<number | null>(null)
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -155,6 +156,10 @@ export function OnboardingTour({ autoStart }: { autoStart: boolean }) {
                 <button onClick={() => open(step + 1)} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
                   Next
                 </button>
+              ) : canRunProof ? (
+                <Link href="/dashboard/walkthrough" onClick={complete} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
+                  Next: test a tool call
+                </Link>
               ) : (
                 <button onClick={complete} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
                   Done — it&apos;s yours
