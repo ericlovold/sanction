@@ -89,6 +89,13 @@ export default async function ApprovalsPage({
   if (!view) return <NoWallet />
   const walletId = view.id
 
+  const walkthroughReturn = view.isSession && hasRole(view.role, "admin")
+    ? await db.brokerWalkthrough.findFirst({
+        where: { ownerWalletId: walletId, state: "pending", expiresAt: { gt: new Date() } },
+        select: { id: true },
+      })
+    : null
+
   const pendingRows = await listPendingApprovals(walletId)
   const pending: PendingApproval[] = pendingRows.map((r) => ({
     id: r.id,
@@ -295,6 +302,9 @@ export default async function ApprovalsPage({
       )}
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Approvals</h1>
+        {walkthroughReturn && <p className="mt-2 text-sm">
+          Running the tool-call walkthrough? After reviewing its request, <Link href="/dashboard/walkthrough" className="underline">return to verify the result</Link>.
+        </p>}
         <p className="mt-1 text-sm text-muted-foreground">
           Requests that crossed an escalation line — on your wallet or any pool beneath it — paused and waiting on you.
           Approving one issues a single-use grant the agent redeems on retry.

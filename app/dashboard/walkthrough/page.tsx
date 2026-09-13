@@ -26,7 +26,11 @@ export default async function WalkthroughPage() {
         <Link className="underline" href={run.approval ? `/dashboard/approvals?review=${run.approval.id}` : "/dashboard/approvals"}>Review exact request in Approvals</Link>
         <BrokerWalkthroughControl operation="advance" id={run.id} label="Verify approved execution and replay protection" />
       </div>}
-      {run.state === "completed" && <p role="status" className="font-medium">Walkthrough complete. One approved execution recorded; changed arguments and grant reuse were refused.</p>}
+      {run.state === "completed" && <div className="space-y-3">
+        <p role="status" className="font-medium">Walkthrough complete. One approved execution recorded; changed arguments and grant reuse were refused.</p>
+        <p className="text-sm text-muted-foreground">Next, connect your own tool. This test does not establish protection for your other agents.</p>
+        <Link href="/dashboard#connect-tools" className="inline-block rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Next: connect your agent</Link>
+      </div>}
       {run.state === "failed" && <p role="alert">The proof did not complete. Your inherited policy may deny this tool, or the upstream outcome may be uncertain. Review Approvals and the count above. No success is claimed. A new walkthrough is available after expiry.</p>}
       {run.state === "initializing" && <p>Preparing the test pool. Refresh shortly.</p>}
     </>}
