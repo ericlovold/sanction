@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-13",
+    title: "Connect a developer tool from the dashboard",
+    tags: ["onboarding", "usage"],
+    body: "Guided setup now lets you choose Claude Code or Codex and an active seat, copy configuration with key placeholders, and check delivery for that exact seat and tool. Missing and stale events stay explicit; delayed exports keep their original timestamps. The roster and Developer usage page link directly to setup. Receiving telemetry does not prove enforcement or control subscription billing.",
+  },
+  {
     date: "2026-09-11",
     title: "Developer usage and a native approval test",
     tags: ["usage", "integrations", "approvals"],
