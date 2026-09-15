@@ -34,10 +34,12 @@ will not survive agents that do not share a prompt.
   Cooperative. This is the paste for Claude / Cursor connectors.
 - **Carry (broker).** Register an upstream with `POST /v1/broker/upstreams`
   and point the host at `/mcp/broker/<upstream>`. INTERCEPTED: every
-  `tools/call` runs the wallet's tool ladder BEFORE it is forwarded; the
-  upstream credential lives in the wallet's vault, never with the agent.
-  Traffic that bypasses the broker is not governed; the plain wallet URL
-  stays cooperative.
+  `tools/call` runs the wallet's tool ladder BEFORE it is forwarded;
+  `tools/list` is filtered through the same ladder so the host's picker
+  does not see a tool policy would refuse. Empty allow-list stays opt-in
+  (allow all except blocked). The upstream credential lives in the
+  wallet's vault, never with the agent. Traffic that bypasses the broker
+  is not governed; the plain wallet URL stays cooperative.
 - **Present.** `POST /v1/exec` mints a 15-minute HS256 JWT: credential scope,
   hard spend cap, wallet-bound, freeze-aware. This is a mandate. It was
   documented as credential injection. It is also how a parent agent hires a
@@ -61,8 +63,6 @@ presentable.
 ## What is Next
 
 **OAuth onboarding** so the hosted MCP surfaces are not API-key paste only.
-**tools/list filtering** on the broker, so a host never sees a tool policy
-would refuse.
 
 **Per-agent Wallet Cards** (this seat, this remaining budget band, never the
 key) attach to A2A Agent Cards so a peer can fetch constraints before a task.
@@ -91,8 +91,7 @@ protocols present: carry, present, verify, evidence.
 Hosted remote MCP and broker mode are shipped. The remaining work is the
 install that is not a paste, and the A2A surfaces.
 
-1. **OAuth onboarding** and **tools/list filtering.** Paste is not the only
-   install, and a host never sees a tool policy would refuse.
+1. **OAuth onboarding.** Paste is not the only install.
 2. **One A2A demo.** Agent A mints a mandate; agent B verifies before working.
    That demo is the GTM object — not another MCP directory listing.
 3. **Per-agent Wallet Cards** attach to A2A Agent Cards. Directory listings
@@ -108,5 +107,6 @@ become an identity provider or a payment rail.
 stdio MCP and the hosted `/mcp` URL are agent-invoked. Skipping
 `sanction_authorize*` is possible — those surfaces stay cooperative. The
 LLM gateway and the MCP broker at `/mcp/broker/<name>` are interception:
-inference and `tools/call` are authorized before they are forwarded. Traffic
-that skips the broker or the gateway is not governed.
+inference and `tools/call` are authorized before they are forwarded, and
+`tools/list` is filtered through the same ladder. Traffic that skips the
+broker or the gateway is not governed.
