@@ -6,7 +6,7 @@ import { verifyMagicLinkAction, type MagicLinkVerifyState } from "@/app/login/ac
 
 const initial: MagicLinkVerifyState = { ok: false, error: "" }
 
-export function VerifyMagicLink({ token }: { token: string }) {
+export function VerifyMagicLink({ token, next = "/dashboard" }: { token: string; next?: string }) {
   const [state, formAction, pending] = useActionState(verifyMagicLinkAction, initial)
   const [copied, setCopied] = useState(false)
 
@@ -35,10 +35,10 @@ export function VerifyMagicLink({ token }: { token: string }) {
           </div>
         </div>
         <Link
-          href="/dashboard"
+          href={next}
           className="inline-block rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
         >
-          Open my dashboard →
+          {next.startsWith("/dashboard/approvals?review=") ? "Return to the decision →" : "Open my dashboard →"}
         </Link>
       </div>
     )
@@ -52,7 +52,7 @@ export function VerifyMagicLink({ token }: { token: string }) {
       </p>
       {state.error && (
         <p className="text-sm text-red-400">
-          {state.error} <Link href="/login" className="text-emerald-400 hover:text-emerald-300">Back to sign in →</Link>
+          {state.error} <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-emerald-400 hover:text-emerald-300">Back to sign in →</Link>
         </p>
       )}
       <button

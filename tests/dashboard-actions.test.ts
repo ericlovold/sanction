@@ -114,3 +114,12 @@ describe("switchWalletAction", () => {
     expect(sessionMock.listSessionWallets).not.toHaveBeenCalled()
   })
 })
+
+it("wallet switching preserves a decision return path without widening reachability", async () => {
+  sessionMock.listSessionWallets.mockResolvedValue([{ id: "wallet_2", name: "Demo", role: "owner" }])
+  await expect(switchWalletAction(form({ wallet_id: "wallet_2", next: "/dashboard/approvals?review=pa_1" }))).rejects.toThrow("REDIRECT:/dashboard/approvals?review=pa_1")
+  expect(sessionMock.setActiveWallet).toHaveBeenCalledWith("wallet_2")
+  sessionMock.setActiveWallet.mockClear()
+  await expect(switchWalletAction(form({ wallet_id: "foreign", next: "//evil.test" }))).rejects.toThrow("REDIRECT:/dashboard")
+  expect(sessionMock.setActiveWallet).not.toHaveBeenCalled()
+})

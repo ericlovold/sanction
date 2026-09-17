@@ -1,3 +1,4 @@
+import { safeNext } from "@/lib/returnPath"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { LoginForm } from "@/components/login-form"
@@ -24,7 +25,9 @@ function Divider({ label }: { label: string }) {
 export const dynamic = "force-dynamic"
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams
+  const params = await searchParams
+  const next = safeNext(params.next)
+  const reviewing = next.startsWith("/dashboard/approvals?review=")
   return (
     <div className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh", background: "var(--surface-page)", color: "var(--text-body)" }}>
       <header className="border-b" style={{ borderColor: "var(--paper-3)" }}>
@@ -35,15 +38,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </header>
 
       <main className="mx-auto max-w-md px-6 py-14">
-        <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Welcome back. Sign in to your Sanction console.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{reviewing ? "Sign in to review this action" : "Sign in"}</h1>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
 
         <div className="mt-8">
-          <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
+          <SocialSignIn callbackURL={next} apple={!!process.env.APPLE_CLIENT_ID} />
         </div>
 
         <Divider label="or with email" />
-        <MagicLinkForm />
+        <MagicLinkForm next={next} />
 
         <details className="mt-8 group">
           <summary className="sanction-link cursor-pointer list-none text-xs">

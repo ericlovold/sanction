@@ -1,5 +1,6 @@
 "use server"
 
+import { safeNext } from "@/lib/returnPath"
 import { randomBytes } from "crypto"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
@@ -12,16 +13,6 @@ import { sendMagicLinkEmail } from "@/lib/email"
 
 export type LoginState = { error: string }
 
-// Only ever redirect within the app: a next must be a local absolute path.
-// Rejected: protocol-relative //host, and anything carrying a backslash (raw
-// or %5C-encoded) — browsers normalize \ to / so "/\evil.com" becomes the
-// off-site "//evil.com". Anything suspicious falls back to the dashboard.
-function safeNext(raw: unknown): string {
-  const next = typeof raw === "string" ? raw : ""
-  const ok = next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") && !/%5c/i.test(next)
-  return ok ? next : "/dashboard"
-}
-
 export async function loginAction(_prev: LoginState, form: FormData): Promise<LoginState> {
   const ip = ipFromHeaders(await headers())
   const rl = await rateLimit("login", ip, 30, 600)
@@ -33,6 +24,7 @@ export async function loginAction(_prev: LoginState, form: FormData): Promise<Lo
   const wallet = await db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(key) } })
   if (!wallet) return { error: "That key doesn't match a wallet. Use the management key (sk_…) from signup." }
 
+  await clearSession()
   await setSession(key)
   redirect(safeNext(form.get("next")))
 }
@@ -70,7 +62,8 @@ export async function requestMagicLinkAction(_prev: MagicLinkRequestState, form:
     })
     const host = h.get("host") ?? "getsanction.com"
     const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
-    const link = `${proto}://${host}/auth/verify?token=${rawToken}`
+    const next = safeNext(form.get("next"))
+    const link = `${proto}://${host}/auth/verify?token=${rawToken}&next=${encodeURIComponent(next)}`
     // A provider failure must not 500 the request or reveal account existence —
     // the token row exists, the user can retry; the operator sees the log.
     try {
@@ -112,6 +105,7 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
     data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
   })
 
+  await clearSession()
   await setSession(mgmt.raw)
   return { ok: true, error: "", newKey: mgmt.raw, walletName: wallet.name }
 }

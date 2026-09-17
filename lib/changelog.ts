@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-17",
+    title: "Return to the approval after switching wallets",
+    tags: ["approvals", "fix"],
+    body: "Approval links now pause on a focused sign-in or wallet-switch screen when the current wallet cannot access the decision. The requested review survives sign-in and switching. Tool emails describe the action instead of a $0 charge; spend approvals retain the engine’s reason and code; expired grants display as expired. Approval issues authority for a retry, not proof of execution.",
+  },
+  {
     date: "2026-09-13",
     title: "Connect a developer tool from the dashboard",
     tags: ["onboarding", "usage"],
