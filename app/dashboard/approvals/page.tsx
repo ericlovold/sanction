@@ -1,3 +1,6 @@
+import { effectiveGrantStatus } from "@/lib/grantStatus"
+import { approvalReturnPath } from "@/lib/returnPath"
+import { switchWalletAction } from "@/app/dashboard/actions"
 import type { Metadata } from "next"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +12,7 @@ import { WebhookSettings } from "@/components/webhook-settings"
 import { approvalsEmptyCopy } from "@/lib/firstHour"
 import { listPendingApprovals } from "@/lib/approvals"
 import { withTenant } from "@/lib/rls"
-import { getViewWallet } from "@/lib/session"
+import { getViewWallet, listSessionWallets } from "@/lib/session"
 import { slackClientId } from "@/lib/slackOAuth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
@@ -59,6 +62,7 @@ function resourceTitle(resource: Record<string, unknown>, actionType: string) {
   }
   return (
     stringValue(resource.label) ??
+    stringValue(resource.tool) ??
     stringValue(resource.tool_name) ??
     stringValue(resource.credential_label) ??
     stringValue(resource.name) ??
@@ -84,7 +88,7 @@ export default async function ApprovalsPage({
   // an empty inbox reads as "already resolved" while the real decision waits
   // in another wallet. Send them to sign in, and bring them straight back.
   if (review && (!view || !view.isSession)) {
-    redirect(`/login?next=${encodeURIComponent(`/dashboard/approvals?review=${review}`)}`)
+    redirect(`/login?next=${encodeURIComponent(approvalReturnPath(review))}`)
   }
   if (!view) return <NoWallet />
   const walletId = view.id
@@ -201,11 +205,11 @@ export default async function ApprovalsPage({
       focus = { kind: "pending" }
     } else {
       const row = await db.pendingApproval.findFirst({
-        where: { OR: [{ id: review }, { sourceType: "authorization_request", sourceId: review }] },
+        where: { walletId: { in: [walletId, ...descendantIds] }, OR: [{ id: review }, { sourceType: "authorization_request", sourceId: review }] },
         include: {
           agent: { select: { name: true } },
           wallet: { select: { id: true, name: true } },
-          grants: { select: { status: true }, take: 1, orderBy: { createdAt: "desc" } },
+          grants: { select: { status: true, consumedAt: true, expiresAt: true }, take: 1, orderBy: { createdAt: "desc" } },
         },
       })
       if (!row) {
@@ -216,7 +220,7 @@ export default async function ApprovalsPage({
           status: row.status,
           decidedAt: row.resolvedAt?.toLocaleString() ?? null,
           note: row.resolutionNote,
-          grant: row.grants[0]?.status ?? null,
+          grant: row.grants[0] ? effectiveGrantStatus(row.grants[0], now) : null,
           title: resourceTitle(asRecord(row.resourceJson), row.actionType),
           agentName: row.agent.name,
         }
@@ -232,6 +236,35 @@ export default async function ApprovalsPage({
         focus = { kind: "missing" }
       }
     }
+  }
+
+  if (focus?.kind === "missing" && review) {
+    const next = approvalReturnPath(review)
+    const wallets = (await listSessionWallets()).filter(w => w.id !== walletId)
+    return (
+      <div className="mx-auto max-w-xl p-6">
+        <Card>
+          <CardHeader><CardTitle>Switch wallets to review this action</CardTitle></CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <p>You’re signed in to <strong>{view.name}</strong>. This decision isn’t available in this wallet. It may belong to another wallet or no longer be available.</p>
+            <p className="text-muted-foreground">Choose a wallet you can access or sign in with the account or management key that received the request. We’ll return you to this decision after switching.</p>
+            {wallets.length > 0 && (
+              <form action={switchWalletAction} className="space-y-3">
+                <input type="hidden" name="next" value={next} />
+                <label className="block">Wallet
+                  <select name="wallet_id" className="mt-1 block w-full rounded border border-border bg-background p-2">
+                    {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </label>
+                <button className="rounded bg-primary px-3 py-2 text-primary-foreground">Switch wallet and return</button>
+              </form>
+            )}
+            <Link className="block text-primary underline" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to another wallet</Link>
+            <Link className="block text-muted-foreground underline" href="/dashboard/approvals">Back to this wallet’s approvals</Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -282,18 +315,6 @@ export default async function ApprovalsPage({
                   {focus.resolved
                     ? "It’s settled — the full record is in the Resolved list below."
                     : "It’s merged into the pending inbox below, badged with the pool it came from — you can decide it from here."}
-                </p>
-              </>
-            )}
-            {focus.kind === "missing" && (
-              <>
-                <p className="text-sm font-medium text-foreground">That decision isn&apos;t visible from this wallet.</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  The email went to the owner of the wallet that raised it. {" "}
-                  <Link className="underline" href={`/login?next=${encodeURIComponent(`/dashboard/approvals?review=${review}`)}`}>
-                    Sign in with that wallet&apos;s key
-                  </Link>{" "}
-                  to land back here on the decision.
                 </p>
               </>
             )}
@@ -399,7 +420,7 @@ export default async function ApprovalsPage({
                       className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary"
                       title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
                     >
-                      grant {r.grants[0].consumedAt ? "consumed" : r.grants[0].status}
+                      grant {effectiveGrantStatus(r.grants[0], now)}
                     </span>
                   ) : null}
                   <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>

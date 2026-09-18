@@ -213,6 +213,7 @@ export async function POST(req: NextRequest) {
             approval_id: escalated.approvalId ?? undefined, request_id: escalated.row.id, agent: agent.name, action: "invoke", tool, server: server ?? null, approve_url: approveUrlFor(escalated.row.id),
           }),
           sendEscalationEmail(agent.wallet.ownerEmail, {
+            actionType: "tool.invoke",
             agentName: agent.name, amountUsd: 0, merchant: server ? `${tool} (${server})` : tool, category: "tool", description: decision.reason ?? null, approveUrl: approveUrlFor(escalated.row.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),

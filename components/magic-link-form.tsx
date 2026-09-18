@@ -5,7 +5,7 @@ import { requestMagicLinkAction, type MagicLinkRequestState } from "@/app/login/
 
 const initial: MagicLinkRequestState = { sent: false, error: "" }
 
-export function MagicLinkForm() {
+export function MagicLinkForm({ next = "/dashboard" }: { next?: string }) {
   const [state, formAction, pending] = useActionState(requestMagicLinkAction, initial)
 
   if (state.sent) {
@@ -21,6 +21,7 @@ export function MagicLinkForm() {
 
   return (
     <form action={formAction} className="space-y-3">
+      <input type="hidden" name="next" value={next} />
       <label className="block">
         <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Email</span>
         <input

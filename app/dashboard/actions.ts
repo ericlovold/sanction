@@ -1,5 +1,7 @@
 "use server"
 
+import { safeNext } from "@/lib/returnPath"
+
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { z } from "zod"
@@ -174,5 +176,5 @@ export async function switchWalletAction(form: FormData) {
       await setActiveWallet(walletId)
     }
   }
-  redirect("/dashboard")
+  redirect(safeNext(form.get("next")))
 }

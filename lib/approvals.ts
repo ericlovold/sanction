@@ -224,6 +224,8 @@ export async function createSpendPendingApproval(
     walletId: string
     agentName: string
     request: SpendApprovalRequest
+    reason?: string
+    code?: string
     policy: Exclude<EscalationPolicy, null>
   },
 ) {
@@ -253,8 +255,8 @@ export async function createSpendPendingApproval(
         timeout_mins: policy.escalationTimeoutMins,
         timeout_action: policy.escalationTimeoutAction,
       },
-      reason: "Exceeds escalation threshold",
-      code: "ESCALATION_REQUIRED",
+      reason: input.reason ?? "Exceeds escalation threshold",
+      code: input.code ?? "ESCALATION_REQUIRED",
       sourceType: SOURCE_AUTHORIZATION_REQUEST,
       sourceId: request.id,
       expiresAt,

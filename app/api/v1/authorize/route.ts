@@ -360,7 +360,7 @@ export async function POST(req: NextRequest) {
         })
         // Observed escalations log; they never page anyone (OBS-1).
         if (!observe) {
-          await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy })
+          await createSpendPendingApproval(tx, { walletId: agent.walletId, agentName: agent.name, request: escalated, policy, reason: decision.reason, code: decision.code })
         }
         return escalated
       }
@@ -419,6 +419,7 @@ export async function POST(req: NextRequest) {
           }),
           // Email the owner directly, so escalations reach them even with no webhook registered.
           sendEscalationEmail(agent.wallet.ownerEmail, {
+            reason: approval?.reason ?? result.decisionNote ?? "Exceeds escalation threshold",
             agentName: agent.name, amountUsd: amount_usd, merchant, category, description, approveUrl: approveUrlFor(result.id),
           }).catch((err) => log.warn("escalation email failed", { err: String(err) })),
         ]),
