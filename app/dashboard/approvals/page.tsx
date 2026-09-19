@@ -199,6 +199,7 @@ export default async function ApprovalsPage({
   // on a pool below you, or not visible from this wallet.
   type Focus =
     | { kind: "pending" }
+    | { kind: "deadline_passed"; poolName: string; title: string }
     | { kind: "resolved"; status: string; decidedAt: string | null; note: string | null; grant: string | null; title: string; agentName: string }
     | { kind: "descendant"; poolName: string; title: string; resolved: boolean }
     | { kind: "missing" }
@@ -228,6 +229,10 @@ export default async function ApprovalsPage({
           expiresAt: row.expiresAt?.toISOString() ?? null, poolName: row.wallet.name,
         })
         focus = { kind: "pending" }
+      } else if (row.status === "pending" && row.expiresAt && row.expiresAt <= now) {
+        // Descendant reads filter expired requests without settling policy.
+        // A passed deadline is not evidence of a persisted timeout decision.
+        focus = { kind: "deadline_passed", poolName: row.wallet.name, title: resourceTitle(asRecord(row.resourceJson), row.actionType) }
       } else if (row.wallet.id === walletId) {
         focus = {
           kind: "resolved",
@@ -306,6 +311,12 @@ export default async function ApprovalsPage({
                   It&apos;s highlighted below. Approval issues a single-use grant for the agent to redeem; rejection refuses authority.
                   If this request has a deadline, policy determines its timeout outcome.
                 </p>
+              </>
+            )}
+            {focus.kind === "deadline_passed" && (
+              <>
+                <p className="text-sm font-medium text-foreground">Review deadline passed: {focus.title} · {focus.poolName}</p>
+                <p className="mt-1 text-xs text-muted-foreground">This request is no longer available for approval here. Its timeout outcome has not been confirmed.</p>
               </>
             )}
             {focus.kind === "resolved" && (

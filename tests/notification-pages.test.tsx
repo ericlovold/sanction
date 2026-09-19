@@ -47,6 +47,22 @@ describe("approval email landing", () => {
     expect(html).toContain("Next page")
     expect(m.focus).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ walletId: { in: ["root", "child"] } }) }))
   })
+  it.each([-1, 0])("does not offer an expired descendant decision at deadline offset %s", async offset => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-19T12:00:00Z"))
+    try {
+      m.focus.mockResolvedValue({ ...row("expired-target"), expiresAt: new Date(Date.now() + offset) })
+      const html = renderToStaticMarkup(await ApprovalsPage({ searchParams: Promise.resolve({ review: "request-expired-target" }) }))
+      expect(html).toContain("Review deadline passed")
+      expect(html).toContain("timeout outcome has not been confirmed")
+      expect(html).not.toContain("<button>expired-target</button>")
+      expect(html).not.toContain("is waiting in")
+      expect(html).not.toContain("you can decide it")
+      expect(html).not.toContain("was already decided")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
   it("paginates descendant approvals without dropping the review destination", async () => {
     const html = renderToStaticMarkup(await ApprovalsPage({ searchParams: Promise.resolve({ page: "2", review: "request-newest" }) }))
     expect(m.org).toHaveBeenCalledWith(expect.objectContaining({ skip: 50, take: 50 }))
