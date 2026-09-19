@@ -1,10 +1,13 @@
+import { redirect } from "next/navigation"
+import { spendReturnPath } from "@/lib/returnPath"
+import { switchWalletAction } from "@/app/dashboard/actions"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
-import { getViewWallet } from "@/lib/session"
+import { getViewWallet, listSessionWallets } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
 import { dailyPace, bucketByDay } from "@/lib/burn"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
@@ -200,11 +203,56 @@ async function getSpend(walletId: string) {
   }
 }
 
-export default async function SpendPage() {
+export default async function SpendPage({ searchParams }: {
+  searchParams: Promise<{ wallet?: string; agent?: string; budget?: string }>
+}) {
+  const { wallet: requestedWallet, agent: requestedAgent, budget } = await searchParams
   const view = await getViewWallet()
+  const next = requestedWallet ? spendReturnPath(requestedWallet, requestedAgent, budget) : "/dashboard/spend"
+  if (requestedWallet && (!view || !view.isSession)) redirect(`/login?next=${encodeURIComponent(next)}`)
   if (!view) return <NoWallet />
 
-  const s = await getSpend(view.id)
+  let walletId = view.id
+  if (requestedWallet && requestedWallet !== view.id) {
+    const { ids } = await subtreeWalletIds(view.id)
+    if (!ids.includes(requestedWallet)) {
+      const wallets = (await listSessionWallets()).filter(w => w.id !== view.id)
+      return <div className="mx-auto max-w-xl p-6"><Card>
+        <CardHeader><CardTitle>Switch wallets to review this budget</CardTitle></CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <p>You’re signed in to <strong>{view.name}</strong>. This budget isn’t available from this wallet.</p>
+          <p>Sign in with an account or management key that can access the wallet named in the alert. We’ll return you to its budget.</p>
+          {wallets.length > 0 && <form action={switchWalletAction} className="space-y-3">
+            <input type="hidden" name="next" value={next} />
+            <label className="block">Wallet<select name="wallet_id" className="mt-1 block w-full rounded border border-border bg-background p-2">
+              {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select></label>
+            <button className="rounded bg-primary px-3 py-2 text-primary-foreground">Switch wallet and return</button>
+          </form>}
+          <Link className="block underline" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to another wallet</Link>
+          <Link className="block underline" href="/dashboard/spend">Back to this wallet’s spend</Link>
+        </CardContent>
+      </Card></div>
+    }
+    walletId = requestedWallet
+  }
+  // Look up the alert's agent only inside the authorized target wallet.
+  const alertAgent = requestedWallet && requestedAgent
+    ? await db.agent.findFirst({ where: { id: requestedAgent, walletId }, select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true } })
+    : null
+  if (requestedAgent && requestedWallet && !alertAgent) return <div className="p-6">
+    <h1 className="text-xl font-semibold">This agent’s budget is no longer available</h1>
+    <p>The linked agent was not found in this wallet.</p>
+    <Link className="underline" href={spendReturnPath(walletId)}>Review this wallet’s budget</Link>
+  </div>
+
+  const s = await getSpend(walletId)
+  const dayStart = new Date()
+  dayStart.setHours(0, 0, 0, 0)
+  const alertUsage = alertAgent ? await Promise.all([
+    db.tokenLog.aggregate({ where: { agentId: alertAgent.id, createdAt: { gte: dayStart } }, _sum: { costUsd: true } }),
+    db.authorizationRequest.aggregate({ where: { agentId: alertAgent.id, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
+  ]) : null
   const tokenBudget = (s.policy?.dailyTokenBudgetUsd ?? 0) / 100
   const spendBudget = (s.policy?.dailySpendBudgetUsd ?? 0) / 100
   const tokensMonth = (s.tokMonth._sum.tokensIn ?? 0) + (s.tokMonth._sum.tokensOut ?? 0)
@@ -217,6 +265,20 @@ export default async function SpendPage() {
           Where the money goes — token burn and purchases against their budgets, by agent, model, and task.
         </p>
       </div>
+
+      {requestedWallet && <Card>
+        <CardHeader><CardTitle>Budget review · {s.wallet?.name}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {alertAgent && alertUsage ? <>
+            <p className="font-medium">{alertAgent.name} · today</p>
+            {budget !== "daily_spend" && <BudgetBar label="Agent token cost" actual={alertUsage[0]._sum.costUsd ?? 0} budget={(alertAgent.dailyTokenBudgetUsd ?? s.policy?.dailyTokenBudgetUsd ?? 0) / 100} format={fmtUsd} />}
+            {budget !== "daily_tokens" && <BudgetBar label="Agent authorized spend" actual={alertUsage[1]._sum.amountUsd ?? 0} budget={(alertAgent.dailySpendBudgetUsd ?? s.policy?.dailySpendBudgetUsd ?? 0) / 100} format={fmtUsd} />}
+          </> : budget === "subtree_daily_spend" && s.policy?.subtreeDailyCapUsd != null
+            ? <BudgetBar label="Pool authorized spend" actual={s.spendDay._sum.amountUsd ?? 0} budget={s.policy.subtreeDailyCapUsd / 100} format={fmtUsd} />
+            : <p>Showing the wallet named in the alert. Current usage appears below.</p>}
+          <p className="text-xs text-muted-foreground">Current usage may differ from the email snapshot.</p>
+        </CardContent>
+      </Card>}
 
       {/* Budget vs. actual — today */}
       <Card className="bg-card border-border">
@@ -459,7 +521,7 @@ export default async function SpendPage() {
         </Card>
       </div>
 
-      <OutcomesSection rootWalletId={view.id} />
+      <OutcomesSection rootWalletId={walletId} />
 
       {/* Policy authoring lives on its own page now. */}
       <Card className="bg-card border-border">
@@ -467,9 +529,9 @@ export default async function SpendPage() {
           <span className="text-sm text-muted-foreground">
             {s.policy ? "Budgets, categories, tools, capability rules, and escalation." : "No policy configured yet."}
           </span>
-          <Link href="/dashboard/policy" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+          {walletId === view.id ? <Link href="/dashboard/policy" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
             Manage policy →
-          </Link>
+          </Link> : <Link className="text-sm underline" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to this wallet to manage policy</Link>}
         </CardContent>
       </Card>
     </div>

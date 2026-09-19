@@ -79,9 +79,10 @@ const statusClasses: Record<string, string> = {
 export default async function ApprovalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ review?: string; slack?: string }>
+  searchParams: Promise<{ review?: string; slack?: string; page?: string }>
 }) {
-  const { review, slack } = await searchParams
+  const { review, slack, page } = await searchParams
+  const pageNumber = Math.max(1, Math.min(10000, Number.parseInt(page ?? "1", 10) || 1))
   const view = await getViewWallet()
   // A ?review deep link is someone answering an escalation email. Neither the
   // public demo fallback nor a bare "no wallet" screen may answer that click —
@@ -125,7 +126,7 @@ export default async function ApprovalsPage({
 
   // Runs after listPendingApprovals on purpose: that read settles expired
   // escalations, and the resolved list below should include them.
-  const [resolved, webhooks, slackInstalls, orgPendingRows, agentCount] = await Promise.all([
+  const [resolved, webhooks, slackInstalls, orgPendingRows, agentCount, orgPendingCount] = await Promise.all([
     db.pendingApproval.findMany({
       // Subtree-wide, like the pending inbox above it: a decision made here on
       // a pool's escalation must not vanish from the page that made it.
@@ -157,13 +158,20 @@ export default async function ApprovalsPage({
           // written, because settling a descendant's escalation is its owner's
           // page's job.
           where: { walletId: { in: descendantIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           take: 50,
+          skip: (pageNumber - 1) * 50,
           include: { agent: { select: { name: true } }, wallet: { select: { name: true } } },
         })
       : [],
     db.agent.count({ where: { walletId, isActive: true } }),
+    db.pendingApproval.count({ where: { walletId: { in: descendantIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } }),
   ])
+
+  const lastPage = Math.max(1, Math.ceil(orgPendingCount / 50))
+  if (pageNumber > lastPage) {
+    redirect(`/dashboard/approvals?${new URLSearchParams({ page: String(lastPage), ...(review ? { review } : {}) })}`)
+  }
 
   // Descendant escalations, in the same shape the queue renders, tagged with the
   // pool they belong to. Merged with the wallet's own pending into one inbox and
@@ -186,11 +194,6 @@ export default async function ApprovalsPage({
   const allPending = [...pending, ...orgPending].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   )
-  const expiringSoon = allPending.filter((p) => p.expiresAt && new Date(p.expiresAt).getTime() - nowMs <= 15 * 60 * 1000).length
-  const oldestPendingMinutes = allPending.length
-    ? Math.max(...allPending.map((p) => Math.round((nowMs - new Date(p.createdAt).getTime()) / 60000)))
-    : 0
-
   // The email landing moment: resolve what the deep-linked decision is doing
   // right now, and say it plainly — waiting on you, already decided, waiting
   // on a pool below you, or not visible from this wallet.
@@ -214,6 +217,17 @@ export default async function ApprovalsPage({
       })
       if (!row) {
         focus = { kind: "missing" }
+      } else if (row.status === "pending" && (!row.expiresAt || row.expiresAt > now)) {
+        // A scoped deep link must remain actionable outside the current page.
+        allPending.unshift({
+          id: row.id, sourceId: row.sourceId, actionType: row.actionType,
+          reason: row.reason, code: row.code, subject: asRecord(row.subjectJson),
+          resource: asRecord(row.resourceJson),
+          constraints: row.constraintsJson ? asRecord(row.constraintsJson) : null,
+          agentName: row.agent.name, createdAt: row.createdAt.toISOString(),
+          expiresAt: row.expiresAt?.toISOString() ?? null, poolName: row.wallet.name,
+        })
+        focus = { kind: "pending" }
       } else if (row.wallet.id === walletId) {
         focus = {
           kind: "resolved",
@@ -237,6 +251,13 @@ export default async function ApprovalsPage({
       }
     }
   }
+
+  const expiringSoon = allPending.filter((p) => p.expiresAt && new Date(p.expiresAt).getTime() - nowMs <= 15 * 60 * 1000).length
+  const oldestPendingMinutes = allPending.length
+    ? Math.max(...allPending.map((p) => Math.round((nowMs - new Date(p.createdAt).getTime()) / 60000)))
+    : 0
+
+  const totalPending = pending.length + orgPendingCount
 
   if (focus?.kind === "missing" && review) {
     const next = approvalReturnPath(review)
@@ -282,8 +303,8 @@ export default async function ApprovalsPage({
               <>
                 <p className="text-sm font-medium text-foreground">This decision is waiting on you.</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  It&apos;s highlighted below. The agent is paused mid-action: approving mints a single-use grant it
-                  redeems to proceed; rejecting stops it. If you do nothing, policy settles it at the deadline.
+                  It&apos;s highlighted below. Approval issues a single-use grant for the agent to redeem; rejection refuses authority.
+                  If this request has a deadline, policy determines its timeout outcome.
                 </p>
               </>
             )}
@@ -296,12 +317,12 @@ export default async function ApprovalsPage({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {focus.status === "approved"
                     ? focus.grant === "consumed"
-                      ? "The grant it issued was redeemed — the agent completed the action."
-                      : "It issued a single-use grant" + (focus.grant ? ` (currently ${focus.grant})` : "") + "."
+                      ? "The grant was redeemed. Execution and its outcome are not confirmed by this approval record."
+                      : "Approval recorded. " + (focus.grant ? `Its single-use grant is ${focus.grant}.` : "No grant is recorded here.")
                     : focus.status === "expired"
-                      ? "No one decided in time, so policy settled it — the fail-closed default."
-                      : "The agent was told no and stood down."}
-                  {focus.note ? ` Note: ${focus.note}` : ""} The full record is in the Resolved list below.
+                      ? "The review deadline passed. Policy determined the timeout outcome; check the decision note."
+                      : "This request was denied. This record does not confirm whether the agent received or followed the decision."}
+                  {focus.note ? ` Note: ${focus.note}` : ""}
                 </p>
               </>
             )}
@@ -313,7 +334,7 @@ export default async function ApprovalsPage({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {focus.resolved
-                    ? "It’s settled — the full record is in the Resolved list below."
+                    ? "This request no longer needs an approval decision."
                     : "It’s merged into the pending inbox below, badged with the pool it came from — you can decide it from here."}
                 </p>
               </>
@@ -321,13 +342,20 @@ export default async function ApprovalsPage({
           </CardContent>
         </Card>
       )}
+      {orgPendingCount > 50 && (
+        <nav aria-label="Approval pages" className="flex flex-wrap items-center gap-4 text-sm">
+          <span>Showing {allPending.length} of {totalPending} pending requests. A linked request is included even outside this page.</span>
+          {pageNumber > 1 && <Link className="underline" href={`/dashboard/approvals?${new URLSearchParams({ page: String(pageNumber - 1), ...(review ? { review } : {}) })}`}>Previous page</Link>}
+          {pageNumber * 50 < orgPendingCount && <Link className="underline" href={`/dashboard/approvals?${new URLSearchParams({ page: String(pageNumber + 1), ...(review ? { review } : {}) })}`}>Next page</Link>}
+        </nav>
+      )}
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Approvals</h1>
         {walkthroughReturn && <p className="mt-2 text-sm">
           Running the tool-call walkthrough? After reviewing its request, <Link href="/dashboard/walkthrough" className="underline">return to verify the result</Link>.
         </p>}
         <p className="mt-1 text-sm text-muted-foreground">
-          Requests that crossed an escalation line — on your wallet or any pool beneath it — paused and waiting on you.
+          Requests that crossed an escalation line — on your wallet or any pool beneath it — awaiting a decision.
           Approving one issues a single-use grant the agent redeems on retry.
         </p>
       </div>
@@ -342,8 +370,8 @@ export default async function ApprovalsPage({
             <CardTitle className="text-xs font-normal text-muted-foreground">Pending</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold tabular-nums ${allPending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{allPending.length}</p>
-            {allPending.length > 0 && <p className="text-xs text-muted-foreground">oldest waiting {oldestPendingMinutes}m</p>}
+            <p className={`font-mono text-2xl font-semibold tabular-nums ${allPending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{totalPending}</p>
+            {allPending.length > 0 && <p className="text-xs text-muted-foreground">oldest shown: {oldestPendingMinutes}m</p>}
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
@@ -369,7 +397,7 @@ export default async function ApprovalsPage({
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-medium text-foreground">Pending</h2>
         {allPending.length > 0 && (
-          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{allPending.length}</Badge>
+          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{totalPending}</Badge>
         )}
       </div>
       <ApprovalQueue

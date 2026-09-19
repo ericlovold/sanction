@@ -27,6 +27,7 @@ export const dynamic = "force-dynamic"
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const params = await searchParams
   const next = safeNext(params.next)
+  const budgetReview = next.startsWith("/dashboard/spend?wallet=")
   const reviewing = next.startsWith("/dashboard/approvals?review=")
   return (
     <div className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh", background: "var(--surface-page)", color: "var(--text-body)" }}>
@@ -38,8 +39,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </header>
 
       <main className="mx-auto max-w-md px-6 py-14">
-        <h1 className="text-3xl font-semibold tracking-tight">{reviewing ? "Sign in to review this action" : "Sign in"}</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{reviewing ? "Sign in to review this action" : budgetReview ? "Sign in to review this budget" : "Sign in"}</h1>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : budgetReview ? "Use an account or management key with access to the wallet named in the alert. We’ll return you to its budget after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
 
         <div className="mt-8">
           <SocialSignIn callbackURL={next} apple={!!process.env.APPLE_CLIENT_ID} />

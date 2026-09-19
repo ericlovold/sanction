@@ -33,7 +33,7 @@ import { sendBudgetThresholdEmail } from "../lib/email"
 import { withTenant } from "../lib/rls"
 import { rateLimit, ipFromHeaders, clientIp } from "../lib/rateLimit"
 
-const COMMON = { walletId: "wallet_1", ownerEmail: "owner@example.com", agentName: "tenet" }
+const COMMON = { walletId: "wallet_1", ownerEmail: "owner@example.com", agentName: "tenet", agentId: "agent_1" }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -48,7 +48,7 @@ describe("thresholds — notify at the 80% line, before the wall", () => {
     // $70 → $85 of a $100 cap crosses 80%
     await notifySpendBudgetThreshold({ ...COMMON, prevCents: 7000, nextCents: 8500, capCents: 10000 })
     expect(deliverEventMock).toHaveBeenCalledWith("wallet_1", "budget.threshold", expect.objectContaining({ scope: "daily_spend", pct_used: 85 }))
-    expect(sendBudgetThresholdEmail).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ pctUsed: 85 }))
+    expect(sendBudgetThresholdEmail).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ pctUsed: 85, walletId: "wallet_1", agent: "agent_1", scope: "daily_spend" }))
   })
 
   it("stays silent when no line is crossed (already past, or still below)", async () => {
@@ -69,6 +69,7 @@ describe("thresholds — notify at the 80% line, before the wall", () => {
       { walletId: "wallet_pool", capCents: 50000, spentCents: 42000 },
     ])
     expect(deliverEventMock).toHaveBeenCalledWith("wallet_root", "budget.threshold", expect.objectContaining({ scope: "subtree_daily_spend", pool: "Marketing", pct_used: 84 }))
+    expect(sendBudgetThresholdEmail).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ walletId: "wallet_pool" }))
   })
 
   it("a failing email never throws into the caller (best-effort by contract)", async () => {
@@ -311,7 +312,7 @@ describe("email — builds every message; dev fallback logs instead of sending",
     await email.sendLeadWelcomeEmail("a@x.com")
     await email.sendNewLeadEmail({ email: "a@x.com", source: "landing" })
     await email.sendMagicLinkEmail("a@x.com", "https://getsanction.com/magic?t=x")
-    await email.sendBudgetThresholdEmail("a@x.com", { label: "tenet · daily spend budget", pctUsed: 85, spentUsd: 8.5, capUsd: 10 })
+    await email.sendBudgetThresholdEmail("a@x.com", { walletId: "w", label: "tenet · daily spend budget", pctUsed: 85, spentUsd: 8.5, capUsd: 10 })
     await email.sendEscalationEmail("a@x.com", { agentName: "tenet", amountUsd: 60, merchant: "Vendor", category: "software", description: null, approveUrl: "https://x/approve" })
     expect(logSpy).toHaveBeenCalledTimes(5) // every message hit the dev log, none threw
     logSpy.mockRestore()
