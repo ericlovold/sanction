@@ -443,6 +443,7 @@ export async function POST(req: NextRequest) {
           crossing
             ? notifySpendBudgetThreshold({
                 walletId: agent.walletId,
+                agentId: agent.id,
                 ownerEmail: agent.wallet.ownerEmail,
                 agentName: agent.name,
                 prevCents: crossing.prevCents,

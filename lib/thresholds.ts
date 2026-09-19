@@ -11,7 +11,7 @@ import { logger } from "@/lib/log"
 
 const log = logger("thresholds")
 
-type Common = { walletId: string; ownerEmail: string; agentName: string }
+type Common = { walletId: string; ownerEmail: string; agentName: string; agentId?: string }
 
 /** Agent daily spend budget (authorized dollars). Amounts in cents. */
 export async function notifySpendBudgetThreshold(
@@ -22,6 +22,7 @@ export async function notifySpendBudgetThreshold(
     scope: "daily_spend",
     label: `${args.agentName} · daily spend budget`,
     agent: args.agentName,
+    agentId: args.agentId,
     spentUsd: args.nextCents / 100,
     capUsd: (args.capCents as number) / 100,
   })
@@ -36,6 +37,7 @@ export async function notifyTokenBudgetThreshold(
     scope: "daily_tokens",
     label: `${args.agentName} · daily token budget`,
     agent: args.agentName,
+    agentId: args.agentId,
     spentUsd: args.nextUsd,
     capUsd: args.budgetUsd as number,
   })
@@ -65,7 +67,7 @@ export async function notifyPoolCapThresholds(
 async function deliver(
   walletId: string,
   ownerEmail: string,
-  detail: { scope: string; label: string; spentUsd: number; capUsd: number; agent?: string; pool?: string; pool_wallet_id?: string },
+  detail: { scope: string; label: string; spentUsd: number; capUsd: number; agent?: string; agentId?: string; pool?: string; pool_wallet_id?: string },
 ): Promise<void> {
   const pctUsed = Math.round((detail.spentUsd / detail.capUsd) * 100)
   try {
@@ -81,6 +83,9 @@ async function deliver(
         pool_wallet_id: detail.pool_wallet_id,
       }),
       sendBudgetThresholdEmail(ownerEmail, {
+        walletId: detail.pool_wallet_id ?? walletId,
+        agent: detail.agentId,
+        scope: detail.scope,
         label: detail.label,
         pctUsed,
         spentUsd: detail.spentUsd,

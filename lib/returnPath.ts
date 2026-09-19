@@ -7,3 +7,10 @@ export function safeNext(raw: unknown): string {
 export function approvalReturnPath(review: string): string {
   return `/dashboard/approvals?review=${encodeURIComponent(review)}`
 }
+
+export function spendReturnPath(walletId: string, agent?: string, scope?: string): string {
+  const params = new URLSearchParams({ wallet: walletId })
+  if (agent) params.set("agent", agent)
+  if (scope) params.set("budget", scope)
+  return `/dashboard/spend?${params}`
+}

@@ -150,6 +150,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
     try {
       await notifyTokenBudgetThreshold({
         walletId: agent.walletId,
+        agentId: agent.id,
         ownerEmail: agent.wallet.ownerEmail,
         agentName: agent.name,
         prevUsd: spent,

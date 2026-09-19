@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
   after(() =>
     notifyTokenBudgetThreshold({
       walletId: agent.walletId,
+      agentId: agent.id,
       ownerEmail: agent.wallet.ownerEmail,
       agentName: agent.name,
       prevUsd: outcome.spent,
