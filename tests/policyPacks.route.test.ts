@@ -9,6 +9,9 @@ const { dbMock, ownerMock, applyMock, rateLimitMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findMany: vi.fn() },
     authorizationRequest: { findMany: vi.fn() },
+    $transaction: vi.fn(),
+    policy: { upsert: vi.fn() },
+    policyRevision: { create: vi.fn() },
   },
   ownerMock: vi.fn(async () => ({ wallet: { id: "wallet_1" } as unknown })),
   applyMock: vi.fn() as ReturnType<typeof vi.fn>,
@@ -167,5 +170,52 @@ describe("coding-agent pack decisions", () => {
       capability_rules: policy.capability_rules, per_transaction_max_usd: 50,
       daily_spend_budget_usd: 50, daily_token_budget_usd: 10,
     }))
+  })
+})
+
+
+// Exercise the real input-to-stored-policy conversion before the decision engine.
+// Keep examples independent of the pack lists: deriving expected decisions from
+// those lists would let a broken template silently redefine its own contract.
+const toolPackCases = [
+  { id: "claude-code-approval-test", allow: [], escalate: ["claude-code.Read"], block: [], deny: ["claude-code.Write", "claude-code.ReadFile", "unknown"] },
+  { id: "coding-agent-seat", allow: ["github.get_file_contents", "filesystem.read_file", "filesystem.list_directory"], escalate: [], block: ["shell.exec", "rm -rf /"], deny: ["filesystem.read_secret", "github.create_pr", "unknown"] },
+  { id: "mcp-tool-governance", allow: ["github.search", "github.get_file_contents", "filesystem.read_file", "filesystem.list_directory"], escalate: ["filesystem.write_file", "github.create_pr", "shell.exec", "browser.submit", "email.send", "github.create_deployment"], block: ["secrets:read_raw", "cloud:delete_vm", "payments:charge"], deny: ["filesystem.read_secret", "filesystem.write_other", "cloud:delete_other", "unknown"] },
+  { id: "gateway-token-budget", allow: ["github.create_deployment", "unknown"], escalate: [], block: [], deny: [] },
+  { id: "fleet-channel-envelope", allow: ["github.get_file_contents", "filesystem.read_file"], escalate: ["provision:vm"], block: ["payments:charge", "secrets:export_all"], deny: ["payments:transfer", "secrets:export_other", "provision:other", "unknown"] },
+  { id: "agency-client-safe-launch", allow: ["filesystem.read_file", "github.search", "crm.read_contact", "github.get_file_contents", "notion.read_page"], escalate: ["crm.write_contact", "github.create_pr", "email.send", "calendar.create_event", "browser.submit", "provision:vm"], block: ["payments:charge", "cloud:delete_vm", "secrets:export_all"], deny: ["crm.read_secret", "crm.write_other", "unknown"] },
+  { id: "payment-agent-mandate", allow: ["payments:quote", "vendor:read", "receipt:read"], escalate: ["payments:authorize", "payments:capture", "vendor:create", "purchase:order"], block: ["payments:refund", "payments:wire", "crypto:transfer"], deny: ["payments:quote_other", "payments:capture_other", "unknown"] },
+  { id: "no-egress", allow: ["local.ollama", "local.chroma", "local.embeddings", "local.memory"], escalate: [], block: ["anthropic.messages", "openai.chat", "openai.embeddings", "gemini.generate", "perplexity.sonar", "web.fetch", "web.search", "transcription.cloud", "tts.cloud", "notifications.cloud"], deny: ["local.network", "unknown"] },
+]
+
+describe("tool-bearing pack behavior after policy conversion", () => {
+  beforeEach(() => {
+    dbMock.$transaction.mockImplementation(async (fn) => fn(dbMock))
+    dbMock.policy.upsert.mockImplementation(async ({ create }) => ({
+      id: "policy_test", currentRevision: 1, ...create,
+    }))
+    dbMock.policyRevision.create.mockResolvedValue({})
+  })
+
+  it("covers every pack that configures tool lists", () => {
+    const ids = POLICY_PACKS.filter(({ policy }) =>
+      policy.allowed_tools !== undefined || policy.blocked_tools !== undefined || policy.escalate_tools !== undefined,
+    ).map(({ id }) => id)
+    expect(toolPackCases.map(({ id }) => id).sort()).toEqual(ids.sort())
+  })
+
+  it.each(toolPackCases)("$id allows, escalates, and denies its concrete examples", async ({ id, allow, escalate, block, deny }) => {
+    const { applyPolicyUpdate } = await vi.importActual<typeof import("../lib/policy")>("../lib/policy")
+    const result = await applyPolicyUpdate(WID, findPack(id)!.policy)
+    expect(result.ok).toBe(true)
+    expect(dbMock.policyRevision.create).toHaveBeenCalledOnce()
+    const stored = dbMock.policy.upsert.mock.calls[0][0].create
+    const decide = (tool: string) => decideTool({
+      tool, allowedTools: stored.allowedTools, blockedTools: stored.blockedTools, escalateTools: stored.escalateTools,
+    })
+    for (const tool of allow) expect(decide(tool), tool).toMatchObject({ status: "allowed" })
+    for (const tool of escalate) expect(decide(tool), tool).toMatchObject({ status: "escalated", code: "TOOL_ESCALATION_REQUIRED" })
+    for (const tool of block) expect(decide(tool), tool).toMatchObject({ status: "denied", code: "TOOL_BLOCKED" })
+    for (const tool of deny) expect(decide(tool), tool).toMatchObject({ status: "denied", code: "TOOL_NOT_ALLOWED" })
   })
 })
