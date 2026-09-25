@@ -5,6 +5,8 @@ import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
 import { generateApiKey, generateManagementKey } from "@/lib/apiKey"
 import { requireSessionRole, setSession } from "@/lib/session"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
+import { parseEndOfDay } from "@/lib/dateInput"
 
 // Resolve an agent only if it belongs to the logged-in wallet. Session-gated —
 // same management-plane trust model as the REST endpoints (x-mgmt-key).
@@ -36,6 +38,7 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
       ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
     },
   })
+  await revokeActiveExecutionTokens({ agentId })
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
   return { ok: true, error: "", agentId, newKey: key.raw }
@@ -74,17 +77,19 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   const owned = await ownedAgent(agentId)
   if (!owned) return
   await db.agent.update({ where: { id: agentId }, data: { isActive: active } })
+  if (!active) await revokeActiveExecutionTokens({ agentId })
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
 }
 
 // Empty string = inherit the wallet policy (null); a number = a per-agent
-// override in dollars, stored as cents.
-function toCentsOrNull(v: FormDataEntryValue | null): number | null {
+// override in dollars, stored as cents. Anything else is malformed (undefined)
+// — never read as "inherit", which would silently remove the cap.
+function toCentsOrNull(v: FormDataEntryValue | null): number | null | undefined {
   const s = String(v ?? "").trim()
   if (s === "") return null
   const n = Number(s)
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : undefined
 }
 
 export type LimitsState = { ok: boolean; error: string }
@@ -97,17 +102,25 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
 
   // Seat fields: empty string clears (holder removed / no auto-expiry).
   const holderRaw = String(form.get("holder") ?? "").trim()
-  const expiresRaw = String(form.get("expires_at") ?? "").trim()
+  const expiresAt = parseEndOfDay(String(form.get("expires_at") ?? "").trim())
+  if (expiresAt === undefined) return { ok: false, error: "Expiry must be a valid date (YYYY-MM-DD)." }
+
+  const budgets = {
+    dailyTokenBudgetUsd: toCentsOrNull(form.get("daily_token_budget_usd")),
+    dailySpendBudgetUsd: toCentsOrNull(form.get("daily_spend_budget_usd")),
+    perTransactionMaxUsd: toCentsOrNull(form.get("per_transaction_max_usd")),
+    escalateOverUsd: toCentsOrNull(form.get("escalate_over_usd")),
+  }
+  if (Object.values(budgets).some((v) => v === undefined)) {
+    return { ok: false, error: "Budgets must be blank (inherit) or a non-negative dollar amount." }
+  }
 
   await db.agent.update({
     where: { id: agentId },
     data: {
-      dailyTokenBudgetUsd: toCentsOrNull(form.get("daily_token_budget_usd")),
-      dailySpendBudgetUsd: toCentsOrNull(form.get("daily_spend_budget_usd")),
-      perTransactionMaxUsd: toCentsOrNull(form.get("per_transaction_max_usd")),
-      escalateOverUsd: toCentsOrNull(form.get("escalate_over_usd")),
+      ...budgets,
       holder: holderRaw ? holderRaw.slice(0, 120) : null,
-      expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null,
+      expiresAt,
     },
   })
 

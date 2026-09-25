@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { withTenant } from "@/lib/rls"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 import { readScope, scopedWalletIds } from "@/lib/apiScope"
 
 const schema = z.object({
@@ -131,6 +132,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const updated = await db.agent.update({ where: { id: agent_id }, data })
+  if (overrides.active === false) await revokeActiveExecutionTokens({ agentId: agent_id })
 
   // Clearance lives in its own row; upsert it when any clearance field is given.
   let clearance: number | undefined

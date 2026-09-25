@@ -85,6 +85,7 @@ vi.mock("../lib/apiKey", () => apiKeyMock)
 vi.mock("@/lib/apiKey", () => apiKeyMock)
 vi.mock("../lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 vi.mock("../lib/session", () => sessionMock)
 vi.mock("@/lib/session", () => sessionMock)
 

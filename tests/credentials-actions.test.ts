@@ -15,7 +15,7 @@ vi.mock("@/lib/rls", () => rlsMock)
 vi.mock("@/lib/session", () => sessionMock)
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
 
-import { createCredentialAction } from "../app/dashboard/credentials/actions"
+import { createCredentialAction, updateCredentialAccessAction } from "../app/dashboard/credentials/actions"
 
 const WALLET = { id: "wallet_1" }
 
@@ -42,5 +42,19 @@ describe("createCredentialAction — role floor", () => {
     await createCredentialAction(form(VALID))
     expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
     expect(dbMock.credentialVault.create).toHaveBeenCalledOnce()
+  })
+})
+
+describe("credential expiry — malformed dates are refused, never read as 'no expiry'", () => {
+  it("updateCredentialAccessAction writes nothing on a malformed date", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    await updateCredentialAccessAction(form({ id: "cred_1", min_clearance: "2", expires_at: "31/12/2026" }))
+    expect(rlsMock.withTenant).not.toHaveBeenCalled()
+  })
+
+  it("createCredentialAction writes nothing on a malformed date", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    await createCredentialAction(form({ ...VALID, expires_at: "soon" }))
+    expect(dbMock.credentialVault.create).not.toHaveBeenCalled()
   })
 })

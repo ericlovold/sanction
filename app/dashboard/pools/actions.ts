@@ -8,6 +8,7 @@ import { parseOwnerEmail, parsePoolCapDollars, parsePoolName } from "@/lib/poolF
 import { agentIsInWalletSet, walletSubtreeIds } from "@/lib/poolAccess"
 import { upsertPolicyWithRevision } from "@/lib/policy"
 import { requireSessionRole } from "@/lib/session"
+import { withTenant } from "@/lib/rls"
 
 export type CreatePoolState = {
   ok: boolean
@@ -210,7 +211,9 @@ export async function moveAgentToPoolAction(
   if (!agent) return { ok: false, message: "Not authorized for that agent." }
   if (agent.walletId === targetWalletId) return { ok: true, message: "Agent already belongs to that pool." }
 
-  await db.$transaction(async (tx) => {
+  // RLS-scoped (SEC-3): the AgentClearance row must be visible under the source
+  // pool and writable under the target, so the tenant set is both.
+  await withTenant([agent.walletId, targetWalletId], async (tx) => {
     await tx.agent.update({
       where: { id: agentId },
       data: { walletId: targetWalletId },

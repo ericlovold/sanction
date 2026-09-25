@@ -33,10 +33,15 @@ export async function POST(req: NextRequest) {
   }
 
   const mgmt = generateManagementKey()
-  await db.wallet.update({
-    where: { id: wallet.id },
+  // Compare-and-set on the null hash: two concurrent bootstraps both pass the
+  // read above, but only one write can land; the loser must not return a key.
+  const { count } = await db.wallet.updateMany({
+    where: { id: wallet.id, mgmtKeyHash: null },
     data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
   })
+  if (count === 0) {
+    return NextResponse.json({ error: "Wallet already has a management key" }, { status: 409 })
+  }
 
   return NextResponse.json({
     wallet_id: wallet.id,

@@ -10,6 +10,7 @@ const { dbMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     agentClearance: { upsert: vi.fn() },
+    executionToken: { updateMany: vi.fn() },
     webhook: { findUnique: vi.fn(), update: vi.fn() },
     credentialVault: { findUnique: vi.fn(), update: vi.fn() },
   },

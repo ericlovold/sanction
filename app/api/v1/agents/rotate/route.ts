@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     where: { id: agent_id },
     data: { apiKeyHash: hash, apiKeyPrefix: prefix, ...(holder !== undefined ? { holder } : {}) },
   })
+  await revokeActiveExecutionTokens({ agentId: agent_id })
 
   return NextResponse.json(
     {

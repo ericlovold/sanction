@@ -5,6 +5,7 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { decideCredential } from "@/lib/credentialDecisions"
 import { withTenant } from "@/lib/rls"
+import { frozenNote, walletFreezeState } from "@/lib/freeze"
 
 const schema = z.object({
   credential_label: z.string(),
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
 
   const { credential_label } = parsed.data
 
+  // Only execution JWTs carry a scope array; any other signed token is not one.
+  if (!Array.isArray(claims.scope)) {
+    return NextResponse.json({ error: "Not an execution JWT" }, { status: 401 })
+  }
+
   // Verify the label is in the JWT's scope
   if (!claims.scope.includes(credential_label)) {
     return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403 })
@@ -52,6 +58,24 @@ export async function POST(req: NextRequest) {
   const execToken = await db.executionToken.findUnique({ where: { id: claims.jti } })
   if (!execToken || execToken.status !== "active" || execToken.expiresAt < new Date()) {
     return NextResponse.json({ error: "Execution token expired or revoked" }, { status: 401 })
+  }
+
+  // Kill switches reach the vault: a token minted before the owner deactivated
+  // the agent, its seat expired, or the wallet (or an ancestor) was frozen
+  // (KILL-1) must stop pulling secrets now, not at its TTL.
+  const agent = await db.agent.findUnique({
+    where: { id: execToken.agentId },
+    select: { isActive: true, expiresAt: true },
+  })
+  if (!agent || !agent.isActive) {
+    return NextResponse.json({ error: "Agent is inactive" }, { status: 403 })
+  }
+  if (agent.expiresAt && agent.expiresAt <= new Date()) {
+    return NextResponse.json({ error: "Agent key expired" }, { status: 403 })
+  }
+  const freeze = await walletFreezeState(db, claims.wallet)
+  if (freeze.frozen) {
+    return NextResponse.json({ error: frozenNote(freeze) }, { status: 403 })
   }
 
   // Fetch and decrypt the credential — RLS-scoped (SEC-3) to the wallet from the

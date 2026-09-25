@@ -10,11 +10,13 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     agentClearance: { create: vi.fn() },
+    executionToken: { updateMany: vi.fn() },
     wallet: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 vi.mock("@/lib/gateway", async (orig) => {
   const mod = await orig<typeof import("@/lib/gateway")>()
   return { ...mod, isBudgetExhausted: vi.fn(async () => ({ exhausted: false, spent: 0, budget: 10 })) }

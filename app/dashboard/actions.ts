@@ -9,6 +9,7 @@ import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { listSessionWallets, requireSessionRole, setActiveWallet } from "@/lib/session"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { withTenant } from "@/lib/rls"
 
 export type CreateAgentState = { ok: boolean; error: string; agentKey?: string; agentName?: string }
 export type BatchSeatResult = { id: string; name: string; holder: string | null; agentKey: string; apiKeyPrefix: string }
@@ -120,7 +121,7 @@ export async function createBatchAgentsAction(
   const minted = roster.map((seat) => ({ seat, key: generateApiKey() }))
   const toCents = (value: number | undefined) => (value === undefined ? null : Math.round(value * 100))
 
-  const seats = await db.$transaction(async (tx) => {
+  const seats = await withTenant(wallet.id, async (tx) => {
     const out: BatchSeatResult[] = []
     for (let i = 0; i < minted.length; i += 1) {
       const { seat, key } = minted[i]
