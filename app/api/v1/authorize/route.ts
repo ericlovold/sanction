@@ -22,6 +22,7 @@ import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thres
 import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
+  approvedSpendSince,
   SUBTREE_CAP_EXCEEDED_NOTE,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
@@ -269,14 +270,14 @@ export async function POST(req: NextRequest) {
   if (simulate) {
     const [dailySpend, monthlySpend, cpo] = await Promise.all([
       db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        where: approvedSpendSince(agent.id, dayStart, observe),
         _sum: { amountUsd: true },
       }),
       db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+        where: approvedSpendSince(agent.id, monthStart, observe),
         _sum: { amountUsd: true },
       }),
-      cpoContext(db, agent.walletId, policy),
+      cpoContext(db, agent.walletId, policy, undefined, observe),
     ])
 
     let exec: SpendContext["exec"]
@@ -292,7 +293,7 @@ export async function POST(req: NextRequest) {
     )
     const status = decision.effect === "allow" ? "approved" : decision.effect === "escalate" ? "escalated" : "denied"
     const note = decision.reason ?? ""
-    if (decision.effect === "allow" && (await cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain))) {
+    if (decision.effect === "allow" && (await cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain, observe))) {
       return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
     }
     return simulateResponse(status, note, agent.name, amount_usd, merchant)
@@ -323,16 +324,16 @@ export async function POST(req: NextRequest) {
       // never bypass a hard budget.
       const [dailySpend, monthlySpend, cpo] = await Promise.all([
         tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+          where: approvedSpendSince(agent.id, dayStart, observe),
           _sum: { amountUsd: true },
         }),
         tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+          where: approvedSpendSince(agent.id, monthStart, observe),
           _sum: { amountUsd: true },
         }),
         // CPO-1: windowed spend + outcomes for the ceiling, read under the same
         // lock as the budget state so the throttle can't race its own approvals.
-        cpoContext(tx, agent.walletId, policy),
+        cpoContext(tx, agent.walletId, policy, undefined, observe),
       ])
       let exec: SpendContext["exec"]
       if (execTokenId) {
@@ -380,7 +381,7 @@ export async function POST(req: NextRequest) {
 
         const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
         spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
-      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain)) {
+      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain, true)) {
         // Observe writes no counters, but the would_be must stay truthful: the
         // subtree cap lives outside the ladder, so check it read-only here —
         // the same answer FUND-1's simulate path gives.

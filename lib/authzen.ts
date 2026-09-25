@@ -13,6 +13,7 @@ import { freezeStateFromChain, frozenNote } from "@/lib/freeze"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
+  approvedSpendSince,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
   walletAncestorChain,
@@ -198,11 +199,11 @@ async function readSpendState(agent: AuthZenAgent) {
 
   const [daily, monthly, cpo] = await Promise.all([
     db.authorizationRequest.aggregate({
-      where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+      where: approvedSpendSince(agent.id, dayStart),
       _sum: { amountUsd: true },
     }),
     db.authorizationRequest.aggregate({
-      where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+      where: approvedSpendSince(agent.id, monthStart),
       _sum: { amountUsd: true },
     }),
     // undefined unless the wallet configures a ceiling — same read the native

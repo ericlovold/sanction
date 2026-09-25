@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid"
+import { Prisma } from "./generated/prisma/client"
 import { db } from "./db"
 import { crossedThreshold } from "./burn"
 
@@ -36,6 +37,24 @@ export class CascadeBudgetExceeded extends Error {
     this.capCents = capCents
     this.periodStart = periodStart
   }
+}
+
+// What the reconcile sums as a subtree's spend for the day (alias ar):
+//   - dated by decidedAt, so a grant redemption lands on the day it spends;
+//   - observed rows (OBS-1) are would-be spend and never count against an
+//     enforcing cap, only toward an observing caller's own would_be;
+//   - an approval whose grant is unconsumed (or expired/revoked unused) has
+//     spent nothing: redemption reserves it then, exactly once.
+function approvedSpendFilter(periodStart: Date, countObserved: boolean): Prisma.Sql {
+  return Prisma.sql`ar."status" = 'approved'
+    AND COALESCE(ar."decidedAt", ar."createdAt") >= ${periodStart}
+    AND (${countObserved}::boolean OR (ar."detailsJson"->>'observed') IS DISTINCT FROM 'true')
+    AND NOT EXISTS (
+      SELECT 1 FROM "Grant" g
+      WHERE g."sourceType" = 'authorization_request'
+        AND g."sourceId" = ar."id"
+        AND g."status" <> 'consumed'
+    )`
 }
 
 export function dayStart(d = new Date()): Date {
@@ -91,6 +110,9 @@ export async function reserveCascadeDailySpend(
   amountCents: number,
   now = new Date(),
   chain?: WalletBudgetNode[],
+  // A grant redemption reserves its own approved row: leave it out of the
+  // reconcile sum, or the seed/reconcile counts it and the increment adds it again.
+  redeemingRequestId?: string,
 ): Promise<CascadeCrossing[]> {
   const nodes = chain ?? (await walletAncestorChain(tx, walletId))
   const periodStart = dayStart(now)
@@ -121,8 +143,8 @@ export async function reserveCascadeDailySpend(
         FROM subtree
         JOIN "Agent" a ON a."walletId" = subtree.id
         JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
-        WHERE ar."status" = 'approved'
-          AND ar."createdAt" >= ${periodStart}
+        WHERE ${approvedSpendFilter(periodStart, false)}
+          AND ar."id" <> ${redeemingRequestId ?? ""}
       )
       INSERT INTO "WalletBudgetCounter" ("id", "walletId", "period", "periodStart", "spentCents", "updatedAt")
       SELECT ${nanoid()}, ${node.id}, ${PERIOD_DAILY}, ${periodStart}, rolled."spentCents", ${now}
@@ -148,8 +170,8 @@ export async function reserveCascadeDailySpend(
         FROM subtree
         JOIN "Agent" a ON a."walletId" = subtree.id
         JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
-        WHERE ar."status" = 'approved'
-          AND ar."createdAt" >= ${periodStart}
+        WHERE ${approvedSpendFilter(periodStart, false)}
+          AND ar."id" <> ${redeemingRequestId ?? ""}
       )
       UPDATE "WalletBudgetCounter"
       SET "spentCents" = GREATEST("spentCents", (SELECT "spentCents" FROM rolled)), "updatedAt" = ${now}
@@ -190,6 +212,8 @@ export async function cascadeDailyWouldExceed(
   amountCents: number,
   now = new Date(),
   chain?: WalletBudgetNode[],
+  // Observe mode's read-only would_be counts observed spend too (OBS-1).
+  countObserved = false,
 ): Promise<boolean> {
   const nodes = chain ?? (await walletAncestorChain(tx, walletId))
   const periodStart = dayStart(now)
@@ -213,8 +237,7 @@ export async function cascadeDailyWouldExceed(
         FROM subtree
         JOIN "Agent" a ON a."walletId" = subtree.id
         JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
-        WHERE ar."status" = 'approved'
-          AND ar."createdAt" >= ${periodStart}
+        WHERE ${approvedSpendFilter(periodStart, countObserved)}
       ), existing AS (
         SELECT "spentCents" FROM "WalletBudgetCounter"
         WHERE "walletId" = ${node.id}
@@ -229,4 +252,28 @@ export async function cascadeDailyWouldExceed(
     if (Number(rows[0]?.one ?? 0) === 1) return true
   }
   return false
+}
+
+// Approved spend since `since`, as the one where clause every budget read shares.
+//   - Dated by decidedAt: a grant redemption counts on the day it spends, not
+//     the day it escalated (createdAt covers undated legacy rows).
+//   - Observed rows are would-be spend: they count only toward an observing
+//     policy's own truthful would_be, never against an enforcing budget (OBS-1).
+export function approvedSpendSince(
+  agentIds: string | string[],
+  since: Date,
+  countObserved = false,
+): Prisma.AuthorizationRequestWhereInput {
+  return {
+    agentId: typeof agentIds === "string" ? agentIds : { in: agentIds },
+    status: "approved",
+    AND: [
+      { OR: [{ decidedAt: { gte: since } }, { decidedAt: null, createdAt: { gte: since } }] },
+      // A bare NOT on a JSON path drops rows where the path is absent (SQL
+      // NULL), i.e. every unmarked row — so match "absent" explicitly.
+      ...(countObserved
+        ? []
+        : [{ OR: [{ detailsJson: { path: ["observed"], equals: Prisma.DbNull } }, { NOT: { detailsJson: { path: ["observed"], equals: true } } }] }]),
+    ],
+  }
 }

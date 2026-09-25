@@ -225,7 +225,7 @@ async function consumeGrantCore(
   })
   if (consumed.count === 0) return denyGrant("GRANT_ALREADY_USED", 409, "Grant already consumed")
 
-  await reserveCascadeDailySpend(client, input.walletId, input.amountCents, now, input.ancestorChain)
+  await reserveCascadeDailySpend(client, input.walletId, input.amountCents, now, input.ancestorChain, grant.sourceId)
 
   const request = await client.authorizationRequest.update({
     where: { id: grant.sourceId },

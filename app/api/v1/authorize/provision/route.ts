@@ -23,6 +23,7 @@ import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
+  approvedSpendSince,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
   reserveCascadeDailySpend,
@@ -243,11 +244,11 @@ export async function POST(req: NextRequest) {
   if (simulate) {
     const [dailySpend, monthlySpend, cpo] = await Promise.all([
       db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+        where: approvedSpendSince(agent.id, dayStart),
         _sum: { amountUsd: true },
       }),
       db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+        where: approvedSpendSince(agent.id, monthStart),
         _sum: { amountUsd: true },
       }),
       // CPO-1 parity with the spend route and the AuthZEN PDP: provisions count
@@ -321,11 +322,11 @@ export async function POST(req: NextRequest) {
 
       const [dailySpend, monthlySpend, cpo] = await Promise.all([
         tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
+          where: approvedSpendSince(agent.id, dayStart),
           _sum: { amountUsd: true },
         }),
         tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
+          where: approvedSpendSince(agent.id, monthStart),
           _sum: { amountUsd: true },
         }),
         cpoContext(tx, agent.walletId, policy),
