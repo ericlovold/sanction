@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
-import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, meterUsage, makeStreamMeter, forceStreamUsage } from "@/lib/gateway"
+import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, meterUsage, makeStreamMeter, forceStreamUsage, isUnmeteredBackgroundRequest } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
 import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
@@ -133,6 +133,15 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       return NextResponse.json(
         {
           error: `The stored ${provider} key is only used for metered endpoints; ${method} /${path.join("/")} is not one. Send your own provider auth header to call it directly.`,
+          code: "GATEWAY_PATH_NOT_METERED",
+        },
+        { status: 403, headers: noStore },
+      )
+    }
+    if (isUnmeteredBackgroundRequest(provider, path.join("/"), body)) {
+      return NextResponse.json(
+        {
+          error: `The stored ${provider} key is not used for background-mode responses (background: true): they return no usage and settle via an unmetered retrieval. Send your own provider auth header, or omit background.`,
           code: "GATEWAY_PATH_NOT_METERED",
         },
         { status: 403, headers: noStore },

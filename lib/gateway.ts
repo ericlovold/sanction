@@ -341,6 +341,22 @@ export function forceStreamUsage(provider: string, body: ArrayBuffer | undefined
   }
 }
 
+/**
+ * OpenAI Responses background mode (`background: true`) answers queued with no
+ * usage and settles via GET retrieval, which is not metered — so a stored key
+ * must not fund it. Unparseable bodies return false: the provider can't parse
+ * them either, so they can't enable background mode.
+ */
+export function isUnmeteredBackgroundRequest(provider: string, path: string, body: ArrayBuffer | undefined): boolean {
+  if (provider !== "openai" || path !== "v1/responses" || !body || body.byteLength === 0) return false
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(body))
+    return !!parsed && typeof parsed === "object" && !Array.isArray(parsed) && (parsed as Record<string, unknown>).background === true
+  } catch {
+    return false
+  }
+}
+
 export function makeStreamMeter(provider: string) {
   const acc: GatewayUsage = { model: "", tokensIn: 0, tokensOut: 0 }
   return {

@@ -352,6 +352,44 @@ describe("gateway provider-key injection (Providers page)", () => {
     expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
   })
 
+  it("403s when the stored key would fund an OpenAI background-mode response, without calling upstream", async () => {
+    global.fetch = vi.fn() as never
+    const res = await gateway(
+      req("openai", "v1/responses", { providerAuth: false, body: { model: "gpt-5", input: "hi", background: true } }),
+      params("openai", "v1/responses"),
+    )
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.code).toBe("GATEWAY_PATH_NOT_METERED")
+    expect(body.error).toContain("background")
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
+  })
+
+  it("forwards a stored-key OpenAI responses call with background: false", async () => {
+    dbMock.credentialVault.findFirst.mockResolvedValueOnce({ id: "cred_1", walletId: "wallet_1", label: "provider:openai", encryptedValue: "x", keyId: "k" })
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }))
+    global.fetch = fetchMock as never
+    const res = await gateway(
+      req("openai", "v1/responses", { providerAuth: false, body: { model: "gpt-5", input: "hi", background: false } }),
+      params("openai", "v1/responses"),
+    )
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("bring-your-own-key background-mode responses still pass through", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: "queued" }), { status: 200, headers: { "content-type": "application/json" } }))
+    global.fetch = fetchMock as never
+    const res = await gateway(
+      req("openai", "v1/responses", { body: { model: "gpt-5", input: "hi", background: true } }),
+      params("openai", "v1/responses"),
+    )
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
+  })
+
   it("bring-your-own-key calls to unmetered endpoints still pass through", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } }))
     global.fetch = fetchMock as never

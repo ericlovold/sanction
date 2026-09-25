@@ -71,7 +71,9 @@ Anthropic `POST /v1/messages` (and `/v1/messages/count_tokens`); OpenAI
 Perplexity `POST /chat/completions`; Gemini `POST .../models/{model}:generateContent`
 and `:streamGenerateContent`. Any other path (batches, files, fine-tuning…)
 returns `403` with `code: "GATEWAY_PATH_NOT_METERED"` and is never sent upstream,
-because it would spend on the stored key with nothing metered. A request that
+because it would spend on the stored key with nothing metered. OpenAI
+`/v1/responses` with `background: true` gets the same `403`: background mode
+returns no usage and settles through an unmetered retrieval. A request that
 brings its own provider auth header passes through to any path.
 
 ## Notes / limits
