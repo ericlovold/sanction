@@ -97,8 +97,9 @@ export type MagicLinkVerifyState = {
 // minting agents. The first proof rotates every pre-claim credential (the same
 // set as the social claim, lib/session.ts claimWallet) and marks the email
 // verified, in one transaction plus the post-commit sweep. Later links on a
-// verified wallet, or any link on a wallet already linked to a signed-in owner,
-// are plain key recovery: only the sk_ key rotates.
+// verified wallet, or a link proving the linked social owner's own address, are
+// plain key recovery: only the sk_ key rotates. A first proof by anyone else on
+// a linked wallet also unlinks the previous social owner.
 export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: FormData): Promise<MagicLinkVerifyState> {
   const token = String(form.get("token") ?? "").trim()
   if (!token) return { ok: false, error: "Missing token." }
@@ -111,6 +112,15 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
   // it proves nothing about the wallet's current owner.
   const current = await db.wallet.findUnique({ where: { id: link.walletId } })
   if (!current || current.ownerEmail !== link.email) return invalid
+  // A linked social owner is exempt from the claim rotation only when they are
+  // the identity that holds this inbox. A linked owner can PATCH ownerEmail to
+  // someone else's address — then this proof comes from a different person, and
+  // is a claim against them like any squat.
+  const linkedOwner = current.userId
+    ? await db.user.findUnique({ where: { id: current.userId }, select: { email: true, emailVerified: true } })
+    : null
+  const sameIdentity =
+    !!linkedOwner && linkedOwner.emailVerified && linkedOwner.email.toLowerCase() === link.email.toLowerCase()
 
   // Single-use claim: only the request that flips usedAt from null wins.
   const claimed = await db.magicLink.updateMany({
@@ -129,9 +139,13 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
       where: { id: link.walletId, ownerEmail: link.email, ownerEmailVerifiedAt: null },
       data: { ownerEmailVerifiedAt: new Date() },
     })
-    // A wallet already linked to a signed-in owner can't be squatted — the
-    // first proof of a changed address verifies it without rotating their agents.
-    const revoked = firstProof.count === 1 && !current.userId ? await revokePreClaimAccess(tx, link.walletId) : null
+    // First proof by anyone but the linked owner is a claim: rotate pre-claim
+    // access and unlink the previous social owner so they keep no dashboard hold.
+    const isClaim = firstProof.count === 1 && !sameIdentity
+    const revoked = isClaim ? await revokePreClaimAccess(tx, link.walletId) : null
+    if (isClaim && current.userId) {
+      await tx.wallet.updateMany({ where: { id: link.walletId }, data: { userId: null } })
+    }
     // Rotate the key only while the wallet still carries the address this link
     // proved — an ownerEmail change since the pre-check voids the link, and the
     // throw rolls back the verification above with it.

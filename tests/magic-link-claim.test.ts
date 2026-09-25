@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const { dbMock, cookieStore } = vi.hoisted(() => {
   const dbMock = {
     magicLink: { findUnique: vi.fn(), updateMany: vi.fn() },
+    user: { findUnique: vi.fn() },
     wallet: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     walletMember: { updateMany: vi.fn() },
     executionToken: { updateMany: vi.fn() },
@@ -130,6 +131,7 @@ describe("verifyMagicLinkAction — already-verified wallet is key recovery", ()
 describe("verifyMagicLinkAction — a wallet already linked to a signed-in owner", () => {
   it("verifies a changed ownerEmail without rotating the owner's own agents", async () => {
     dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, userId: "user_owner" })
+    dbMock.user.findUnique.mockResolvedValue({ email: "Owner@Corp.com", emailVerified: true }) // the owner's own inbox
     walletWrites(1) // first proof of the new address
 
     const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
@@ -140,6 +142,33 @@ describe("verifyMagicLinkAction — a wallet already linked to a signed-in owner
     expect(agentRotations()).toHaveLength(0)
     expect(dbMock.webhook.deleteMany).not.toHaveBeenCalled()
     expect(dbMock.$transaction).toHaveBeenCalledTimes(1) // no sweep
+  })
+})
+
+describe("verifyMagicLinkAction — a linked owner retargeting ownerEmail at someone else", () => {
+  it("the inbox holder's first proof is a claim: pre-claim access rotated and the linked owner unlinked", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, userId: "user_attacker" })
+    dbMock.user.findUnique.mockResolvedValue({ email: "attacker@evil.test", emailVerified: true })
+    walletWrites(1)
+
+    const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
+
+    expect(res.ok).toBe(true)
+    expect(res.rotatedAgents).toBeDefined()
+    expect(agentRotations().length).toBeGreaterThan(0)
+    expect(dbMock.webhook.deleteMany).toHaveBeenCalled()
+    const unlink = dbMock.wallet.updateMany.mock.calls.map(([a]) => a as WalletWrite).find((a) => "userId" in a.data)
+    expect(unlink?.data).toEqual({ userId: null })
+  })
+
+  it("a linked owner whose own email is unverified gets no exemption", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, userId: "user_owner" })
+    dbMock.user.findUnique.mockResolvedValue({ email: WALLET.ownerEmail, emailVerified: false })
+    walletWrites(1)
+
+    const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
+
+    expect(res.rotatedAgents).toBeDefined()
   })
 })
 
