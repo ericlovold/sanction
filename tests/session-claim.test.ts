@@ -73,11 +73,11 @@ describe("resolveWalletForUser — claim-by-email", () => {
 
     // Conditional on still being unclaimed (race-safe), and kills the sk_ key.
     const link = dbMock.wallet.updateMany.mock.calls[0][0]
-    expect(link.where).toEqual({ id: SQUATTED.id, userId: null })
+    expect(link.where).toEqual({ id: SQUATTED.id, userId: null, ownerEmail: VICTIM.email })
     expect(link.data).toEqual({ userId: VICTIM.id })
     // First proof of the email (race-safe on the null marker) kills the sk_ key.
     const proof = dbMock.wallet.updateMany.mock.calls[1][0]
-    expect(proof.where).toEqual({ id: SQUATTED.id, ownerEmailVerifiedAt: null })
+    expect(proof.where).toEqual({ id: SQUATTED.id, ownerEmail: VICTIM.email, ownerEmailVerifiedAt: null })
     expect(proof.data).toEqual({ mgmtKeyHash: null, mgmtKeyPrefix: null, ownerEmailVerifiedAt: expect.any(Date) })
 
     // Agent keys rotated set-based (no read-then-write loop) to a value that can
@@ -159,6 +159,19 @@ describe("resolveWalletForUser — claim-by-email", () => {
     expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
     expect(dbMock.webhook.deleteMany).not.toHaveBeenCalled()
     expect(dbMock.$transaction).toHaveBeenCalledTimes(1) // no sweep
+  })
+
+  it("an ownerEmail swapped after the lookup voids the claim — nothing linked, verified, or handed back", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: true } })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.wallet.findUnique.mockResolvedValue(SQUATTED) // lookup still saw the victim's address
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 0 }) // the guarded link matches nothing now
+    dbMock.walletMember.findFirst.mockResolvedValue(null)
+
+    expect(await getSessionWallet()).toBeNull()
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].where).toMatchObject({ ownerEmail: VICTIM.email })
+    expect(dbMock.wallet.updateMany).toHaveBeenCalledTimes(1) // no verification stamp
+    expect(agentRotations()).toHaveLength(0)
   })
 
   it("an unverified user never claims — or is handed — a squatted wallet", async () => {

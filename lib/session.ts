@@ -77,7 +77,7 @@ async function resolveWalletForUser(
   // as a member, and entering through that membership must not skip the claim.
   const byEmail = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
   if (byEmail && !byEmail.userId && user.emailVerified === true) {
-    const claimed = await claimWallet(byEmail.id, user.id)
+    const claimed = await claimWallet(byEmail.id, user.id, user.email)
     if (claimed) return claimed
   }
 
@@ -148,16 +148,19 @@ async function resolveWalletForUser(
 // before the claim committed whose write lands after the sweep. Closing that
 // fully needs the data plane to re-check agent.isActive at use time (the gateway
 // and /authorize do via authenticateAgent; /credentials/inject is PR #310).
-async function claimWallet(walletId: string, userId: string) {
+async function claimWallet(walletId: string, userId: string, email: string) {
   const result = await db.$transaction(async (tx) => {
-    const claimed = await tx.wallet.updateMany({ where: { id: walletId, userId: null }, data: { userId } })
+    // Guarded on the address the lookup matched: if the sk_ holder changed
+    // ownerEmail in between, the verified sign-in proves nothing about the new
+    // address, so nothing is linked or marked verified.
+    const claimed = await tx.wallet.updateMany({ where: { id: walletId, userId: null, ownerEmail: email }, data: { userId } })
     if (claimed.count === 0) return null
 
     // Rotate only on the first proof of this email. If a magic link already
     // proved it, the pre-claim credentials were rotated then — the keys the
     // owner has minted since are theirs and must survive this sign-in.
     const firstProof = await tx.wallet.updateMany({
-      where: { id: walletId, ownerEmailVerifiedAt: null },
+      where: { id: walletId, ownerEmail: email, ownerEmailVerifiedAt: null },
       data: { mgmtKeyHash: null, mgmtKeyPrefix: null, ownerEmailVerifiedAt: new Date() },
     })
     if (firstProof.count === 1) {
