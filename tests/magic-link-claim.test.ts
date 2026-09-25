@@ -116,6 +116,22 @@ describe("verifyMagicLinkAction — already-verified wallet is key recovery", ()
   })
 })
 
+describe("verifyMagicLinkAction — a wallet already linked to a signed-in owner", () => {
+  it("verifies a changed ownerEmail without rotating the owner's own agents", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, userId: "user_owner" })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 }) // first proof of the new address
+
+    const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
+
+    expect(res.ok).toBe(true)
+    expect(res.rotatedAgents).toBeUndefined()
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data.ownerEmailVerifiedAt).toBeInstanceOf(Date)
+    expect(agentRotations()).toHaveLength(0)
+    expect(dbMock.webhook.deleteMany).not.toHaveBeenCalled()
+    expect(dbMock.$transaction).toHaveBeenCalledTimes(1) // no sweep
+  })
+})
+
 describe("verifyMagicLinkAction — stale links", () => {
   it("rejects a link sent to an email that is no longer the wallet's ownerEmail", async () => {
     dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, ownerEmail: "someone-else@corp.com" })

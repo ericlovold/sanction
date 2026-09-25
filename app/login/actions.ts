@@ -95,7 +95,8 @@ export type MagicLinkVerifyState = {
 // minting agents. The first proof rotates every pre-claim credential (the same
 // set as the social claim, lib/session.ts claimWallet) and marks the email
 // verified, in one transaction plus the post-commit sweep. Later links on a
-// verified wallet are plain key recovery: only the sk_ key rotates.
+// verified wallet, or any link on a wallet already linked to a signed-in owner,
+// are plain key recovery: only the sk_ key rotates.
 export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: FormData): Promise<MagicLinkVerifyState> {
   const token = String(form.get("token") ?? "").trim()
   if (!token) return { ok: false, error: "Missing token." }
@@ -126,7 +127,9 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
       where: { id: link.walletId, ownerEmail: link.email, ownerEmailVerifiedAt: null },
       data: { ownerEmailVerifiedAt: new Date() },
     })
-    const revoked = firstProof.count === 1 ? await revokePreClaimAccess(tx, link.walletId) : null
+    // A wallet already linked to a signed-in owner can't be squatted — the
+    // first proof of a changed address verifies it without rotating their agents.
+    const revoked = firstProof.count === 1 && !current.userId ? await revokePreClaimAccess(tx, link.walletId) : null
     const wallet = await tx.wallet.update({
       where: { id: link.walletId },
       data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
