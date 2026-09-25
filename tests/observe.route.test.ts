@@ -174,7 +174,7 @@ describe("observe mode — spend route", () => {
     const body = await res.json()
     expect(body).toMatchObject({ authorized: true, mode: "observe" })
     expect(body.would_be).toMatchObject({ status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
-    expect(cascadeDailyWouldExceed).toHaveBeenCalledWith(expect.anything(), expect.any(String), expect.any(Number), expect.any(Date), [], true)
+    expect(cascadeDailyWouldExceed).toHaveBeenCalledWith(expect.anything(), expect.any(String), expect.any(Number), expect.any(Date), [expect.objectContaining({ id: "wallet_obs", parentId: null })], true)
   })
 
   it("a would-be approval reserves only against ancestors — no own-level or exec-token writes", async () => {
