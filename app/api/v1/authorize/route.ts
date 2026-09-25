@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, isObserved, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionCode, isObserved, REMEDIATION, withoutObservedMarker, type DecisionCode } from "@/lib/decisions"
 import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/evidence"
 import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
@@ -349,6 +349,14 @@ export async function POST(req: NextRequest) {
       const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("spend", ctxFull) }
       evidenceForDenial = evidence
 
+      // Ancestor caps always apply. Observe relaxes only this wallet's own
+      // policy and caps, and an observed request proceeds whatever its would_be
+      // — so it reserves against every capped wallet strictly above this one,
+      // and a breach there is a real deny (handled in the catch below).
+      if (observe) {
+        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain.slice(1))
+      }
+
       if (decision.effect === "deny") {
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
       }
@@ -381,10 +389,10 @@ export async function POST(req: NextRequest) {
 
         const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
         spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
-      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain, true)) {
-        // Observe writes no counters, but the would_be must stay truthful: the
-        // subtree cap lives outside the ladder, so check it read-only here —
-        // the same answer FUND-1's simulate path gives.
+      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain.slice(0, 1), true)) {
+        // The wallet's OWN cap is relaxed in observe, but the would_be must stay
+        // truthful: check it read-only here — the same answer FUND-1's simulate
+        // path gives. (Ancestor caps were reserved for real above.)
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
       }
 
@@ -436,7 +444,8 @@ export async function POST(req: NextRequest) {
     // Early warning at the threshold line (no surprises): this approval crossed
     // 80% of the agent's daily budget and/or a pool cap — tell the owner now,
     // before anything is denied.
-    if (result.status === "approved" && (spendCrossing || poolCrossings.length > 0)) {
+    // Observed requests reserve real ancestor spend whatever their would_be.
+    if ((result.status === "approved" && spendCrossing) || poolCrossings.length > 0) {
       // TS cannot see the assignment inside the transaction callback — widen back.
       const crossing = spendCrossing as { prevCents: number; nextCents: number } | null
       after(() =>
@@ -472,6 +481,8 @@ export async function POST(req: NextRequest) {
       const rec = await db.authorizationRequest.create({
         data: {
           ...base,
+          // An ancestor cap breach is a real deny even in observe mode.
+          detailsJson: withoutObservedMarker(base.detailsJson),
           ...(evidenceForDenial ?? {}),
           status: "denied",
           decidedAt: new Date(),

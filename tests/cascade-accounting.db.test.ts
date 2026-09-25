@@ -11,7 +11,8 @@ vi.mock("next/server", async (importOriginal) => {
 
 // Budget accounting against real Postgres: what counts as spend for the
 // per-agent daily budget and the subtree (pool) cap counters.
-//   - observe-mode rows never count against an enforcing cap (OBS-1)
+//   - observe relaxes only the wallet's own policy and cap; ancestor caps
+//     always apply, and observed spend is real spend at the ancestor (OBS-1)
 //   - a grant redemption reserves its amount exactly once
 //   - a redemption counts on the day it happens, not the day it escalated
 const run = process.env.RUN_DB_TESTS === "1"
@@ -83,17 +84,44 @@ describe.skipIf(!run)("cascade + per-agent budget accounting", () => {
     stamp = Math.floor(Math.random() * 1e6)
   })
 
-  it("an observed pool's would-be spend never trips an enforcing sibling's shared cap", async () => {
-    const root = await makeWallet({ policy: { subtreeDailyCapUsd: 100_000 } }) // $1000 pool cap
+  it("ancestor caps always apply: an over-parent-cap request in observe mode is a real deny", async () => {
+    const root = await makeWallet({ policy: { subtreeDailyCapUsd: 100_000 } }) // $1000 parent cap
+    const observed = await makeWallet({ parentId: root.id, agent: true, policy: { enforcementMode: "observe" } })
+
+    const r = await authorize(observed.key, 1200)
+    expect(r).toMatchObject({ authorized: false, status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
+    expect(r.would_be).toBeUndefined()
+    const row = await db.authorizationRequest.findUnique({ where: { id: r.request_id } })
+    expect(row?.detailsJson ?? null).toBeNull()
+    expect(await counterCents(root.id)).toBe(0)
+  })
+
+  it("an observed pool's spend is real at the ancestor, so it counts against the shared parent cap", async () => {
+    const root = await makeWallet({ policy: { subtreeDailyCapUsd: 100_000 } }) // $1000 parent cap
     const observed = await makeWallet({ parentId: root.id, agent: true, policy: { enforcementMode: "observe" } })
     const enforcing = await makeWallet({ parentId: root.id, agent: true, policy: {} })
 
-    const a = await authorize(observed.key, 900)
-    expect(a.would_be.status).toBe("approved")
+    expect((await authorize(observed.key, 900)).would_be.status).toBe("approved")
+    expect(await counterCents(root.id)).toBe(90_000)
+    expect((await authorize(enforcing.key, 200)).status).toBe("denied")
+  })
 
-    const b = await authorize(enforcing.key, 200)
-    expect(b.status).toBe("approved")
-    expect(await counterCents(root.id)).toBe(20_000)
+  it("observe relaxes the wallet's own cap: would_be only, and never trips an enforcing child", async () => {
+    const root = await makeWallet({ policy: { subtreeDailyCapUsd: 100_000 } }) // $1000 ancestor cap
+    const pool = await makeWallet({ parentId: root.id, agent: true, policy: { enforcementMode: "observe", subtreeDailyCapUsd: 50_000 } }) // own $500 cap
+    const child = await makeWallet({ parentId: pool.id, agent: true, policy: {} })
+
+    const r = await authorize(pool.key, 600)
+    expect(r).toMatchObject({ authorized: true, status: "approved", mode: "observe" })
+    expect(r.would_be).toMatchObject({ status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
+    expect(await counterCents(root.id)).toBe(60_000) // real at the ancestor
+    expect(await counterCents(pool.id)).toBe(0) // would-be at its own level
+
+    // The enforcing child sits under the pool's own cap; the pool's observed
+    // spend is would-be there, so it does not consume the child's headroom.
+    expect((await authorize(child.key, 400)).status).toBe("approved")
+    expect(await counterCents(pool.id)).toBe(40_000)
+    expect(await counterCents(root.id)).toBe(100_000)
   })
 
   it("observed approvals do not count against the agent's own budget once it enforces", async () => {

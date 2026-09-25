@@ -39,16 +39,22 @@ export class CascadeBudgetExceeded extends Error {
   }
 }
 
-// What the reconcile sums as a subtree's spend for the day (alias ar):
+// What the reconcile sums as node `nodeId`'s subtree spend for the day
+// (aliases ar, a):
 //   - dated by decidedAt, so a grant redemption lands on the day it spends;
-//   - observed rows (OBS-1) are would-be spend and never count against an
-//     enforcing cap, only toward an observing caller's own would_be;
+//   - observed rows (OBS-1): observe relaxes only the agent's own wallet, so at
+//     that wallet's own cap they are would-be spend (counted only toward an
+//     observing caller's would_be), while at every ancestor they are real
+//     spend — the request proceeded, whatever its would_be status;
 //   - an approval whose grant is unconsumed (or expired/revoked unused) has
 //     spent nothing: redemption reserves it then, exactly once.
-function approvedSpendFilter(periodStart: Date, countObserved: boolean): Prisma.Sql {
-  return Prisma.sql`ar."status" = 'approved'
+function approvedSpendFilter(periodStart: Date, countObserved: boolean, nodeId: string): Prisma.Sql {
+  return Prisma.sql`(
+      (ar."status" = 'approved'
+        AND (${countObserved}::boolean OR (ar."detailsJson"->>'observed') IS DISTINCT FROM 'true'))
+      OR ((ar."detailsJson"->>'observed') = 'true' AND a."walletId" <> ${nodeId})
+    )
     AND COALESCE(ar."decidedAt", ar."createdAt") >= ${periodStart}
-    AND (${countObserved}::boolean OR (ar."detailsJson"->>'observed') IS DISTINCT FROM 'true')
     AND NOT EXISTS (
       SELECT 1 FROM "Grant" g
       WHERE g."sourceType" = 'authorization_request'
@@ -143,7 +149,7 @@ export async function reserveCascadeDailySpend(
         FROM subtree
         JOIN "Agent" a ON a."walletId" = subtree.id
         JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
-        WHERE ${approvedSpendFilter(periodStart, false)}
+        WHERE ${approvedSpendFilter(periodStart, false, node.id)}
           AND ar."id" <> ${redeemingRequestId ?? ""}
       )
       INSERT INTO "WalletBudgetCounter" ("id", "walletId", "period", "periodStart", "spentCents", "updatedAt")
@@ -170,7 +176,7 @@ export async function reserveCascadeDailySpend(
         FROM subtree
         JOIN "Agent" a ON a."walletId" = subtree.id
         JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
-        WHERE ${approvedSpendFilter(periodStart, false)}
+        WHERE ${approvedSpendFilter(periodStart, false, node.id)}
           AND ar."id" <> ${redeemingRequestId ?? ""}
       )
       UPDATE "WalletBudgetCounter"
@@ -237,7 +243,7 @@ export async function cascadeDailyWouldExceed(
         FROM subtree
         JOIN "Agent" a ON a."walletId" = subtree.id
         JOIN "AuthorizationRequest" ar ON ar."agentId" = a.id
-        WHERE ${approvedSpendFilter(periodStart, countObserved)}
+        WHERE ${approvedSpendFilter(periodStart, countObserved, node.id)}
       ), existing AS (
         SELECT "spentCents" FROM "WalletBudgetCounter"
         WHERE "walletId" = ${node.id}

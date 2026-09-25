@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-25",
+    title: "Observe mode no longer escapes a parent's cap",
+    tags: ["budgets", "observe", "fix"],
+    body: "Observe mode now relaxes only the observed pool's own policy and caps. A daily cap set on any wallet above it still applies: an over-cap request is a real denial, and observed spend counts against that cap. Grant redemptions now reserve their amount once, on the day they are redeemed.",
+  },
+  {
     date: "2026-09-17",
     title: "Return to the approval after switching wallets",
     tags: ["approvals", "fix"],
