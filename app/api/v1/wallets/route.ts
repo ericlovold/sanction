@@ -110,14 +110,24 @@ export async function PATCH(req: NextRequest) {
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
   try {
-    const updated = await db.wallet.update({
-      where: { id: wallet_id },
+    // Compare-and-set on the key this request authenticated with: a claim
+    // (social or magic link) clears or rotates mgmtKeyHash, so a request that
+    // authenticated with the pre-claim sk_ just before the claim committed
+    // matches no row instead of retargeting ownerEmail on the claimed wallet.
+    const written = await db.wallet.updateMany({
+      where: { id: wallet_id, mgmtKeyHash: owner.wallet.mgmtKeyHash },
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(owner_email !== undefined ? { ownerEmail: owner_email } : {}),
+        // A new address is unproven until a magic link or verified social
+        // sign-in proves it (lib/session.ts claim rotation).
+        ...(owner_email !== undefined && owner_email !== owner.wallet.ownerEmail ? { ownerEmailVerifiedAt: null } : {}),
       },
-      select: { id: true, name: true, ownerEmail: true },
     })
+    if (written.count !== 1) {
+      return NextResponse.json({ error: "Invalid management key" }, { status: 401, headers: { "Cache-Control": "no-store" } })
+    }
+    const updated = await db.wallet.findUniqueOrThrow({ where: { id: wallet_id }, select: { id: true, name: true, ownerEmail: true } })
     return NextResponse.json(
       { id: updated.id, name: updated.name, owner_email: updated.ownerEmail },
       { headers: { "Cache-Control": "no-store" } },

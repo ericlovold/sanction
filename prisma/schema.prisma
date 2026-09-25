@@ -36,6 +36,12 @@ model Wallet {
   ownerEmail String   @unique
   createdAt  DateTime @default(now())
 
+  // When ownerEmail was proven (provider-verified social claim/provision, or a
+  // magic link). Null = unverified: set at signup without proof, or cleared by
+  // an ownerEmail change. The first proof on an unverified wallet is a claim and
+  // rotates every pre-claim credential (lib/session.ts).
+  ownerEmailVerifiedAt DateTime?
+
   // Account tree (additive): a wallet may nest under a parent wallet, forming an
   // org → tenant → sub-tenant hierarchy. Null = root (every existing wallet).
   // Subtree reporting rolls spend up; /authorize enforces opt-in subtree caps.
