@@ -27,7 +27,7 @@ vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_
 vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
 vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
-  return { ...mod, walletAncestorChain: vi.fn(async () => []), reserveCascadeDailySpend: vi.fn(async () => []), cascadeDailyWouldExceed: vi.fn(async () => false) }
+  return { ...mod, walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]), reserveCascadeDailySpend: vi.fn(async () => []), cascadeDailyWouldExceed: vi.fn(async () => false) }
 })
 
 import { capabilityMatches, decideCapability, parseCapabilityRules } from "../lib/capability"

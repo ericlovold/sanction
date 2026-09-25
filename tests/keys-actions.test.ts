@@ -13,7 +13,7 @@ vi.mock("@/lib/session", () => sessionMock)
 vi.mock("@/lib/rls", () => ({ withTenant: (_w: string, fn: (tx: typeof dbMock) => unknown) => fn(dbMock) }))
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
 
-import { resetManagementKeyAction } from "../app/dashboard/keys/actions"
+import { resetManagementKeyAction, updateLimitsAction } from "../app/dashboard/keys/actions"
 import { hasRole, type WalletRole } from "../lib/roles"
 
 beforeEach(() => {
@@ -76,5 +76,43 @@ describe("resetManagementKeyAction", () => {
     // The current login survives the rotation.
     expect(sessionMock.setSession).toHaveBeenCalledWith(res.newKey)
     expect(revalidateMock).toHaveBeenCalledWith("/dashboard/team")
+  })
+})
+
+describe("updateLimitsAction — malformed input is refused, never read as 'inherit'", () => {
+  const limits = (fields: Record<string, string>) => {
+    const f = new FormData()
+    f.set("agent_id", "agent_1")
+    for (const [k, v] of Object.entries(fields)) f.set(k, v)
+    return updateLimitsAction({ ok: false, error: "" }, f)
+  }
+
+  beforeEach(() => {
+    sessionMock.requireSessionRole.mockResolvedValue({ id: "wallet_1" })
+    dbMock.agent.findUnique.mockResolvedValue({ id: "agent_1", walletId: "wallet_1" })
+    dbMock.agent.update.mockResolvedValue({})
+  })
+
+  it.each(["-5", "abc", "1e999"])("rejects budget %s instead of removing the cap", async (bad) => {
+    const res = await limits({ daily_spend_budget_usd: bad })
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/budget/i)
+    expect(dbMock.agent.update).not.toHaveBeenCalled()
+  })
+
+  it.each(["next tuesday", "2026-02-30"])("rejects expiry %s instead of clearing it", async (bad) => {
+    const res = await limits({ expires_at: bad })
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/expir/i)
+    expect(dbMock.agent.update).not.toHaveBeenCalled()
+  })
+
+  it("blank still means inherit / no expiry; valid values are stored in cents", async () => {
+    const res = await limits({ daily_spend_budget_usd: "", per_transaction_max_usd: "12.5", expires_at: "" })
+    expect(res.ok).toBe(true)
+    const data = dbMock.agent.update.mock.calls[0][0].data
+    expect(data.dailySpendBudgetUsd).toBeNull()
+    expect(data.perTransactionMaxUsd).toBe(1250)
+    expect(data.expiresAt).toBeNull()
   })
 })

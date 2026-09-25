@@ -90,6 +90,7 @@ const rpc = (method: string, params: Record<string, unknown> = {}, id: number | 
 beforeEach(() => {
   vi.clearAllMocks()
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
+  dbMock.wallet.findUnique.mockResolvedValue({ id: "wallet_1", parentId: null, frozenAt: null, frozenReason: null })
   dbMock.credentialVault.findFirst.mockResolvedValue({ id: "cred_1", walletId: "wallet_1", label: "mcp:github", encryptedValue: "x", keyId: "k" })
   dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_1", createdAt: new Date() })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))

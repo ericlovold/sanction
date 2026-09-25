@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
+import { hashApiKey } from "@/lib/apiKey"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { issueExecutionJWT } from "@/lib/jwt"
 import { withTenant } from "@/lib/rls"
@@ -76,26 +77,49 @@ export async function POST(req: NextRequest) {
 
   const expiresAt = new Date(Date.now() + ttl_seconds * 1000)
 
-  const { jwt, jti } = await issueExecutionJWT({
-    wallet: agent.walletId,
-    agent: agent.id,
-    clearance: clearanceLevel,
-    scope,
-    budget_usd,
-  }, ttl_seconds)
+  // Issue under the agent's row lock. Rotation, deactivation, and pool moves
+  // UPDATE this row (taking the same lock) and revoke active tokens in one
+  // transaction, so re-checking the presented key here means a kill switch that
+  // committed after authenticateAgent can never leave a freshly minted token.
+  const presentedHash = hashApiKey(req.headers.get("x-api-key") ?? "")
+  const issued = await db.$transaction(async (tx) => {
+    const [row] = await tx.$queryRaw<
+      Array<{ apiKeyHash: string; isActive: boolean; expiresAt: Date | null; walletId: string }>
+    >`SELECT "apiKeyHash", "isActive", "expiresAt", "walletId" FROM "Agent" WHERE "id" = ${agent.id} FOR UPDATE`
+    if (
+      !row ||
+      row.apiKeyHash !== presentedHash ||
+      !row.isActive ||
+      (row.expiresAt && row.expiresAt <= new Date()) ||
+      row.walletId !== agent.walletId
+    ) {
+      return null
+    }
 
-  await db.executionToken.create({
-    data: {
-      id: jti,
-      agentId: agent.id,
-      walletId: agent.walletId,
-      scope,
-      budgetUsd: budget_usd,
+    const { jwt, jti } = await issueExecutionJWT({
+      wallet: agent.walletId,
+      agent: agent.id,
       clearance: clearanceLevel,
-      expiresAt,
-      containerId: container_id,
-    },
+      scope,
+      budget_usd,
+    }, ttl_seconds)
+
+    await tx.executionToken.create({
+      data: {
+        id: jti,
+        agentId: agent.id,
+        walletId: agent.walletId,
+        scope,
+        budgetUsd: budget_usd,
+        clearance: clearanceLevel,
+        expiresAt,
+        containerId: container_id,
+      },
+    })
+    return { jwt, jti }
   })
+  if (!issued) return NextResponse.json({ error: "Agent key is no longer valid" }, { status: 401 })
+  const { jwt, jti } = issued
 
   return NextResponse.json(
     {

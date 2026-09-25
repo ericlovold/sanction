@@ -5,10 +5,13 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { decideCredential } from "@/lib/credentialDecisions"
 import { withTenant } from "@/lib/rls"
+import { frozenNote, walletFreezeState } from "@/lib/freeze"
 
 const schema = z.object({
   credential_label: z.string(),
 })
+
+const NO_STORE = { "Cache-Control": "no-store" }
 
 // Called by agent/container at runtime — present JWT, get decrypted credential for this scope only
 export async function POST(req: NextRequest) {
@@ -35,9 +38,14 @@ export async function POST(req: NextRequest) {
 
   const { credential_label } = parsed.data
 
+  // Only execution JWTs carry a scope array; any other signed token is not one.
+  if (!Array.isArray(claims.scope)) {
+    return NextResponse.json({ error: "Not an execution JWT" }, { status: 401, headers: NO_STORE })
+  }
+
   // Verify the label is in the JWT's scope
   if (!claims.scope.includes(credential_label)) {
-    return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403 })
+    return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403, headers: NO_STORE })
   }
 
   // SEC-5: verify JWT audience matches the wallet claimed in the token body.
@@ -52,6 +60,30 @@ export async function POST(req: NextRequest) {
   const execToken = await db.executionToken.findUnique({ where: { id: claims.jti } })
   if (!execToken || execToken.status !== "active" || execToken.expiresAt < new Date()) {
     return NextResponse.json({ error: "Execution token expired or revoked" }, { status: 401 })
+  }
+
+  // Kill switches reach the vault: a token minted before the owner deactivated
+  // the agent, its seat expired, or the wallet (or an ancestor) was frozen
+  // (KILL-1) must stop pulling secrets now, not at its TTL.
+  const agent = await db.agent.findUnique({
+    where: { id: execToken.agentId },
+    select: { isActive: true, expiresAt: true, walletId: true },
+  })
+  if (!agent || !agent.isActive) {
+    return NextResponse.json({ error: "Agent is inactive" }, { status: 403, headers: NO_STORE })
+  }
+  if (agent.expiresAt && agent.expiresAt <= new Date()) {
+    return NextResponse.json({ error: "Agent key expired" }, { status: 403, headers: NO_STORE })
+  }
+  // A token is bound to the wallet it was minted in. If the agent has since moved
+  // pools, the token no longer describes where the agent lives — refuse it
+  // rather than keep reading the old wallet's vault past a freeze of the new one.
+  if (agent.walletId !== claims.wallet) {
+    return NextResponse.json({ error: "Agent has moved wallets; request a new execution token" }, { status: 403, headers: NO_STORE })
+  }
+  const freeze = await walletFreezeState(db, claims.wallet)
+  if (freeze.frozen) {
+    return NextResponse.json({ error: frozenNote(freeze) }, { status: 403, headers: NO_STORE })
   }
 
   // Fetch and decrypt the credential — RLS-scoped (SEC-3) to the wallet from the

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { NoWallet } from "@/components/no-wallet"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -26,22 +27,25 @@ export default async function CredentialsPage() {
   const { ids: walletIds } = await subtreeWalletIds(view.id)
   const multiPool = walletIds.length > 1
   const [credentials, walletRows] = await Promise.all([
-    db.credentialVault.findMany({
-      where: { walletId: { in: walletIds } },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        walletId: true,
-        label: true,
-        type: true,
-        scopes: true,
-        allowedAgentIds: true,
-        minClearance: true,
-        expiresAt: true,
-        revokedAt: true,
-        createdAt: true,
-      },
-    }),
+    // RLS-scoped (SEC-3) to the viewer's subtree — CredentialVault is FORCE RLS.
+    withTenant(walletIds, (tx) =>
+      tx.credentialVault.findMany({
+        where: { walletId: { in: walletIds } },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          walletId: true,
+          label: true,
+          type: true,
+          scopes: true,
+          allowedAgentIds: true,
+          minClearance: true,
+          expiresAt: true,
+          revokedAt: true,
+          createdAt: true,
+        },
+      }),
+    ),
     db.wallet.findMany({ where: { id: { in: walletIds } }, select: { id: true, name: true } }),
   ])
   const poolName = new Map(walletRows.map((w) => [w.id, w.name]))

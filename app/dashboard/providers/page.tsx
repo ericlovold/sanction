@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
@@ -34,10 +35,13 @@ export default async function ProvidersPage() {
   const agentIds = agents.map((a) => a.id)
 
   const [connections, modelGroups] = await Promise.all([
-    db.credentialVault.findMany({
-      where: { walletId: view.id, label: { startsWith: "provider:" }, revokedAt: null },
-      select: { label: true, createdAt: true },
-    }),
+    // RLS-scoped (SEC-3) — CredentialVault is FORCE RLS.
+    withTenant(view.id, (tx) =>
+      tx.credentialVault.findMany({
+        where: { walletId: view.id, label: { startsWith: "provider:" }, revokedAt: null },
+        select: { label: true, createdAt: true },
+      }),
+    ),
     db.tokenLog.groupBy({
       by: ["model"],
       where: { agentId: { in: agentIds }, createdAt: { gte: startOfMonth() } },

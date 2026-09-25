@@ -4,6 +4,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateManagementKey } from "@/lib/apiKey"
 import { rateLimit, clientIp } from "@/lib/rateLimit"
+import { canNestUnder, MAX_WALLET_CHAIN } from "@/lib/freeze"
 import { authenticateOwner } from "@/lib/ownerAuth"
 
 const schema = z.object({
@@ -29,6 +30,9 @@ export async function POST(req: NextRequest) {
     // Authenticated nesting under a parent — no IP throttle (it's a trusted op).
     const owner = await authenticateOwner(req, parent_id)
     if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
+    if (!(await canNestUnder(db, parent_id))) {
+      return NextResponse.json({ error: `Wallets can nest at most ${MAX_WALLET_CHAIN} levels deep.` }, { status: 400 })
+    }
   } else {
     // Unauthenticated root sign-up + creates rows: throttle to stop mass spam.
     const rl = await rateLimit("wallet_create", clientIp(req), 15, 3600)
