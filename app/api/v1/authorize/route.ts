@@ -3,7 +3,7 @@ import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
-import { decisionCode, isObserved, REMEDIATION, type DecisionCode } from "@/lib/decisions"
+import { decisionCode, isObserved, REMEDIATION, withoutObservedMarker, type DecisionCode } from "@/lib/decisions"
 import { APPEALABLE_DENIALS, decisionEvidence, limitFromDecision } from "@/lib/evidence"
 import { accessRequestOffer, publicOrigin } from "@/lib/authzen"
 import { evaluate } from "@/lib/evaluation"
@@ -22,6 +22,7 @@ import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thres
 import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
+  approvedSpendSum,
   SUBTREE_CAP_EXCEEDED_NOTE,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
@@ -78,9 +79,9 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   // OBS-1: observe mode runs the identical engine and persists the truthful
-  // would-be decision (marked observed), but blocks nothing and writes no
-  // enforcement state — no cascade/exec debits (an observed pool must never
-  // trip a shared cap for an enforcing sibling), no approvals, no pages.
+  // would-be decision (marked observed). It relaxes only this wallet's own
+  // policy and cap: no own-level cascade/exec debits, no approvals, no pages.
+  // Ancestor subtree caps still reserve and can deny — the agent really spends.
   // Freeze (above) and no-policy (below) still enforce: the kill switch is an
   // owner action, and observe is a property OF a policy.
   const observe = policy?.enforcementMode === "observe"
@@ -235,7 +236,10 @@ export async function POST(req: NextRequest) {
 
   // Stateless gates (no budget state) run before the advisory lock. The simulate
   // path uses the shared ladder (decidePolicy) below, so it need not repeat them.
-  if (!simulate) {
+  // Observe skips the early return: an observed request proceeds whatever its
+  // would_be, so it must reach the ancestor reservation in the transaction,
+  // which re-runs these gates for the would_be.
+  if (!simulate && !observe) {
     const gateCtx = { ...ctxBase, dailySpentUsd: 0, monthlySpentUsd: 0 }
     const gate = evaluate(gateCtx, SPEND_STATELESS)
     if (gate.effect === "deny") {
@@ -268,15 +272,9 @@ export async function POST(req: NextRequest) {
   // preserves live precedence: policy denies/escalations win before subtree caps.
   if (simulate) {
     const [dailySpend, monthlySpend, cpo] = await Promise.all([
-      db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-        _sum: { amountUsd: true },
-      }),
-      db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-        _sum: { amountUsd: true },
-      }),
-      cpoContext(db, agent.walletId, policy),
+      approvedSpendSum(db, agent.id, dayStart, observe),
+      approvedSpendSum(db, agent.id, monthStart, observe),
+      cpoContext(db, agent.walletId, policy, undefined, observe),
     ])
 
     let exec: SpendContext["exec"]
@@ -292,6 +290,17 @@ export async function POST(req: NextRequest) {
     )
     const status = decision.effect === "allow" ? "approved" : decision.effect === "escalate" ? "escalated" : "denied"
     const note = decision.reason ?? ""
+    if (observe) {
+      // Mirrors live observe: an ancestor cap breach is a real deny whatever the
+      // engine said; the wallet's own cap only shapes the would_be.
+      if (await cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain.slice(1))) {
+        return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
+      }
+      if (decision.effect === "allow" && (await cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain.slice(0, 1), true))) {
+        return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant, true)
+      }
+      return simulateResponse(status, note, agent.name, amount_usd, merchant, true)
+    }
     if (decision.effect === "allow" && (await cascadeDailyWouldExceed(db, agent.walletId, amountCents, new Date(), ancestorChain))) {
       return simulateResponse("denied", SUBTREE_CAP_EXCEEDED_NOTE, agent.name, amount_usd, merchant)
     }
@@ -322,17 +331,11 @@ export async function POST(req: NextRequest) {
       // stateless pre-check) — and before the ladder, so a sub-floor charge can
       // never bypass a hard budget.
       const [dailySpend, monthlySpend, cpo] = await Promise.all([
-        tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-          _sum: { amountUsd: true },
-        }),
-        tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-          _sum: { amountUsd: true },
-        }),
+        approvedSpendSum(tx, agent.id, dayStart, observe),
+        approvedSpendSum(tx, agent.id, monthStart, observe),
         // CPO-1: windowed spend + outcomes for the ceiling, read under the same
         // lock as the budget state so the throttle can't race its own approvals.
-        cpoContext(tx, agent.walletId, policy),
+        cpoContext(tx, agent.walletId, policy, undefined, observe),
       ])
       let exec: SpendContext["exec"]
       if (execTokenId) {
@@ -342,11 +345,19 @@ export async function POST(req: NextRequest) {
       }
 
       const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec, cpo }
-      const decision = evaluate(ctxFull, SPEND_STATEFUL)
+      const decision = evaluate(ctxFull, observe ? [...SPEND_STATELESS, ...SPEND_STATEFUL] : SPEND_STATEFUL)
       // EVID-1: persist the revision in force plus the exact context evaluated,
       // so this decision can be replayed and proven later.
       const evidence = { policyRevision: policy.currentRevision, decisionContextJson: decisionEvidence("spend", ctxFull) }
       evidenceForDenial = evidence
+
+      // Ancestor caps always apply. Observe relaxes only this wallet's own
+      // policy and caps, and an observed request proceeds whatever its would_be
+      // — so it reserves against every capped wallet strictly above this one,
+      // and a breach there is a real deny (handled in the catch below).
+      if (observe) {
+        poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain.slice(1))
+      }
 
       if (decision.effect === "deny") {
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: decision.reason } })
@@ -380,10 +391,10 @@ export async function POST(req: NextRequest) {
 
         const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
         spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
-      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain)) {
-        // Observe writes no counters, but the would_be must stay truthful: the
-        // subtree cap lives outside the ladder, so check it read-only here —
-        // the same answer FUND-1's simulate path gives.
+      } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain.slice(0, 1), true)) {
+        // The wallet's OWN cap is relaxed in observe, but the would_be must stay
+        // truthful: check it read-only here — the same answer FUND-1's simulate
+        // path gives. (Ancestor caps were reserved for real above.)
         return tx.authorizationRequest.create({ data: { ...base, ...evidence, status: "denied", decidedAt: new Date(), decisionNote: SUBTREE_CAP_EXCEEDED_NOTE } })
       }
 
@@ -435,7 +446,8 @@ export async function POST(req: NextRequest) {
     // Early warning at the threshold line (no surprises): this approval crossed
     // 80% of the agent's daily budget and/or a pool cap — tell the owner now,
     // before anything is denied.
-    if (result.status === "approved" && (spendCrossing || poolCrossings.length > 0)) {
+    // Observed requests reserve real ancestor spend whatever their would_be.
+    if ((result.status === "approved" && spendCrossing) || poolCrossings.length > 0) {
       // TS cannot see the assignment inside the transaction callback — widen back.
       const crossing = spendCrossing as { prevCents: number; nextCents: number } | null
       after(() =>
@@ -471,6 +483,8 @@ export async function POST(req: NextRequest) {
       const rec = await db.authorizationRequest.create({
         data: {
           ...base,
+          // An ancestor cap breach is a real deny even in observe mode.
+          detailsJson: withoutObservedMarker(base.detailsJson),
           ...(evidenceForDenial ?? {}),
           status: "denied",
           decidedAt: new Date(),
@@ -585,8 +599,21 @@ function isUniqueViolation(e: unknown): boolean {
 }
 
 // FUND-1: dry-run response — same shape as a live decision, no DB write.
-function simulateResponse(status: string, note: string, agentName: string, amount_usd: number, merchant: string) {
+function simulateResponse(status: string, note: string, agentName: string, amount_usd: number, merchant: string, observed = false) {
   const code = decisionCode(status, note)
+  if (observed) {
+    return NextResponse.json({
+      simulated: true,
+      authorized: true,
+      status: "approved",
+      mode: "observe",
+      would_be: { status, reason: note || undefined, code, remediation: code ? REMEDIATION[code] : undefined },
+      request_id: null,
+      agent: agentName,
+      amount_usd,
+      merchant,
+    }, { headers: { "Cache-Control": "no-store" } })
+  }
   return NextResponse.json(
     {
       simulated: true,
@@ -600,6 +627,6 @@ function simulateResponse(status: string, note: string, agentName: string, amoun
       amount_usd,
       merchant,
     },
-    { status: statusCode(status) },
+    { status: statusCode(status), headers: { "Cache-Control": "no-store" } },
   )
 }

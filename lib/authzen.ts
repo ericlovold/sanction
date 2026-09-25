@@ -13,6 +13,7 @@ import { freezeStateFromChain, frozenNote } from "@/lib/freeze"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
+  approvedSpendSum,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
   walletAncestorChain,
@@ -197,14 +198,8 @@ async function readSpendState(agent: AuthZenAgent) {
   monthStart.setHours(0, 0, 0, 0)
 
   const [daily, monthly, cpo] = await Promise.all([
-    db.authorizationRequest.aggregate({
-      where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-      _sum: { amountUsd: true },
-    }),
-    db.authorizationRequest.aggregate({
-      where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-      _sum: { amountUsd: true },
-    }),
+    approvedSpendSum(db, agent.id, dayStart),
+    approvedSpendSum(db, agent.id, monthStart),
     // undefined unless the wallet configures a ceiling — same read the native
     // route and its simulate path use, so the two surfaces cannot drift.
     agent.wallet.policy ? cpoContext(db, agent.walletId, agent.wallet.policy) : Promise.resolve(undefined),

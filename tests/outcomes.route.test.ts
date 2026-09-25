@@ -13,6 +13,7 @@ const { dbMock } = vi.hoisted(() => ({
     policy: { findUnique: vi.fn() },
     outcomeEvent: { create: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
     authorizationRequest: { aggregate: vi.fn() },
+    grant: { findMany: vi.fn(async () => []) },
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
