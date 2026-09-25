@@ -84,7 +84,7 @@ export function ManagementKeyCard({ prefix, editable }: { prefix: string | null;
             {label}
           </button>
           {!editable && (
-            <p className="mt-2 text-xs text-muted-foreground">Log in to this account to reset its management key.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Only this account&rsquo;s owner can reset its management key.</p>
           )}
           {state.error && <p className="mt-2 text-sm text-red-400">{state.error}</p>}
         </form>

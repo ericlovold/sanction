@@ -49,9 +49,11 @@ export type MgmtKeyState = { ok: boolean; error: string; newKey?: string }
 // exactly the "I lost my admin key" recovery a user must be able to self-serve.
 // The old key stops working the instant the new hash is stored; we re-set the
 // session to the new key so the current login survives the rotation. Shown once.
+// Owner-only: an sk_ session resolves to role "owner", so letting an admin mint
+// one would be an admin→owner escalation.
 export async function resetManagementKeyAction(_prev: MgmtKeyState, _form: FormData): Promise<MgmtKeyState> {
-  const wallet = await requireSessionRole("admin")
-  if (!wallet) return { ok: false, error: "Log in to reset your management key." }
+  const wallet = await requireSessionRole("owner")
+  if (!wallet) return { ok: false, error: "Only the wallet owner can reset the management key." }
 
   const key = generateManagementKey()
   await db.wallet.update({

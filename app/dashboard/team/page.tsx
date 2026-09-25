@@ -120,7 +120,7 @@ export default async function TeamPage() {
 
       {/* The root credential — the sk_ key that authorizes the management
           plane. It lives with the humans who hold it; agent keys are on Seats. */}
-      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={hasRole(view.role, "admin")} />
+      <ManagementKeyCard prefix={wallet?.mgmtKeyPrefix ?? null} editable={hasRole(view.role, "owner")} />
     </div>
   )
 }
