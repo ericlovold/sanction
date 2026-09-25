@@ -10,6 +10,7 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+    grant: { findMany: vi.fn(async () => []) },
     executionToken: { findUnique: vi.fn(), update: vi.fn() },
     pendingApproval: { findFirst: vi.fn() },
     walletDecisionCounter: { upsert: vi.fn(), aggregate: vi.fn() },

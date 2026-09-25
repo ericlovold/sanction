@@ -23,6 +23,7 @@ import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
+  approvedSpendSum,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
   reserveCascadeDailySpend,
@@ -242,14 +243,8 @@ export async function POST(req: NextRequest) {
   // check subtree caps only for would-be approvals.
   if (simulate) {
     const [dailySpend, monthlySpend, cpo] = await Promise.all([
-      db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-        _sum: { amountUsd: true },
-      }),
-      db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-        _sum: { amountUsd: true },
-      }),
+      approvedSpendSum(db, agent.id, dayStart),
+      approvedSpendSum(db, agent.id, monthStart),
       // CPO-1 parity with the spend route and the AuthZEN PDP: provisions count
       // toward the window's spend, so they must face the same ceiling.
       cpoContext(db, agent.walletId, policy),
@@ -320,14 +315,8 @@ export async function POST(req: NextRequest) {
       }
 
       const [dailySpend, monthlySpend, cpo] = await Promise.all([
-        tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-          _sum: { amountUsd: true },
-        }),
-        tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-          _sum: { amountUsd: true },
-        }),
+        approvedSpendSum(tx, agent.id, dayStart),
+        approvedSpendSum(tx, agent.id, monthStart),
         cpoContext(tx, agent.walletId, policy),
       ])
       let exec: SpendContext["exec"]

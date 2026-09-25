@@ -13,6 +13,7 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+    grant: { findMany: vi.fn(async () => []) },
     executionToken: { findUnique: vi.fn(), update: vi.fn() },
     pendingApproval: { findFirst: vi.fn() },
     $transaction: vi.fn(),
@@ -165,7 +166,7 @@ describe("observe mode — spend route", () => {
     expect(deliverEvent).not.toHaveBeenCalled()
   })
 
-  it("the would_be stays truthful for subtree caps — read-only check, no counter writes", async () => {
+  it("the would_be stays truthful for the wallet's own subtree cap — read-only check at its own level", async () => {
     // The subtree cap lives outside the ladder; observe must still report it.
     vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(true)
     const res = await authorize(req("/authorize", SPEND))
@@ -173,15 +174,16 @@ describe("observe mode — spend route", () => {
     const body = await res.json()
     expect(body).toMatchObject({ authorized: true, mode: "observe" })
     expect(body.would_be).toMatchObject({ status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
-    expect(reserveCascadeDailySpend).not.toHaveBeenCalled()
+    expect(cascadeDailyWouldExceed).toHaveBeenCalledWith(expect.anything(), expect.any(String), expect.any(Number), expect.any(Date), [expect.objectContaining({ id: "wallet_obs", parentId: null })], true)
   })
 
-  it("a would-be approval writes no enforcement state — no cascade reserve", async () => {
+  it("a would-be approval reserves only against ancestors — no own-level or exec-token writes", async () => {
     const res = await authorize(req("/authorize", SPEND))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.would_be.status).toBe("approved")
-    expect(reserveCascadeDailySpend).not.toHaveBeenCalled()
+    // Ancestor caps always apply: the chain passed is strictly above the wallet.
+    expect(reserveCascadeDailySpend).toHaveBeenCalledWith(expect.anything(), expect.any(String), expect.any(Number), expect.any(Date), [])
     expect(dbMock.executionToken.update).not.toHaveBeenCalled()
   })
 

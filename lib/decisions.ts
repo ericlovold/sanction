@@ -221,3 +221,11 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
 export function isObserved(r: { detailsJson?: unknown }): boolean {
   return typeof r.detailsJson === "object" && r.detailsJson !== null && (r.detailsJson as { observed?: boolean }).observed === true
 }
+
+// A real (enforced) decision on an observing wallet — an ancestor cap breach —
+// must not carry the marker, or the response would wrap it as a would_be.
+export function withoutObservedMarker<T extends Record<string, unknown>>(details: T | undefined): Omit<T, "observed"> | undefined {
+  if (!details) return details
+  const { observed: _observed, ...rest } = details
+  return Object.keys(rest).length > 0 ? rest : undefined
+}

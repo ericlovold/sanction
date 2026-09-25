@@ -119,7 +119,7 @@ describe("provision grant consumption", () => {
     expect(c.authorizationRequest.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "auth_1" }, data: expect.objectContaining({ status: "approved" }) }),
     )
-    expect(reserveCascadeDailySpendMock).toHaveBeenCalledWith(expect.anything(), "wallet_1", 6250, now, [])
+    expect(reserveCascadeDailySpendMock).toHaveBeenCalledWith(expect.anything(), "wallet_1", 6250, now, [], "auth_1")
   })
 
   it("rejects a grant of a different action type as unsupported", async () => {
