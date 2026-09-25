@@ -116,6 +116,24 @@ describe("resolveWalletForUser — claim-by-email", () => {
     expect(dbMock.wallet.update).not.toHaveBeenCalled()
   })
 
+  it("entering through a squatter's invite (switcher cookie + membership) still claims and rotates", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: true } })
+    cookieStore.get.mockReturnValue({ value: SQUATTED.id }) // /invite sets the active-wallet cookie
+    dbMock.walletMember.findFirst.mockResolvedValue({ walletId: SQUATTED.id, userId: VICTIM.id, status: "active", role: "admin" })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.wallet.findUnique
+      .mockResolvedValueOnce(SQUATTED) // ownerEmail lookup — runs before the switcher branch
+      .mockResolvedValueOnce({ ...SQUATTED, userId: VICTIM.id, mgmtKeyHash: null, mgmtKeyPrefix: null })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 })
+
+    const result = await getSessionMember()
+
+    expect(result?.wallet.id).toBe(SQUATTED.id)
+    expect(result?.role).toBe("owner")
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toEqual({ userId: VICTIM.id, mgmtKeyHash: null, mgmtKeyPrefix: null })
+    expect(agentRotations().length).toBeGreaterThan(0)
+  })
+
   it("an unverified user never claims — or is handed — a squatted wallet", async () => {
     sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: false } })
     dbMock.wallet.findFirst.mockResolvedValue(null)

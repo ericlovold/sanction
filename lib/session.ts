@@ -69,6 +69,18 @@ async function resolveWalletForUser(
   user: { id: string; email: string; emailVerified?: boolean | null; name?: string | null },
   preferredWalletId?: string | null,
 ) {
+  // ownerEmail is unverified at creation (POST /wallets, /start), so a wallet
+  // matching this email may be a squat whose sk_ someone else holds. Claim only
+  // on a provider-verified email, and rotate out everything minted before the
+  // claim (claimWallet). An unverified user never lands in it. This runs before
+  // the switcher/membership branches: a squatter can invite the victim's email
+  // as a member, and entering through that membership must not skip the claim.
+  const byEmail = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
+  if (byEmail && !byEmail.userId && user.emailVerified === true) {
+    const claimed = await claimWallet(byEmail.id, user.id)
+    if (claimed) return claimed
+  }
+
   if (preferredWalletId) {
     const preferred = await db.wallet.findUnique({ where: { id: preferredWalletId } })
     if (preferred) {
@@ -84,16 +96,6 @@ async function resolveWalletForUser(
 
   const linked = await db.wallet.findFirst({ where: { userId: user.id } })
   if (linked) return linked
-
-  // ownerEmail is unverified at creation (POST /wallets, /start), so a wallet
-  // matching this email may be a squat whose sk_ someone else holds. Claim only
-  // on a provider-verified email, and rotate out everything minted before the
-  // claim (claimWallet). An unverified user never lands in it.
-  const byEmail = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
-  if (byEmail && !byEmail.userId && user.emailVerified === true) {
-    const claimed = await claimWallet(byEmail.id, user.id)
-    if (claimed) return claimed
-  }
 
   const membership = await db.walletMember.findFirst({ where: { userId: user.id, status: "active" } })
   if (membership) return db.wallet.findUnique({ where: { id: membership.walletId } })
