@@ -83,6 +83,34 @@ checks this at startup in production.
   reproduces.
 - Denials and escalations carry a stable machine code plus remediation.
 
+### Reviewing policies created from tool packs
+
+Ordinary `allowed_tools`, `blocked_tools`, and `escalate_tools` entries match
+exact tool names. An empty allow-list permits any tool that another rule does
+not refuse. An escalated tool must also belong to a nonempty allow-list;
+otherwise it is denied before escalation. Capability and conditional-rule
+patterns have separate matching semantics.
+
+Earlier versions of the MCP tool governance, Fleet channel envelope, Agency
+client safe launch, and Payment agent mandate packs supplied wildcard-looking
+ordinary tool entries. Those entries do not match concrete tool names. For
+example, `payments:*` does not block `payments:charge`; with an empty allow-list,
+that call can be allowed. Nonempty wildcard-looking allow-lists can instead
+deny intended reads and prevent intended escalations.
+
+Pack updates do not modify saved wallet policies. Owners should inspect all
+three tool lists for these entries, map the intended restrictions to the exact
+names exposed by their upstream, and preview the corrected policy before
+applying it. Include intended escalations in a nonempty allow-list. Verify an
+allowed read, an escalated write, and a denied action against a harmless test
+upstream. Check ancestor policies too: a child cannot loosen their restrictions.
+Also check enforcement mode: observe mode records would-be decisions but does
+not stop execution. Correct tool lists alone do not enable enforcement.
+
+Use the normal policy update path so changes create an immutable revision.
+Avoid blindly reapplying a whole pack: it also replaces the pack's budget and
+other policy fields. Historical revisions and decision evidence remain intact.
+
 ## Human approvals
 
 Escalations become a `PendingApproval`; approval mints a **single-use, expiring
