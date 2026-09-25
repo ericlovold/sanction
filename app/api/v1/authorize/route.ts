@@ -14,7 +14,7 @@ import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
 import { settlementSchema } from "@/lib/settlement"
 import { recordDecision } from "@/lib/decisionMeter"
-import { createSpendPendingApproval } from "@/lib/approvals"
+import { approvedViaGrant, createSpendPendingApproval } from "@/lib/approvals"
 import { consumeSpendGrant } from "@/lib/grants"
 import { cpoContext } from "@/lib/outcomes"
 import { freezeStateFromChain, frozenNote } from "@/lib/freeze"
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: httpFor(existing) })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: httpFor(existing) })
   }
 
   // Spend rows keep detailsJson free (provision writes its own shape in its own
@@ -485,7 +485,7 @@ export async function POST(req: NextRequest) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: httpFor(existing) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: httpFor(existing) })
     }
     throw e
   }
@@ -506,7 +506,7 @@ async function persist(data: Record<string, unknown>, agentName: string) {
   return NextResponse.json(decisionResponse(rec, agentName), { status: httpFor(rec) })
 }
 
-function decisionResponse(r: Decision, agentName: string) {
+function decisionResponse(r: Decision, agentName: string, grantGated = false) {
   const code = decisionCode(r.status, r.decisionNote)
   const common = {
     request_id: r.id,
@@ -531,6 +531,17 @@ function decisionResponse(r: Decision, agentName: string) {
         code,
         remediation: code ? REMEDIATION[code] : undefined,
       },
+      ...common,
+    }
+  }
+  if (grantGated) {
+    // A human-approved escalation minted a one-use grant; replaying the key is
+    // a status check, never a second authorization (see approvedViaGrant).
+    return {
+      authorized: false,
+      status: "denied",
+      approval_status: r.status,
+      reason: "Approval status only; redeem the one-use grant to authorize an attempt",
       ...common,
     }
   }

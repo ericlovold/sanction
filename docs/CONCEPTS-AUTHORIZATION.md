@@ -102,7 +102,11 @@ Retry with the one-use `grant_id` (broker: `_meta["sanction/grant_id"]`). An
 idempotent replay reports `approval_status` but never authorizes a new attempt;
 a replay of an approved request returns `authorized: false`, `status: denied`.
 Existing tool grants without a bound snapshot fail closed: request a new
-escalation with a fresh idempotency key. Spend and capability grants are unchanged.
+escalation with a fresh idempotency key. Spend, provision, and capability
+grants are not argument-bound, but their replays follow the same rule: an
+escalation approved by a human or a timeout-approve replays `authorized: false`
+with `approval_status: approved` until the grant is redeemed. A request policy
+approved at decision time still replays `authorized: true`.
 AuthZEN/AARP tool requests do not carry arguments; use the native
 tool route or broker for argument-bound actions.
 
