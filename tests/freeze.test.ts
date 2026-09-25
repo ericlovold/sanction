@@ -104,6 +104,17 @@ describe("freezeStateFromChain", () => {
     if (s.frozen) expect(frozenNote(s)).toBe(HIERARCHY_UNVERIFIED_NOTE)
   })
 
+  it.each([
+    ["an empty chain", []],
+    ["a chain not starting at the wallet", [{ id: "other", parentId: null }]],
+    ["a broken parent link", [{ id: "c", parentId: "p" }, { id: "x", parentId: null }]],
+    ["a root without an explicit null parent", [{ id: "c" }]],
+  ])("%s fails closed", (_label, nodes) => {
+    const s = freezeStateFromChain(nodes, "c")
+    expect(s).toMatchObject({ frozen: true, unverified: true, frozenWalletId: "c" })
+    if (s.frozen) expect(frozenNote(s)).toBe(HIERARCHY_UNVERIFIED_NOTE)
+  })
+
   it("a frozen node still reports as a freeze, not unverified", () => {
     const s = freezeStateFromChain([{ id: "c", parentId: "p", frozenAt: new Date() }], "c")
     expect(s).toMatchObject({ frozen: true, self: true })

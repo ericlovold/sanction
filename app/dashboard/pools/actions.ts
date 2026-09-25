@@ -199,6 +199,8 @@ export async function applyPoolAllocationAction(
   return { ok: true, message: `Allocation applied to ${allocation.length} child pools.` }
 }
 
+class AgentMovedError extends Error {}
+
 export async function moveAgentToPoolAction(
   _prev: PoolActionState,
   form: FormData,
@@ -219,18 +221,26 @@ export async function moveAgentToPoolAction(
 
   // RLS-scoped (SEC-3): the AgentClearance row must be visible under the source
   // pool and writable under the target, so the tenant set is both.
-  await withTenant([agent.walletId, targetWalletId], async (tx) => {
-    await tx.agent.update({
-      where: { id: agentId },
-      data: { walletId: targetWalletId },
+  // The move is conditional on the source wallet: a concurrent move leaves no
+  // matching row, and the throw rolls the whole transaction back.
+  try {
+    await withTenant([agent.walletId, targetWalletId], async (tx) => {
+      const moved = await tx.agent.updateMany({
+        where: { id: agentId, walletId: agent.walletId },
+        data: { walletId: targetWalletId },
+      })
+      if (moved.count !== 1) throw new AgentMovedError()
+      await tx.agentClearance.updateMany({
+        where: { agentId },
+        data: { walletId: targetWalletId },
+      })
+      // Execution tokens are bound to the source pool; strand none across a move.
+      await revokeActiveExecutionTokens({ agentId }, tx)
     })
-    await tx.agentClearance.updateMany({
-      where: { agentId },
-      data: { walletId: targetWalletId },
-    })
-    // Execution tokens are bound to the source pool; strand none across a move.
-    await revokeActiveExecutionTokens({ agentId }, tx)
-  })
+  } catch (err) {
+    if (err instanceof AgentMovedError) return { ok: false, message: "Agent changed; refresh and try again." }
+    throw err
+  }
 
   revalidatePools()
   return { ok: true, message: "Agent moved" }

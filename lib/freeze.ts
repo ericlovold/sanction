@@ -59,8 +59,9 @@ export function frozenNote(state: Extract<FreezeState, { frozen: true }>): strin
 /**
  * Derive freeze state from an already-fetched ancestor chain (cascadeBudget's
  * walk, leaf-first) — the zero-extra-queries path for routes that fetch it.
- * A chain whose last node still names a parent was truncated (missing
- * ancestor, cycle, or depth cap) and fails closed like walletFreezeState.
+ * An empty chain, one not starting at walletId, a broken parent link, or a
+ * last node that still names a parent (missing ancestor, cycle, depth cap)
+ * fails closed like walletFreezeState.
  */
 export function freezeStateFromChain(
   chain: Array<{ id: string; parentId?: string | null; frozenAt?: Date | null; frozenReason?: string | null }>,
@@ -71,7 +72,13 @@ export function freezeStateFromChain(
       return { frozen: true, frozenWalletId: node.id, self: node.id === walletId, reason: node.frozenReason ?? null }
     }
   }
-  if (chain.length > 0 && chain[chain.length - 1].parentId != null) return unverified(walletId)
+  // Unfrozen only when the chain proves itself: starts at walletId, every link
+  // names the next node, and it ends at an explicit root (parentId === null).
+  if (chain.length === 0 || chain[0].id !== walletId) return unverified(walletId)
+  for (let i = 0; i < chain.length - 1; i++) {
+    if (chain[i].parentId !== chain[i + 1].id) return unverified(walletId)
+  }
+  if (chain[chain.length - 1].parentId !== null) return unverified(walletId)
   return { frozen: false }
 }
 

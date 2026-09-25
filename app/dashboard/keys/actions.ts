@@ -30,17 +30,22 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
   const changeHolder = String(form.get("change_holder") ?? "") === "true"
 
   const key = generateApiKey()
-  await db.$transaction(async (tx) => {
-    await tx.agent.update({
-      where: { id: agentId },
+  // Ownership is part of the write: an agent moved out of this wallet since the
+  // check above matches nothing, and the new key is never shown.
+  const rotated = await db.$transaction(async (tx) => {
+    const res = await tx.agent.updateMany({
+      where: { id: agentId, walletId: owned.wallet.id },
       data: {
         apiKeyHash: key.hash,
         apiKeyPrefix: key.prefix,
         ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
       },
     })
+    if (res.count !== 1) return false
     await revokeActiveExecutionTokens({ agentId }, tx)
+    return true
   })
+  if (!rotated) return { ok: false, error: "Not authorized." }
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
   return { ok: true, error: "", agentId, newKey: key.raw }
@@ -81,7 +86,8 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   const owned = await ownedAgent(agentId)
   if (!owned) return
   await db.$transaction(async (tx) => {
-    await tx.agent.update({ where: { id: agentId }, data: { isActive: active } })
+    const res = await tx.agent.updateMany({ where: { id: agentId, walletId: owned.wallet.id }, data: { isActive: active } })
+    if (res.count !== 1) return
     if (!active) await revokeActiveExecutionTokens({ agentId }, tx)
   })
   revalidatePath("/dashboard/agents")

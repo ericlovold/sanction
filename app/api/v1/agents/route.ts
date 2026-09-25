@@ -131,11 +131,17 @@ export async function PATCH(req: NextRequest) {
       : {}),
   }
 
+  // Ownership is part of the write: an agent moved out of this wallet since the
+  // check above matches nothing.
   const updated = await db.$transaction(async (tx) => {
-    const row = await tx.agent.update({ where: { id: agent_id }, data })
+    const res = await tx.agent.updateMany({ where: { id: agent_id, walletId: wallet_id }, data })
+    if (res.count !== 1) return null
     if (overrides.active === false) await revokeActiveExecutionTokens({ agentId: agent_id }, tx)
-    return row
+    return tx.agent.findUnique({ where: { id: agent_id } })
   })
+  if (!updated) {
+    return NextResponse.json({ error: "Agent not found in this wallet" }, { status: 404 })
+  }
 
   // Clearance lives in its own row; upsert it when any clearance field is given.
   let clearance: number | undefined

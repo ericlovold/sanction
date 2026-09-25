@@ -9,7 +9,7 @@ import { hashApiKey } from "../lib/apiKey"
 const { dbMock, sessionMock } = vi.hoisted(() => ({
   dbMock: {
     wallet: { findUnique: vi.fn(), update: vi.fn() },
-    agent: { findUnique: vi.fn(), update: vi.fn() },
+    agent: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     executionToken: { findUnique: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
     credentialVault: { findFirst: vi.fn() },
@@ -60,6 +60,7 @@ beforeEach(() => {
   dbMock.executionToken.updateMany.mockResolvedValue({ count: 1 })
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue(AGENT)
+  dbMock.agent.updateMany.mockResolvedValue({ count: 1 })
   dbMock.wallet.findUnique.mockResolvedValue(OWNER_WALLET)
   dbMock.wallet.update.mockResolvedValue({ id: WID, frozenAt: new Date(), frozenReason: null })
   dbMock.credentialVault.findFirst.mockResolvedValue({ id: "cred_1", walletId: WID, label: "SECRET", type: "api_key", minClearance: 1, revokedAt: null, expiresAt: null })
@@ -157,5 +158,44 @@ describe("kill switches revoke outstanding execution tokens", () => {
     f.set("agent_id", AID)
     expect((await rotateKeyAction({ ok: false, error: "" }, f)).ok).toBe(true)
     expect(dbMock.executionToken.updateMany).toHaveBeenCalledWith(REVOKE_AGENT)
+  })
+
+  // Ownership is part of each write: an agent moved out of the wallet between
+  // the ownership check and the update matches nothing — no key, no revoke.
+  describe("an agent moved out of the wallet mid-mutation", () => {
+    beforeEach(() => dbMock.agent.updateMany.mockResolvedValue({ count: 0 }))
+
+    it("POST /agents/rotate 404s and hands out no key", async () => {
+      const res = await rotate(mgmtReq("POST", "agents/rotate", { wallet_id: WID, agent_id: AID }))
+      expect(res.status).toBe(404)
+      expect((await res.json()).api_key).toBeUndefined()
+      expect(dbMock.agent.updateMany.mock.calls[0][0].where).toEqual({ id: AID, walletId: WID })
+      expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
+    })
+
+    it("PATCH /agents 404s", async () => {
+      const res = await patchAgent(mgmtReq("PATCH", "agents", { wallet_id: WID, agent_id: AID, active: false }))
+      expect(res.status).toBe(404)
+      expect(dbMock.agent.updateMany.mock.calls[0][0].where).toEqual({ id: AID, walletId: WID })
+      expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
+    })
+
+    it("dashboard rotateKeyAction returns no key", async () => {
+      const f = new FormData()
+      f.set("agent_id", AID)
+      const state = await rotateKeyAction({ ok: false, error: "" }, f)
+      expect(state.ok).toBe(false)
+      expect(state.newKey).toBeUndefined()
+      expect(dbMock.agent.updateMany.mock.calls[0][0].where).toEqual({ id: AID, walletId: WID })
+    })
+
+    it("dashboard setAgentActiveAction scopes the write to the wallet", async () => {
+      const f = new FormData()
+      f.set("agent_id", AID)
+      f.set("active", "false")
+      await setAgentActiveAction(f)
+      expect(dbMock.agent.updateMany.mock.calls[0][0].where).toEqual({ id: AID, walletId: WID })
+      expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
+    })
   })
 })

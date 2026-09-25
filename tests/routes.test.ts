@@ -8,7 +8,7 @@ import { hashApiKey } from "../lib/apiKey"
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     wallet: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    agent: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
     agentClearance: { upsert: vi.fn() },
     executionToken: { updateMany: vi.fn() },
     $transaction: vi.fn(),
@@ -73,13 +73,13 @@ describe("auth gates — management plane refuses without a valid key", () => {
 describe("agent key rotation (SEC-6)", () => {
   it("issues a fresh key and persists its hash; old key is overwritten", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ id: AID, walletId: WID })
-    dbMock.agent.update.mockResolvedValue({})
+    dbMock.agent.updateMany.mockResolvedValue({ count: 1 })
     const res = await rotate(req("POST", "/api/v1/agents/rotate", { headers: mgmt, body: { wallet_id: WID, agent_id: AID } }))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.api_key).toMatch(/^pxy_/)
-    const arg = dbMock.agent.update.mock.calls[0][0]
-    expect(arg.where).toEqual({ id: AID })
+    const arg = dbMock.agent.updateMany.mock.calls[0][0]
+    expect(arg.where).toEqual({ id: AID, walletId: WID })
     expect(arg.data.apiKeyHash).toBe(hashApiKey(body.api_key)) // the returned key's hash is what's stored
   })
 
@@ -92,10 +92,11 @@ describe("agent key rotation (SEC-6)", () => {
 describe("agent revocation (PATCH active:false)", () => {
   it("sets isActive on the agent", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ id: AID, walletId: WID })
-    dbMock.agent.update.mockResolvedValue({ id: AID, name: "a", isActive: false, dailyTokenBudgetUsd: null, dailySpendBudgetUsd: null, perTransactionMaxUsd: null, escalateOverUsd: null })
+    dbMock.agent.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.agent.findUnique.mockResolvedValueOnce({ id: AID, walletId: WID }).mockResolvedValueOnce({ id: AID, name: "a", isActive: false, dailyTokenBudgetUsd: null, dailySpendBudgetUsd: null, perTransactionMaxUsd: null, escalateOverUsd: null })
     const res = await patchAgent(req("PATCH", "/api/v1/agents", { headers: mgmt, body: { wallet_id: WID, agent_id: AID, active: false } }))
     expect(res.status).toBe(200)
-    expect(dbMock.agent.update.mock.calls[0][0].data.isActive).toBe(false)
+    expect(dbMock.agent.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: AID, walletId: WID }, data: { isActive: false } })
   })
 })
 

@@ -16,7 +16,7 @@ type DbArgs = {
 }
 type DbMock = {
   $transaction: MockFn
-  agent: Record<"findFirst" | "findMany" | "findUnique" | "update", MockFn>
+  agent: Record<"findFirst" | "findMany" | "findUnique" | "update" | "updateMany", MockFn>
   agentClearance: Record<"findFirst" | "findUnique" | "update" | "updateMany", MockFn>
   authorizationRequest: Record<"groupBy", MockFn>
   executionToken: Record<"updateMany", MockFn>
@@ -54,6 +54,7 @@ const { apiKeyMock, dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() =>
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     agentClearance: {
       findFirst: vi.fn(),
@@ -182,6 +183,12 @@ function setupAgentLookups() {
     ...findAgent(stringValue(dbArgs(args).where?.id)),
     ...dbArgs(args).data,
   }))
+
+  dbMock.agent.updateMany.mockImplementation(async (args: unknown) => {
+    const where = dbArgs(args).where ?? {}
+    const agent = findAgent(stringValue(where.id))
+    return { count: agent && agent.walletId === where.walletId ? 1 : 0 }
+  })
 
   dbMock.agentClearance.findUnique.mockImplementation(async (args: unknown) => {
     const agentId = dbArgs(args).where?.agentId
@@ -439,8 +446,8 @@ describe("moveAgentToPoolAction", () => {
     )
 
     expect(result).toEqual(expect.objectContaining({ ok: true, message: "Agent moved" }))
-    expect(dbMock.agent.update).toHaveBeenCalledWith({
-      where: { id: "agent_child" },
+    expect(dbMock.agent.updateMany).toHaveBeenCalledWith({
+      where: { id: "agent_child", walletId: "pool_child" },
       data: { walletId: "pool_grandchild" },
     })
 
@@ -456,6 +463,19 @@ describe("moveAgentToPoolAction", () => {
     )
   })
 
+  it("reports a concurrent move instead of success and writes nothing after the guard", async () => {
+    dbMock.agent.updateMany.mockResolvedValueOnce({ count: 0 })
+    const result = await moveAgentToPoolAction(
+      { ok: false, message: "" },
+      form({ agent_id: "agent_child", target_wallet_id: "pool_grandchild" }),
+    )
+
+    expect(result).toEqual({ ok: false, message: "Agent changed; refresh and try again." })
+    expect(dbMock.agentClearance.updateMany).not.toHaveBeenCalled()
+    expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
+    expect(revalidatePathMock).not.toHaveBeenCalled()
+  })
+
   it("refuses to move an agent from outside the logged-in wallet subtree", async () => {
     const result = await moveAgentToPoolAction(
       { ok: false, message: "" },
@@ -469,7 +489,7 @@ describe("moveAgentToPoolAction", () => {
 
     expect(result.ok).toBe(false)
     expect(stateMessage(result)).toMatch(/authorized|not found|subtree/i)
-    expect(dbMock.agent.update).not.toHaveBeenCalled()
+    expect(dbMock.agent.updateMany).not.toHaveBeenCalled()
     expect(dbMock.agentClearance.update).not.toHaveBeenCalled()
     expect(dbMock.agentClearance.updateMany).not.toHaveBeenCalled()
     expect(revalidatePathMock).not.toHaveBeenCalled()
@@ -488,7 +508,7 @@ describe("moveAgentToPoolAction", () => {
 
     expect(result.ok).toBe(false)
     expect(stateMessage(result)).toMatch(/authorized|not found|subtree/i)
-    expect(dbMock.agent.update).not.toHaveBeenCalled()
+    expect(dbMock.agent.updateMany).not.toHaveBeenCalled()
     expect(dbMock.agentClearance.update).not.toHaveBeenCalled()
     expect(dbMock.agentClearance.updateMany).not.toHaveBeenCalled()
     expect(revalidatePathMock).not.toHaveBeenCalled()
