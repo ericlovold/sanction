@@ -7,7 +7,48 @@ import { walletSubtreeIds } from "./poolAccess"
 // forward the request to the real provider, read token usage off the response,
 // and meter it — no per-call instrumentation by the agent.
 
-export type GatewayUsage = { model: string; tokensIn: number; tokensOut: number }
+// tokensIn is the full prompt size. The cache fields are the subset of it that
+// bills at a cache rate instead of the base input rate.
+export type GatewayUsage = {
+  model: string
+  tokensIn: number
+  tokensOut: number
+  cacheWriteTokens?: number
+  cacheWrite1hTokens?: number
+  cacheReadTokens?: number
+}
+
+type CacheUsage = Pick<GatewayUsage, "cacheWriteTokens" | "cacheWrite1hTokens" | "cacheReadTokens">
+
+type AnthropicUsage = {
+  input_tokens?: number
+  output_tokens?: number
+  cache_creation_input_tokens?: number
+  cache_read_input_tokens?: number
+  cache_creation?: { ephemeral_1h_input_tokens?: number }
+}
+
+// Anthropic's input_tokens excludes cache writes and reads; both are billed
+// (writes at a premium), so the prompt total is the sum of all three.
+function anthropicInput(u: AnthropicUsage): { tokensIn: number } & CacheUsage {
+  const write = u.cache_creation_input_tokens ?? 0
+  const write1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0
+  const read = u.cache_read_input_tokens ?? 0
+  return {
+    tokensIn: (u.input_tokens ?? 0) + write + read,
+    ...(write ? { cacheWriteTokens: write } : {}),
+    ...(write1h ? { cacheWrite1hTokens: write1h } : {}),
+    ...(read ? { cacheReadTokens: read } : {}),
+  }
+}
+
+type GeminiUsageMetadata = { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
+
+// Thinking tokens bill at the output rate but are reported outside
+// candidatesTokenCount.
+function geminiTokens(u: GeminiUsageMetadata): { tokensIn: number; tokensOut: number } {
+  return { tokensIn: u.promptTokenCount ?? 0, tokensOut: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) }
+}
 
 export const GATEWAY_PROVIDERS: Record<
   string,
@@ -16,9 +57,9 @@ export const GATEWAY_PROVIDERS: Record<
   anthropic: {
     baseUrl: "https://api.anthropic.com",
     extract: (body) => {
-      const b = body as { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
+      const b = body as { model?: string; usage?: AnthropicUsage }
       if (!b?.usage) return null
-      return { model: b.model ?? "claude", tokensIn: b.usage.input_tokens ?? 0, tokensOut: b.usage.output_tokens ?? 0 }
+      return { model: b.model ?? "claude", ...anthropicInput(b.usage), tokensOut: b.usage.output_tokens ?? 0 }
     },
   },
   openai: {
@@ -26,6 +67,9 @@ export const GATEWAY_PROVIDERS: Record<
     // Handles both Chat Completions (prompt/completion_tokens) and the Responses
     // API (input/output_tokens) — the AI SDK's native OpenAI provider uses the
     // latter by default, so we must meter both or those calls record zero.
+    // Cached input (prompt_tokens_details.cached_tokens) is already inside
+    // prompt_tokens/input_tokens and reasoning tokens inside the output count,
+    // so neither is added again. Cached input meters at the full input rate.
     extract: (body) => {
       const b = body as { model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number } }
       const u = b?.usage
@@ -53,12 +97,34 @@ export const GATEWAY_PROVIDERS: Record<
   gemini: {
     baseUrl: "https://generativelanguage.googleapis.com",
     extract: (body, path) => {
-      const b = body as { modelVersion?: string; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }
+      type GeminiBody = { modelVersion?: string; usageMetadata?: GeminiUsageMetadata }
+      // streamGenerateContent without alt=sse answers with a JSON array of
+      // chunks; usage is cumulative, so the last chunk carrying it is the total.
+      const b = Array.isArray(body)
+        ? (body as GeminiBody[]).findLast((c) => c?.usageMetadata)
+        : (body as GeminiBody)
       if (!b?.usageMetadata) return null
       const model = b.modelVersion ?? path.match(/models\/([^:/]+)/)?.[1] ?? "gemini"
-      return { model, tokensIn: b.usageMetadata.promptTokenCount ?? 0, tokensOut: b.usageMetadata.candidatesTokenCount ?? 0 }
+      return { model, ...geminiTokens(b.usageMetadata) }
     },
   },
+}
+
+// Endpoints the wallet's STORED provider key may be injected into: POST calls
+// whose responses carry usage the gateway meters. Anything else (batches,
+// files, fine-tuning, assistants…) would spend on the vaulted key with nothing
+// metered, so it is refused. Bring-your-own-key callers are not restricted.
+// Paths are relative to the provider base URL, without the query string.
+export const METERED_PATHS: Record<string, RegExp[]> = {
+  anthropic: [/^v1\/messages$/, /^v1\/messages\/count_tokens$/],
+  openai: [/^v1\/chat\/completions$/, /^v1\/responses$/, /^v1\/embeddings$/, /^v1\/completions$/],
+  perplexity: [/^(v1\/)?chat\/completions$/],
+  gemini: [/^v1(alpha|beta)?\/models\/[^/:]+:(generateContent|streamGenerateContent)$/],
+}
+
+export function isMeteredPath(provider: string, method: string, path: string): boolean {
+  if (method !== "POST" || !Object.hasOwn(METERED_PATHS, provider)) return false
+  return METERED_PATHS[provider].some((re) => re.test(path))
 }
 
 // Approximate USD per 1M tokens [input, output]. Longest prefix match wins.
@@ -77,6 +143,10 @@ const PRICING: Array<[string, number, number]> = [
   ["gpt-4o-mini", 0.15, 0.6],
   ["gpt-4o", 2.5, 10],
   ["gpt-4.1", 2, 8],
+  // o1-pro / o3-pro: provider list price. Without their own keys o1-pro
+  // matched the shorter "o1" (a tenth of list).
+  ["o1-pro", 150, 600],
+  ["o3-pro", 20, 80],
   ["o1", 15, 60],
   ["sonar-deep-research", 2, 8],
   ["sonar-reasoning-pro", 2, 8],
@@ -96,14 +166,24 @@ const PRICING: Array<[string, number, number]> = [
 // budgets and pooled caps (fail-open, against the atomic-authorization
 // principle). Unknown models meter at the highest rate in the table instead:
 // over-charging a budget is recoverable; a bypassed cap is not.
-const FALLBACK_RATE: [number, number] = PRICING.reduce(
+// OpenAI's "-pro" reasoning tiers (o1-pro, o3-pro, …) are an order of
+// magnitude above everything else and are excluded, so one ultra tier does
+// not make every unpriced model bill at 10x.
+const ULTRA_TIER = /^o\d+-pro$/
+const FALLBACK_RATE: [number, number] = PRICING.filter(([k]) => !ULTRA_TIER.test(k)).reduce(
   (max, [, tin, tout]) => (tin + tout > max[0] + max[1] ? [tin, tout] : max),
   [0, 0] as [number, number],
 )
 
 const warnedUnpricedModels = new Set<string>()
 
-export function costUsd(model: string, tokensIn: number, tokensOut: number): number {
+// Anthropic prompt-cache multipliers on the base input rate: 5-minute writes
+// 1.25x, 1-hour writes 2x, reads 0.1x.
+const CACHE_WRITE_MULT = 1.25
+const CACHE_WRITE_1H_MULT = 2
+const CACHE_READ_MULT = 0.1
+
+export function costUsd(model: string, tokensIn: number, tokensOut: number, cache: CacheUsage = {}): number {
   const m = model.toLowerCase()
   const hit = PRICING.filter(([k]) => m.includes(k)).sort((a, b) => b[0].length - a[0].length)[0]
   const [rateIn, rateOut] = hit ? [hit[1], hit[2]] : FALLBACK_RATE
@@ -113,7 +193,12 @@ export function costUsd(model: string, tokensIn: number, tokensOut: number): num
       `[gateway] no pricing entry for model "${model}" — metering at the conservative fallback rate ($${rateIn}/$${rateOut} per MTok). Add it to PRICING in lib/gateway.ts.`,
     )
   }
-  return Number((((tokensIn * rateIn) + (tokensOut * rateOut)) / 1e6).toFixed(6))
+  const write = cache.cacheWriteTokens ?? 0
+  const write1h = Math.min(cache.cacheWrite1hTokens ?? 0, write)
+  const read = cache.cacheReadTokens ?? 0
+  const inputUnits =
+    tokensIn - write - read + (write - write1h) * CACHE_WRITE_MULT + write1h * CACHE_WRITE_1H_MULT + read * CACHE_READ_MULT
+  return Number((((inputUnits * rateIn) + (tokensOut * rateOut)) / 1e6).toFixed(6))
 }
 
 export function dayStart(): Date {
@@ -213,9 +298,9 @@ type StreamData = {
   type?: string
   model?: string
   modelVersion?: string
-  message?: { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
-  usage?: { output_tokens?: number; input_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
-  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+  message?: { model?: string; usage?: AnthropicUsage }
+  usage?: AnthropicUsage & { prompt_tokens?: number; completion_tokens?: number }
+  usageMetadata?: GeminiUsageMetadata
   // OpenAI Responses API streaming nests usage on the terminal event.
   response?: { model?: string; usage?: { input_tokens?: number; output_tokens?: number } }
 }
@@ -256,6 +341,22 @@ export function forceStreamUsage(provider: string, body: ArrayBuffer | undefined
   }
 }
 
+/**
+ * OpenAI Responses background mode (`background: true`) answers queued with no
+ * usage and settles via GET retrieval, which is not metered — so a stored key
+ * must not fund it. Unparseable bodies return false: the provider can't parse
+ * them either, so they can't enable background mode.
+ */
+export function isUnmeteredBackgroundRequest(provider: string, path: string, body: ArrayBuffer | undefined): boolean {
+  if (provider !== "openai" || path !== "v1/responses" || !body || body.byteLength === 0) return false
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(body))
+    return !!parsed && typeof parsed === "object" && !Array.isArray(parsed) && (parsed as Record<string, unknown>).background === true
+  } catch {
+    return false
+  }
+}
+
 export function makeStreamMeter(provider: string) {
   const acc: GatewayUsage = { model: "", tokensIn: 0, tokensOut: 0 }
   return {
@@ -263,9 +364,12 @@ export function makeStreamMeter(provider: string) {
       if (provider === "anthropic") {
         if (d.type === "message_start" && d.message) {
           acc.model = d.message.model ?? acc.model
-          acc.tokensIn = d.message.usage?.input_tokens ?? acc.tokensIn
+          if (d.message.usage) Object.assign(acc, anthropicInput(d.message.usage))
           acc.tokensOut = d.message.usage?.output_tokens ?? acc.tokensOut
         } else if (d.type === "message_delta" && d.usage) {
+          // message_delta usage is cumulative; newer responses repeat the input
+          // side here too, so take it when present.
+          if (d.usage.input_tokens != null) Object.assign(acc, anthropicInput(d.usage))
           acc.tokensOut = d.usage.output_tokens ?? acc.tokensOut
         }
       } else if (provider === "openai" || provider === "perplexity") {
@@ -282,10 +386,7 @@ export function makeStreamMeter(provider: string) {
         }
       } else if (provider === "gemini") {
         if (d.modelVersion) acc.model = d.modelVersion
-        if (d.usageMetadata) {
-          acc.tokensIn = d.usageMetadata.promptTokenCount ?? acc.tokensIn
-          acc.tokensOut = d.usageMetadata.candidatesTokenCount ?? acc.tokensOut
-        }
+        if (d.usageMetadata) Object.assign(acc, geminiTokens(d.usageMetadata))
       }
     },
     result: () => acc,
@@ -294,7 +395,7 @@ export function makeStreamMeter(provider: string) {
 
 /** Record metered usage from a proxied call. */
 export async function meterUsage(agentId: string, provider: string, usage: GatewayUsage): Promise<number> {
-  const cost = costUsd(usage.model, usage.tokensIn, usage.tokensOut)
+  const cost = costUsd(usage.model, usage.tokensIn, usage.tokensOut, usage)
   await db.tokenLog.create({
     data: {
       agentId,
