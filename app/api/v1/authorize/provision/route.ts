@@ -14,7 +14,7 @@ import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
-import { createProvisionPendingApproval } from "@/lib/approvals"
+import { approvedViaGrant, createProvisionPendingApproval } from "@/lib/approvals"
 import { recordDecision } from "@/lib/decisionMeter"
 import { cpoContext } from "@/lib/outcomes"
 import { consumeProvisionGrant } from "@/lib/grants"
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: statusCode(existing.status) })
   }
 
   // Legacy display columns: merchant holds the resource for provision rows, so
@@ -448,7 +448,7 @@ export async function POST(req: NextRequest) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: statusCode(existing.status) })
     }
     throw e
   }
@@ -461,15 +461,18 @@ async function persist(data: Record<string, unknown>, agentName: string) {
   return NextResponse.json(decisionResponse(rec, agentName), { status: statusCode(rec.status) })
 }
 
-function decisionResponse(r: Decision, agentName: string) {
-  const authorized = r.status === "approved"
+function decisionResponse(r: Decision, agentName: string, grantGated = false) {
+  // A human-approved escalation minted a one-use grant; replaying the key is a
+  // status check, never a second authorization (see approvedViaGrant).
+  const authorized = r.status === "approved" && !grantGated
   const code = decisionCode(r.status, r.decisionNote)
   const details = (r.detailsJson ?? {}) as { line_item?: string; quantity?: number; unit_price_usd?: number | null }
   return {
     authorized,
-    status: r.status,
+    status: grantGated ? "denied" : r.status,
+    ...(grantGated ? { approval_status: r.status } : {}),
     request_id: r.id,
-    reason: r.decisionNote ?? undefined,
+    reason: grantGated ? "Approval status only; redeem the one-use grant to authorize an attempt" : r.decisionNote ?? undefined,
     code,
     remediation: code ? REMEDIATION[code] : undefined,
     // UX-3: fired limit with live values + evidence links (see spend route).

@@ -278,6 +278,33 @@ describe("provision route — idempotency", () => {
     expect((await res.json()).request_id).toBe("req_prev")
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
+
+  it("replays a policy-approved row as authorized", async () => {
+    dbMock.pendingApproval.findFirst.mockResolvedValue(null)
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_prev", status: "approved", decisionNote: "Auto-approved", amountUsd: 5, merchant: "azure:seat",
+    })
+    const res = await provision(req(SEATS, { idempotencyKey: "idem-1" }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ authorized: true, status: "approved", request_id: "req_prev" })
+  })
+
+  it("replays a human-approved escalation as status only — the one-use grant must be redeemed", async () => {
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1" })
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_prev", status: "approved", decisionNote: "Approved by owner", amountUsd: 75, merchant: "azure:seat",
+    })
+    const res = await provision(req(SEATS, { idempotencyKey: "idem-1" }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      authorized: false,
+      status: "denied",
+      approval_status: "approved",
+      request_id: "req_prev",
+      reason: "Approval status only; redeem the one-use grant to authorize an attempt",
+    })
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
 })
 
 describe("provision route — simulate (decision-only, nothing persisted)", () => {

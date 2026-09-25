@@ -11,7 +11,7 @@ const { dbMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn(), update: vi.fn() },
-    pendingApproval: { create: vi.fn() },
+    pendingApproval: { create: vi.fn(), findFirst: vi.fn() },
     grant: { findUnique: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
@@ -85,6 +85,7 @@ beforeEach(() => {
     id: "req_1", createdAt: new Date(), decidedAt: null, decisionNote: null, ...data,
   }))
   dbMock.pendingApproval.create.mockResolvedValue({ id: "pa_1" })
+  dbMock.pendingApproval.findFirst.mockResolvedValue(null)
   dbMock.grant.updateMany.mockResolvedValue({ count: 1 })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
@@ -152,6 +153,27 @@ describe("POST /v1/authorize/capability", () => {
     expect(body).toMatchObject({ authorized: false, status: "denied", code: "ESCALATION_TIMED_OUT" })
     expect(body.remediation).toContain("approval deadline")
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("replays a human-approved escalation as status only — the one-use grant must be redeemed", async () => {
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1" })
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_prev", status: "approved", decisionNote: "Approved by owner" })
+    const res = await capability(capReq({ capability: "skill:install:scraper" }, "idem-c2"))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      authorized: false,
+      status: "denied",
+      approval_status: "approved",
+      request_id: "req_prev",
+      reason: "Approval status only; redeem the one-use grant to authorize an attempt",
+    })
+  })
+
+  it("replays a legacy approved row (no PendingApproval) as allowed", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_prev", status: "approved", decisionNote: "Approved by owner" })
+    const res = await capability(capReq({ capability: "skill:install:scraper" }, "idem-c3"))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ authorized: true, status: "allowed", request_id: "req_prev" })
   })
 
   it("redeems a one-use grant and refuses a replay", async () => {
