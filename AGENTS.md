@@ -63,7 +63,7 @@ CI (`.github/workflows/ci.yml`) runs typecheck, lint, `test:coverage`, and the D
 ### Credential vault security
 
 - **SEC-1 envelope encryption** (`lib/kms.ts`, `lib/credentialCrypto.ts`): per-wallet DEKs wrapped by AWS KMS in production (`SANCTION_KMS_KEY_ARN`); when unset (local/CI/preview), DEKs wrap with the env master key so the envelope path works without AWS.
-- **SEC-3 Row-Level Security** (`lib/rls.ts`): `withTenant(walletId, fn)` sets a transaction-local GUC that Postgres RLS policies key on — vault queries can only see that tenant's rows even if a `where` clause is forgotten. The app's DB role must be non-superuser or RLS is bypassed.
+- **SEC-3 Row-Level Security** (`lib/rls.ts`): `withTenant(walletId, fn)` sets a transaction-local GUC that Postgres RLS policies key on — vault queries can only see that tenant's rows even if a `where` clause is forgotten. The app's DB role must be neither superuser nor `BYPASSRLS` or RLS is bypassed — Neon's default owner has `BYPASSRLS` (via `neon_superuser`), so the app connects as a restricted `sanction_app` role while migrations stay on the owner (runbook in `docs/SECURITY.md`). `npm run test:db` runs the app client as that restricted role.
 
 ### Data model & persistence
 

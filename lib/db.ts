@@ -23,15 +23,24 @@ export const db = globalForPrisma.prisma ?? createClient()
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db
 
-// SEC-3: Postgres RLS is silently BYPASSED for superuser roles. If the app is
-// ever mis-provisioned to connect as a superuser, tenant isolation is off — warn
+// SEC-3: Postgres RLS is silently BYPASSED for roles with SUPERUSER or
+// BYPASSRLS (Neon's default owner inherits BYPASSRLS via neon_superuser). If
+// the app is mis-provisioned onto such a role, tenant isolation is off — say so
 // loudly (non-blocking, best-effort) so it's caught in logs.
+type RoleRow = { rolsuper: boolean; rolbypassrls: boolean }
+
+export async function checkRlsRole(client: Pick<PrismaClient, "$queryRaw">): Promise<string[]> {
+  const r = await client.$queryRaw<RoleRow[]>`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`
+  const bypass = [r?.[0]?.rolsuper && "SUPERUSER", r?.[0]?.rolbypassrls && "BYPASSRLS"].filter(Boolean) as string[]
+  if (bypass.length) {
+    console.error(
+      `[sanction] SECURITY: DB role has ${bypass.join(" + ")} — Postgres RLS is BYPASSED. ` +
+        "Point DATABASE_URL at the restricted sanction_app role (see docs/SECURITY.md).",
+    )
+  }
+  return bypass
+}
+
 if (process.env.NODE_ENV === "production") {
-  db.$queryRaw<{ super: string }[]>`SELECT current_setting('is_superuser') AS super`
-    .then((r) => {
-      if (r?.[0]?.super === "on") {
-        console.warn("[sanction] SECURITY WARNING: DB role is a SUPERUSER — Postgres RLS is BYPASSED. Connect as a non-superuser role.")
-      }
-    })
-    .catch(() => {})
+  checkRlsRole(db).catch(() => {})
 }

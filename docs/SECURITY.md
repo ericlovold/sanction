@@ -56,8 +56,48 @@ missing server secret is a 503, never an open door.
 Vault, Slack install, and roster tables are under **Postgres row-level
 security**. Every read or write runs inside a transaction that sets the tenant,
 so a forgotten `where` clause returns nothing rather than another tenant's rows.
-The application role must not be a superuser, or RLS is bypassed; the server
-checks this at startup in production.
+The application role must have neither SUPERUSER nor BYPASSRLS, or RLS is
+bypassed; the server checks both at startup in production and logs an error.
+The DB test suite runs the app as a restricted role to prove it.
+
+### Runbook: restricted app role
+
+Neon's default owner has BYPASSRLS (inherited via `neon_superuser`), so the app
+must not connect as it. Create a dedicated role **with SQL, as the owner** —
+roles created in the Neon console join `neon_superuser` and inherit BYPASSRLS.
+
+```sql
+CREATE ROLE sanction_app LOGIN PASSWORD '<generated>' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+GRANT CONNECT ON DATABASE <db> TO sanction_app;
+GRANT USAGE ON SCHEMA public TO sanction_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sanction_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sanction_app;
+-- tables/sequences created by future migrations (run as the owner):
+ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sanction_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO sanction_app;
+```
+
+Only `DATABASE_URL` (the pooled data-plane URL, `lib/db.ts`) moves to
+`sanction_app`. `DATABASE_URL_UNPOOLED` / `DIRECT_URL` stay on the owner:
+`prisma.config.ts` prefers them, so migrations keep DDL rights. If neither is
+set, the CLI falls back to `DATABASE_URL` and migrations fail as `sanction_app`.
+
+Rollout:
+
+1. Create the role and grants above on the production branch.
+2. Set `DATABASE_URL` to `sanction_app` (pooler host) for **Preview** only;
+   deploy a preview and run `bash scripts/smoke.sh` against it (vault
+   store/inject, clearance, Slack approvals).
+3. Check preview logs for the `SECURITY: DB role has ...` error — there
+   should be none.
+4. Repeat for **Production**. Rollback is reverting `DATABASE_URL`.
+
+Verify from the app's connection:
+
+```sql
+SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user;
+-- expect: sanction_app | f | f
+```
 
 ## Execution tokens [SEC-5]
 

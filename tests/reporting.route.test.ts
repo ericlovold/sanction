@@ -16,6 +16,7 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 
 import { GET as auditEvents } from "../app/api/v1/audit-events/route"
 import { GET as dailySummary } from "../app/api/v1/reporting/daily-summary/route"
