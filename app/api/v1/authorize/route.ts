@@ -79,9 +79,9 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   // OBS-1: observe mode runs the identical engine and persists the truthful
-  // would-be decision (marked observed), but blocks nothing and writes no
-  // enforcement state — no cascade/exec debits (an observed pool must never
-  // trip a shared cap for an enforcing sibling), no approvals, no pages.
+  // would-be decision (marked observed). It relaxes only this wallet's own
+  // policy and cap: no own-level cascade/exec debits, no approvals, no pages.
+  // Ancestor subtree caps still reserve and can deny — the agent really spends.
   // Freeze (above) and no-policy (below) still enforce: the kill switch is an
   // owner action, and observe is a property OF a policy.
   const observe = policy?.enforcementMode === "observe"
