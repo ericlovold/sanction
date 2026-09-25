@@ -115,6 +115,9 @@ export async function PATCH(req: NextRequest) {
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(owner_email !== undefined ? { ownerEmail: owner_email } : {}),
+        // A new address is unproven until a magic link or verified social
+        // sign-in proves it (lib/session.ts claim rotation).
+        ...(owner_email !== undefined && owner_email !== owner.wallet.ownerEmail ? { ownerEmailVerifiedAt: null } : {}),
       },
       select: { id: true, name: true, ownerEmail: true },
     })

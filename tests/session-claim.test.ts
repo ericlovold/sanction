@@ -7,15 +7,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // successful claim rotates every credential minted before it: the sk_ key is
 // cleared, agent keys are replaced and deactivated, live execution tokens are
 // revoked, memberships the key holder handed out are revoked, Slack installs are
-// revoked, and webhooks are deactivated — then a post-commit sweep repeats it to
-// catch rows committed while the claim was in flight.
+// revoked, and webhooks are deleted — then a post-commit sweep repeats it to
+// catch rows committed while the claim was in flight. The claim also marks
+// ownerEmail verified (ownerEmailVerifiedAt).
 const { dbMock, cookieStore, sessionMock } = vi.hoisted(() => {
   const dbMock = {
     wallet: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     walletMember: { findFirst: vi.fn(), updateMany: vi.fn() },
     agent: { create: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     executionToken: { updateMany: vi.fn() },
-    webhook: { updateMany: vi.fn() },
+    webhook: { deleteMany: vi.fn() },
     slackInstall: { updateMany: vi.fn() },
     $executeRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -43,9 +44,10 @@ beforeEach(() => {
   cookieStore.get.mockReturnValue(undefined)
   dbMock.$transaction.mockImplementation((fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(0)
-  for (const m of [dbMock.executionToken, dbMock.walletMember, dbMock.webhook, dbMock.slackInstall]) {
+  for (const m of [dbMock.executionToken, dbMock.walletMember, dbMock.slackInstall]) {
     m.updateMany.mockResolvedValue({ count: 0 })
   }
+  dbMock.webhook.deleteMany.mockResolvedValue({ count: 0 })
 })
 
 // Tagged-template $executeRaw calls, as SQL text (placeholders for params).
@@ -72,7 +74,12 @@ describe("resolveWalletForUser — claim-by-email", () => {
     // Conditional on still being unclaimed (race-safe), and kills the sk_ key.
     const claim = dbMock.wallet.updateMany.mock.calls[0][0]
     expect(claim.where).toEqual({ id: SQUATTED.id, userId: null })
-    expect(claim.data).toEqual({ userId: VICTIM.id, mgmtKeyHash: null, mgmtKeyPrefix: null })
+    expect(claim.data).toEqual({
+      userId: VICTIM.id,
+      mgmtKeyHash: null,
+      mgmtKeyPrefix: null,
+      ownerEmailVerifiedAt: expect.any(Date),
+    })
 
     // Agent keys rotated set-based (no read-then-write loop) to a value that can
     // never equal a sha256 hex digest, and deactivated — once in the claim, once
@@ -98,19 +105,20 @@ describe("resolveWalletForUser — claim-by-email", () => {
     expect(members.where).toEqual({ walletId: SQUATTED.id, status: { not: "revoked" } })
     expect(members.data).toEqual({ status: "revoked", tokenHash: null, tokenExpiresAt: null })
 
-    // A squatter's control/notification plane is cut: webhooks off, Slack revoked
-    // under the tenant's RLS scope.
-    const hooks = dbMock.webhook.updateMany.mock.calls[0][0]
-    expect(hooks).toEqual({ where: { walletId: SQUATTED.id, isActive: true }, data: { isActive: false } })
+    // A squatter's control/notification plane is cut: webhooks deleted (a
+    // deactivated one could be re-enabled by mistake), Slack revoked under the
+    // tenant's RLS scope.
+    expect(dbMock.webhook.deleteMany.mock.calls[0][0]).toEqual({ where: { walletId: SQUATTED.id } })
     const slack = dbMock.slackInstall.updateMany.mock.calls[0][0]
     expect(slack.where).toEqual({ walletId: SQUATTED.id, revokedAt: null })
     expect(slack.data.revokedAt).toBeInstanceOf(Date)
     expect(rawSql().some((sql) => sql.includes("set_config('app.wallet_ids'"))).toBe(true)
 
     // The sweep repeats every revocation after commit.
-    for (const m of [dbMock.executionToken, dbMock.walletMember, dbMock.webhook, dbMock.slackInstall]) {
+    for (const m of [dbMock.executionToken, dbMock.walletMember, dbMock.slackInstall]) {
       expect(m.updateMany).toHaveBeenCalledTimes(2)
     }
+    expect(dbMock.webhook.deleteMany).toHaveBeenCalledTimes(2)
 
     // The old non-rotating update path is gone.
     expect(dbMock.wallet.update).not.toHaveBeenCalled()
@@ -130,7 +138,7 @@ describe("resolveWalletForUser — claim-by-email", () => {
 
     expect(result?.wallet.id).toBe(SQUATTED.id)
     expect(result?.role).toBe("owner")
-    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toEqual({ userId: VICTIM.id, mgmtKeyHash: null, mgmtKeyPrefix: null })
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toMatchObject({ userId: VICTIM.id, mgmtKeyHash: null, mgmtKeyPrefix: null })
     expect(agentRotations().length).toBeGreaterThan(0)
   })
 
@@ -229,5 +237,20 @@ describe("resolveWalletForUser — claim-by-email", () => {
     const result = await getSessionMember()
     expect(result?.wallet.id).toBe("wallet_new")
     expect(result?.role).toBe("owner")
+    // Provisioned from a provider-verified email → ownerEmail is proven.
+    expect(dbMock.wallet.create.mock.calls[0][0].data.ownerEmailVerifiedAt).toBeInstanceOf(Date)
+  })
+
+  it("an unverified user's provisioned wallet leaves ownerEmail unverified", async () => {
+    const fresh = { id: "wallet_new", ownerEmail: VICTIM.email, userId: VICTIM.id }
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: false } })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.wallet.findUnique.mockResolvedValue(null)
+    dbMock.walletMember.findFirst.mockResolvedValue(null)
+    dbMock.wallet.create.mockResolvedValue(fresh)
+    dbMock.agent.create.mockResolvedValue({})
+
+    expect((await getSessionMember())?.wallet.id).toBe("wallet_new")
+    expect(dbMock.wallet.create.mock.calls[0][0].data.ownerEmailVerifiedAt ?? null).toBeNull()
   })
 })

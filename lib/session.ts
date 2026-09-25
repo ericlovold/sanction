@@ -109,6 +109,8 @@ async function resolveWalletForUser(
       data: {
         name: user.name?.trim() || `${user.email.split("@")[0]}'s workspace`,
         ownerEmail: user.email,
+        // Only a provider-verified email counts as proof of ownership.
+        ownerEmailVerifiedAt: user.emailVerified === true ? new Date() : null,
         userId: user.id,
         policy: { create: {} },
       },
@@ -132,8 +134,11 @@ async function resolveWalletForUser(
 // and deactivated (a reactivation can't revive a key someone else holds), live
 // execution JWTs are revoked, memberships the key holder handed out are
 // revoked, Slack installs are revoked (a squatter's install could otherwise
-// approve escalations and mint grants), and webhooks are deactivated. Returns
-// null if another request linked the wallet first.
+// approve escalations and mint grants), and webhooks are deleted (a deactivated
+// one could be re-enabled by mistake). The claim also marks ownerEmail verified.
+// Returns null if another request linked the wallet first. The magic-link path
+// (app/login/actions.ts) reuses revokePreClaimAccess + sweepPreClaimAccess when
+// it is the first proof of an unverified ownerEmail.
 //
 // The claim runs under READ COMMITTED, so a request that authenticated with a
 // pre-claim key can still commit a new agent / execution token / Slack install
@@ -147,7 +152,7 @@ async function claimWallet(walletId: string, userId: string) {
   const wallet = await db.$transaction(async (tx) => {
     const claimed = await tx.wallet.updateMany({
       where: { id: walletId, userId: null },
-      data: { userId, mgmtKeyHash: null, mgmtKeyPrefix: null },
+      data: { userId, mgmtKeyHash: null, mgmtKeyPrefix: null, ownerEmailVerifiedAt: new Date() },
     })
     if (claimed.count === 0) return null
 
@@ -158,14 +163,20 @@ async function claimWallet(walletId: string, userId: string) {
   if (!wallet) return null
 
   // Fails closed: if the sweep throws, the claim is not handed back this render.
+  await sweepPreClaimAccess(walletId)
+  return wallet
+}
+
+// Post-commit repeat of revokePreClaimAccess — see claimWallet for why. Throws
+// on failure; callers must not hand back credentials if it does.
+export async function sweepPreClaimAccess(walletId: string) {
   const swept = await withTenant(walletId, (tx) => revokePreClaimAccess(tx, walletId))
   if (Object.values(swept).some((n) => n > 0)) {
     log.warn("wallet claim sweep caught rows committed during the claim", { walletId, ...swept })
   }
-  return wallet
 }
 
-async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletId: string) {
+export async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletId: string) {
   // Set-based so rows can't slip between a read and per-row writes. The new
   // hash contains ':' so it can never equal a sha256 hex digest (hashApiKey).
   const agentsRotated = await tx.$executeRaw`
@@ -180,7 +191,7 @@ async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletId: stri
     where: { walletId, status: { not: "revoked" } },
     data: { status: "revoked", tokenHash: null, tokenExpiresAt: null },
   })
-  const webhooks = await tx.webhook.updateMany({ where: { walletId, isActive: true }, data: { isActive: false } })
+  const webhooks = await tx.webhook.deleteMany({ where: { walletId } })
   // SlackInstall is FORCE RLS — scope this transaction to the tenant first.
   await scopeTenant(tx, walletId)
   const slack = await tx.slackInstall.updateMany({
@@ -191,7 +202,7 @@ async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletId: stri
     agentsRotated,
     tokensRevoked: tokens.count,
     membersRevoked: members.count,
-    webhooksDeactivated: webhooks.count,
+    webhooksDeleted: webhooks.count,
     slackInstallsRevoked: slack.count,
   }
 }

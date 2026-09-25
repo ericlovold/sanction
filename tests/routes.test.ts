@@ -127,6 +127,19 @@ describe("wallet settings (PATCH /wallets)", () => {
     expect((await res.json()).name).toBe("Renamed")
     expect(dbMock.wallet.update.mock.calls[0][0].data).toEqual({ name: "Renamed" })
   })
+  it("changing owner_email clears the ownerEmail verification marker", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com", ownerEmailVerifiedAt: new Date(), parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
+    dbMock.wallet.update.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "b@x.com" })
+    const res = await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, owner_email: "b@x.com" } }))
+    expect(res.status).toBe(200)
+    expect(dbMock.wallet.update.mock.calls[0][0].data).toEqual({ ownerEmail: "b@x.com", ownerEmailVerifiedAt: null })
+  })
+  it("re-submitting the same owner_email keeps the verification marker", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com", ownerEmailVerifiedAt: new Date(), parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
+    dbMock.wallet.update.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com" })
+    await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, owner_email: "a@x.com" } }))
+    expect(dbMock.wallet.update.mock.calls[0][0].data).toEqual({ ownerEmail: "a@x.com" })
+  })
   it("401 without a management key", async () => {
     expect((await patchWallet(req("PATCH", "/api/v1/wallets", { body: { wallet_id: WID, name: "x" } }))).status).toBe(401)
   })
