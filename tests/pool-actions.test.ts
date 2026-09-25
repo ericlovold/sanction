@@ -19,6 +19,7 @@ type DbMock = {
   agent: Record<"findFirst" | "findMany" | "findUnique" | "update", MockFn>
   agentClearance: Record<"findFirst" | "findUnique" | "update" | "updateMany", MockFn>
   authorizationRequest: Record<"groupBy", MockFn>
+  executionToken: Record<"updateMany", MockFn>
   policy: Record<"upsert", MockFn>
   policyRevision: Record<"create", MockFn>
   wallet: Record<"count" | "create" | "findFirst" | "findMany" | "findUnique", MockFn>
@@ -62,6 +63,9 @@ const { apiKeyMock, dbMock, revalidatePathMock, sessionMock } = vi.hoisted(() =>
     },
     authorizationRequest: {
       groupBy: vi.fn(),
+    },
+    executionToken: {
+      updateMany: vi.fn(),
     },
   }
   db.$transaction.mockImplementation((arg: TransactionArg) =>
@@ -443,6 +447,10 @@ describe("moveAgentToPoolAction", () => {
     const clearanceUpdate = dbMock.agentClearance.update.mock.calls.at(-1)?.[0]
     const clearanceUpdateMany = dbMock.agentClearance.updateMany.mock.calls.at(-1)?.[0]
     expect(clearanceUpdate?.data?.walletId ?? clearanceUpdateMany?.data?.walletId).toBe("pool_grandchild")
+    // Tokens minted in the source pool are revoked with the move.
+    expect(dbMock.executionToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { agentId: "agent_child", status: "active" } }),
+    )
     expect(revalidatedPaths()).toEqual(
       expect.arrayContaining(["/dashboard", "/dashboard/agents", "/dashboard/pools"]),
     )

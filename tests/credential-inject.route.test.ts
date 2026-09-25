@@ -8,7 +8,7 @@ import { NextRequest } from "next/server"
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     executionToken: { findUnique: vi.fn() },
-    agent: { findUnique: vi.fn(async () => ({ isActive: true, expiresAt: null })) },
+    agent: { findUnique: vi.fn(async () => ({ isActive: true, expiresAt: null, walletId: "wallet_1" })) },
     wallet: { findUnique: vi.fn(async () => ({ id: "wallet_1", parentId: null, frozenAt: null, frozenReason: null })) },
     credentialVault: { findFirst: vi.fn() },
     credentialInjection: { create: vi.fn() },

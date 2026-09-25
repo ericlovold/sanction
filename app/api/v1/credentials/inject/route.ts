@@ -67,13 +67,19 @@ export async function POST(req: NextRequest) {
   // (KILL-1) must stop pulling secrets now, not at its TTL.
   const agent = await db.agent.findUnique({
     where: { id: execToken.agentId },
-    select: { isActive: true, expiresAt: true },
+    select: { isActive: true, expiresAt: true, walletId: true },
   })
   if (!agent || !agent.isActive) {
     return NextResponse.json({ error: "Agent is inactive" }, { status: 403, headers: NO_STORE })
   }
   if (agent.expiresAt && agent.expiresAt <= new Date()) {
     return NextResponse.json({ error: "Agent key expired" }, { status: 403, headers: NO_STORE })
+  }
+  // A token is bound to the wallet it was minted in. If the agent has since moved
+  // pools, the token no longer describes where the agent lives — refuse it
+  // rather than keep reading the old wallet's vault past a freeze of the new one.
+  if (agent.walletId !== claims.wallet) {
+    return NextResponse.json({ error: "Agent has moved wallets; request a new execution token" }, { status: 403, headers: NO_STORE })
   }
   const freeze = await walletFreezeState(db, claims.wallet)
   if (freeze.frozen) {

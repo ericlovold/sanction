@@ -101,6 +101,14 @@ describe("POST /credentials/inject — kill switches reach the vault", () => {
     expect((await res.json()).error).toMatch(/expired/i)
   })
 
+  it("403s when the agent has moved to another wallet since the token was minted", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, walletId: "wallet_elsewhere" })
+    const res = await inject(injectReq())
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toMatch(/moved wallets/i)
+    expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
+  })
+
   it("401s (not 500) for a signature-valid JWT with no scope array", async () => {
     jwtMock.verifyExecutionJWT.mockResolvedValue({ jti: "grant_1", wallet: WID })
     const res = await inject(injectReq())

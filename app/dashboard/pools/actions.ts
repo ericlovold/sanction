@@ -10,6 +10,7 @@ import { upsertPolicyWithRevision } from "@/lib/policy"
 import { requireSessionRole } from "@/lib/session"
 import { withTenant } from "@/lib/rls"
 import { canNestUnder, MAX_WALLET_CHAIN } from "@/lib/freeze"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 
 export type CreatePoolState = {
   ok: boolean
@@ -227,6 +228,8 @@ export async function moveAgentToPoolAction(
       where: { agentId },
       data: { walletId: targetWalletId },
     })
+    // Execution tokens are bound to the source pool; strand none across a move.
+    await revokeActiveExecutionTokens({ agentId }, tx)
   })
 
   revalidatePools()
