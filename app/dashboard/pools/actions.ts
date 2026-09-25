@@ -9,6 +9,7 @@ import { agentIsInWalletSet, walletSubtreeIds } from "@/lib/poolAccess"
 import { upsertPolicyWithRevision } from "@/lib/policy"
 import { requireSessionRole } from "@/lib/session"
 import { withTenant } from "@/lib/rls"
+import { canNestUnder, MAX_WALLET_CHAIN } from "@/lib/freeze"
 
 export type CreatePoolState = {
   ok: boolean
@@ -43,6 +44,10 @@ export async function createDelegatedPoolAction(
   if (!ownerEmail.ok) return { ok: false, message: ownerEmail.error }
   const cap = parsePoolCapDollars(form.get("subtree_daily_cap_usd"))
   if (!cap.ok) return { ok: false, message: cap.error }
+
+  if (!(await canNestUnder(db, wallet.id))) {
+    return { ok: false, message: `Pools can nest at most ${MAX_WALLET_CHAIN} levels deep.` }
+  }
 
   const mgmt = generateManagementKey()
 

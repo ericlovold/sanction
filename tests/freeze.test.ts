@@ -15,6 +15,8 @@ import {
   WALLET_FROZEN_NOTE,
   PARENT_FROZEN_NOTE,
   HIERARCHY_UNVERIFIED_NOTE,
+  canNestUnder,
+  MAX_WALLET_CHAIN,
 } from "@/lib/freeze"
 import { db } from "@/lib/db" // the mock above, typed as the real client
 
@@ -106,5 +108,32 @@ describe("freezeStateFromChain", () => {
     const s = freezeStateFromChain([{ id: "c", parentId: "p", frozenAt: new Date() }], "c")
     expect(s).toMatchObject({ frozen: true, self: true })
     if (s.frozen) expect(frozenNote(s)).toBe(WALLET_FROZEN_NOTE)
+  })
+})
+
+describe("canNestUnder", () => {
+  const chain = (n: number) =>
+    tree(Array.from({ length: n }, (_, i) => ({ id: `w${i}`, parentId: i + 1 < n ? `w${i + 1}` : null, frozenAt: null, frozenReason: null })))
+
+  it("allows a child whose full chain the freeze walk can still verify", async () => {
+    chain(MAX_WALLET_CHAIN - 1)
+    expect(await canNestUnder(db, "w0")).toBe(true)
+    // ...and that child really does verify
+    tree([
+      ...Array.from({ length: MAX_WALLET_CHAIN - 1 }, (_, i) => ({ id: `w${i}`, parentId: i + 1 < MAX_WALLET_CHAIN - 1 ? `w${i + 1}` : null, frozenAt: null, frozenReason: null })),
+      { id: "child", parentId: "w0", frozenAt: null, frozenReason: null },
+    ])
+    expect(await walletFreezeState(db, "child")).toEqual({ frozen: false })
+  })
+
+  it("refuses a child that would exceed the verifiable depth", async () => {
+    chain(MAX_WALLET_CHAIN)
+    expect(await canNestUnder(db, "w0")).toBe(false)
+  })
+
+  it("refuses a missing parent or a cycle", async () => {
+    tree([{ id: "a", parentId: "b", frozenAt: null, frozenReason: null }, { id: "b", parentId: "a", frozenAt: null, frozenReason: null }])
+    expect(await canNestUnder(db, "a")).toBe(false)
+    expect(await canNestUnder(db, "nope")).toBe(false)
   })
 })

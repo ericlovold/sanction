@@ -12,6 +12,9 @@ export const PARENT_FROZEN_NOTE = "Parent wallet is frozen"
 export const HIERARCHY_UNVERIFIED_NOTE = "Wallet hierarchy could not be verified"
 
 const MAX_ANCESTOR_DEPTH = 16
+// Deepest wallet chain (self + ancestors) the freeze walk can verify. Creation
+// refuses to nest past it, so a legit wallet never trips the fail-closed cap.
+export const MAX_WALLET_CHAIN = MAX_ANCESTOR_DEPTH
 
 export type FreezeTx = Pick<typeof db, "wallet">
 
@@ -70,4 +73,19 @@ export function freezeStateFromChain(
   }
   if (chain.length > 0 && chain[chain.length - 1].parentId != null) return unverified(walletId)
   return { frozen: false }
+}
+
+/** True when a new child under `parentId` would still be fully verifiable. */
+export async function canNestUnder(tx: Pick<typeof db, "wallet">, parentId: string): Promise<boolean> {
+  const seen = new Set<string>()
+  let cur: string | null = parentId
+  while (cur) {
+    // The parent's chain plus the new child must fit within MAX_WALLET_CHAIN.
+    if (seen.size >= MAX_WALLET_CHAIN - 1 || seen.has(cur)) return false
+    seen.add(cur)
+    const w: { parentId: string | null } | null = await tx.wallet.findUnique({ where: { id: cur }, select: { parentId: true } })
+    if (!w) return false
+    cur = w.parentId
+  }
+  return true
 }
