@@ -217,6 +217,109 @@ describe("gateway proxy — forwarding and metering", () => {
   })
 })
 
+describe("gateway proxy — abandoned streams and header hygiene", () => {
+  const MESSAGE_START = 'data: {"type":"message_start","message":{"model":"claude-sonnet-5","usage":{"input_tokens":80,"output_tokens":1}}}\n\n'
+
+  beforeEach(() => {
+    // An earlier test leaves meterUsage rejecting; clearAllMocks keeps implementations.
+    vi.mocked(meterUsage).mockResolvedValue(0.05)
+  })
+
+  // An upstream that emits message_start and then hangs, like a long generation.
+  function hangingSse(onCancel?: () => void) {
+    return new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode(MESSAGE_START))
+      },
+      cancel() {
+        onCancel?.()
+      },
+    })
+  }
+
+  it("meters accumulated usage once when the client abandons the stream, and cancels upstream", async () => {
+    let upstreamCancelled = false
+    global.fetch = vi.fn(async () =>
+      new Response(hangingSse(() => { upstreamCancelled = true }), { status: 200, headers: { "content-type": "text/event-stream" } }),
+    ) as never
+
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    const reader = res.body!.getReader()
+    await reader.read() // message_start reaches the client
+    await reader.cancel("client went away")
+
+    expect(meterUsage).toHaveBeenCalledTimes(1)
+    expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80 }))
+    expect(upstreamCancelled).toBe(true)
+  })
+
+  it("meters accumulated usage once when the upstream stream errors mid-flight", async () => {
+    let ctl!: ReadableStreamDefaultController<Uint8Array>
+    const upstreamBody = new ReadableStream<Uint8Array>({
+      start(c) {
+        ctl = c
+        c.enqueue(new TextEncoder().encode(MESSAGE_START))
+      },
+    })
+    global.fetch = vi.fn(async () => new Response(upstreamBody, { status: 200, headers: { "content-type": "text/event-stream" } })) as never
+
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    const reader = res.body!.getReader()
+    await reader.read()
+    ctl.error(new Error("upstream reset"))
+    await expect(reader.read()).rejects.toThrow("upstream reset")
+
+    expect(meterUsage).toHaveBeenCalledTimes(1)
+    expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80 }))
+  })
+
+  it("never forwards cookies, management keys or proxy/platform headers upstream, and drops upstream set-cookie", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json", "set-cookie": "tracker=1", "x-request-id": "req_1" },
+      }),
+    )
+    global.fetch = fetchMock as never
+    const r = new NextRequest("https://test.local/api/gateway/anthropic/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": "caller-own-anthropic-key",
+        "x-sanction-key": KEY,
+        cookie: "sanction_session=secret",
+        "x-mgmt-key": "sk_owner",
+        "x-forwarded-for": "203.0.113.9",
+        "x-forwarded-host": "getsanction.com",
+        "x-vercel-id": "iad1::abc",
+        "x-vercel-proxy-signature": "sig",
+        "x-real-ip": "203.0.113.9",
+        forwarded: "for=203.0.113.9",
+      },
+      body: JSON.stringify({ model: "claude-sonnet-5" }),
+    })
+    const res = await gateway(r, params("anthropic", "v1/messages"))
+
+    const sent = new Headers((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers)
+    for (const h of ["cookie", "x-mgmt-key", "x-sanction-key", "x-forwarded-for", "x-forwarded-host", "x-vercel-id", "x-vercel-proxy-signature", "x-real-ip", "forwarded"]) {
+      expect(sent.get(h), h).toBeNull()
+    }
+    // the caller's own provider key is its upstream auth and must still go through
+    expect(sent.get("x-api-key")).toBe("caller-own-anthropic-key")
+    expect(res.headers.get("set-cookie")).toBeNull()
+    expect(res.headers.get("x-request-id")).toBe("req_1")
+  })
+
+  it("404s provider names that only exist on Object.prototype", async () => {
+    global.fetch = vi.fn()
+    for (const p of ["constructor", "toString", "__proto__"]) {
+      const res = await gateway(req(p, "v1/messages"), params(p, "v1/messages"))
+      expect(res.status, p).toBe(404)
+    }
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+})
+
 describe("gateway provider-key injection (Providers page)", () => {
   it("401s PROVIDER_NOT_CONNECTED when caller sends no auth and nothing is vaulted", async () => {
     dbMock.credentialVault.findFirst.mockResolvedValueOnce(null)

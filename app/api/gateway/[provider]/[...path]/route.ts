@@ -18,10 +18,18 @@ export const maxDuration = 300
 
 const log = logger("gateway")
 
-// Headers we must not forward upstream (Sanction auth, hop-by-hop, encoding).
-const STRIP_REQ = new Set(["host", "x-sanction-key", "content-length", "accept-encoding", "connection"])
-// Response headers we re-derive (body was decoded by fetch).
-const STRIP_RES = new Set(["content-encoding", "content-length", "transfer-encoding", "connection"])
+// Headers we must not forward upstream (Sanction auth and dashboard session,
+// hop-by-hop, encoding, and our edge's client-IP / platform headers). The
+// caller's own provider auth (authorization, x-api-key, x-goog-api-key) is
+// deliberately forwarded — it is how bring-your-own-key works.
+const STRIP_REQ = new Set([
+  "host", "x-sanction-key", "x-mgmt-key", "cookie", "content-length", "accept-encoding", "connection",
+  "forwarded", "x-real-ip",
+])
+const STRIP_REQ_PREFIXES = ["x-forwarded-", "x-vercel-"]
+// Response headers we re-derive (body was decoded by fetch), plus upstream
+// cookies, which must never be set on Sanction's origin.
+const STRIP_RES = new Set(["content-encoding", "content-length", "transfer-encoding", "connection", "set-cookie"])
 
 async function authAgent(req: NextRequest) {
   const key = req.headers.get("x-sanction-key")
@@ -39,7 +47,9 @@ async function authAgent(req: NextRequest) {
 function upstreamHeaders(req: NextRequest): Headers {
   const h = new Headers()
   req.headers.forEach((v, k) => {
-    if (!STRIP_REQ.has(k.toLowerCase())) h.set(k, v)
+    const name = k.toLowerCase()
+    if (STRIP_REQ.has(name) || STRIP_REQ_PREFIXES.some((p) => name.startsWith(p))) return
+    h.set(k, v)
   })
   return h
 }
@@ -64,7 +74,7 @@ function meteringFailure(): Response {
 async function handle(req: NextRequest, ctx: { params: Promise<{ provider: string; path?: string[] }> }) {
   const { provider, path = [] } = await ctx.params
   const noStore = { "cache-control": "no-store" }
-  const cfg = GATEWAY_PROVIDERS[provider]
+  const cfg = Object.hasOwn(GATEWAY_PROVIDERS, provider) ? GATEWAY_PROVIDERS[provider] : undefined
   if (!cfg) return NextResponse.json({ error: `Unknown gateway provider '${provider}'` }, { status: 404, headers: noStore })
 
   const agent = await authAgent(req)
@@ -202,49 +212,81 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   // is impossible, and buffering the whole thing first kills streaming and risks
   // a token-burn-then-timeout at maxDuration — that's why the enforcement leans
   // on the pre-call budget gate, which fails closed on a DB outage.)
+  //
+  // The stream can also end without draining: the client disconnects, the
+  // upstream errors, or the runtime cancels us. Tokens the provider already
+  // reported (Anthropic's input side lands in message_start) are real spend,
+  // so every exit path settles whatever usage has accumulated — exactly once.
   if (ct.includes("text/event-stream") && upstream.body) {
     const meter = makeStreamMeter(provider)
     const decoder = new TextDecoder()
+    const reader = upstream.body.getReader()
     let buf = ""
-    const transform = new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        controller.enqueue(chunk) // live pass-through — the client sees every token as it lands
-        buf += decoder.decode(chunk, { stream: true })
-        let nl: number
-        while ((nl = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, nl).trim()
-          buf = buf.slice(nl + 1)
-          if (line.startsWith("data:")) {
-            const payload = line.slice(5).trim()
-            if (payload && payload !== "[DONE]") {
-              try {
-                meter.feed(JSON.parse(payload))
-              } catch {
-                // partial/non-JSON event line — ignore
-              }
+    let settled = false
+    const parse = (chunk: Uint8Array) => {
+      buf += decoder.decode(chunk, { stream: true })
+      let nl: number
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim()
+        buf = buf.slice(nl + 1)
+        if (line.startsWith("data:")) {
+          const payload = line.slice(5).trim()
+          if (payload && payload !== "[DONE]") {
+            try {
+              meter.feed(JSON.parse(payload))
+            } catch {
+              // partial/non-JSON event line — ignore
             }
           }
         }
-      },
-      async flush() {
-        const usage = meter.result()
-        if (usage.tokensIn || usage.tokensOut) {
-          await meterWithRetry(usage)
-        } else {
-          // Reaching here means the stream reported no usage even after we set
-          // include_usage — the call is unmetered and the budget did not move.
-          // Never silent: an unmetered call is a hole in the thing this
-          // product exists to guarantee.
-          log.warn("gateway stream reported no usage — call is unmetered", {
-            provider,
-            agentId: agent.id,
-            walletId: agent.walletId,
-            path: path.join("/"),
-          })
+      }
+    }
+    const settle = async (outcome: "complete" | "cancelled" | "upstream-error") => {
+      if (settled) return
+      settled = true
+      const usage = meter.result()
+      if (usage.tokensIn || usage.tokensOut) {
+        await meterWithRetry(usage)
+      } else {
+        // No usage seen: either the stream reported none even after we set
+        // include_usage, or it ended before the provider sent any (OpenAI
+        // only reports at the end). The call is unmetered and the budget did
+        // not move. Never silent: an unmetered call is a hole in the thing
+        // this product exists to guarantee.
+        log.warn("gateway stream reported no usage — call is unmetered", {
+          provider,
+          agentId: agent.id,
+          walletId: agent.walletId,
+          path: path.join("/"),
+          outcome,
+        })
+      }
+    }
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        let next: ReadableStreamReadResult<Uint8Array>
+        try {
+          next = await reader.read()
+        } catch (err) {
+          await settle("upstream-error")
+          controller.error(err)
+          return
         }
+        if (next.done) {
+          await settle("complete")
+          controller.close()
+          return
+        }
+        controller.enqueue(next.value) // live pass-through — the client sees every token as it lands
+        parse(next.value)
+      },
+      async cancel(reason) {
+        // Stop the provider generating first, then bill what it already reported.
+        await reader.cancel(reason).catch(() => {})
+        await settle("cancelled")
       },
     })
-    return passthroughResponse(upstream, upstream.body.pipeThrough(transform))
+    return passthroughResponse(upstream, stream)
   }
 
   // JSON response -> read, meter, return.
