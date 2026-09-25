@@ -58,7 +58,7 @@ beforeEach(() => {
   dbMock.magicLink.updateMany.mockResolvedValue({ count: 1 })
   dbMock.wallet.findUnique.mockResolvedValue(WALLET)
   dbMock.wallet.update.mockResolvedValue(WALLET)
-  dbMock.wallet.findUniqueOrThrow.mockResolvedValue(WALLET)
+  dbMock.wallet.findUniqueOrThrow.mockImplementation(async () => dbMock.wallet.findUnique.mock.results.at(-1)?.value ?? WALLET)
   for (const m of [dbMock.executionToken, dbMock.walletMember, dbMock.slackInstall]) m.updateMany.mockResolvedValue({ count: 0 })
   dbMock.webhook.deleteMany.mockResolvedValue({ count: 0 })
 })
@@ -169,6 +169,26 @@ describe("verifyMagicLinkAction — a linked owner retargeting ownerEmail at som
     const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
 
     expect(res.rotatedAgents).toBeDefined()
+  })
+})
+
+describe("verifyMagicLinkAction — the linked owner is read inside the claim transaction", () => {
+  it("a social link that lands after the pre-check (wallet still unverified) is honored, not unlinked", async () => {
+    // Pre-check saw no linked owner; by the time the claim tx locks the row the
+    // inbox holder's own social account is linked.
+    dbMock.wallet.findUnique.mockResolvedValue(WALLET)
+    dbMock.wallet.findUniqueOrThrow.mockImplementation(async (args: { select?: Record<string, boolean> }) =>
+      args?.select?.userId ? { userId: "user_owner" } : WALLET,
+    )
+    dbMock.user.findUnique.mockResolvedValue({ email: WALLET.ownerEmail, emailVerified: true })
+    walletWrites(1)
+
+    const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
+
+    expect(res.ok).toBe(true)
+    expect(res.rotatedAgents).toBeUndefined()
+    expect(agentRotations()).toHaveLength(0)
+    expect(dbMock.wallet.updateMany.mock.calls.some(([a]) => "userId" in (a as WalletWrite).data)).toBe(false)
   })
 })
 
