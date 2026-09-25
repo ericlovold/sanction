@@ -347,6 +347,9 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
               </select>
             </label>
             <div className="flex items-center gap-2">
+              {!limits.ok && limits.error && (
+                <span className="text-[11px] text-red-400">{limits.error}</span>
+              )}
               {limits.ok && (
                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
                   <CheckCircle2 className="size-3" />

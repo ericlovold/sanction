@@ -8,13 +8,15 @@ import { hashApiKey } from "../lib/apiKey"
 // stamps one template across N seats with each key shown exactly once.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
-    agent: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn(), findMany: vi.fn() },
+    agent: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     agentClearance: { create: vi.fn() },
+    executionToken: { updateMany: vi.fn() },
     wallet: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 vi.mock("@/lib/gateway", async (orig) => {
   const mod = await orig<typeof import("@/lib/gateway")>()
   return { ...mod, isBudgetExhausted: vi.fn(async () => ({ exhausted: false, spent: 0, budget: 10 })) }
@@ -57,6 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue({ ...AGENT })
+  dbMock.agent.updateMany.mockResolvedValue({ count: 1 })
   dbMock.wallet.findUnique.mockResolvedValue(OWNER_WALLET)
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
 })
@@ -92,20 +95,19 @@ describe("seat expiry — the key fails closed everywhere past expiresAt", () =>
 
 describe("passing the seat — rotate moves the holder, keeps everything else", () => {
   it("rotates the key and sets the new holder in one motion", async () => {
-    dbMock.agent.update.mockResolvedValue({ ...AGENT, holder: "Priya" })
     const res = await rotate(req("POST", "/api/v1/agents/rotate", { headers: mgmtH, body: { wallet_id: WID, agent_id: AID, holder: "Priya" } }))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.holder).toBe("Priya")
     expect(body.api_key).toMatch(/^pxy_/)
-    const data = dbMock.agent.update.mock.calls[0][0].data
+    const data = dbMock.agent.updateMany.mock.calls[0][0].data
     expect(data.holder).toBe("Priya")
     expect(data.apiKeyHash).toBe(hashApiKey(body.api_key)) // new key, same seat
   })
 
   it("rotation without a holder change leaves the holder untouched", async () => {
     await rotate(req("POST", "/api/v1/agents/rotate", { headers: mgmtH, body: { wallet_id: WID, agent_id: AID } }))
-    expect(dbMock.agent.update.mock.calls[0][0].data.holder).toBeUndefined()
+    expect(dbMock.agent.updateMany.mock.calls[0][0].data.holder).toBeUndefined()
   })
 })
 

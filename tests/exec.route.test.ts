@@ -14,6 +14,8 @@ const { dbMock } = vi.hoisted(() => ({
     agentClearance: { findUnique: vi.fn() },
     credentialVault: { findMany: vi.fn() },
     executionToken: { create: vi.fn() },
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
@@ -56,6 +58,39 @@ beforeEach(() => {
   dbMock.agentClearance.findUnique.mockResolvedValue({ level: 2 })
   dbMock.credentialVault.findMany.mockResolvedValue([OPENAI_CRED])
   dbMock.executionToken.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => data)
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
+  // The issuance-time row lock re-reads the agent's live key state.
+  dbMock.$queryRaw.mockResolvedValue([{ apiKeyHash: AGENT.apiKeyHash, isActive: true, expiresAt: null, walletId: WID }])
+})
+
+describe("exec — a kill switch between authentication and issuance", () => {
+  const LIVE = { apiKeyHash: AGENT.apiKeyHash, isActive: true, expiresAt: null, walletId: WID }
+
+  it.each([
+    ["the key was rotated", { ...LIVE, apiKeyHash: hashApiKey("pxy_rotated") }],
+    ["the agent was deactivated", { ...LIVE, isActive: false }],
+    ["the seat expired", { ...LIVE, expiresAt: new Date(Date.now() - 1000) }],
+    ["the agent moved pools", { ...LIVE, walletId: "wallet_other" }],
+  ])("401s and mints no token when %s", async (_label, row) => {
+    dbMock.$queryRaw.mockResolvedValue([row])
+    const res = await issueExec(req({ scope: ["openai"], budget_usd: 5 }))
+    expect(res.status).toBe(401)
+    expect((await res.json()).jwt).toBeUndefined()
+    expect(dbMock.executionToken.create).not.toHaveBeenCalled()
+  })
+
+  it("401s when the agent row is gone", async () => {
+    dbMock.$queryRaw.mockResolvedValue([])
+    expect((await issueExec(req({ scope: ["openai"], budget_usd: 5 }))).status).toBe(401)
+    expect(dbMock.executionToken.create).not.toHaveBeenCalled()
+  })
+
+  it("locks the agent row inside the issuing transaction", async () => {
+    expect((await issueExec(req({ scope: ["openai"], budget_usd: 5 }))).status).toBe(200)
+    const sql = (dbMock.$queryRaw.mock.calls[0][0] as TemplateStringsArray).join("?")
+    expect(sql).toMatch(/FROM "Agent" WHERE "id" = \? FOR UPDATE/)
+    expect(dbMock.$transaction).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("exec — issuance gates", () => {

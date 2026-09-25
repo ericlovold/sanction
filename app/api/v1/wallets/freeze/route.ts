@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 
 // Freeze (KILL-1): the owner's one-control stop. Freezing a wallet pauses every
 // data-plane action for it AND its whole subtree (enforcement walks ancestors),
@@ -23,10 +24,15 @@ export async function POST(req: NextRequest) {
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const wallet = await db.wallet.update({
-    where: { id: wallet_id },
-    data: { frozenAt: new Date(), frozenReason: reason ?? null },
-    select: { id: true, frozenAt: true, frozenReason: true },
+  const wallet = await db.$transaction(async (tx) => {
+    const frozen = await tx.wallet.update({
+      where: { id: wallet_id },
+      data: { frozenAt: new Date(), frozenReason: reason ?? null },
+      select: { id: true, frozenAt: true, frozenReason: true },
+    })
+    // Descendant wallets' tokens are refused at inject by the ancestor walk.
+    await revokeActiveExecutionTokens({ walletId: wallet_id }, tx)
+    return frozen
   })
   return NextResponse.json({
     wallet_id: wallet.id,

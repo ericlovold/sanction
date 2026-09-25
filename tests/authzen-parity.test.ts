@@ -18,7 +18,7 @@ vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/authzenRateLimit", () => ({ authzenRateLimit: vi.fn(async () => null) })) // limiter has its own tests
 vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
-  return { ...mod, walletAncestorChain: vi.fn(async () => []), cascadeDailyWouldExceed: vi.fn(async () => false) }
+  return { ...mod, walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]), cascadeDailyWouldExceed: vi.fn(async () => false) }
 })
 // Stub the CPO context read; the pure rule is proven in the ladder tests.
 vi.mock("@/lib/outcomes", () => ({ cpoContext: vi.fn(async () => undefined) }))
@@ -94,7 +94,7 @@ beforeEach(() => {
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue({})
   dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 0 } })
-  vi.mocked(walletAncestorChain).mockResolvedValue([])
+  vi.mocked(walletAncestorChain).mockImplementation(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }] as never)
   vi.mocked(cpoContext).mockResolvedValue(undefined)
 })
 
