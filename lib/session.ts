@@ -149,22 +149,30 @@ async function resolveWalletForUser(
 // fully needs the data plane to re-check agent.isActive at use time (the gateway
 // and /authorize do via authenticateAgent; /credentials/inject is PR #310).
 async function claimWallet(walletId: string, userId: string) {
-  const wallet = await db.$transaction(async (tx) => {
-    const claimed = await tx.wallet.updateMany({
-      where: { id: walletId, userId: null },
-      data: { userId, mgmtKeyHash: null, mgmtKeyPrefix: null, ownerEmailVerifiedAt: new Date() },
-    })
+  const result = await db.$transaction(async (tx) => {
+    const claimed = await tx.wallet.updateMany({ where: { id: walletId, userId: null }, data: { userId } })
     if (claimed.count === 0) return null
 
-    const revoked = await revokePreClaimAccess(tx, walletId)
-    log.info("wallet claimed; pre-claim keys rotated", { walletId, userId, ...revoked })
-    return tx.wallet.findUnique({ where: { id: walletId } })
+    // Rotate only on the first proof of this email. If a magic link already
+    // proved it, the pre-claim credentials were rotated then — the keys the
+    // owner has minted since are theirs and must survive this sign-in.
+    const firstProof = await tx.wallet.updateMany({
+      where: { id: walletId, ownerEmailVerifiedAt: null },
+      data: { mgmtKeyHash: null, mgmtKeyPrefix: null, ownerEmailVerifiedAt: new Date() },
+    })
+    if (firstProof.count === 1) {
+      const revoked = await revokePreClaimAccess(tx, walletId)
+      log.info("wallet claimed; pre-claim keys rotated", { walletId, userId, ...revoked })
+    } else {
+      log.info("wallet linked; email already proven, keys kept", { walletId, userId })
+    }
+    return { wallet: await tx.wallet.findUnique({ where: { id: walletId } }), rotated: firstProof.count === 1 }
   })
-  if (!wallet) return null
+  if (!result?.wallet) return null
 
   // Fails closed: if the sweep throws, the claim is not handed back this render.
-  await sweepPreClaimAccess(walletId)
-  return wallet
+  if (result.rotated) await sweepPreClaimAccess(walletId)
+  return result.wallet
 }
 
 // Post-commit repeat of revokePreClaimAccess — see claimWallet for why. Throws

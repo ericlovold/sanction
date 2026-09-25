@@ -72,14 +72,13 @@ describe("resolveWalletForUser — claim-by-email", () => {
     expect(dbMock.$transaction).toHaveBeenCalledTimes(2)
 
     // Conditional on still being unclaimed (race-safe), and kills the sk_ key.
-    const claim = dbMock.wallet.updateMany.mock.calls[0][0]
-    expect(claim.where).toEqual({ id: SQUATTED.id, userId: null })
-    expect(claim.data).toEqual({
-      userId: VICTIM.id,
-      mgmtKeyHash: null,
-      mgmtKeyPrefix: null,
-      ownerEmailVerifiedAt: expect.any(Date),
-    })
+    const link = dbMock.wallet.updateMany.mock.calls[0][0]
+    expect(link.where).toEqual({ id: SQUATTED.id, userId: null })
+    expect(link.data).toEqual({ userId: VICTIM.id })
+    // First proof of the email (race-safe on the null marker) kills the sk_ key.
+    const proof = dbMock.wallet.updateMany.mock.calls[1][0]
+    expect(proof.where).toEqual({ id: SQUATTED.id, ownerEmailVerifiedAt: null })
+    expect(proof.data).toEqual({ mgmtKeyHash: null, mgmtKeyPrefix: null, ownerEmailVerifiedAt: expect.any(Date) })
 
     // Agent keys rotated set-based (no read-then-write loop) to a value that can
     // never equal a sha256 hex digest, and deactivated — once in the claim, once
@@ -138,8 +137,28 @@ describe("resolveWalletForUser — claim-by-email", () => {
 
     expect(result?.wallet.id).toBe(SQUATTED.id)
     expect(result?.role).toBe("owner")
-    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toMatchObject({ userId: VICTIM.id, mgmtKeyHash: null, mgmtKeyPrefix: null })
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toEqual({ userId: VICTIM.id })
+    expect(dbMock.wallet.updateMany.mock.calls[1][0].data).toMatchObject({ mgmtKeyHash: null, mgmtKeyPrefix: null })
     expect(agentRotations().length).toBeGreaterThan(0)
+  })
+
+  it("a wallet whose email a magic link already proved is linked without rotating the owner's re-minted keys", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: true } })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.wallet.findUnique
+      .mockResolvedValueOnce({ ...SQUATTED, ownerEmailVerifiedAt: new Date() }) // ownerEmail lookup
+      .mockResolvedValueOnce({ ...SQUATTED, userId: VICTIM.id })
+    dbMock.wallet.updateMany
+      .mockResolvedValueOnce({ count: 1 }) // linked
+      .mockResolvedValueOnce({ count: 0 }) // already proven: not a first proof
+
+    const result = await getSessionMember()
+
+    expect(result?.wallet.id).toBe(SQUATTED.id)
+    expect(agentRotations()).toHaveLength(0)
+    expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
+    expect(dbMock.webhook.deleteMany).not.toHaveBeenCalled()
+    expect(dbMock.$transaction).toHaveBeenCalledTimes(1) // no sweep
   })
 
   it("an unverified user never claims — or is handed — a squatted wallet", async () => {

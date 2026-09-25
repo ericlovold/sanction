@@ -77,6 +77,8 @@ export async function requestMagicLinkAction(_prev: MagicLinkRequestState, form:
   return { sent: true, error: "" }
 }
 
+class StaleMagicLink extends Error {}
+
 export type MagicLinkVerifyState = {
   ok: boolean
   error: string
@@ -120,7 +122,7 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
   // We never stored the old management key in the clear, so recovery means
   // issuing a fresh one.
   const mgmt = generateManagementKey()
-  const { wallet, rotatedAgents } = await db.$transaction(async (tx) => {
+  const rotation = await db.$transaction(async (tx) => {
     // Race-safe: only the request that flips ownerEmailVerifiedAt from null (for
     // the address this link proved) runs the claim rotation.
     const firstProof = await tx.wallet.updateMany({
@@ -130,12 +132,22 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
     // A wallet already linked to a signed-in owner can't be squatted — the
     // first proof of a changed address verifies it without rotating their agents.
     const revoked = firstProof.count === 1 && !current.userId ? await revokePreClaimAccess(tx, link.walletId) : null
-    const wallet = await tx.wallet.update({
-      where: { id: link.walletId },
+    // Rotate the key only while the wallet still carries the address this link
+    // proved — an ownerEmail change since the pre-check voids the link, and the
+    // throw rolls back the verification above with it.
+    const rotated = await tx.wallet.updateMany({
+      where: { id: link.walletId, ownerEmail: link.email },
       data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
     })
+    if (rotated.count !== 1) throw new StaleMagicLink()
+    const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: link.walletId } })
     return { wallet, rotatedAgents: revoked?.agentsRotated }
+  }).catch((e: unknown) => {
+    if (e instanceof StaleMagicLink) return null
+    throw e
   })
+  if (!rotation) return invalid
+  const { wallet, rotatedAgents } = rotation
   // Fails closed: if the sweep throws, no session is set and the key is not shown.
   if (rotatedAgents !== undefined) await sweepPreClaimAccess(link.walletId)
 

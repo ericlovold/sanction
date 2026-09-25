@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const { dbMock, cookieStore } = vi.hoisted(() => {
   const dbMock = {
     magicLink: { findUnique: vi.fn(), updateMany: vi.fn() },
-    wallet: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    wallet: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     walletMember: { updateMany: vi.fn() },
     executionToken: { updateMany: vi.fn() },
     webhook: { deleteMany: vi.fn() },
@@ -38,6 +38,16 @@ function form() {
 }
 const rawSql = () => dbMock.$executeRaw.mock.calls.map(([strings]) => (strings as string[]).join("?"))
 const agentRotations = () => rawSql().filter((sql) => sql.includes('UPDATE "Agent"'))
+// wallet.updateMany serves two writes: the first-proof flip (ownerEmailVerifiedAt)
+// and the email-guarded sk_ rotation (mgmtKeyHash).
+type WalletWrite = { where: Record<string, unknown>; data: Record<string, unknown> }
+function walletWrites(firstProofCount: number, rotationCount = 1) {
+  dbMock.wallet.updateMany.mockImplementation(async ({ data }: WalletWrite) =>
+    ({ count: "mgmtKeyHash" in data ? rotationCount : firstProofCount }),
+  )
+}
+const verifyFlip = () => dbMock.wallet.updateMany.mock.calls.map(([a]) => a as WalletWrite).find((a) => "ownerEmailVerifiedAt" in a.data)
+const keyRotation = () => dbMock.wallet.updateMany.mock.calls.map(([a]) => a as WalletWrite).find((a) => "mgmtKeyHash" in a.data)
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -47,13 +57,14 @@ beforeEach(() => {
   dbMock.magicLink.updateMany.mockResolvedValue({ count: 1 })
   dbMock.wallet.findUnique.mockResolvedValue(WALLET)
   dbMock.wallet.update.mockResolvedValue(WALLET)
+  dbMock.wallet.findUniqueOrThrow.mockResolvedValue(WALLET)
   for (const m of [dbMock.executionToken, dbMock.walletMember, dbMock.slackInstall]) m.updateMany.mockResolvedValue({ count: 0 })
   dbMock.webhook.deleteMany.mockResolvedValue({ count: 0 })
 })
 
 describe("verifyMagicLinkAction — first proof of an unverified ownerEmail is a claim", () => {
   it("rotates every pre-claim credential, marks the email verified, issues a new sk_, and sweeps after commit", async () => {
-    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 }) // was unverified
+    walletWrites(1) // was unverified
     dbMock.$executeRaw.mockImplementation(async (strings: string[]) =>
       strings.join("?").includes('UPDATE "Agent"') ? 3 : 0,
     )
@@ -66,7 +77,7 @@ describe("verifyMagicLinkAction — first proof of an unverified ownerEmail is a
 
     // Race-safe: only the request that flips ownerEmailVerifiedAt from null (for
     // the email this link was sent to) runs the claim.
-    const claim = dbMock.wallet.updateMany.mock.calls[0][0]
+    const claim = verifyFlip()!
     expect(claim.where).toEqual({ id: WALLET.id, ownerEmail: LINK.email, ownerEmailVerifiedAt: null })
     expect(claim.data.ownerEmailVerifiedAt).toBeInstanceOf(Date)
 
@@ -82,14 +93,14 @@ describe("verifyMagicLinkAction — first proof of an unverified ownerEmail is a
     expect(dbMock.webhook.deleteMany.mock.calls[0][0]).toEqual({ where: { walletId: WALLET.id } })
 
     // The new sk_ is what gets stored and what the session carries.
-    const upd = dbMock.wallet.update.mock.calls[0][0]
-    expect(upd.where).toEqual({ id: WALLET.id })
+    const upd = keyRotation()!
+    expect(upd.where).toEqual({ id: WALLET.id, ownerEmail: LINK.email })
     expect(upd.data.mgmtKeyHash).toBe(hashApiKey(res.newKey!))
     expect(cookieStore.set.mock.calls.at(-1)?.[1]).toBe(res.newKey)
   })
 
   it("a failing post-commit sweep fails closed — no session, no key handed back", async () => {
-    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 })
+    walletWrites(1)
     dbMock.slackInstall.updateMany.mockResolvedValueOnce({ count: 0 }).mockRejectedValueOnce(new Error("connection reset"))
 
     await expect(verifyMagicLinkAction({ ok: false, error: "" }, form())).rejects.toThrow("connection reset")
@@ -99,7 +110,7 @@ describe("verifyMagicLinkAction — first proof of an unverified ownerEmail is a
 
 describe("verifyMagicLinkAction — already-verified wallet is key recovery", () => {
   it("rotates only the sk_ key; agents, tokens, members, webhooks, Slack untouched", async () => {
-    dbMock.wallet.updateMany.mockResolvedValue({ count: 0 }) // already verified
+    walletWrites(0) // already verified
 
     const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
 
@@ -112,20 +123,20 @@ describe("verifyMagicLinkAction — already-verified wallet is key recovery", ()
     expect(dbMock.webhook.deleteMany).not.toHaveBeenCalled()
     expect(dbMock.slackInstall.updateMany).not.toHaveBeenCalled()
     expect(dbMock.$transaction).toHaveBeenCalledTimes(1) // no sweep
-    expect(dbMock.wallet.update.mock.calls[0][0].data.mgmtKeyHash).toBe(hashApiKey(res.newKey!))
+    expect(keyRotation()!.data.mgmtKeyHash).toBe(hashApiKey(res.newKey!))
   })
 })
 
 describe("verifyMagicLinkAction — a wallet already linked to a signed-in owner", () => {
   it("verifies a changed ownerEmail without rotating the owner's own agents", async () => {
     dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, userId: "user_owner" })
-    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 }) // first proof of the new address
+    walletWrites(1) // first proof of the new address
 
     const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
 
     expect(res.ok).toBe(true)
     expect(res.rotatedAgents).toBeUndefined()
-    expect(dbMock.wallet.updateMany.mock.calls[0][0].data.ownerEmailVerifiedAt).toBeInstanceOf(Date)
+    expect(verifyFlip()!.data.ownerEmailVerifiedAt).toBeInstanceOf(Date)
     expect(agentRotations()).toHaveLength(0)
     expect(dbMock.webhook.deleteMany).not.toHaveBeenCalled()
     expect(dbMock.$transaction).toHaveBeenCalledTimes(1) // no sweep
@@ -141,6 +152,17 @@ describe("verifyMagicLinkAction — stale links", () => {
     expect(res.ok).toBe(false)
     expect(dbMock.wallet.update).not.toHaveBeenCalled()
     expect(dbMock.wallet.updateMany).not.toHaveBeenCalled()
+    expect(cookieStore.set).not.toHaveBeenCalled()
+  })
+
+  it("rejects a link whose address is replaced mid-flight — no key, no session, verification rolled back", async () => {
+    walletWrites(1, 0) // the email-guarded key rotation matches nothing: ownerEmail changed after the pre-check
+
+    const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
+
+    expect(res.ok).toBe(false)
+    expect(res.newKey).toBeUndefined()
+    expect(keyRotation()!.where).toEqual({ id: WALLET.id, ownerEmail: LINK.email })
     expect(cookieStore.set).not.toHaveBeenCalled()
   })
 
