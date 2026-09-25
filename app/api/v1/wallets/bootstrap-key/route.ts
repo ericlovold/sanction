@@ -29,7 +29,10 @@ export async function POST(req: NextRequest) {
   const wallet = await db.wallet.findUnique({ where: { id: parsed.data.wallet_id } })
   if (!wallet) return NextResponse.json({ error: "Wallet not found" }, { status: 404 })
   if (wallet.mgmtKeyHash) {
-    return NextResponse.json({ error: "Wallet already has a management key" }, { status: 409 })
+    return NextResponse.json(
+      { error: "Wallet already has a management key" },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    )
   }
 
   const mgmt = generateManagementKey()
@@ -40,7 +43,10 @@ export async function POST(req: NextRequest) {
     data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
   })
   if (count === 0) {
-    return NextResponse.json({ error: "Wallet already has a management key" }, { status: 409 })
+    return NextResponse.json(
+      { error: "Wallet already has a management key" },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    )
   }
 
   return NextResponse.json({

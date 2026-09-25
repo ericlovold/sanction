@@ -11,6 +11,7 @@ const { dbMock } = vi.hoisted(() => ({
     agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     agentClearance: { upsert: vi.fn() },
     executionToken: { updateMany: vi.fn() },
+    $transaction: vi.fn(),
     webhook: { findUnique: vi.fn(), update: vi.fn() },
     credentialVault: { findUnique: vi.fn(), update: vi.fn() },
   },
@@ -46,6 +47,7 @@ const mgmt = { "x-mgmt-key": SK }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   // Default: a root wallet whose management key hashes to SK.
   dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
 })

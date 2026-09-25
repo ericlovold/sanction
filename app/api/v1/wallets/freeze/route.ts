@@ -24,13 +24,16 @@ export async function POST(req: NextRequest) {
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const wallet = await db.wallet.update({
-    where: { id: wallet_id },
-    data: { frozenAt: new Date(), frozenReason: reason ?? null },
-    select: { id: true, frozenAt: true, frozenReason: true },
+  const wallet = await db.$transaction(async (tx) => {
+    const frozen = await tx.wallet.update({
+      where: { id: wallet_id },
+      data: { frozenAt: new Date(), frozenReason: reason ?? null },
+      select: { id: true, frozenAt: true, frozenReason: true },
+    })
+    // Descendant wallets' tokens are refused at inject by the ancestor walk.
+    await revokeActiveExecutionTokens({ walletId: wallet_id }, tx)
+    return frozen
   })
-  // Descendant wallets' tokens are refused at inject by the ancestor walk.
-  await revokeActiveExecutionTokens({ walletId: wallet_id })
   return NextResponse.json({
     wallet_id: wallet.id,
     frozen: true,

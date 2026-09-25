@@ -8,7 +8,14 @@ const { dbMock } = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 
-import { walletFreezeState, frozenNote, WALLET_FROZEN_NOTE, PARENT_FROZEN_NOTE } from "@/lib/freeze"
+import {
+  walletFreezeState,
+  freezeStateFromChain,
+  frozenNote,
+  WALLET_FROZEN_NOTE,
+  PARENT_FROZEN_NOTE,
+  HIERARCHY_UNVERIFIED_NOTE,
+} from "@/lib/freeze"
 import { db } from "@/lib/db" // the mock above, typed as the real client
 
 type Row = { id: string; parentId: string | null; frozenAt: Date | null; frozenReason: string | null }
@@ -47,11 +54,57 @@ describe("walletFreezeState", () => {
     if (s.frozen) expect(frozenNote(s)).toBe(PARENT_FROZEN_NOTE)
   })
 
-  it("survives a parent cycle without hanging", async () => {
+  it("a parent cycle fails closed without hanging", async () => {
     tree([
       { id: "a", parentId: "b", frozenAt: null, frozenReason: null },
       { id: "b", parentId: "a", frozenAt: null, frozenReason: null },
     ])
-    expect(await walletFreezeState(db, "a")).toEqual({ frozen: false })
+    const s = await walletFreezeState(db, "a")
+    expect(s).toMatchObject({ frozen: true, unverified: true })
+    if (s.frozen) expect(frozenNote(s)).toBe(HIERARCHY_UNVERIFIED_NOTE)
+  })
+
+  it("a missing ancestor fails closed", async () => {
+    tree([{ id: "child", parentId: "gone", frozenAt: null, frozenReason: null }])
+    const s = await walletFreezeState(db, "child")
+    expect(s).toMatchObject({ frozen: true, unverified: true })
+    if (s.frozen) expect(frozenNote(s)).toBe(HIERARCHY_UNVERIFIED_NOTE)
+  })
+
+  it("a missing wallet fails closed", async () => {
+    tree([])
+    expect(await walletFreezeState(db, "nope")).toMatchObject({ frozen: true, unverified: true })
+  })
+
+  it("a chain past the depth cap fails closed; one at the cap passes", async () => {
+    const chain = (n: number): Row[] =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `w${i}`,
+        parentId: i === n - 1 ? null : `w${i + 1}`,
+        frozenAt: null,
+        frozenReason: null,
+      }))
+    tree(chain(16))
+    expect(await walletFreezeState(db, "w0")).toEqual({ frozen: false })
+    tree(chain(17))
+    expect(await walletFreezeState(db, "w0")).toMatchObject({ frozen: true, unverified: true })
+  })
+})
+
+describe("freezeStateFromChain", () => {
+  it("a chain that reaches a root passes", () => {
+    expect(freezeStateFromChain([{ id: "c", parentId: "r" }, { id: "r", parentId: null }], "c")).toEqual({ frozen: false })
+  })
+
+  it("a truncated chain (last node still names a parent) fails closed", () => {
+    const s = freezeStateFromChain([{ id: "c", parentId: "gone" }], "c")
+    expect(s).toMatchObject({ frozen: true, unverified: true })
+    if (s.frozen) expect(frozenNote(s)).toBe(HIERARCHY_UNVERIFIED_NOTE)
+  })
+
+  it("a frozen node still reports as a freeze, not unverified", () => {
+    const s = freezeStateFromChain([{ id: "c", parentId: "p", frozenAt: new Date() }], "c")
+    expect(s).toMatchObject({ frozen: true, self: true })
+    if (s.frozen) expect(frozenNote(s)).toBe(WALLET_FROZEN_NOTE)
   })
 })

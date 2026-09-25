@@ -131,8 +131,11 @@ export async function PATCH(req: NextRequest) {
       : {}),
   }
 
-  const updated = await db.agent.update({ where: { id: agent_id }, data })
-  if (overrides.active === false) await revokeActiveExecutionTokens({ agentId: agent_id })
+  const updated = await db.$transaction(async (tx) => {
+    const row = await tx.agent.update({ where: { id: agent_id }, data })
+    if (overrides.active === false) await revokeActiveExecutionTokens({ agentId: agent_id }, tx)
+    return row
+  })
 
   // Clearance lives in its own row; upsert it when any clearance field is given.
   let clearance: number | undefined

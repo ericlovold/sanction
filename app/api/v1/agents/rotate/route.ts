@@ -34,11 +34,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { raw, hash, prefix } = generateApiKey()
-  const updated = await db.agent.update({
-    where: { id: agent_id },
-    data: { apiKeyHash: hash, apiKeyPrefix: prefix, ...(holder !== undefined ? { holder } : {}) },
+  const updated = await db.$transaction(async (tx) => {
+    const rotated = await tx.agent.update({
+      where: { id: agent_id },
+      data: { apiKeyHash: hash, apiKeyPrefix: prefix, ...(holder !== undefined ? { holder } : {}) },
+    })
+    await revokeActiveExecutionTokens({ agentId: agent_id }, tx)
+    return rotated
   })
-  await revokeActiveExecutionTokens({ agentId: agent_id })
 
   return NextResponse.json(
     {

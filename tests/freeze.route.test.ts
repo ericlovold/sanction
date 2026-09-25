@@ -6,7 +6,7 @@ import { hashApiKey } from "../lib/apiKey"
 // stamp/clear frozenAt+frozenReason, and freeze announces subtree scope.
 
 const { dbMock } = vi.hoisted(() => ({
-  dbMock: { wallet: { findUnique: vi.fn(), update: vi.fn() }, executionToken: { updateMany: vi.fn() } },
+  dbMock: { wallet: { findUnique: vi.fn(), update: vi.fn() }, executionToken: { updateMany: vi.fn() }, $transaction: vi.fn() },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 
@@ -27,6 +27,7 @@ function req(path: string, body: unknown, headers: Record<string, string> = { "x
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.wallet.findUnique.mockResolvedValue(OWNER_WALLET)
 })
 

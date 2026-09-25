@@ -29,12 +29,16 @@ import { disconnectProviderAction } from "../app/dashboard/providers/actions"
 import { moveAgentToPoolAction } from "../app/dashboard/pools/actions"
 import { POST as batchCreate } from "../app/api/v1/agents/batch/route"
 import { PROVIDERS } from "../lib/providers"
+import { withTenant } from "../lib/rls"
 
 describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => {
   let admin: PrismaClient
   let parent = ""
   let child = ""
   let agentId = ""
+  let other = ""
+  let otherAgentId = ""
+  let otherCredId = ""
   const mgmt = generateApiKey()
 
   beforeAll(async () => {
@@ -44,8 +48,11 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
     )
     await admin.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO sanction_app;`)
     await admin.$executeRawUnsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sanction_app;`)
-    const role = await appDb.$queryRaw<{ super: string }[]>`SELECT current_setting('is_superuser') AS super`
-    expect(role[0].super).toBe("off") // otherwise RLS is bypassed and this proves nothing
+    const role = await appDb.$queryRaw<{ super: string; bypass: boolean }[]>`
+      SELECT current_setting('is_superuser') AS super, rolbypassrls AS bypass FROM pg_roles WHERE rolname = current_user`
+    // Superusers and BYPASSRLS roles skip RLS entirely; either would prove nothing.
+    expect(role[0].super).toBe("off")
+    expect(role[0].bypass).toBe(false)
 
     const ts = Date.now()
     parent = (await admin.wallet.create({ data: { name: "P", ownerEmail: `p-${ts}@e.com`, mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix } })).id
@@ -53,16 +60,25 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
     const k = generateApiKey()
     agentId = (await admin.agent.create({ data: { walletId: parent, name: "mover", apiKeyHash: k.hash, apiKeyPrefix: k.prefix } })).id
     await admin.agentClearance.create({ data: { walletId: parent, agentId, level: 3 } })
+    other = (await admin.wallet.create({ data: { name: "O", ownerEmail: `o-${ts}@e.com` } })).id
+    const ok = generateApiKey()
+    otherAgentId = (await admin.agent.create({ data: { walletId: other, name: "other", apiKeyHash: ok.hash, apiKeyPrefix: ok.prefix } })).id
+    await admin.agentClearance.create({ data: { walletId: other, agentId: otherAgentId, level: 4 } })
+    otherCredId = (
+      await admin.credentialVault.create({
+        data: { walletId: other, label: "other-secret", type: "api_key", encryptedValue: encryptCredential("sk-other", other, "other-secret") },
+      })
+    ).id
     sessionMock.requireSessionRole.mockResolvedValue({ id: parent })
   })
 
   afterAll(async () => {
     if (parent) {
-      const ids = [parent, child]
+      const ids = [parent, child, other].filter(Boolean)
       await admin.agentClearance.deleteMany({ where: { walletId: { in: ids } } })
       await admin.credentialVault.deleteMany({ where: { walletId: { in: ids } } })
       await admin.agent.deleteMany({ where: { walletId: { in: ids } } })
-      await admin.wallet.deleteMany({ where: { id: child } })
+      await admin.wallet.deleteMany({ where: { id: { in: [child, other].filter(Boolean) } } })
       await admin.wallet.deleteMany({ where: { id: parent } })
     }
     await admin?.$disconnect()
@@ -78,7 +94,8 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
     form.set("provider", info.id)
     await disconnectProviderAction(form)
     const after = await admin.credentialVault.findUnique({ where: { id: cred.id } })
-    expect(after?.revokedAt).not.toBeNull()
+    expect(after).not.toBeNull()
+    expect(after!.revokedAt).toBeInstanceOf(Date)
   })
 
   it("moveAgentToPoolAction moves the agent AND its clearance row", async () => {
@@ -101,5 +118,27 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
     expect(res.status).toBe(201)
     const [seat] = (await res.json()).seats
     expect((await admin.agentClearance.findUnique({ where: { agentId: seat.id } }))?.level).toBe(2)
+  })
+
+  it("another tenant's CredentialVault row is invisible and unwritable under this tenant's scope", async () => {
+    const seen = await withTenant(parent, (tx) => tx.credentialVault.findUnique({ where: { id: otherCredId } }))
+    expect(seen).toBeNull()
+    const { count } = await withTenant(parent, (tx) =>
+      tx.credentialVault.updateMany({ where: { id: otherCredId }, data: { revokedAt: new Date() } }),
+    )
+    expect(count).toBe(0)
+    const row = await admin.credentialVault.findUnique({ where: { id: otherCredId } })
+    expect(row).not.toBeNull()
+    expect(row!.revokedAt).toBeNull()
+  })
+
+  it("another tenant's AgentClearance row is invisible and unwritable under this tenant's scope", async () => {
+    const seen = await withTenant(parent, (tx) => tx.agentClearance.findUnique({ where: { agentId: otherAgentId } }))
+    expect(seen).toBeNull()
+    const { count } = await withTenant(parent, (tx) =>
+      tx.agentClearance.updateMany({ where: { agentId: otherAgentId }, data: { level: 1 } }),
+    )
+    expect(count).toBe(0)
+    expect((await admin.agentClearance.findUnique({ where: { agentId: otherAgentId } }))?.level).toBe(4)
   })
 })

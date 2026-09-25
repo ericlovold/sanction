@@ -11,6 +11,7 @@ const { dbMock, sessionMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn(), update: vi.fn() },
     agent: { findUnique: vi.fn(), update: vi.fn() },
     executionToken: { findUnique: vi.fn(), updateMany: vi.fn() },
+    $transaction: vi.fn(),
     credentialVault: { findFirst: vi.fn() },
     credentialInjection: { create: vi.fn() },
   },
@@ -53,6 +54,7 @@ const REVOKE_AGENT = { where: { agentId: AID, status: "active" }, data: { status
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   jwtMock.verifyExecutionJWT.mockResolvedValue({ jti: "exec_1", wallet: WID, agent: AID, scope: ["SECRET"], clearance: 3 })
   dbMock.executionToken.findUnique.mockResolvedValue({ id: "exec_1", agentId: AID, walletId: WID, status: "active", expiresAt: new Date(Date.now() + 3_600_000) })
   dbMock.executionToken.updateMany.mockResolvedValue({ count: 1 })

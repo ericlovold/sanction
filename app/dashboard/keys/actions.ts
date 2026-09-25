@@ -30,15 +30,17 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
   const changeHolder = String(form.get("change_holder") ?? "") === "true"
 
   const key = generateApiKey()
-  await db.agent.update({
-    where: { id: agentId },
-    data: {
-      apiKeyHash: key.hash,
-      apiKeyPrefix: key.prefix,
-      ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
-    },
+  await db.$transaction(async (tx) => {
+    await tx.agent.update({
+      where: { id: agentId },
+      data: {
+        apiKeyHash: key.hash,
+        apiKeyPrefix: key.prefix,
+        ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
+      },
+    })
+    await revokeActiveExecutionTokens({ agentId }, tx)
   })
-  await revokeActiveExecutionTokens({ agentId })
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
   return { ok: true, error: "", agentId, newKey: key.raw }
@@ -76,8 +78,10 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   const active = String(form.get("active") ?? "") === "true"
   const owned = await ownedAgent(agentId)
   if (!owned) return
-  await db.agent.update({ where: { id: agentId }, data: { isActive: active } })
-  if (!active) await revokeActiveExecutionTokens({ agentId })
+  await db.$transaction(async (tx) => {
+    await tx.agent.update({ where: { id: agentId }, data: { isActive: active } })
+    if (!active) await revokeActiveExecutionTokens({ agentId }, tx)
+  })
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
 }

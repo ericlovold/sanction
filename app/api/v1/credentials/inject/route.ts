@@ -11,6 +11,8 @@ const schema = z.object({
   credential_label: z.string(),
 })
 
+const NO_STORE = { "Cache-Control": "no-store" }
+
 // Called by agent/container at runtime — present JWT, get decrypted credential for this scope only
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization")
@@ -38,12 +40,12 @@ export async function POST(req: NextRequest) {
 
   // Only execution JWTs carry a scope array; any other signed token is not one.
   if (!Array.isArray(claims.scope)) {
-    return NextResponse.json({ error: "Not an execution JWT" }, { status: 401 })
+    return NextResponse.json({ error: "Not an execution JWT" }, { status: 401, headers: NO_STORE })
   }
 
   // Verify the label is in the JWT's scope
   if (!claims.scope.includes(credential_label)) {
-    return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403 })
+    return NextResponse.json({ error: `'${credential_label}' not in JWT scope` }, { status: 403, headers: NO_STORE })
   }
 
   // SEC-5: verify JWT audience matches the wallet claimed in the token body.
@@ -68,14 +70,14 @@ export async function POST(req: NextRequest) {
     select: { isActive: true, expiresAt: true },
   })
   if (!agent || !agent.isActive) {
-    return NextResponse.json({ error: "Agent is inactive" }, { status: 403 })
+    return NextResponse.json({ error: "Agent is inactive" }, { status: 403, headers: NO_STORE })
   }
   if (agent.expiresAt && agent.expiresAt <= new Date()) {
-    return NextResponse.json({ error: "Agent key expired" }, { status: 403 })
+    return NextResponse.json({ error: "Agent key expired" }, { status: 403, headers: NO_STORE })
   }
   const freeze = await walletFreezeState(db, claims.wallet)
   if (freeze.frozen) {
-    return NextResponse.json({ error: frozenNote(freeze) }, { status: 403 })
+    return NextResponse.json({ error: frozenNote(freeze) }, { status: 403, headers: NO_STORE })
   }
 
   // Fetch and decrypt the credential — RLS-scoped (SEC-3) to the wallet from the

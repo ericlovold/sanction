@@ -206,7 +206,12 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note === "Monthly spend budget exceeded") return "MONTHLY_BUDGET_EXCEEDED"
   if (note === "Subtree daily spend cap exceeded") return "SUBTREE_CAP_EXCEEDED"
   if (note === "Execution budget exceeded") return "EXEC_BUDGET_EXCEEDED"
-  if (note === "Wallet is frozen" || note.startsWith("Parent wallet is frozen")) return "WALLET_FROZEN"
+  if (
+    note === "Wallet is frozen" ||
+    note.startsWith("Parent wallet is frozen") ||
+    note === "Wallet hierarchy could not be verified"
+  )
+    return "WALLET_FROZEN"
   return "POLICY_DENIED"
 }
 
