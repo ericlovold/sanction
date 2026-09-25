@@ -15,7 +15,7 @@ const { dbMock } = vi.hoisted(() => ({
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     pendingApproval: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
-    grant: { findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
+    grant: { findMany: vi.fn(async () => []), findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
     executionToken: { findUnique: vi.fn() },
     consumedBindingToken: { create: vi.fn(async () => ({})), findUnique: vi.fn(async () => null), deleteMany: vi.fn(async () => ({ count: 0 })) },
     $transaction: vi.fn(),

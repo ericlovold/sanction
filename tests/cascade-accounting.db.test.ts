@@ -39,10 +39,10 @@ async function makeWallet(opts: { parentId?: string; policy: Record<string, unkn
   return { id: w.id, key: key.raw }
 }
 
-async function authorize(key: string, amount_usd: number, extra: Record<string, unknown> = {}) {
+async function authorize(key: string, amount_usd: number, extra: Record<string, unknown> = {}, query = "") {
   const { POST } = await import("@/app/api/v1/authorize/route")
   const res = await POST(
-    new NextRequest("https://test.local/api/v1/authorize", {
+    new NextRequest(`https://test.local/api/v1/authorize${query}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key },
       body: JSON.stringify({ action: "purchase", amount_usd, merchant: "m", category: "software", ...extra }),
@@ -122,6 +122,47 @@ describe.skipIf(!run)("cascade + per-agent budget accounting", () => {
     expect((await authorize(child.key, 400)).status).toBe("approved")
     expect(await counterCents(pool.id)).toBe(40_000)
     expect(await counterCents(root.id)).toBe(100_000)
+  })
+
+  it("an observed stateless denial still reserves against ancestors, and breaching one is a real deny", async () => {
+    const root = await makeWallet({ policy: { subtreeDailyCapUsd: 100_000 } }) // $1000 ancestor cap
+    const observed = await makeWallet({ parentId: root.id, agent: true, policy: { enforcementMode: "observe", perTransactionMaxUsd: 50_000 } })
+
+    const r = await authorize(observed.key, 600)
+    expect(r).toMatchObject({ authorized: true, mode: "observe" })
+    expect(r.would_be).toMatchObject({ status: "denied", code: "PER_TXN_LIMIT" })
+    expect(await counterCents(root.id)).toBe(60_000)
+
+    const over = await authorize(observed.key, 600)
+    expect(over).toMatchObject({ authorized: false, status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
+    expect(await counterCents(root.id)).toBe(60_000)
+  })
+
+  it("simulate in observe: ancestor breach is a real deny, own cap and engine denials are would_be only", async () => {
+    const root = await makeWallet({ policy: { subtreeDailyCapUsd: 100_000 } }) // $1000 ancestor cap
+    const pool = await makeWallet({ parentId: root.id, agent: true, policy: { enforcementMode: "observe", subtreeDailyCapUsd: 30_000, perTransactionMaxUsd: 50_000 } })
+    const sim = (amount: number) => authorize(pool.key, amount, {}, "?simulate=true")
+
+    expect(await sim(400)).toMatchObject({ simulated: true, authorized: true, mode: "observe", would_be: { status: "denied", code: "SUBTREE_CAP_EXCEEDED" } })
+    expect(await sim(600)).toMatchObject({ simulated: true, authorized: true, mode: "observe", would_be: { status: "denied", code: "PER_TXN_LIMIT" } })
+    expect(await sim(100)).toMatchObject({ simulated: true, authorized: true, mode: "observe", would_be: { status: "approved" } })
+    const over = await sim(1200)
+    expect(over).toMatchObject({ simulated: true, authorized: false, status: "denied", code: "SUBTREE_CAP_EXCEEDED" })
+    expect(over.would_be).toBeUndefined()
+    expect(await counterCents(root.id)).toBe(0)
+  })
+
+  it("an approved but unredeemed grant does not count against the agent's budget until redeemed", async () => {
+    const w = await makeWallet({ agent: true, policy: { dailySpendBudgetUsd: 50_000, autoApproveUnderUsd: 1000, escalateOverUsd: 35_000 } })
+    const esc = await authorize(w.key, 400)
+    expect(esc.status).toBe("escalated")
+    const grantId = await approveAndGrant(w.id, esc.request_id)
+
+    // $400 approved but unspent: a $200 request fits the $500 budget.
+    expect((await authorize(w.key, 200)).status).toBe("approved")
+    expect((await authorize(w.key, 400, { grant_id: grantId })).status).toBe("approved")
+    // Now $600 spent: any further spend is over budget.
+    expect((await authorize(w.key, 50)).status).toBe("denied")
   })
 
   it("observed approvals do not count against the agent's own budget once it enforces", async () => {

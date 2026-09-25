@@ -7,7 +7,7 @@
 // IS a wallet, so cost-per-outcome is wallet spend ÷ wallet outcomes.
 
 import { db } from "./db"
-import { approvedSpendSince } from "./cascadeBudget"
+import { approvedSpendSum } from "./cascadeBudget"
 
 export type CpoPolicy = {
   outcomeKind: string | null
@@ -16,7 +16,7 @@ export type CpoPolicy = {
   costPerOutcomeMinOutcomes: number
 }
 
-export type CpoTx = Pick<typeof db, "authorizationRequest" | "outcomeEvent" | "agent">
+export type CpoTx = Pick<typeof db, "authorizationRequest" | "outcomeEvent" | "agent" | "grant">
 
 export function windowStart(days: number, now = new Date()): Date {
   const out = new Date(now)
@@ -28,10 +28,7 @@ export function windowStart(days: number, now = new Date()): Date {
 export async function walletWindowSpendUsd(tx: CpoTx, walletId: string, since: Date, countObserved = false): Promise<number> {
   const agents = await tx.agent.findMany({ where: { walletId }, select: { id: true } })
   if (agents.length === 0) return 0
-  const sum = await tx.authorizationRequest.aggregate({
-    where: approvedSpendSince(agents.map((a) => a.id), since, countObserved),
-    _sum: { amountUsd: true },
-  })
+  const sum = await approvedSpendSum(tx, agents.map((a) => a.id), since, countObserved)
   return sum._sum.amountUsd ?? 0
 }
 

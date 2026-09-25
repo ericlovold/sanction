@@ -265,14 +265,18 @@ export async function cascadeDailyWouldExceed(
 //     the day it escalated (createdAt covers undated legacy rows).
 //   - Observed rows are would-be spend: they count only toward an observing
 //     policy's own truthful would_be, never against an enforcing budget (OBS-1).
+//   - `unredeemed` are approved rows whose grant is unconsumed (or expired or
+//     revoked unused): nothing spent yet, the same exclusion as the reconcile.
 export function approvedSpendSince(
   agentIds: string | string[],
   since: Date,
   countObserved = false,
+  unredeemed: string[] = [],
 ): Prisma.AuthorizationRequestWhereInput {
   return {
     agentId: typeof agentIds === "string" ? agentIds : { in: agentIds },
     status: "approved",
+    ...(unredeemed.length > 0 ? { id: { notIn: unredeemed } } : {}),
     AND: [
       { OR: [{ decidedAt: { gte: since } }, { decidedAt: null, createdAt: { gte: since } }] },
       // A bare NOT on a JSON path drops rows where the path is absent (SQL
@@ -282,4 +286,31 @@ export function approvedSpendSince(
         : [{ OR: [{ detailsJson: { path: ["observed"], equals: Prisma.DbNull } }, { NOT: { detailsJson: { path: ["observed"], equals: true } } }] }]),
     ],
   }
+}
+
+export type SpendReadTx = Pick<typeof db, "authorizationRequest" | "grant">
+
+// Approved spend since `since` (approvedSpendSince), summed. A grant is minted
+// in the approval that stamps its row's decidedAt, so only grants from the
+// window (plus slack for app/DB clock skew) can shadow a counted row.
+export async function approvedSpendSum(
+  tx: SpendReadTx,
+  agentIds: string | string[],
+  since: Date,
+  countObserved = false,
+) {
+  const grants = await tx.grant.findMany({
+    where: {
+      agentId: typeof agentIds === "string" ? agentIds : { in: agentIds },
+      sourceType: "authorization_request",
+      status: { not: "consumed" },
+      createdAt: { gte: new Date(since.getTime() - 60 * 60 * 1000) },
+    },
+    select: { sourceId: true },
+  })
+  const unredeemed = grants.flatMap((g) => (g.sourceId ? [g.sourceId] : []))
+  return tx.authorizationRequest.aggregate({
+    where: approvedSpendSince(agentIds, since, countObserved, unredeemed),
+    _sum: { amountUsd: true },
+  })
 }
