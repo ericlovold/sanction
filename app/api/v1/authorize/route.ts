@@ -601,7 +601,7 @@ function simulateResponse(status: string, note: string, agentName: string, amoun
       agent: agentName,
       amount_usd,
       merchant,
-    })
+    }, { headers: { "Cache-Control": "no-store" } })
   }
   return NextResponse.json(
     {
@@ -616,6 +616,6 @@ function simulateResponse(status: string, note: string, agentName: string, amoun
       amount_usd,
       merchant,
     },
-    { status: statusCode(status) },
+    { status: statusCode(status), headers: { "Cache-Control": "no-store" } },
   )
 }
