@@ -343,6 +343,23 @@ describe("gateway provider-key injection (Providers page)", () => {
     expect(h.get("x-sanction-key")).toBeNull() // sanction auth still never leaks upstream
   })
 
+  it("403s GATEWAY_PATH_NOT_METERED when the stored key would go to an unmetered endpoint, without calling upstream", async () => {
+    global.fetch = vi.fn() as never
+    const res = await gateway(req("anthropic", "v1/messages/batches", { providerAuth: false }), params("anthropic", "v1/messages/batches"))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe("GATEWAY_PATH_NOT_METERED")
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
+  })
+
+  it("bring-your-own-key calls to unmetered endpoints still pass through", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } }))
+    global.fetch = fetchMock as never
+    const res = await gateway(req("openai", "v1/files"), params("openai", "v1/files"))
+    expect(res.status).toBe(200)
+    expect(String((fetchMock.mock.calls[0] as unknown as [string])[0])).toContain("/v1/files")
+  })
+
   it("caller-supplied auth wins — vault is not consulted", async () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as never
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))

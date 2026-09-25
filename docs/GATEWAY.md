@@ -62,6 +62,18 @@ meter when the stream ends:
 - **OpenAI** — set `stream_options: {include_usage: true}` so the final chunk carries
   usage; otherwise a streamed OpenAI call can't be metered.
 
+## Stored provider keys: metered endpoints only
+
+When a call carries no provider auth, the gateway injects the key you connected
+under Dashboard → Providers, but only for endpoints whose responses it meters:
+Anthropic `POST /v1/messages` (and `/v1/messages/count_tokens`); OpenAI
+`POST /v1/chat/completions`, `/v1/responses`, `/v1/embeddings`, `/v1/completions`;
+Perplexity `POST /chat/completions`; Gemini `POST .../models/{model}:generateContent`
+and `:streamGenerateContent`. Any other path (batches, files, fine-tuning…)
+returns `403` with `code: "GATEWAY_PATH_NOT_METERED"` and is never sent upstream,
+because it would spend on the stored key with nothing metered. A request that
+brings its own provider auth header passes through to any path.
+
 ## Notes / limits
 
 - Pricing is an **estimate** per model (see `lib/gateway.ts`); tune as needed.

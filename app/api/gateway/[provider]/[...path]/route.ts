@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
-import { GATEWAY_PROVIDERS, isBudgetExhausted, meterUsage, makeStreamMeter, forceStreamUsage } from "@/lib/gateway"
+import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, meterUsage, makeStreamMeter, forceStreamUsage } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
 import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
@@ -127,6 +127,17 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   // key either → fail closed with a pointer, before any upstream call.
   const outHeaders = upstreamHeaders(req)
   if (!hasProviderAuth(outHeaders)) {
+    // The stored key only goes to endpoints we meter; anything else would
+    // spend on the wallet's key invisibly.
+    if (!isMeteredPath(provider, method, path.join("/"))) {
+      return NextResponse.json(
+        {
+          error: `The stored ${provider} key is only used for metered endpoints; ${method} /${path.join("/")} is not one. Send your own provider auth header to call it directly.`,
+          code: "GATEWAY_PATH_NOT_METERED",
+        },
+        { status: 403, headers: noStore },
+      )
+    }
     const providerId = provider as ProviderId
     // SEC-3: CredentialVault is FORCE RLS — this read silently returned null
     // outside the tenant context, so a connected provider still answered

@@ -110,6 +110,23 @@ export const GATEWAY_PROVIDERS: Record<
   },
 }
 
+// Endpoints the wallet's STORED provider key may be injected into: POST calls
+// whose responses carry usage the gateway meters. Anything else (batches,
+// files, fine-tuning, assistants…) would spend on the vaulted key with nothing
+// metered, so it is refused. Bring-your-own-key callers are not restricted.
+// Paths are relative to the provider base URL, without the query string.
+export const METERED_PATHS: Record<string, RegExp[]> = {
+  anthropic: [/^v1\/messages$/, /^v1\/messages\/count_tokens$/],
+  openai: [/^v1\/chat\/completions$/, /^v1\/responses$/, /^v1\/embeddings$/, /^v1\/completions$/],
+  perplexity: [/^(v1\/)?chat\/completions$/],
+  gemini: [/^v1(alpha|beta)?\/models\/[^/:]+:(generateContent|streamGenerateContent)$/],
+}
+
+export function isMeteredPath(provider: string, method: string, path: string): boolean {
+  if (method !== "POST" || !Object.hasOwn(METERED_PATHS, provider)) return false
+  return METERED_PATHS[provider].some((re) => re.test(path))
+}
+
 // Approximate USD per 1M tokens [input, output]. Longest prefix match wins.
 // These are estimates for cost tracking; tune as provider pricing changes.
 // Per-MTok [input, output] USD. Verified against the Claude pricing reference
@@ -149,7 +166,11 @@ const PRICING: Array<[string, number, number]> = [
 // budgets and pooled caps (fail-open, against the atomic-authorization
 // principle). Unknown models meter at the highest rate in the table instead:
 // over-charging a budget is recoverable; a bypassed cap is not.
-const FALLBACK_RATE: [number, number] = PRICING.reduce(
+// OpenAI's "-pro" reasoning tiers (o1-pro, o3-pro, …) are an order of
+// magnitude above everything else and are excluded, so one ultra tier does
+// not make every unpriced model bill at 10x.
+const ULTRA_TIER = /^o\d+-pro$/
+const FALLBACK_RATE: [number, number] = PRICING.filter(([k]) => !ULTRA_TIER.test(k)).reduce(
   (max, [, tin, tout]) => (tin + tout > max[0] + max[1] ? [tin, tout] : max),
   [0, 0] as [number, number],
 )
