@@ -131,7 +131,12 @@ describe("execution JWT", () => {
 
   it("rejects a tampered token", async () => {
     const { jwt } = await issueExecutionJWT(claims)
-    const tampered = jwt.slice(0, -2) + (jwt.endsWith("a") ? "bb" : "aa")
+    // Flip a character in the middle of the signature: the final base64url
+    // character carries padding bits a decoder may ignore, so tampering there
+    // can leave the decoded signature unchanged and flake.
+    const [head, payload, sig] = jwt.split(".")
+    const i = Math.floor(sig.length / 2)
+    const tampered = `${head}.${payload}.${sig.slice(0, i)}${sig[i] === "A" ? "B" : "A"}${sig.slice(i + 1)}`
     await expect(verifyExecutionJWT(tampered, "w1")).rejects.toThrow()
   })
 })
