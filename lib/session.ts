@@ -4,6 +4,8 @@ import { hashApiKey, generateApiKey } from "./apiKey"
 import { auth } from "./auth-config"
 import { hasRole, type WalletRole } from "./roles"
 import { logger } from "./log"
+import { scopeTenant, withTenant } from "./rls"
+import type { Prisma } from "./generated/prisma/client"
 
 const log = logger("session")
 
@@ -122,39 +124,74 @@ async function resolveWalletForUser(
   }
 }
 
-// Link a wallet to its verified owner and revoke every credential issued before
-// the claim, in one transaction: the sk_ key is cleared (re-mint from the
-// dashboard), agent keys are replaced with unknowable hashes and deactivated
-// (a reactivation can't revive a key someone else holds), live execution JWTs
-// are revoked, and memberships the key holder handed out are revoked. Returns
+// Link a wallet to its verified owner and revoke every credential and control
+// channel issued before the claim, in one transaction: the sk_ key is cleared
+// (re-mint from the dashboard), agent keys are replaced with unmatchable hashes
+// and deactivated (a reactivation can't revive a key someone else holds), live
+// execution JWTs are revoked, memberships the key holder handed out are
+// revoked, Slack installs are revoked (a squatter's install could otherwise
+// approve escalations and mint grants), and webhooks are deactivated. Returns
 // null if another request linked the wallet first.
+//
+// The claim runs under READ COMMITTED, so a request that authenticated with a
+// pre-claim key can still commit a new agent / execution token / Slack install
+// while the claim is in flight. A post-commit sweep repeats the revocations to
+// catch those rows; by then mgmtKeyHash is null and every agent key is dead, so
+// no new request can authenticate. Residual window: a request authenticated
+// before the claim committed whose write lands after the sweep. Closing that
+// fully needs the data plane to re-check agent.isActive at use time (the gateway
+// and /authorize do via authenticateAgent; /credentials/inject is PR #310).
 async function claimWallet(walletId: string, userId: string) {
-  return db.$transaction(async (tx) => {
+  const wallet = await db.$transaction(async (tx) => {
     const claimed = await tx.wallet.updateMany({
       where: { id: walletId, userId: null },
       data: { userId, mgmtKeyHash: null, mgmtKeyPrefix: null },
     })
     if (claimed.count === 0) return null
 
-    const agents = await tx.agent.findMany({ where: { walletId }, select: { id: true } })
-    for (const agent of agents) {
-      const key = generateApiKey()
-      await tx.agent.update({
-        where: { id: agent.id },
-        data: { apiKeyHash: key.hash, apiKeyPrefix: key.prefix, isActive: false },
-      })
-    }
-    await tx.executionToken.updateMany({
-      where: { walletId, status: "active" },
-      data: { status: "revoked", revokedAt: new Date() },
-    })
-    await tx.walletMember.updateMany({
-      where: { walletId, status: { not: "revoked" } },
-      data: { status: "revoked", tokenHash: null, tokenExpiresAt: null },
-    })
-    log.info("wallet claimed; pre-claim keys rotated", { walletId, userId, agentsRotated: agents.length })
+    const revoked = await revokePreClaimAccess(tx, walletId)
+    log.info("wallet claimed; pre-claim keys rotated", { walletId, userId, ...revoked })
     return tx.wallet.findUnique({ where: { id: walletId } })
   })
+  if (!wallet) return null
+
+  // Fails closed: if the sweep throws, the claim is not handed back this render.
+  const swept = await withTenant(walletId, (tx) => revokePreClaimAccess(tx, walletId))
+  if (Object.values(swept).some((n) => n > 0)) {
+    log.warn("wallet claim sweep caught rows committed during the claim", { walletId, ...swept })
+  }
+  return wallet
+}
+
+async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletId: string) {
+  // Set-based so rows can't slip between a read and per-row writes. The new
+  // hash contains ':' so it can never equal a sha256 hex digest (hashApiKey).
+  const agentsRotated = await tx.$executeRaw`
+    UPDATE "Agent"
+    SET "apiKeyHash" = 'claimed:' || gen_random_uuid(), "apiKeyPrefix" = 'claimed', "isActive" = false
+    WHERE "walletId" = ${walletId} AND "apiKeyHash" NOT LIKE 'claimed:%'`
+  const tokens = await tx.executionToken.updateMany({
+    where: { walletId, status: "active" },
+    data: { status: "revoked", revokedAt: new Date() },
+  })
+  const members = await tx.walletMember.updateMany({
+    where: { walletId, status: { not: "revoked" } },
+    data: { status: "revoked", tokenHash: null, tokenExpiresAt: null },
+  })
+  const webhooks = await tx.webhook.updateMany({ where: { walletId, isActive: true }, data: { isActive: false } })
+  // SlackInstall is FORCE RLS — scope this transaction to the tenant first.
+  await scopeTenant(tx, walletId)
+  const slack = await tx.slackInstall.updateMany({
+    where: { walletId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+  return {
+    agentsRotated,
+    tokensRevoked: tokens.count,
+    membersRevoked: members.count,
+    webhooksDeactivated: webhooks.count,
+    slackInstallsRevoked: slack.count,
+  }
 }
 
 export async function getSessionWallet() {
