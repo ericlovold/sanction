@@ -18,6 +18,7 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 vi.mock("@/lib/ownerAuth", () => ({ authenticateOwner: vi.fn(async () => ({ wallet: null })) }))
 
 import { rangeUtc, toCsv } from "../lib/reporting"

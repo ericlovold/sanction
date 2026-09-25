@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { getViewWallet } from "@/lib/session"
 import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
@@ -38,26 +39,30 @@ async function getAgents(walletId: string, scope: "wallet" | "subtree") {
   const wallets = await db.wallet.findMany({ where: { id: { in: walletIds } }, select: { id: true, name: true } })
   const walletById = new Map(wallets.map((w) => [w.id, w.name]))
 
-  const rows = await db.agent.findMany({
-    where: { walletId: { in: walletIds } },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      walletId: true,
-      name: true,
-      holder: true,
-      expiresAt: true,
-      apiKeyPrefix: true,
-      isActive: true,
-      createdAt: true,
-      lastUsedAt: true,
-      dailyTokenBudgetUsd: true,
-      dailySpendBudgetUsd: true,
-      perTransactionMaxUsd: true,
-      escalateOverUsd: true,
-      clearance: { select: { level: true } },
-    },
-  })
+  // RLS-scoped (SEC-3): the `clearance` select joins AgentClearance (FORCE
+  // RLS) — unscoped, a restricted app role reads every clearance as null.
+  const rows = await withTenant(walletIds, (tx) =>
+    tx.agent.findMany({
+      where: { walletId: { in: walletIds } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        walletId: true,
+        name: true,
+        holder: true,
+        expiresAt: true,
+        apiKeyPrefix: true,
+        isActive: true,
+        createdAt: true,
+        lastUsedAt: true,
+        dailyTokenBudgetUsd: true,
+        dailySpendBudgetUsd: true,
+        perTransactionMaxUsd: true,
+        escalateOverUsd: true,
+        clearance: { select: { level: true } },
+      },
+    }),
+  )
   const agentIds = rows.map((a) => a.id)
   const now = new Date()
   const [pending, activeGrants, decisions, modelCounts, lastLogs] = await Promise.all([

@@ -9,7 +9,7 @@ import { generateApiKey } from "../lib/apiKey"
 // write issued outside withTenant() matches zero rows (or is rejected) for the
 // production non-superuser role — the mutation silently does nothing. These run
 // the real actions/routes with the app's `db` bound to a non-superuser role and
-// assert the write actually landed. Seeding uses the superuser connection.
+// assert the write actually landed. Seeding uses the owner connection.
 //
 //   RUN_DB_TESTS=1 DATABASE_URL="postgres://…disposable…" npx vitest run tests/rls-writes.db.test.ts
 const run = process.env.RUN_DB_TESTS === "1"
@@ -18,7 +18,8 @@ const { sessionMock } = vi.hoisted(() => ({ sessionMock: { requireSessionRole: v
 vi.mock("@/lib/db", async () => {
   const { PrismaPg } = await import("@prisma/adapter-pg")
   const { PrismaClient } = await import("../lib/generated/prisma/client")
-  const url = (process.env.DATABASE_URL ?? "").replace(/\/\/[^@]+@/, "//sanction_app:app@")
+  const { appRoleUrl } = await import("./setup/db-app-role")
+  const url = appRoleUrl(process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL ?? "postgres://x@localhost/x")
   return { db: new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) }) }
 })
 vi.mock("@/lib/session", () => sessionMock)
@@ -42,12 +43,8 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
   const mgmt = generateApiKey()
 
   beforeAll(async () => {
-    admin = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) })
-    await admin.$executeRawUnsafe(
-      `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='sanction_app') THEN CREATE ROLE sanction_app LOGIN PASSWORD 'app'; END IF; END $$;`,
-    )
-    await admin.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO sanction_app;`)
-    await admin.$executeRawUnsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sanction_app;`)
+    // Owner connection for seeding; sanction_app is provisioned by the global setup.
+    admin = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL! }) })
     const role = await appDb.$queryRaw<{ super: string; bypass: boolean }[]>`
       SELECT current_setting('is_superuser') AS super, rolbypassrls AS bypass FROM pg_roles WHERE rolname = current_user`
     // Superusers and BYPASSRLS roles skip RLS entirely; either would prove nothing.

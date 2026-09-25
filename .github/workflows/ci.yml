@@ -75,5 +75,9 @@ jobs:
         run: npx prisma generate
       - name: Apply migrations
         run: npx prisma migrate deploy
-      - name: DB tests (concurrency + e2e data plane)
+      # DATABASE_URL above is the OWNER (migrations). tests/setup/db-app-role.ts
+      # provisions the restricted sanction_app role (NOSUPERUSER NOBYPASSRLS,
+      # production grants) and runs the app client as it, so FORCE RLS is
+      # enforced — e2e asserts current_user/rolbypassrls.
+      - name: DB tests (concurrency + e2e data plane, as restricted app role)
         run: npm run test:db

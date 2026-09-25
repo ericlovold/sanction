@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { authEventType, mergeEvents } from "@/lib/reporting"
 
 // The unified audit feed (REPORT-1) as a pure lib function: spend decisions,
@@ -50,12 +51,17 @@ export async function buildAuditFeed(
       ? db.tokenLog.findMany({ where: { agentId: { in: agentIds }, createdAt }, orderBy: { createdAt: "desc" }, take: limit })
       : [],
     wantInjection
-      ? db.credentialInjection.findMany({
-          where: { executionToken: { walletId: walletWhere }, injectedAt: before ? { lt: before } : undefined },
-          orderBy: { injectedAt: "desc" },
-          take: limit,
-          include: { credential: { select: { label: true } }, executionToken: { select: { agentId: true } } },
-        })
+      ? // RLS-scoped (SEC-3): the `credential` include joins CredentialVault
+        // (FORCE RLS) — unscoped, a restricted app role sees no vault row and
+        // Prisma throws on the required relation.
+        withTenant(walletId, (tx) =>
+          tx.credentialInjection.findMany({
+            where: { executionToken: { walletId: walletWhere }, injectedAt: before ? { lt: before } : undefined },
+            orderBy: { injectedAt: "desc" },
+            take: limit,
+            include: { credential: { select: { label: true } }, executionToken: { select: { agentId: true } } },
+          }),
+        )
       : [],
   ])
 

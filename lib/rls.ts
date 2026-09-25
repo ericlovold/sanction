@@ -8,8 +8,9 @@
  * `walletId`, even if the query forgets its `where` clause. This is the
  * DB-level backstop beneath the app-layer `walletId` filtering.
  *
- * IMPORTANT — the app's DB role MUST be non-superuser for RLS to take effect.
- * Postgres bypasses RLS for superusers, and for a table's owner unless the table
+ * IMPORTANT — the app's DB role MUST have neither SUPERUSER nor BYPASSRLS for
+ * RLS to take effect (Neon's default owner has BYPASSRLS — see docs/SECURITY.md).
+ * Postgres bypasses RLS for those roles, and for a table's owner unless the table
  * is set to FORCE ROW LEVEL SECURITY (the migration does set FORCE, so a
  * non-superuser owner — e.g. Neon's default role — is correctly subject). Never
  * run the app as a superuser; tests verify isolation against a non-superuser role.

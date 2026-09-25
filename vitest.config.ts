@@ -5,6 +5,9 @@ export default defineConfig({
   // `@/...` so tests can import route handlers (which import @/lib/*).
   resolve: { alias: { "@": fileURLToPath(new URL("./", import.meta.url)) } },
   test: {
+    // SEC-3: with RUN_DB_TESTS=1, provisions the restricted `sanction_app`
+    // role and points the app's DATABASE_URL at it (owner → DATABASE_ADMIN_URL).
+    globalSetup: ["./tests/setup/db-app-role.ts"],
     coverage: {
       provider: "v8",
       include: ["lib/**/*.ts", "app/api/**/*.ts"],
