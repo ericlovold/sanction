@@ -14,6 +14,7 @@ vi.mock("@/lib/rls", () => ({ withTenant: (_w: string, fn: (tx: typeof dbMock) =
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }))
 
 import { resetManagementKeyAction, updateLimitsAction } from "../app/dashboard/keys/actions"
+import { hasRole, type WalletRole } from "../lib/roles"
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -39,14 +40,31 @@ describe("resetManagementKeyAction", () => {
     expect(dbMock.wallet.update).not.toHaveBeenCalled()
   })
 
+  // The real floor semantics (lib/session.ts requireSessionRole → hasRole): an
+  // admin member must be refused, because the sk_ it would mint signs in as
+  // "owner" (getSessionMember's legacy-key branch).
+  it("refuses an admin member — minting an sk_ would escalate admin to owner", async () => {
+    const asRole = (role: WalletRole) => async (min: WalletRole) => (hasRole(role, min) ? { id: "wallet_1" } : null)
+    sessionMock.requireSessionRole.mockImplementation(asRole("admin"))
+    const res = await resetManagementKeyAction({ ok: false, error: "" }, new FormData())
+    expect(res.ok).toBe(false)
+    expect(res.newKey).toBeUndefined()
+    expect(dbMock.wallet.update).not.toHaveBeenCalled()
+    expect(sessionMock.setSession).not.toHaveBeenCalled()
+
+    sessionMock.requireSessionRole.mockImplementation(asRole("owner"))
+    expect((await resetManagementKeyAction({ ok: false, error: "" }, new FormData())).ok).toBe(true)
+  })
+
   it("mints a fresh sk_ key, stores only its hash, and re-sets the session to it", async () => {
     sessionMock.requireSessionRole.mockResolvedValue({ id: "wallet_1" })
     const res = await resetManagementKeyAction({ ok: false, error: "" }, new FormData())
 
     expect(res.ok).toBe(true)
     expect(res.newKey).toMatch(/^sk_[0-9a-f]{64}$/)
-    // Enforces the admin-or-higher floor (WALLET-MEMBERS follow-up, part 1).
-    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
+    // Owner-only: the new sk_ logs in as role "owner", so an admin floor here
+    // would be an admin→owner escalation.
+    expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("owner")
 
     // Persisted the new hash/prefix for wallet_1 — never the raw key.
     const data = dbMock.wallet.update.mock.calls[0][0].data
