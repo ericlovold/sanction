@@ -192,6 +192,25 @@ describe("verifyMagicLinkAction — the linked owner is read inside the claim tr
   })
 })
 
+describe("verifyMagicLinkAction — a different owner linked after the pre-check", () => {
+  it("is still a claim: pre-claim access rotated and that owner unlinked", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue(WALLET) // pre-check: unlinked
+    dbMock.wallet.findUniqueOrThrow.mockImplementation(async (args: { select?: Record<string, boolean> }) =>
+      args?.select?.userId ? { userId: "user_other" } : WALLET,
+    )
+    dbMock.user.findUnique.mockResolvedValue({ email: "other@elsewhere.test", emailVerified: true })
+    walletWrites(1)
+
+    const res = await verifyMagicLinkAction({ ok: false, error: "" }, form())
+
+    expect(res.ok).toBe(true)
+    expect(res.rotatedAgents).toBeDefined()
+    expect(agentRotations().length).toBeGreaterThan(0)
+    const unlink = dbMock.wallet.updateMany.mock.calls.map(([a]) => a as WalletWrite).find((a) => "userId" in a.data)
+    expect(unlink).toEqual({ where: { id: WALLET.id, userId: "user_other" }, data: { userId: null } })
+  })
+})
+
 describe("verifyMagicLinkAction — stale links", () => {
   it("rejects a link sent to an email that is no longer the wallet's ownerEmail", async () => {
     dbMock.wallet.findUnique.mockResolvedValue({ ...WALLET, ownerEmail: "someone-else@corp.com" })
