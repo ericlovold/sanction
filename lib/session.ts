@@ -3,12 +3,16 @@ import { db } from "./db"
 import { hashApiKey, generateApiKey } from "./apiKey"
 import { auth } from "./auth-config"
 import { hasRole, type WalletRole } from "./roles"
+import { logger } from "./log"
+
+const log = logger("session")
 
 // Two ways to be signed in, bridged here so the rest of the app never cares:
 //   1. Better Auth session (Google/GitHub) → a User → the Wallet it owns.
 //   2. Legacy: an httpOnly cookie holding the wallet's sk_ management key.
 // Both resolve to the same Prisma Wallet. New social users get a wallet
-// provisioned on first sign-in; existing wallets are claimed by matching email.
+// provisioned on first sign-in; existing wallets are claimed by matching
+// verified email.
 export const SESSION_COOKIE = "sanction_session"
 // Which of the session's reachable wallets to act as (WALLET-MEMBERS part 2,
 // the wallet switcher). Holds a walletId — non-secret by convention — and only
@@ -51,7 +55,8 @@ export async function clearSession() {
 
 // Map a signed-in human to the wallet they control. Claim-by-email links a
 // pre-existing wallet (legacy/magic-link customer now using social login) to the
-// User exactly once; otherwise provision a fresh wallet like /start does.
+// User exactly once — verified emails only, rotating pre-claim keys; otherwise
+// provision a fresh wallet like /start does.
 //
 // Precedence: an explicitly selected wallet (the switcher cookie, validated
 // against ownership-or-active-membership on every resolve) wins; otherwise
@@ -59,7 +64,7 @@ export async function clearSession() {
 // wallet AND holds memberships reaches the others through the switcher
 // (WALLET-MEMBERS part 2).
 async function resolveWalletForUser(
-  user: { id: string; email: string; name?: string | null },
+  user: { id: string; email: string; emailVerified?: boolean | null; name?: string | null },
   preferredWalletId?: string | null,
 ) {
   if (preferredWalletId) {
@@ -78,13 +83,22 @@ async function resolveWalletForUser(
   const linked = await db.wallet.findFirst({ where: { userId: user.id } })
   if (linked) return linked
 
+  // ownerEmail is unverified at creation (POST /wallets, /start), so a wallet
+  // matching this email may be a squat whose sk_ someone else holds. Claim only
+  // on a provider-verified email, and rotate out everything minted before the
+  // claim (claimWallet). An unverified user never lands in it.
   const byEmail = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
-  if (byEmail) {
-    return db.wallet.update({ where: { id: byEmail.id }, data: { userId: user.id } })
+  if (byEmail && !byEmail.userId && user.emailVerified === true) {
+    const claimed = await claimWallet(byEmail.id, user.id)
+    if (claimed) return claimed
   }
 
   const membership = await db.walletMember.findFirst({ where: { userId: user.id, status: "active" } })
   if (membership) return db.wallet.findUnique({ where: { id: membership.walletId } })
+
+  // The ownerEmail is taken — provisioning would collide, and the existing
+  // wallet isn't ours to hand back.
+  if (byEmail) return null
 
   try {
     const wallet = await db.wallet.create({
@@ -101,9 +115,46 @@ async function resolveWalletForUser(
     })
     return wallet
   } catch {
-    // Race: a concurrent render won the unique ownerEmail. Re-read its result.
-    return db.wallet.findUnique({ where: { ownerEmail: user.email } })
+    // Race: a concurrent render won the unique ownerEmail. Re-read its result,
+    // but only if that render provisioned it for this user.
+    const raced = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
+    return raced?.userId === user.id ? raced : null
   }
+}
+
+// Link a wallet to its verified owner and revoke every credential issued before
+// the claim, in one transaction: the sk_ key is cleared (re-mint from the
+// dashboard), agent keys are replaced with unknowable hashes and deactivated
+// (a reactivation can't revive a key someone else holds), live execution JWTs
+// are revoked, and memberships the key holder handed out are revoked. Returns
+// null if another request linked the wallet first.
+async function claimWallet(walletId: string, userId: string) {
+  return db.$transaction(async (tx) => {
+    const claimed = await tx.wallet.updateMany({
+      where: { id: walletId, userId: null },
+      data: { userId, mgmtKeyHash: null, mgmtKeyPrefix: null },
+    })
+    if (claimed.count === 0) return null
+
+    const agents = await tx.agent.findMany({ where: { walletId }, select: { id: true } })
+    for (const agent of agents) {
+      const key = generateApiKey()
+      await tx.agent.update({
+        where: { id: agent.id },
+        data: { apiKeyHash: key.hash, apiKeyPrefix: key.prefix, isActive: false },
+      })
+    }
+    await tx.executionToken.updateMany({
+      where: { walletId, status: "active" },
+      data: { status: "revoked", revokedAt: new Date() },
+    })
+    await tx.walletMember.updateMany({
+      where: { walletId, status: { not: "revoked" } },
+      data: { status: "revoked", tokenHash: null, tokenExpiresAt: null },
+    })
+    log.info("wallet claimed; pre-claim keys rotated", { walletId, userId, agentsRotated: agents.length })
+    return tx.wallet.findUnique({ where: { id: walletId } })
+  })
 }
 
 export async function getSessionWallet() {
@@ -175,7 +226,8 @@ export async function getSessionMember(): Promise<
 /**
  * Like getSessionWallet, but enforces a role floor (WALLET-MEMBERS follow-up,
  * part 1, re-landed 2026-07-17 after the 2026-07-16 revert — the role matrix
- * was confirmed: admin floor on every mutation, mgmt-key reset included;
+ * was confirmed: admin floor on every mutation except mgmt-key reset, which is
+ * owner-only since 2026-09-25 (an sk_ session is role "owner");
  * pack preview / draft simulation stay open to any session). Returns null —
  * the same denial a mutating action already gives an anonymous visitor —
  * when the member's role doesn't meet `min`, so every "if (!wallet) return"

@@ -24,7 +24,15 @@ missing server secret is a 503, never an open door.
 - Authorization rests on the secret, never on knowledge of an id. Wallet and
   agent ids are non-secret.
 - Viewers cannot mutate; every dashboard mutation re-checks session, role, and
-  that the target row belongs to the wallet.
+  that the target row belongs to the wallet. Resetting the management key is
+  owner-only, since an `sk_` session signs in as `owner`.
+- **Claim-time key rotation.** Wallet signup does not verify `owner_email`, so
+  whoever created a wallet may hold its `sk_` before the real owner arrives. A
+  social sign-in claims a wallet by email only when the provider reports that
+  email verified, and the claim rotates everything minted before it in one
+  transaction: the `sk_` is cleared, agent keys are replaced and deactivated,
+  live execution tokens and team memberships are revoked. The owner mints new
+  keys from the dashboard.
 
 ## Credentials at rest [SEC-1, SEC-2]
 
