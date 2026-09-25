@@ -86,5 +86,6 @@ brings its own provider auth header passes through to any path.
   bytes and withholding is impossible — the meter write is retried at stream
   end; a hard failure is logged and left as a single-call under-count rather
   than breaking the stream.
-- The agent still holds the provider key today. A vault-injected mode (the agent
-  never sees the provider key) is the natural next step.
+- With a provider key connected in the dashboard, the agent never sees it: the
+  gateway injects it on metered endpoints only. Agents that send their own
+  provider key keep full passthrough.
