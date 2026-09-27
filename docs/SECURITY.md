@@ -27,12 +27,22 @@ missing server secret is a 503, never an open door.
   that the target row belongs to the wallet. Resetting the management key is
   owner-only, since an `sk_` session signs in as `owner`.
 - **Claim-time key rotation.** Wallet signup does not verify `owner_email`, so
-  whoever created a wallet may hold its `sk_` before the real owner arrives. A
-  social sign-in claims a wallet by email only when the provider reports that
-  email verified, and the claim rotates everything minted before it in one
-  transaction: the `sk_` is cleared, agent keys are replaced and deactivated,
-  live execution tokens and team memberships are revoked. The owner mints new
-  keys from the dashboard.
+  whoever created a wallet may hold its `sk_` before the real owner arrives.
+  `Wallet.ownerEmailVerifiedAt` records proof: null at signup (API, `/start`,
+  delegated pools) and cleared whenever `owner_email` changes. The first proof
+  is a claim, by either path:
+  - a social sign-in whose provider reports the email verified (it also links
+    the wallet to the user; a wallet provisioned for a verified user starts
+    verified), or
+  - a magic link to the current `owner_email` on an unverified wallet.
+
+  A claim rotates everything minted before it in one transaction, then sweeps
+  again after commit: agent keys are replaced and deactivated, live execution
+  tokens, team memberships and Slack installs are revoked, and webhooks are
+  deleted. The social claim clears the `sk_`; the magic link replaces it with
+  the one it shows. The owner re-mints agent keys from the dashboard. A magic
+  link on an already-verified wallet is key recovery and rotates only the `sk_`.
+  A link sent to a previous `owner_email` is refused.
 
 ## Credentials at rest [SEC-1, SEC-2]
 

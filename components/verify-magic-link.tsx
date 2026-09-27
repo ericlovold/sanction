@@ -17,6 +17,12 @@ export function VerifyMagicLink({ token, next = "/dashboard" }: { token: string;
         <div className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           You&apos;re signed in{state.walletName ? ` to ${state.walletName}` : ""}. Here&apos;s your new management key — save it now; your old one no longer works.
         </div>
+        {state.rotatedAgents !== undefined && (
+          <p className="text-sm text-amber-300">
+            This link verified your email for the first time, so every credential issued before it was revoked
+            {state.rotatedAgents > 0 ? ` — ${state.rotatedAgents} pre-existing agent key${state.rotatedAgents === 1 ? " was" : "s were"} deactivated; re-mint them in the dashboard` : ""}.
+          </p>
+        )}
         <div>
           <span className="text-[11px] uppercase tracking-wide text-zinc-500">New management key</span>
           <div className="mt-1 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5">

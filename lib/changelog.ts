@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-09-25",
+    title: "Verifying your email reclaims your wallet",
+    tags: ["security", "auth"],
+    body: "Wallet signup doesn't verify the owner email, so the first time you prove it — a magic link or a verified Google/GitHub sign-in — Sanction treats it as a claim: agent keys issued before it are deactivated, execution tokens, team memberships and Slack installs are revoked, and webhooks are deleted. Re-mint agent keys from the dashboard. Later magic links only rotate the management key. Changing the owner email resets verification.",
+  },
+  {
+    date: "2026-09-25",
     title: "Observe mode no longer escapes a parent's cap",
     tags: ["budgets", "observe", "fix"],
     body: "Observe mode now relaxes only the observed pool's own policy and caps. A daily cap set on any wallet above it still applies: an over-cap request is a real denial, and observed spend counts against that cap. Grant redemptions now reserve their amount once, on the day they are redeemed.",
