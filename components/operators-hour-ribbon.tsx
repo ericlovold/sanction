@@ -4,19 +4,24 @@ import { useSyncExternalStore } from "react"
 import { TrackCTA } from "@/components/track-cta"
 import { OPERATORS_HOUR, formatSessionDate, nextOperatorsHour } from "@/lib/operatorsHour"
 
-// The homepage is static, so the server HTML carries whatever date the last
-// build computed. The browser recomputes from the schedule rule; hydration
-// starts from the server value and then switches, so a stale build never shows
-// a past session and the first client pass still matches the server HTML.
-const atBuildTime = formatSessionDate(nextOperatorsHour())
-const noSubscription = () => () => {}
+const HOUR_MS = 60 * 60 * 1000
+const currentDate = () => formatSessionDate(nextOperatorsHour())
 
-export function OperatorsHourRibbon() {
-  const date = useSyncExternalStore(
-    noSubscription,
-    () => formatSessionDate(nextOperatorsHour()),
-    () => atBuildTime,
-  )
+// Re-check hourly so a tab left open across a session day rolls to the next
+// date; React re-renders only when the string changes. One timeout aimed at the
+// next change would not work: it can be a month out, past setTimeout's ~24.8-day
+// limit, where the delay overflows and fires immediately.
+function subscribe(onChange: () => void) {
+  const id = window.setInterval(onChange, HOUR_MS)
+  return () => window.clearInterval(id)
+}
+
+// `serverDate` is computed when the page renders (the homepage regenerates
+// hourly), so the HTML is current for crawlers and link previews. Hydration
+// starts from it, then the browser switches to its own clock without a
+// mismatch.
+export function OperatorsHourRibbon({ serverDate }: { serverDate: string }) {
+  const date = useSyncExternalStore(subscribe, currentDate, () => serverDate)
 
   return (
     <TrackCTA className="sn-ribbon" href={OPERATORS_HOUR.href} location="ribbon" target="operators-hour">

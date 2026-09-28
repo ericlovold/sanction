@@ -3,6 +3,11 @@ import Link from "next/link"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
 import { OperatorsHourRibbon } from "@/components/operators-hour-ribbon"
+import { formatSessionDate, nextOperatorsHour } from "@/lib/operatorsHour"
+
+// Regenerate hourly so the ribbon's server-rendered session date never trails
+// the schedule by more than an hour; the page stays static between regenerations.
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Sanction — Stop runaway AI API spend",
@@ -201,7 +206,7 @@ export default function Landing() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
       {/* Announcement ribbon: the monthly live session, for visitors not yet ready for a wallet */}
-      <OperatorsHourRibbon />
+      <OperatorsHourRibbon serverDate={formatSessionDate(nextOperatorsHour())} />
 
       {/* Nav */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
