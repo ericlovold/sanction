@@ -45,6 +45,18 @@ Response (abbreviated):
 { "id": "wal_abc123", "management_key": "sk_...", "warning": "Store this key now." }
 ```
 
+**Before connecting long-lived clients:** for a wallet created here, the first
+verified owner-email claim (email magic link or verified social sign-in) revokes
+pre-claim agent keys and deactivates those agents. The original management key
+also stops working. Claim the wallet through [sign-in](https://getsanction.com/login)
+first, then use the new management key shown by the magic link, or reset it in
+[Team](https://getsanction.com/dashboard/team) after social sign-in.
+
+If you already issued agent keys, create new agents or rotate their keys and
+reactivate them in [Agents](https://getsanction.com/dashboard/agents), then update
+your clients. Later magic links for the verified owner rotate only the management
+key; they preserve agent keys.
+
 ## 2. Register an agent & get a key
 
 Use your `sk_` management key to provision an agent. You get back an **agent key** (`pxy_…`) — also shown once.

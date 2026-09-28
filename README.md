@@ -90,10 +90,11 @@ Around the engine:
   blocked). A wallet holds people, not just keys: team membership with roles
   (`owner` / `admin` / `viewer`), a switcher across every membership, and a
   viewer who can read everything and change nothing.
-- **Adopt without enforcing.** Observe mode runs the real engine on a live fleet
-  and records what it *would* have done — blocking nothing, moving no counters —
-  so you can watch a week of would-be denials and the dollars behind them, then
-  flip each pool to enforce in one confirm-gated click.
+- **Observe before enforcing a wallet's policy.** Observe mode records what the
+  engine *would* have done while relaxing that wallet's own policy and caps.
+  Ancestor subtree caps remain enforced and count observed spend; freeze and
+  authentication checks still apply. Review would-be denials and their cost,
+  then flip each pool to enforce in one confirm-gated click.
 - **Spend answerable to outcomes.** Report outcomes (`POST /outcomes`) and a
   wallet over its cost-per-outcome ceiling throttles to human-gated spend.
   Wallets can be frozen outright, and budget reallocated across the tree.

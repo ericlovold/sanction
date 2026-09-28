@@ -25,7 +25,7 @@ export default async function ConnectPage({ searchParams }: {
     <header className="space-y-3">
       <Link href="/dashboard" className="text-sm underline">Back to roster</Link>
       <h1 className="text-3xl font-semibold">Connect a developer tool</h1>
-      <p className="text-muted-foreground">Choose a tool, configure its exporter, then check delivery to {wallet.name}.</p>
+      <p className="text-muted-foreground">Connect usage reporting to {wallet.name}, then try a separate approval test.</p>
       <p className="text-sm">This connects usage reporting. It does not stop tool execution, model calls, or subscription auto-refills.</p>
     </header>
     <section className="space-y-4 rounded-lg border p-5">
@@ -67,7 +67,19 @@ export default async function ConnectPage({ searchParams }: {
         <Link href="/dashboard/usage" className="block text-sm underline">View reported sessions</Link>
       </section>
       <section className="space-y-3 rounded-lg border p-5">
-        <h2 className="text-xl font-medium">Next: choose what to govern</h2>
+        <h2 className="text-xl font-medium">4. Prove a governed action</h2>
+        <p className="text-sm">Reporting shows activity. The broker walkthrough demonstrates a stop, human approval, and one recorded execution using a virtual test note.</p>
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>Send a test call and verify it stops before reaching the test tool.</li>
+          <li>Review the exact request in Approvals and approve it.</li>
+          <li>Return to the walkthrough to verify execution, changed-argument refusal, and grant-reuse refusal.</li>
+        </ol>
+        <p className="text-sm text-muted-foreground">This creates a separate test pool and agent under your wallet. It does not install protection for {sourceNames[source]} or change this seat’s policy. You can run it before telemetry arrives.</p>
+        {hasRole(wallet.role, "admin") ? <Link href="/dashboard/walkthrough" className="inline-block rounded bg-primary px-4 py-2 text-sm text-primary-foreground">Start the broker approval test</Link> : <p className="text-sm">Ask a wallet admin to run the broker walkthrough with you. Your viewer role can inspect reporting but cannot create or approve the test.</p>}
+      </section>
+      <section className="space-y-3 rounded-lg border p-5">
+        <h2 className="text-xl font-medium">Then govern your own tool</h2>
+        <p className="text-sm text-muted-foreground">Completing the walkthrough proves only its controlled broker path. Choose an enforcement path for your own traffic next.</p>
         {source === "claude-code" ? <><p className="text-sm text-muted-foreground">The optional Claude Code approval test gates a configured Read call. It uses a dedicated test wallet and policy; reporting alone does not install it.</p><Link href="/docs/developer-usage" className="text-sm underline">Set up the native approval test</Link></> : <><p className="text-sm text-muted-foreground">This Codex connection observes usage. To enforce limits, route supported model calls through the gateway or MCP tool calls through the broker.</p><Link href="/docs/gateway" className="mr-4 text-sm underline">Gateway setup</Link><Link href="/docs/agent-wallet" className="text-sm underline">MCP broker setup</Link></>}
       </section>
     </>}
