@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-28",
+    title: "Keep the proof, move on to your own tool",
+    tags: ["onboarding", "approvals"],
+    body: "Developer setup now recognizes a completed broker walkthrough for the current wallet and links to that exact saved run, even after the test credentials expire or a newer test starts. Completion requires the recorded stop, changed-argument refusal, grant-reuse refusal, and one execution. The next action becomes configuring enforcement for your own tool; neither telemetry nor the synthetic proof is presented as protection for that tool.",
+  },
+  {
     date: "2026-09-27",
     title: "From developer reporting to an approval test",
     tags: ["onboarding", "approvals"],
