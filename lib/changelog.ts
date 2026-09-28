@@ -33,6 +33,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     body: "Observe mode now relaxes only the observed pool's own policy and caps. A daily cap set on any wallet above it still applies: an over-cap request is a real denial, and observed spend counts against that cap. Grant redemptions now reserve their amount once, on the day they are redeemed.",
   },
   {
+    date: "2026-09-24",
+    title: "Tool policy packs use explicit tool names",
+    tags: ["policy", "fix"],
+    body: "Four starting packs used wildcard-looking tool entries that the exact-name policy lists did not match. The corrected presets name concrete example tools, include approval-required tools in their allow-lists, and require matching those examples to your upstream. Fleet channel envelope now has a nonempty allow-list, so unlisted tools are denied. Existing saved policies are unchanged: review their tool lists and update through the policy editor or API; reapplying a whole pack also replaces its budget settings. Ordinary tool-list matching is unchanged.",
+  },
+  {
     date: "2026-09-17",
     title: "Return to the approval after switching wallets",
     tags: ["approvals", "fix"],
