@@ -2,15 +2,16 @@
 
 Independent authorization plane for AI agents. Before spend, an MCP tool, a credential, a provision, or a new capability becomes irreversible, the agent asks Sanction — approve, escalate to a human, or deny.
 
-This plugin is the authorization connector you add before AWS, Zoom, and the rest can spend or invoke. Neighbors on the marketplace: Ramp / Link (payments), Runlayer (MCP policy and audit). Category: **Agent Orchestration**.
+This directory is an unpublished Cursor plugin scaffold: a hosted MCP connection plus four skills. It does not establish a Cursor or Grok marketplace listing. For Grok Bot, see the [connection guide](../docs/GROK-BOT.md), including host support and shared-account limits.
 
 For teams governing their own agents — budgets, tool policy, vaulted credentials — not only platforms embedding Sanction in a shipped product.
 
 ## Install
 
-1. Add the plugin (Cursor Marketplace, or [local](#test-locally)).
-2. Set `SANCTION_AGENT_KEY` under Plugins → Configure. Create a wallet and agent at [getsanction.com](https://getsanction.com); copy the `pxy_…` agent key (shown once). Never commit it.
-3. Reload Cursor. The `sanction` MCP server should appear.
+1. Complete the [wallet claim and agent setup](../docs/QUICKSTART.md#1-create-a-wallet) before connecting. First owner-email verification revokes pre-claim agent keys.
+2. Install the scaffold [locally](#test-locally).
+3. Set the plugin variable `SANCTION_AGENT_KEY` through Plugins → Configure, as described in [Cursor’s variables reference](https://cursor.com/docs/reference/plugins#variables). Use the `pxy_…` agent key, never a management key or a value pasted into chat.
+4. Reload Cursor, inspect the ten tools, and call only `sanction_wallet_status` with `{}` for a read-only smoke test. `sanction_authorize` is not a dry run.
 
 The plugin calls `https://getsanction.com/mcp` (Streamable HTTP) with `x-api-key`. Bearer also works on the hosted URL; this package leads with `x-api-key`.
 
@@ -58,13 +59,13 @@ Interim home in [ericlovold/sanction](https://github.com/ericlovold/sanction). E
 
 ## Test locally
 
-Cursor loads plugins from `~/.cursor/plugins/local/` ([docs](https://cursor.com/docs/plugins)):
+Copy the scaffold into Cursor’s local plugin directory ([official instructions](https://cursor.com/docs/plugins#test-plugins-locally), checked 2026-09-28). From this repository root, with no existing local `sanction` plugin:
 
 ```bash
 mkdir -p ~/.cursor/plugins/local
-ln -s /path/to/sanction/cursor-plugin ~/.cursor/plugins/local/sanction
+cp -R cursor-plugin ~/.cursor/plugins/local/sanction
 ```
 
 Reload Window (Developer: Reload Window). Set `SANCTION_AGENT_KEY` in Plugins → Configure. Confirm the `sanction` MCP server and the four skills in Customize.
 
-If the plugin does not appear, copy the directory instead of symlinking. On Teams/Enterprise, local imports may be disabled under Marketplace and Plugins.
+Cursor skips symlinks targeting directories outside `~/.cursor/plugins/local/`. On Teams/Enterprise, check Allow Local Plugin Imports under Dashboard → Settings → Security & Identity → Marketplace and Plugins. These are documented setup steps; this scaffold has not been verified in a live Cursor or Grok Bot session.

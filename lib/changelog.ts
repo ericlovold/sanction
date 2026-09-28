@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-28",
+    title: "Prepare hosted MCP discovery and agent-native setup",
+    tags: ["mcp", "distribution"],
+    body: "Registry metadata now includes the hosted Streamable HTTP endpoint alongside npm, with the agent key marked secret and required. The Grok Bot guide separates a read-only connection check from cooperative authorization and enforced broker routing. Marketplace acceptance and OAuth onboarding remain pending; merging these artifacts does not publish the registry update. The roadmap prioritizes connection, approval resumption, and measured scale before broader distribution.",
+  },
+  {
     date: "2026-09-27",
     title: "From developer reporting to an approval test",
     tags: ["onboarding", "approvals"],

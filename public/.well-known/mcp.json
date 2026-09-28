@@ -1,7 +1,7 @@
 {
   "name": "sanction",
-  "display_name": "Sanction — Agent Wallet",
-  "description": "The wallet an AI agent carries. Policy, budget, clearance, and evidence travel with the agent. Counterparties verify a mandate before they work, sell, or settle. Integrates via hosted MCP (`/mcp`), stdio, REST, or AWS Bedrock.",
+  "display_name": "Sanction — Agent approvals and budgets",
+  "description": "Ask for approval before agent spending, tool use, or new capabilities. Hosted /mcp is cooperative: the host must ask. Route upstream MCP tools through /mcp/broker/<name> for enforced tool decisions.",
   "version": "0.9.0",
   "homepage": "https://getsanction.com",
   "repository": "https://github.com/ericlovold/sanction",
@@ -29,7 +29,7 @@
       },
       "SANCTION_WALLET_ID": {
         "type": "string",
-        "description": "Wallet ID for status queries. Required only for sanction_wallet_status."
+        "description": "Optional wallet-status override; the wallet is derived from the agent key by default."
       }
     }
   },
