@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-27",
+    title: "From developer reporting to an approval test",
+    tags: ["onboarding", "approvals"],
+    body: "Developer setup now leads directly to the existing broker walkthrough: stop a synthetic call, approve its exact request, and verify execution plus changed-argument and grant-reuse refusal. Admins can start the test; viewers get an admin handoff. Reporting and the synthetic proof remain separate from enforcement on your own tools. The quickstart also explains credential replacement after first email verification, and observe-mode guidance now preserves ancestor budget caps.",
+  },
+  {
     date: "2026-09-25",
     title: "Verifying your email reclaims your wallet",
     tags: ["security", "auth"],
