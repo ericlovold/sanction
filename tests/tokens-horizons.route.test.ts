@@ -22,7 +22,7 @@ vi.mock("@/lib/freeze", async (orig) => {
   const mod = await orig<typeof import("@/lib/freeze")>()
   return { ...mod, walletFreezeState: vi.fn(async () => ({ frozen: false })) }
 })
-vi.mock("@/lib/cascadeBudget", () => ({ walletAncestorChain: vi.fn(async () => []) }))
+vi.mock("@/lib/cascadeBudget", () => ({ walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]) }))
 vi.mock("@/lib/poolAccess", () => ({ walletSubtreeIds: vi.fn(async () => []) }))
 
 import { POST as logTokens } from "../app/api/v1/tokens/route"
@@ -59,7 +59,7 @@ beforeEach(() => {
   dbMock.tokenLog.create.mockResolvedValue({ id: "tl_1" })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
-  vi.mocked(walletAncestorChain).mockResolvedValue([])
+  vi.mocked(walletAncestorChain).mockImplementation(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }] as never)
   vi.mocked(walletSubtreeIds).mockResolvedValue([])
 })
 

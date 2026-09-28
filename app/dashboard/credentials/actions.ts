@@ -5,6 +5,7 @@ import { z } from "zod"
 import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { withTenant } from "@/lib/rls"
 import { requireSessionRole } from "@/lib/session"
+import { parseEndOfDay } from "@/lib/dateInput"
 
 const credentialType = z.enum(["api_key", "oauth_token", "certificate", "license", "password"])
 
@@ -27,8 +28,9 @@ export async function createCredentialAction(form: FormData): Promise<void> {
   const minClearance = z.coerce.number().int().min(1).max(5).safeParse(form.get("min_clearance"))
   if (!minClearance.success) return
 
-  const expiresRaw = String(form.get("expires_at") ?? "").trim()
-  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : undefined
+  // Malformed date → refuse rather than store a credential with no expiry.
+  const expiresAt = parseEndOfDay(String(form.get("expires_at") ?? "").trim())
+  if (expiresAt === undefined) return
   const allowedAgentIds = parseCsv(form.get("allowed_agent_ids"))
   const scopes = parseCsv(form.get("scopes"))
 
@@ -59,8 +61,9 @@ export async function updateCredentialAccessAction(form: FormData): Promise<void
   if (!id) return
   const minClearance = z.coerce.number().int().min(1).max(5).safeParse(form.get("min_clearance"))
   if (!minClearance.success) return
-  const expiresRaw = String(form.get("expires_at") ?? "").trim()
-  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null
+  // Malformed date → refuse rather than silently clear the expiry.
+  const expiresAt = parseEndOfDay(String(form.get("expires_at") ?? "").trim())
+  if (expiresAt === undefined) return
 
   const updated = await withTenant(wallet.id, async (tx) => {
     const row = await tx.credentialVault.findUnique({ where: { id } })

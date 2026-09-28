@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { costUsd, GATEWAY_PROVIDERS, makeStreamMeter, tokenBudgetUsd, forceStreamUsage } from "../lib/gateway"
+import { costUsd, GATEWAY_PROVIDERS, isMeteredPath, makeStreamMeter, METERED_PATHS, tokenBudgetUsd, forceStreamUsage } from "../lib/gateway"
 
 describe("costUsd — longest-prefix pricing match", () => {
   it("prices 1M in / 1M out for a known model", () => {
@@ -22,10 +22,13 @@ describe("costUsd — longest-prefix pricing match", () => {
 
   it("meters an unknown model at the conservative fallback, never as free", () => {
     // Fail closed on the money path: an unpriced model bills at the most
-    // expensive rate in the table (currently o1 at 15/60) instead of
-    // bypassing every budget. Derived, so it tracks the table.
+    // expensive rate in the table (currently o1 at 15/60; the o*-pro ultra
+    // tiers are excluded) instead of bypassing every budget. Derived, so it
+    // tracks the table.
     expect(costUsd("totally-unknown-model", 1_000_000, 1_000_000)).toBe(75)
     expect(costUsd("gpt-5.2-turbo", 1_000_000, 0)).toBe(15)
+    // the excluded ultra tier still meters at its own list rate
+    expect(costUsd("o1-pro", 1_000_000, 1_000_000)).toBe(750)
   })
 
   it("prices the current Claude tiers", () => {
@@ -106,6 +109,123 @@ describe("makeStreamMeter — accumulates SSE usage", () => {
     const m = makeStreamMeter("gemini")
     m.feed({ modelVersion: "gemini-2.5", usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 7 } })
     expect(m.result()).toEqual({ model: "gemini-2.5", tokensIn: 5, tokensOut: 7 })
+  })
+})
+
+describe("cached / thinking / array-shaped usage", () => {
+  it("o1-pro and o3-pro get their own rates, not o1's or the fallback", () => {
+    expect(costUsd("o1-pro-2025-03-19", 1_000_000, 1_000_000)).toBe(750) // 150 + 600
+    expect(costUsd("o3-pro", 1_000_000, 1_000_000)).toBe(100) // 20 + 80
+    expect(costUsd("o1", 1_000_000, 1_000_000)).toBe(75) // 15 + 60 unchanged
+  })
+
+  it("anthropic: cache writes and reads are part of the prompt and priced at 1.25x / 0.1x", () => {
+    const u = GATEWAY_PROVIDERS.anthropic.extract(
+      {
+        model: "claude-sonnet-5",
+        usage: { input_tokens: 1_000_000, cache_creation_input_tokens: 1_000_000, cache_read_input_tokens: 1_000_000, output_tokens: 1_000_000 },
+      },
+      "v1/messages",
+    )!
+    expect(u).toEqual({
+      model: "claude-sonnet-5",
+      tokensIn: 3_000_000,
+      tokensOut: 1_000_000,
+      cacheWriteTokens: 1_000_000,
+      cacheReadTokens: 1_000_000,
+    })
+    // sonnet [3, 15]: 1M base (3) + 1M write (3.75) + 1M read (0.3) + 1M out (15)
+    expect(costUsd(u.model, u.tokensIn, u.tokensOut, u)).toBe(22.05)
+  })
+
+  it("anthropic: 1-hour cache writes bill at 2x", () => {
+    const u = GATEWAY_PROVIDERS.anthropic.extract(
+      {
+        model: "claude-sonnet-5",
+        usage: {
+          input_tokens: 0,
+          cache_creation_input_tokens: 2_000_000,
+          cache_creation: { ephemeral_5m_input_tokens: 1_000_000, ephemeral_1h_input_tokens: 1_000_000 },
+          output_tokens: 0,
+        },
+      },
+      "v1/messages",
+    )!
+    // 1M * 3 * 1.25 + 1M * 3 * 2 = 3.75 + 6
+    expect(costUsd(u.model, u.tokensIn, u.tokensOut, u)).toBe(9.75)
+  })
+
+  it("anthropic stream: cache tokens from message_start are metered", () => {
+    const m = makeStreamMeter("anthropic")
+    m.feed({ type: "message_start", message: { model: "claude-x", usage: { input_tokens: 10, cache_read_input_tokens: 90, output_tokens: 1 } } })
+    m.feed({ type: "message_delta", usage: { output_tokens: 20 } })
+    expect(m.result()).toEqual({ model: "claude-x", tokensIn: 100, tokensOut: 20, cacheReadTokens: 90 })
+  })
+
+  it("openai: cached_tokens and reasoning_tokens are subsets — never double counted", () => {
+    const u = GATEWAY_PROVIDERS.openai.extract(
+      {
+        model: "gpt-4o",
+        usage: {
+          prompt_tokens: 1000,
+          completion_tokens: 500,
+          prompt_tokens_details: { cached_tokens: 800 },
+          completion_tokens_details: { reasoning_tokens: 300 },
+        },
+      },
+      "v1/chat/completions",
+    )
+    expect(u).toEqual({ model: "gpt-4o", tokensIn: 1000, tokensOut: 500 })
+  })
+
+  it("gemini: thinking tokens bill as output", () => {
+    const u = GATEWAY_PROVIDERS.gemini.extract(
+      { modelVersion: "gemini-2.5-pro", usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 50, thoughtsTokenCount: 400 } },
+      "v1beta/models/gemini-2.5-pro:generateContent",
+    )
+    expect(u).toEqual({ model: "gemini-2.5-pro", tokensIn: 100, tokensOut: 450 })
+    const m = makeStreamMeter("gemini")
+    m.feed({ modelVersion: "gemini-2.5-pro", usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 50, thoughtsTokenCount: 400 } })
+    expect(m.result()).toEqual({ model: "gemini-2.5-pro", tokensIn: 100, tokensOut: 450 })
+  })
+
+  it("gemini: streamGenerateContent without alt=sse returns a JSON array — meter the last chunk with usage", () => {
+    const u = GATEWAY_PROVIDERS.gemini.extract(
+      [
+        { candidates: [], usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 3 } },
+        { candidates: [], usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 40 }, modelVersion: "gemini-2.5-flash" },
+        { candidates: [] },
+      ],
+      "v1beta/models/gemini-2.5-flash:streamGenerateContent",
+    )
+    expect(u).toEqual({ model: "gemini-2.5-flash", tokensIn: 12, tokensOut: 40 })
+  })
+})
+
+describe("isMeteredPath — where the stored provider key may go", () => {
+  it("covers every gateway provider", () => {
+    for (const p of Object.keys(GATEWAY_PROVIDERS)) expect(METERED_PATHS[p], p).toBeDefined()
+  })
+
+  it("allows the metered generation endpoints", () => {
+    expect(isMeteredPath("anthropic", "POST", "v1/messages")).toBe(true)
+    expect(isMeteredPath("anthropic", "POST", "v1/messages/count_tokens")).toBe(true)
+    for (const p of ["v1/chat/completions", "v1/responses", "v1/embeddings", "v1/completions"]) {
+      expect(isMeteredPath("openai", "POST", p), p).toBe(true)
+    }
+    expect(isMeteredPath("perplexity", "POST", "chat/completions")).toBe(true)
+    expect(isMeteredPath("gemini", "POST", "v1beta/models/gemini-2.5-flash:generateContent")).toBe(true)
+    expect(isMeteredPath("gemini", "POST", "v1/models/gemini-2.5-pro:streamGenerateContent")).toBe(true)
+  })
+
+  it("refuses everything else", () => {
+    expect(isMeteredPath("anthropic", "POST", "v1/messages/batches")).toBe(false)
+    expect(isMeteredPath("anthropic", "GET", "v1/messages")).toBe(false)
+    expect(isMeteredPath("openai", "POST", "v1/files")).toBe(false)
+    expect(isMeteredPath("openai", "POST", "v1/batches")).toBe(false)
+    expect(isMeteredPath("gemini", "POST", "v1beta/models/gemini-2.5-flash:batchGenerateContent")).toBe(false)
+    expect(isMeteredPath("gemini", "POST", "v1beta/files")).toBe(false)
+    expect(isMeteredPath("constructor", "POST", "v1/messages")).toBe(false)
   })
 })
 

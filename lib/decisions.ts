@@ -206,7 +206,12 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (note === "Monthly spend budget exceeded") return "MONTHLY_BUDGET_EXCEEDED"
   if (note === "Subtree daily spend cap exceeded") return "SUBTREE_CAP_EXCEEDED"
   if (note === "Execution budget exceeded") return "EXEC_BUDGET_EXCEEDED"
-  if (note === "Wallet is frozen" || note.startsWith("Parent wallet is frozen")) return "WALLET_FROZEN"
+  if (
+    note === "Wallet is frozen" ||
+    note.startsWith("Parent wallet is frozen") ||
+    note === "Wallet hierarchy could not be verified"
+  )
+    return "WALLET_FROZEN"
   return "POLICY_DENIED"
 }
 
@@ -215,4 +220,12 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
 // the response-wrapping semantics can't drift as observe reaches new surfaces.
 export function isObserved(r: { detailsJson?: unknown }): boolean {
   return typeof r.detailsJson === "object" && r.detailsJson !== null && (r.detailsJson as { observed?: boolean }).observed === true
+}
+
+// A real (enforced) decision on an observing wallet — an ancestor cap breach —
+// must not carry the marker, or the response would wrap it as a would_be.
+export function withoutObservedMarker<T extends Record<string, unknown>>(details: T | undefined): Omit<T, "observed"> | undefined {
+  if (!details) return details
+  const { observed: _observed, ...rest } = details
+  return Object.keys(rest).length > 0 ? rest : undefined
 }

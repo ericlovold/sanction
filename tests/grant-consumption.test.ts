@@ -102,7 +102,7 @@ describe("spend grant consumption", () => {
       where: { id: "grant_1", status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
       data: { status: "consumed", consumedAt: now },
     })
-    expect(reserveCascadeDailySpendMock).toHaveBeenCalledWith(tx, "wallet_1", 4000, now, [])
+    expect(reserveCascadeDailySpendMock).toHaveBeenCalledWith(tx, "wallet_1", 4000, now, [], "auth_1")
     expect(tx.authorizationRequest.update).toHaveBeenCalledWith({
       where: { id: "auth_1" },
       data: { status: "approved", decidedAt: now, decisionNote: "Grant consumed" },

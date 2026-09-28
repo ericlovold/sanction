@@ -10,7 +10,7 @@ import { hashApiKey } from "../lib/apiKey"
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
-    wallet: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn(), findMany: vi.fn() },
+    wallet: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), count: vi.fn(), findMany: vi.fn() },
     tokenLog: { findFirst: vi.fn(), count: vi.fn() },
     authorizationRequest: { count: vi.fn() },
     lead: { findMany: vi.fn(), count: vi.fn() },
@@ -97,14 +97,24 @@ describe("bootstrap-key — one-time legacy key mint", () => {
 
   it("mints once for a legacy wallet: sk_ key returned, only the hash stored, no-store", async () => {
     dbMock.wallet.findUnique.mockResolvedValue({ id: "w1", mgmtKeyHash: null })
-    dbMock.wallet.update.mockResolvedValue({})
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 })
     const res = await bootstrapKey(req("POST", "/api/v1/wallets/bootstrap-key", { headers: { "x-admin-secret": ADMIN }, body: { wallet_id: "w1" } }))
     expect(res.status).toBe(201)
     expect(res.headers.get("cache-control")).toBe("no-store")
     const body = await res.json()
     expect(body.management_key).toMatch(/^sk_/)
-    const stored = dbMock.wallet.update.mock.calls[0][0].data
-    expect(stored.mgmtKeyHash).toBe(hashApiKey(body.management_key))
+    const write = dbMock.wallet.updateMany.mock.calls[0][0]
+    // Compare-and-set: the write only lands while the wallet is still keyless.
+    expect(write.where).toEqual({ id: "w1", mgmtKeyHash: null })
+    expect(write.data.mgmtKeyHash).toBe(hashApiKey(body.management_key))
+  })
+
+  it("409 when a concurrent bootstrap won the race — the loser's key is never returned", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ id: "w1", mgmtKeyHash: null })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 0 })
+    const res = await bootstrapKey(req("POST", "/api/v1/wallets/bootstrap-key", { headers: { "x-admin-secret": ADMIN }, body: { wallet_id: "w1" } }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).management_key).toBeUndefined()
   })
 })
 

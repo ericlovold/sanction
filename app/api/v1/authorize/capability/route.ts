@@ -6,13 +6,12 @@ import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import {
   CAPABILITY_REMEDIATION,
-  parseCapabilityRules,
   type CapabilityDecisionCode,
 } from "@/lib/capability"
 import { decisionEvidence } from "@/lib/evidence"
 import { recordDecision } from "@/lib/decisionMeter"
 import { policyLayerChain, decideCapabilityLayered } from "@/lib/inheritance"
-import { createCapabilityPendingApproval } from "@/lib/approvals"
+import { approvedViaGrant, createCapabilityPendingApproval } from "@/lib/approvals"
 import { consumeCapabilityGrant } from "@/lib/grants"
 import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(replayResponse(existing, agent.name, capability), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(replayResponse(existing, agent.name, capability, await approvedViaGrant(existing)), { status: statusCode(existing.status) })
   }
 
   // Grant redemption: the owner approved this exact capability.
@@ -196,7 +195,7 @@ export async function POST(req: NextRequest) {
         const existing = await db.authorizationRequest.findUnique({
           where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
         })
-        if (existing) return NextResponse.json(replayResponse(existing, agent.name, capability), { status: statusCode(existing.status) })
+        if (existing) return NextResponse.json(replayResponse(existing, agent.name, capability, await approvedViaGrant(existing)), { status: statusCode(existing.status) })
       }
       throw e
     }
@@ -222,11 +221,26 @@ export async function POST(req: NextRequest) {
 
 type Persisted = { id: string; status: string; decisionNote: string | null }
 
-function replayResponse(r: Persisted, agentName: string, capability: string) {
+function replayResponse(r: Persisted, agentName: string, capability: string, grantGated = false) {
   const { code, remediation } = deriveReplayCode(r.status, r.decisionNote, {
     code: "CAPABILITY_ESCALATION_REQUIRED" as CapabilityDecisionCode,
     remediation: CAPABILITY_REMEDIATION.CAPABILITY_ESCALATION_REQUIRED,
   })
+  if (grantGated) {
+    // Approval minted a one-use grant; the replay is status only (see approvedViaGrant).
+    return {
+      authorized: false,
+      status: "denied",
+      approval_status: r.status,
+      request_id: r.id,
+      reason: "Approval status only; redeem the one-use grant to authorize an attempt",
+      code,
+      remediation,
+      links: { record: `/api/v1/authorize/${r.id}`, evidence: `/api/v1/authorize/${r.id}/evidence` },
+      agent: agentName,
+      capability,
+    }
+  }
   return {
     authorized: r.status === "approved",
     status: r.status === "approved" ? "allowed" : r.status,

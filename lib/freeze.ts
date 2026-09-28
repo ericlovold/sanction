@@ -9,29 +9,39 @@ import { db } from "./db"
 
 export const WALLET_FROZEN_NOTE = "Wallet is frozen"
 export const PARENT_FROZEN_NOTE = "Parent wallet is frozen"
+export const HIERARCHY_UNVERIFIED_NOTE = "Wallet hierarchy could not be verified"
 
 const MAX_ANCESTOR_DEPTH = 16
+// Deepest wallet chain (self + ancestors) the freeze walk can verify. Creation
+// refuses to nest past it, so a legit wallet never trips the fail-closed cap.
+export const MAX_WALLET_CHAIN = MAX_ANCESTOR_DEPTH
 
 export type FreezeTx = Pick<typeof db, "wallet">
 
 export type FreezeState =
   | { frozen: false }
-  | { frozen: true; frozenWalletId: string; self: boolean; reason: string | null }
+  | { frozen: true; frozenWalletId: string; self: boolean; reason: string | null; unverified?: true }
+
+// Fail closed: a walk that cannot reach a root (missing ancestor, parent cycle,
+// depth cap) cannot prove no ancestor is frozen, so it denies like a freeze.
+function unverified(walletId: string): FreezeState {
+  return { frozen: true, frozenWalletId: walletId, self: true, reason: null, unverified: true }
+}
 
 /** Walk the wallet's ancestor chain; report the first frozen wallet found. */
 export async function walletFreezeState(tx: FreezeTx, walletId: string): Promise<FreezeState> {
   const seen = new Set<string>()
   let cur: string | null = walletId
 
-  for (let depth = 0; cur && depth < MAX_ANCESTOR_DEPTH; depth++) {
-    if (seen.has(cur)) break
+  for (let depth = 0; cur; depth++) {
+    if (depth >= MAX_ANCESTOR_DEPTH || seen.has(cur)) return unverified(walletId)
     seen.add(cur)
     const wallet: { id: string; parentId: string | null; frozenAt: Date | null; frozenReason: string | null } | null =
       await tx.wallet.findUnique({
         where: { id: cur },
         select: { id: true, parentId: true, frozenAt: true, frozenReason: true },
       })
-    if (!wallet) break
+    if (!wallet) return unverified(walletId)
     if (wallet.frozenAt) {
       return { frozen: true, frozenWalletId: wallet.id, self: wallet.id === walletId, reason: wallet.frozenReason }
     }
@@ -42,15 +52,19 @@ export async function walletFreezeState(tx: FreezeTx, walletId: string): Promise
 
 /** The decisionNote for a frozen denial — the decisionCode contract string. */
 export function frozenNote(state: Extract<FreezeState, { frozen: true }>): string {
+  if (state.unverified) return HIERARCHY_UNVERIFIED_NOTE
   return state.self ? WALLET_FROZEN_NOTE : PARENT_FROZEN_NOTE
 }
 
 /**
  * Derive freeze state from an already-fetched ancestor chain (cascadeBudget's
  * walk, leaf-first) — the zero-extra-queries path for routes that fetch it.
+ * An empty chain, one not starting at walletId, a broken parent link, or a
+ * last node that still names a parent (missing ancestor, cycle, depth cap)
+ * fails closed like walletFreezeState.
  */
 export function freezeStateFromChain(
-  chain: Array<{ id: string; frozenAt?: Date | null; frozenReason?: string | null }>,
+  chain: Array<{ id: string; parentId?: string | null; frozenAt?: Date | null; frozenReason?: string | null }>,
   walletId: string,
 ): FreezeState {
   for (const node of chain) {
@@ -58,5 +72,27 @@ export function freezeStateFromChain(
       return { frozen: true, frozenWalletId: node.id, self: node.id === walletId, reason: node.frozenReason ?? null }
     }
   }
+  // Unfrozen only when the chain proves itself: starts at walletId, every link
+  // names the next node, and it ends at an explicit root (parentId === null).
+  if (chain.length === 0 || chain[0].id !== walletId) return unverified(walletId)
+  for (let i = 0; i < chain.length - 1; i++) {
+    if (chain[i].parentId !== chain[i + 1].id) return unverified(walletId)
+  }
+  if (chain[chain.length - 1].parentId !== null) return unverified(walletId)
   return { frozen: false }
+}
+
+/** True when a new child under `parentId` would still be fully verifiable. */
+export async function canNestUnder(tx: Pick<typeof db, "wallet">, parentId: string): Promise<boolean> {
+  const seen = new Set<string>()
+  let cur: string | null = parentId
+  while (cur) {
+    // The parent's chain plus the new child must fit within MAX_WALLET_CHAIN.
+    if (seen.size >= MAX_WALLET_CHAIN - 1 || seen.has(cur)) return false
+    seen.add(cur)
+    const w: { parentId: string | null } | null = await tx.wallet.findUnique({ where: { id: cur }, select: { parentId: true } })
+    if (!w) return false
+    cur = w.parentId
+  }
+  return true
 }

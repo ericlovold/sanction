@@ -7,7 +7,7 @@ import { headers } from "next/headers"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { hashApiKey, generateManagementKey } from "@/lib/apiKey"
-import { setSession, clearSession } from "@/lib/session"
+import { setSession, clearSession, revokePreClaimAccess, sweepPreClaimAccess } from "@/lib/session"
 import { rateLimit, ipFromHeaders } from "@/lib/rateLimit"
 import { sendMagicLinkEmail } from "@/lib/email"
 
@@ -77,18 +77,41 @@ export async function requestMagicLinkAction(_prev: MagicLinkRequestState, form:
   return { sent: true, error: "" }
 }
 
-export type MagicLinkVerifyState = { ok: boolean; error: string; newKey?: string; walletName?: string }
+class StaleMagicLink extends Error {}
+
+export type MagicLinkVerifyState = {
+  ok: boolean
+  error: string
+  newKey?: string
+  walletName?: string
+  // Set when this link was the first proof of an unverified ownerEmail: every
+  // agent key minted before it was rotated and deactivated.
+  rotatedAgents?: number
+}
 
 // Confirm a magic link (POST, so email scanners can't consume it on prefetch):
 // single-use claim, then rotate the management key and start a session.
+//
+// ownerEmail is unverified at signup, so the first magic link on a wallet is a
+// claim: whoever set that email may be a squatter holding the sk_ key and
+// minting agents. The first proof rotates every pre-claim credential (the same
+// set as the social claim, lib/session.ts claimWallet) and marks the email
+// verified, in one transaction plus the post-commit sweep. Later links on a
+// verified wallet, or a link proving the linked social owner's own address, are
+// plain key recovery: only the sk_ key rotates. A first proof by anyone else on
+// a linked wallet also unlinks the previous social owner.
 export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: FormData): Promise<MagicLinkVerifyState> {
   const token = String(form.get("token") ?? "").trim()
   if (!token) return { ok: false, error: "Missing token." }
 
+  const invalid = { ok: false, error: "This link is invalid or expired. Request a new one." }
   const link = await db.magicLink.findUnique({ where: { tokenHash: hashApiKey(token) } })
-  if (!link || link.usedAt || link.expiresAt < new Date()) {
-    return { ok: false, error: "This link is invalid or expired. Request a new one." }
-  }
+  if (!link || link.usedAt || link.expiresAt < new Date()) return invalid
+
+  // A link proves only the address it was sent to. If ownerEmail changed since,
+  // it proves nothing about the wallet's current owner.
+  const current = await db.wallet.findUnique({ where: { id: link.walletId } })
+  if (!current || current.ownerEmail !== link.email) return invalid
 
   // Single-use claim: only the request that flips usedAt from null wins.
   const claimed = await db.magicLink.updateMany({
@@ -97,15 +120,54 @@ export async function verifyMagicLinkAction(_prev: MagicLinkVerifyState, form: F
   })
   if (claimed.count === 0) return { ok: false, error: "This link was already used. Request a new one." }
 
-  // Rotate the management key — we never stored the old one in the clear, so
-  // recovery means issuing a fresh key (agents' pxy_ keys are unaffected).
+  // We never stored the old management key in the clear, so recovery means
+  // issuing a fresh one.
   const mgmt = generateManagementKey()
-  const wallet = await db.wallet.update({
-    where: { id: link.walletId },
-    data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
+  const rotation = await db.$transaction(async (tx) => {
+    // Race-safe: only the request that flips ownerEmailVerifiedAt from null (for
+    // the address this link proved) runs the claim rotation.
+    const firstProof = await tx.wallet.updateMany({
+      where: { id: link.walletId, ownerEmail: link.email, ownerEmailVerifiedAt: null },
+      data: { ownerEmailVerifiedAt: new Date() },
+    })
+    // A linked social owner is exempt from the claim rotation only when they are
+    // the identity that holds this inbox. A linked owner can PATCH ownerEmail to
+    // someone else's address — then this proof comes from a different person, and
+    // is a claim against them like any squat. Read the owner here, after the
+    // flip above has locked the row, so a concurrent link can't go stale on us.
+    const owner = await tx.wallet.findUniqueOrThrow({ where: { id: link.walletId }, select: { userId: true } })
+    const linkedUser = owner.userId
+      ? await tx.user.findUnique({ where: { id: owner.userId }, select: { email: true, emailVerified: true } })
+      : null
+    const sameIdentity =
+      !!linkedUser && linkedUser.emailVerified && linkedUser.email.toLowerCase() === link.email.toLowerCase()
+    // First proof by anyone but the linked owner is a claim: rotate pre-claim
+    // access and unlink the previous social owner so they keep no dashboard hold.
+    const isClaim = firstProof.count === 1 && !sameIdentity
+    const revoked = isClaim ? await revokePreClaimAccess(tx, link.walletId) : null
+    if (isClaim && owner.userId) {
+      await tx.wallet.updateMany({ where: { id: link.walletId, userId: owner.userId }, data: { userId: null } })
+    }
+    // Rotate the key only while the wallet still carries the address this link
+    // proved — an ownerEmail change since the pre-check voids the link, and the
+    // throw rolls back the verification above with it.
+    const rotated = await tx.wallet.updateMany({
+      where: { id: link.walletId, ownerEmail: link.email },
+      data: { mgmtKeyHash: mgmt.hash, mgmtKeyPrefix: mgmt.prefix },
+    })
+    if (rotated.count !== 1) throw new StaleMagicLink()
+    const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: link.walletId } })
+    return { wallet, rotatedAgents: revoked?.agentsRotated }
+  }).catch((e: unknown) => {
+    if (e instanceof StaleMagicLink) return null
+    throw e
   })
+  if (!rotation) return invalid
+  const { wallet, rotatedAgents } = rotation
+  // Fails closed: if the sweep throws, no session is set and the key is not shown.
+  if (rotatedAgents !== undefined) await sweepPreClaimAccess(link.walletId)
 
   await clearSession()
   await setSession(mgmt.raw)
-  return { ok: true, error: "", newKey: mgmt.raw, walletName: wallet.name }
+  return { ok: true, error: "", newKey: mgmt.raw, walletName: wallet.name, rotatedAgents }
 }

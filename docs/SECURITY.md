@@ -24,7 +24,25 @@ missing server secret is a 503, never an open door.
 - Authorization rests on the secret, never on knowledge of an id. Wallet and
   agent ids are non-secret.
 - Viewers cannot mutate; every dashboard mutation re-checks session, role, and
-  that the target row belongs to the wallet.
+  that the target row belongs to the wallet. Resetting the management key is
+  owner-only, since an `sk_` session signs in as `owner`.
+- **Claim-time key rotation.** Wallet signup does not verify `owner_email`, so
+  whoever created a wallet may hold its `sk_` before the real owner arrives.
+  `Wallet.ownerEmailVerifiedAt` records proof: null at signup (API, `/start`,
+  delegated pools) and cleared whenever `owner_email` changes. The first proof
+  is a claim, by either path:
+  - a social sign-in whose provider reports the email verified (it also links
+    the wallet to the user; a wallet provisioned for a verified user starts
+    verified), or
+  - a magic link to the current `owner_email` on an unverified wallet.
+
+  A claim rotates everything minted before it in one transaction, then sweeps
+  again after commit: agent keys are replaced and deactivated, live execution
+  tokens, team memberships and Slack installs are revoked, and webhooks are
+  deleted. The social claim clears the `sk_`; the magic link replaces it with
+  the one it shows. The owner re-mints agent keys from the dashboard. A magic
+  link on an already-verified wallet is key recovery and rotates only the `sk_`.
+  A link sent to a previous `owner_email` is refused.
 
 ## Credentials at rest [SEC-1, SEC-2]
 
@@ -48,8 +66,48 @@ missing server secret is a 503, never an open door.
 Vault, Slack install, and roster tables are under **Postgres row-level
 security**. Every read or write runs inside a transaction that sets the tenant,
 so a forgotten `where` clause returns nothing rather than another tenant's rows.
-The application role must not be a superuser, or RLS is bypassed; the server
-checks this at startup in production.
+The application role must have neither SUPERUSER nor BYPASSRLS, or RLS is
+bypassed; the server checks both at startup in production and logs an error.
+The DB test suite runs the app as a restricted role to prove it.
+
+### Runbook: restricted app role
+
+Neon's default owner has BYPASSRLS (inherited via `neon_superuser`), so the app
+must not connect as it. Create a dedicated role **with SQL, as the owner** —
+roles created in the Neon console join `neon_superuser` and inherit BYPASSRLS.
+
+```sql
+CREATE ROLE sanction_app LOGIN PASSWORD '<generated>' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+GRANT CONNECT ON DATABASE <db> TO sanction_app;
+GRANT USAGE ON SCHEMA public TO sanction_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sanction_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sanction_app;
+-- tables/sequences created by future migrations (run as the owner):
+ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sanction_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO sanction_app;
+```
+
+Only `DATABASE_URL` (the pooled data-plane URL, `lib/db.ts`) moves to
+`sanction_app`. `DATABASE_URL_UNPOOLED` / `DIRECT_URL` stay on the owner:
+`prisma.config.ts` prefers them, so migrations keep DDL rights. If neither is
+set, the CLI falls back to `DATABASE_URL` and migrations fail as `sanction_app`.
+
+Rollout:
+
+1. Create the role and grants above on the production branch.
+2. Set `DATABASE_URL` to `sanction_app` (pooler host) for **Preview** only;
+   deploy a preview and run `bash scripts/smoke.sh` against it (vault
+   store/inject, clearance, Slack approvals).
+3. Check preview logs for the `SECURITY: DB role has ...` error — there
+   should be none.
+4. Repeat for **Production**. Rollback is reverting `DATABASE_URL`.
+
+Verify from the app's connection:
+
+```sql
+SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user;
+-- expect: sanction_app | f | f
+```
 
 ## Execution tokens [SEC-5]
 

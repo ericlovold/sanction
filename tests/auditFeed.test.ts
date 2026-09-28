@@ -13,6 +13,7 @@ const { dbMock } = vi.hoisted(() => ({
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
 
 import { buildAuditFeed } from "../lib/auditFeed"
 

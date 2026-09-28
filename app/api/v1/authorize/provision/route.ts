@@ -14,7 +14,7 @@ import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
 import { verifyExecutionJWT } from "@/lib/jwt"
 import { logger } from "@/lib/log"
-import { createProvisionPendingApproval } from "@/lib/approvals"
+import { approvedViaGrant, createProvisionPendingApproval } from "@/lib/approvals"
 import { recordDecision } from "@/lib/decisionMeter"
 import { cpoContext } from "@/lib/outcomes"
 import { consumeProvisionGrant } from "@/lib/grants"
@@ -23,6 +23,7 @@ import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
   SUBTREE_CAP_EXCEEDED_NOTE,
+  approvedSpendSum,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
   reserveCascadeDailySpend,
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+    if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: statusCode(existing.status) })
   }
 
   // Legacy display columns: merchant holds the resource for provision rows, so
@@ -242,14 +243,8 @@ export async function POST(req: NextRequest) {
   // check subtree caps only for would-be approvals.
   if (simulate) {
     const [dailySpend, monthlySpend, cpo] = await Promise.all([
-      db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-        _sum: { amountUsd: true },
-      }),
-      db.authorizationRequest.aggregate({
-        where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-        _sum: { amountUsd: true },
-      }),
+      approvedSpendSum(db, agent.id, dayStart),
+      approvedSpendSum(db, agent.id, monthStart),
       // CPO-1 parity with the spend route and the AuthZEN PDP: provisions count
       // toward the window's spend, so they must face the same ceiling.
       cpoContext(db, agent.walletId, policy),
@@ -320,14 +315,8 @@ export async function POST(req: NextRequest) {
       }
 
       const [dailySpend, monthlySpend, cpo] = await Promise.all([
-        tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: dayStart } },
-          _sum: { amountUsd: true },
-        }),
-        tx.authorizationRequest.aggregate({
-          where: { agentId: agent.id, status: "approved", createdAt: { gte: monthStart } },
-          _sum: { amountUsd: true },
-        }),
+        approvedSpendSum(tx, agent.id, dayStart),
+        approvedSpendSum(tx, agent.id, monthStart),
         cpoContext(tx, agent.walletId, policy),
       ])
       let exec: SpendContext["exec"]
@@ -448,7 +437,7 @@ export async function POST(req: NextRequest) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
-      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name)), { status: statusCode(existing.status) })
+      if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: statusCode(existing.status) })
     }
     throw e
   }
@@ -461,15 +450,18 @@ async function persist(data: Record<string, unknown>, agentName: string) {
   return NextResponse.json(decisionResponse(rec, agentName), { status: statusCode(rec.status) })
 }
 
-function decisionResponse(r: Decision, agentName: string) {
-  const authorized = r.status === "approved"
+function decisionResponse(r: Decision, agentName: string, grantGated = false) {
+  // A human-approved escalation minted a one-use grant; replaying the key is a
+  // status check, never a second authorization (see approvedViaGrant).
+  const authorized = r.status === "approved" && !grantGated
   const code = decisionCode(r.status, r.decisionNote)
   const details = (r.detailsJson ?? {}) as { line_item?: string; quantity?: number; unit_price_usd?: number | null }
   return {
     authorized,
-    status: r.status,
+    status: grantGated ? "denied" : r.status,
+    ...(grantGated ? { approval_status: r.status } : {}),
     request_id: r.id,
-    reason: r.decisionNote ?? undefined,
+    reason: grantGated ? "Approval status only; redeem the one-use grant to authorize an attempt" : r.decisionNote ?? undefined,
     code,
     remediation: code ? REMEDIATION[code] : undefined,
     // UX-3: fired limit with live values + evidence links (see spend route).

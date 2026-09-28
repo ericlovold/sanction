@@ -45,7 +45,9 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("broker walkthrough (real DB a
     const [id, duplicate] = await Promise.all([startWalkthrough(walletId), startWalkthrough(walletId)])
     expect(id).toBe(duplicate)
     const fetchMock = wireUpstream()
-    await Promise.all([advanceWalkthrough(walletId, id), advanceWalkthrough(walletId, id).catch(() => {})])
+    // Either click may win the walkthrough lock; the loser sees "pending" with no grant yet and throws.
+    const firstClicks = await Promise.allSettled([advanceWalkthrough(walletId, id), advanceWalkthrough(walletId, id)])
+    expect(firstClicks.filter(r => r.status === "fulfilled")).toHaveLength(1)
     let view = await walkthroughView(walletId)
     expect(view).toMatchObject({ state: "pending", initialStopped: true, executionCount: 0 })
     expect(fetchMock).not.toHaveBeenCalled()

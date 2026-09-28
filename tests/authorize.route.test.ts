@@ -11,6 +11,7 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+    grant: { findMany: vi.fn(async () => []) },
     executionToken: { findUnique: vi.fn(), update: vi.fn() },
     pendingApproval: { findFirst: vi.fn() },
     $transaction: vi.fn(),
@@ -36,7 +37,7 @@ vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
   return {
     ...mod,
-    walletAncestorChain: vi.fn(async () => []),
+    walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]),
     reserveCascadeDailySpend: vi.fn(async () => []),
     cascadeDailyWouldExceed: vi.fn(async () => false),
   }
@@ -214,6 +215,36 @@ describe("authorize — idempotency + simulate (FUND-1)", () => {
     const res = await authorize(req(SPEND, { idempotencyKey: "idem-1" }))
     expect(res.status).toBe(200)
     expect((await res.json()).request_id).toBe("req_prev")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("replays a policy-approved row as authorized (no escalation, budget debited once)", async () => {
+    dbMock.pendingApproval.findFirst.mockResolvedValue(null)
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_prev", status: "approved", decisionNote: "Auto-approved", amountUsd: 5, merchant: "Anthropic",
+    })
+    const res = await authorize(req(SPEND, { idempotencyKey: "idem-1" }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ authorized: true, status: "approved", request_id: "req_prev" })
+  })
+
+  it("replays a human-approved escalation as status only — the one-use grant must be redeemed", async () => {
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1" })
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+      id: "req_prev", status: "approved", decisionNote: "Approved by owner", amountUsd: 75, merchant: "Anthropic",
+    })
+    const res = await authorize(req({ ...SPEND, amount_usd: 75 }, { idempotencyKey: "idem-1" }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      authorized: false,
+      status: "denied",
+      approval_status: "approved",
+      request_id: "req_prev",
+      reason: "Approval status only; redeem the one-use grant to authorize an attempt",
+    })
+    expect(dbMock.pendingApproval.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sourceType: "authorization_request", sourceId: "req_prev" } }),
+    )
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 

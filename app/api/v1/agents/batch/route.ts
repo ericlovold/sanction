@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
 
@@ -63,7 +63,9 @@ export async function POST(req: NextRequest) {
 
   // Keys are generated up front; the transaction creates all seats or none.
   const minted = roster.map((seat) => ({ seat, key: generateApiKey() }))
-  const created = await db.$transaction(async (tx) => {
+  // RLS-scoped (SEC-3): the AgentClearance create is FORCE RLS; withTenant is
+  // still one transaction, so all seats or none.
+  const created = await withTenant(wallet_id, async (tx) => {
     const rows = []
     for (const { seat, key } of minted) {
       const agent = await tx.agent.create({

@@ -195,13 +195,24 @@ describe("resolveApproval — legacy fallback (no PendingApproval row)", () => {
     expect(await resolveApproval(WID, "req_x", "approve")).toMatchObject({ ok: false, status: 409 })
   })
 
-  it("approves an escalated legacy request directly", async () => {
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_x", status: "escalated", agent: { walletId: WID, name: "tenet" }, amountUsd: 60, merchant: "Vendor" })
-    const updateMock = vi.fn(async () => ({ id: "req_x", status: "approved", decidedAt: new Date(), decisionNote: "Approved by owner", amountUsd: 60, merchant: "Vendor" }))
-    ;(dbMock.authorizationRequest as Record<string, unknown>).update = updateMock
+  it("approves an escalated legacy request directly, guarded on status", async () => {
+    dbMock.authorizationRequest.findUnique
+      .mockResolvedValueOnce({ id: "req_x", status: "escalated", agent: { walletId: WID, name: "tenet" }, amountUsd: 60, merchant: "Vendor" })
+      .mockResolvedValueOnce({ id: "req_x", status: "approved", decidedAt: new Date(), decisionNote: "Approved by owner", amountUsd: 60, merchant: "Vendor" })
     const result = await resolveApproval(WID, "req_x", "approve")
-    expect(result).toMatchObject({ ok: true, status: 200 })
-    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "approved" }) }))
+    expect(result).toMatchObject({ ok: true, status: 200, request: { id: "req_x", status: "approved" } })
+    expect(dbMock.authorizationRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "req_x", status: "escalated" }, data: expect.objectContaining({ status: "approved" }) }),
+    )
+  })
+
+  it("409s the loser of a concurrent approve/deny race", async () => {
+    dbMock.authorizationRequest.findUnique
+      .mockResolvedValueOnce({ id: "req_x", status: "escalated", agent: { walletId: WID, name: "tenet" }, amountUsd: 60, merchant: "Vendor" })
+      .mockResolvedValueOnce({ id: "req_x", status: "approved", decidedAt: new Date(), decisionNote: "Approved by owner", amountUsd: 60, merchant: "Vendor" })
+    dbMock.authorizationRequest.updateMany.mockResolvedValueOnce({ count: 0 })
+    const result = await resolveApproval(WID, "req_x", "reject")
+    expect(result).toMatchObject({ ok: false, status: 409 })
   })
 })
 

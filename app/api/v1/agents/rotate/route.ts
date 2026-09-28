@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 
 const schema = z.object({
   wallet_id: z.string(),
@@ -33,16 +34,26 @@ export async function POST(req: NextRequest) {
   }
 
   const { raw, hash, prefix } = generateApiKey()
-  const updated = await db.agent.update({
-    where: { id: agent_id },
-    data: { apiKeyHash: hash, apiKeyPrefix: prefix, ...(holder !== undefined ? { holder } : {}) },
+  // Ownership is part of the write: an agent moved out of this wallet since the
+  // check above matches nothing, and the new key is never handed out.
+  const updated = await db.$transaction(async (tx) => {
+    const rotated = await tx.agent.updateMany({
+      where: { id: agent_id, walletId: wallet_id },
+      data: { apiKeyHash: hash, apiKeyPrefix: prefix, ...(holder !== undefined ? { holder } : {}) },
+    })
+    if (rotated.count !== 1) return false
+    await revokeActiveExecutionTokens({ agentId: agent_id }, tx)
+    return true
   })
+  if (!updated) {
+    return NextResponse.json({ error: "Agent not found in this wallet" }, { status: 404 })
+  }
 
   return NextResponse.json(
     {
       id: agent.id,
       name: agent.name,
-      holder: updated.holder,
+      holder: holder !== undefined ? holder : agent.holder,
       api_key: raw,
       api_key_prefix: prefix,
       wallet_id,

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { db } from "../lib/db"
+import { withTenant } from "../lib/rls"
+import { buildAuditFeed } from "../lib/auditFeed"
 
 // next/server after() defers work past the response and only runs in a real
 // request scope; stub it to a no-op so escalation webhook/email side-effects
@@ -71,9 +73,12 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
     if (walletId) {
       await db.credentialInjection.deleteMany({ where: { executionToken: { walletId } } })
       await db.executionToken.deleteMany({ where: { walletId } })
-      await db.credentialVault.deleteMany({ where: { walletId } })
       await db.authorizationRequest.deleteMany({ where: { agent: { walletId } } })
-      await db.agentClearance.deleteMany({ where: { walletId } })
+      // FORCE RLS tables: unscoped deletes match nothing for the app role.
+      await withTenant(walletId, async (tx) => {
+        await tx.credentialVault.deleteMany({ where: { walletId } })
+        await tx.agentClearance.deleteMany({ where: { walletId } })
+      })
       await db.agent.deleteMany({ where: { walletId } })
       await db.policy.deleteMany({ where: { walletId } })
       await db.wallet.deleteMany({ where: { id: walletId } })
@@ -82,6 +87,14 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
 
   const agentH = () => ({ "x-api-key": apiKey })
   const mgmtH = () => ({ "x-mgmt-key": mgmtKey })
+
+  // SEC-3 proof: the whole data plane below runs as the restricted app role
+  // (tests/setup/db-app-role.ts) — RLS is enforced, not bypassed.
+  it("runs as the restricted app role (no SUPERUSER, no BYPASSRLS)", async () => {
+    const [role] = await db.$queryRaw<{ user: string; rolsuper: boolean; rolbypassrls: boolean }[]>`
+      SELECT current_user AS "user", rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`
+    expect(role).toEqual({ user: "sanction_app", rolsuper: false, rolbypassrls: false })
+  })
 
   it("seeded a wallet + agent with usable keys", () => {
     expect(walletId).toBeTruthy()
@@ -119,6 +132,12 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
 
     const inj2 = await inject(req("POST", "/api/v1/credentials/inject", { headers: { authorization: `Bearer ${ex.jwt}` }, body: { credential_label: "openai" } }))
     expect(inj2.status).toBe(401)
+  })
+
+  it("audit feed joins the injected credential's label under RLS", async () => {
+    const feed = await buildAuditFeed(walletId, { type: "injection", limit: 10 })
+    expect(feed.events).toHaveLength(1)
+    expect(feed.events[0].credential_label).toBe("openai")
   })
 
   it("human-in-the-loop: escalation → owner approval", async () => {

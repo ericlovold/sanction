@@ -7,9 +7,11 @@ import { hashApiKey } from "../lib/apiKey"
 // revoke, sub-account). Concurrency/atomicity is a separate DB-backed test.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
-    wallet: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    wallet: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    agent: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
     agentClearance: { upsert: vi.fn() },
+    executionToken: { updateMany: vi.fn() },
+    $transaction: vi.fn(),
     webhook: { findUnique: vi.fn(), update: vi.fn() },
     credentialVault: { findUnique: vi.fn(), update: vi.fn() },
   },
@@ -45,6 +47,7 @@ const mgmt = { "x-mgmt-key": SK }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   // Default: a root wallet whose management key hashes to SK.
   dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
 })
@@ -70,13 +73,13 @@ describe("auth gates — management plane refuses without a valid key", () => {
 describe("agent key rotation (SEC-6)", () => {
   it("issues a fresh key and persists its hash; old key is overwritten", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ id: AID, walletId: WID })
-    dbMock.agent.update.mockResolvedValue({})
+    dbMock.agent.updateMany.mockResolvedValue({ count: 1 })
     const res = await rotate(req("POST", "/api/v1/agents/rotate", { headers: mgmt, body: { wallet_id: WID, agent_id: AID } }))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.api_key).toMatch(/^pxy_/)
-    const arg = dbMock.agent.update.mock.calls[0][0]
-    expect(arg.where).toEqual({ id: AID })
+    const arg = dbMock.agent.updateMany.mock.calls[0][0]
+    expect(arg.where).toEqual({ id: AID, walletId: WID })
     expect(arg.data.apiKeyHash).toBe(hashApiKey(body.api_key)) // the returned key's hash is what's stored
   })
 
@@ -89,10 +92,11 @@ describe("agent key rotation (SEC-6)", () => {
 describe("agent revocation (PATCH active:false)", () => {
   it("sets isActive on the agent", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ id: AID, walletId: WID })
-    dbMock.agent.update.mockResolvedValue({ id: AID, name: "a", isActive: false, dailyTokenBudgetUsd: null, dailySpendBudgetUsd: null, perTransactionMaxUsd: null, escalateOverUsd: null })
+    dbMock.agent.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.agent.findUnique.mockResolvedValueOnce({ id: AID, walletId: WID }).mockResolvedValueOnce({ id: AID, name: "a", isActive: false, dailyTokenBudgetUsd: null, dailySpendBudgetUsd: null, perTransactionMaxUsd: null, escalateOverUsd: null })
     const res = await patchAgent(req("PATCH", "/api/v1/agents", { headers: mgmt, body: { wallet_id: WID, agent_id: AID, active: false } }))
     expect(res.status).toBe(200)
-    expect(dbMock.agent.update.mock.calls[0][0].data.isActive).toBe(false)
+    expect(dbMock.agent.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: AID, walletId: WID }, data: { isActive: false } })
   })
 })
 
@@ -117,11 +121,34 @@ describe("wallet creation — root vs sub-account", () => {
 
 describe("wallet settings (PATCH /wallets)", () => {
   it("renames the wallet", async () => {
-    dbMock.wallet.update.mockResolvedValue({ id: WID, name: "Renamed", ownerEmail: "a@x.com" })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.wallet.findUniqueOrThrow.mockResolvedValue({ id: WID, name: "Renamed", ownerEmail: "a@x.com" })
     const res = await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, name: "Renamed" } }))
     expect(res.status).toBe(200)
     expect((await res.json()).name).toBe("Renamed")
-    expect(dbMock.wallet.update.mock.calls[0][0].data).toEqual({ name: "Renamed" })
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toEqual({ name: "Renamed" })
+  })
+  it("changing owner_email clears the ownerEmail verification marker", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com", ownerEmailVerifiedAt: new Date(), parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.wallet.findUniqueOrThrow.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "b@x.com" })
+    const res = await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, owner_email: "b@x.com" } }))
+    expect(res.status).toBe(200)
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toEqual({ ownerEmail: "b@x.com", ownerEmailVerifiedAt: null })
+  })
+  it("re-submitting the same owner_email keeps the verification marker", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com", ownerEmailVerifiedAt: new Date(), parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.wallet.findUniqueOrThrow.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com" })
+    await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, owner_email: "a@x.com" } }))
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].data).toEqual({ ownerEmail: "a@x.com" })
+  })
+  it("a write authenticated with a key a claim has since rotated matches nothing — 401, no retarget", async () => {
+    dbMock.wallet.findUnique.mockResolvedValue({ id: WID, name: "Acme", ownerEmail: "a@x.com", ownerEmailVerifiedAt: new Date(), parentId: null, mgmtKeyHash: hashApiKey(SK), mgmtKeyPrefix: "sk_testmana" })
+    dbMock.wallet.updateMany.mockResolvedValue({ count: 0 }) // claim committed between auth and write
+    const res = await patchWallet(req("PATCH", "/api/v1/wallets", { headers: mgmt, body: { wallet_id: WID, owner_email: "attacker@evil.test" } }))
+    expect(res.status).toBe(401)
+    expect(dbMock.wallet.updateMany.mock.calls[0][0].where).toEqual({ id: WID, mgmtKeyHash: hashApiKey(SK) })
   })
   it("401 without a management key", async () => {
     expect((await patchWallet(req("PATCH", "/api/v1/wallets", { body: { wallet_id: WID, name: "x" } }))).status).toBe(401)

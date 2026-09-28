@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../lib/generated/prisma/client"
-import { db } from "../lib/db"
+import { appRoleUrl } from "./setup/db-app-role"
 import { encryptCredential } from "../lib/jwt"
 import { generateApiKey } from "../lib/apiKey"
 
 // SEC-3 RLS proof. Postgres bypasses RLS for superusers, so this MUST run as a
 // non-superuser role to be meaningful (production's app role is non-superuser).
-// We seed as the superuser singleton `db`, then exercise each RLS-protected table
-// as a freshly created non-superuser role `sanction_app` to prove the policy
+// We seed as the owner (DATABASE_ADMIN_URL), then exercise each RLS-protected table
+// as the restricted role `sanction_app` (tests/setup/db-app-role.ts) to prove the policy
 // confines it. One describe block per RLS-enabled table; the Phase-2 loop appends.
 //
 //   RUN_DB_TESTS=1 DATABASE_URL="postgres://…disposable…" npx vitest run tests/rls.db.test.ts
@@ -16,6 +16,8 @@ const run = process.env.RUN_DB_TESTS === "1"
 
 describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () => {
   let appClient: PrismaClient
+  let db: PrismaClient
+  let adminUrl = ""
   let walletA = ""
   let walletB = ""
   let agentA = ""
@@ -23,13 +25,9 @@ describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () =>
   let credBId = ""
 
   beforeAll(async () => {
-    // Non-superuser app role (idempotent) + DML grants.
-    await db.$executeRawUnsafe(
-      `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='sanction_app') THEN CREATE ROLE sanction_app LOGIN PASSWORD 'app'; END IF; END $$;`,
-    )
-    await db.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO sanction_app;`)
-    await db.$executeRawUnsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sanction_app;`)
-
+    // Owner connection for seeding; sanction_app is provisioned by the global setup.
+    adminUrl = process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL!
+    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: adminUrl }) })
     const ts = Date.now()
     const wa = await db.wallet.create({ data: { name: "A", ownerEmail: `a-${ts}@e.com` } })
     const wb = await db.wallet.create({ data: { name: "B", ownerEmail: `b-${ts}@e.com` } })
@@ -61,8 +59,7 @@ describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () =>
       data: { walletId: walletB, teamId: "TB", channelId: "CB1", botTokenEnc: "encB" },
     })
 
-    const appUrl = process.env.DATABASE_URL!.replace(/\/\/[^@]+@/, "//sanction_app:app@")
-    appClient = new PrismaClient({ adapter: new PrismaPg({ connectionString: appUrl }) })
+    appClient = new PrismaClient({ adapter: new PrismaPg({ connectionString: appRoleUrl(adminUrl) }) })
   })
 
   afterAll(async () => {
@@ -74,6 +71,7 @@ describe.skipIf(!run)("SEC-3: RLS confines tenant tables to their wallet", () =>
       await db.agent.deleteMany({ where: { walletId: { in: [walletA, walletB] } } })
       await db.wallet.deleteMany({ where: { id: { in: [walletA, walletB] } } })
     }
+    await db?.$disconnect()
   })
 
   // Mirror lib/rls.ts withTenant() against the non-superuser client.

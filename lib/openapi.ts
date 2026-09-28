@@ -68,6 +68,7 @@ export const spec = {
         type: "object",
         properties: {
           authorized: { type: "boolean" },
+          approval_status: { type: "string", description: "Present when an idempotent replay hits an escalation that a human (or timeout-approve) approved: status only, never permission to execute. Redeem the one-use grant for an attempt. Policy-approved requests replay authorized: true." },
           status: { type: "string", enum: ["approved", "denied", "escalated", "pending"] },
           reason: { type: "string", description: "Human-readable explanation of the decision" },
           code: {
@@ -242,6 +243,7 @@ export const spec = {
         type: "object",
         properties: {
           authorized: { type: "boolean" },
+          approval_status: { type: "string", description: "Present when an idempotent replay hits an escalation that a human (or timeout-approve) approved: status only, never permission to execute. Redeem the one-use grant for an attempt. Policy-approved requests replay authorized: true." },
           status: { type: "string", enum: ["approved", "denied", "escalated"] },
           reason: { type: "string", description: "Human-readable explanation of the decision" },
           code: {
@@ -1049,7 +1051,7 @@ export const spec = {
           },
         },
         responses: {
-          "200": { description: "allowed or escalated (poll /authorize/{id}, or replay the Idempotency-Key)" },
+          "200": { description: "allowed or escalated (poll /authorize/{id}, or replay the Idempotency-Key for status — an approved escalation replays authorized: false with approval_status; redeem the grant)" },
           "401": { description: "Invalid API key" },
           "403": { description: "Denied by policy or grant mismatch", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "409": { description: "Grant already consumed", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },

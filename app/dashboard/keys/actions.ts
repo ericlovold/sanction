@@ -5,6 +5,8 @@ import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
 import { generateApiKey, generateManagementKey } from "@/lib/apiKey"
 import { requireSessionRole, setSession } from "@/lib/session"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
+import { parseEndOfDay } from "@/lib/dateInput"
 
 // Resolve an agent only if it belongs to the logged-in wallet. Session-gated —
 // same management-plane trust model as the REST endpoints (x-mgmt-key).
@@ -28,14 +30,22 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
   const changeHolder = String(form.get("change_holder") ?? "") === "true"
 
   const key = generateApiKey()
-  await db.agent.update({
-    where: { id: agentId },
-    data: {
-      apiKeyHash: key.hash,
-      apiKeyPrefix: key.prefix,
-      ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
-    },
+  // Ownership is part of the write: an agent moved out of this wallet since the
+  // check above matches nothing, and the new key is never shown.
+  const rotated = await db.$transaction(async (tx) => {
+    const res = await tx.agent.updateMany({
+      where: { id: agentId, walletId: owned.wallet.id },
+      data: {
+        apiKeyHash: key.hash,
+        apiKeyPrefix: key.prefix,
+        ...(changeHolder ? { holder: holderRaw ? holderRaw.slice(0, 120) : null } : {}),
+      },
+    })
+    if (res.count !== 1) return false
+    await revokeActiveExecutionTokens({ agentId }, tx)
+    return true
   })
+  if (!rotated) return { ok: false, error: "Not authorized." }
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
   return { ok: true, error: "", agentId, newKey: key.raw }
@@ -49,9 +59,11 @@ export type MgmtKeyState = { ok: boolean; error: string; newKey?: string }
 // exactly the "I lost my admin key" recovery a user must be able to self-serve.
 // The old key stops working the instant the new hash is stored; we re-set the
 // session to the new key so the current login survives the rotation. Shown once.
+// Owner-only: an sk_ session resolves to role "owner", so letting an admin mint
+// one would be an admin→owner escalation.
 export async function resetManagementKeyAction(_prev: MgmtKeyState, _form: FormData): Promise<MgmtKeyState> {
-  const wallet = await requireSessionRole("admin")
-  if (!wallet) return { ok: false, error: "Log in to reset your management key." }
+  const wallet = await requireSessionRole("owner")
+  if (!wallet) return { ok: false, error: "Only the wallet owner can reset the management key." }
 
   const key = generateManagementKey()
   await db.wallet.update({
@@ -73,18 +85,23 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   const active = String(form.get("active") ?? "") === "true"
   const owned = await ownedAgent(agentId)
   if (!owned) return
-  await db.agent.update({ where: { id: agentId }, data: { isActive: active } })
+  await db.$transaction(async (tx) => {
+    const res = await tx.agent.updateMany({ where: { id: agentId, walletId: owned.wallet.id }, data: { isActive: active } })
+    if (res.count !== 1) return
+    if (!active) await revokeActiveExecutionTokens({ agentId }, tx)
+  })
   revalidatePath("/dashboard/agents")
   revalidatePath("/dashboard/team")
 }
 
 // Empty string = inherit the wallet policy (null); a number = a per-agent
-// override in dollars, stored as cents.
-function toCentsOrNull(v: FormDataEntryValue | null): number | null {
+// override in dollars, stored as cents. Anything else is malformed (undefined)
+// — never read as "inherit", which would silently remove the cap.
+function toCentsOrNull(v: FormDataEntryValue | null): number | null | undefined {
   const s = String(v ?? "").trim()
   if (s === "") return null
   const n = Number(s)
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : undefined
 }
 
 export type LimitsState = { ok: boolean; error: string }
@@ -97,17 +114,25 @@ export async function updateLimitsAction(_prev: LimitsState, form: FormData): Pr
 
   // Seat fields: empty string clears (holder removed / no auto-expiry).
   const holderRaw = String(form.get("holder") ?? "").trim()
-  const expiresRaw = String(form.get("expires_at") ?? "").trim()
+  const expiresAt = parseEndOfDay(String(form.get("expires_at") ?? "").trim())
+  if (expiresAt === undefined) return { ok: false, error: "Expiry must be a valid date (YYYY-MM-DD)." }
+
+  const budgets = {
+    dailyTokenBudgetUsd: toCentsOrNull(form.get("daily_token_budget_usd")),
+    dailySpendBudgetUsd: toCentsOrNull(form.get("daily_spend_budget_usd")),
+    perTransactionMaxUsd: toCentsOrNull(form.get("per_transaction_max_usd")),
+    escalateOverUsd: toCentsOrNull(form.get("escalate_over_usd")),
+  }
+  if (Object.values(budgets).some((v) => v === undefined)) {
+    return { ok: false, error: "Budgets must be blank (inherit) or a non-negative dollar amount." }
+  }
 
   await db.agent.update({
     where: { id: agentId },
     data: {
-      dailyTokenBudgetUsd: toCentsOrNull(form.get("daily_token_budget_usd")),
-      dailySpendBudgetUsd: toCentsOrNull(form.get("daily_spend_budget_usd")),
-      perTransactionMaxUsd: toCentsOrNull(form.get("per_transaction_max_usd")),
-      escalateOverUsd: toCentsOrNull(form.get("escalate_over_usd")),
+      ...budgets,
       holder: holderRaw ? holderRaw.slice(0, 120) : null,
-      expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null,
+      expiresAt,
     },
   })
 

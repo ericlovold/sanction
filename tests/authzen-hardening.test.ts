@@ -14,7 +14,7 @@ const { dbMock } = vi.hoisted(() => ({
     agent: { findUnique: vi.fn(), update: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn(), updateMany: vi.fn() },
     pendingApproval: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
-    grant: { create: vi.fn(), findFirst: vi.fn() },
+    grant: { findMany: vi.fn(async () => []), create: vi.fn(), findFirst: vi.fn() },
     consumedBindingToken: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(async () => ({ count: 0 })) },
     rateLimit: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock("@/lib/webhooks", () => ({ deliverEvent: vi.fn(async () => {}), APPROVE_
 vi.mock("@/lib/email", () => ({ sendEscalationEmail: vi.fn(async () => {}) }))
 vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
-  return { ...mod, walletAncestorChain: vi.fn(async () => []), cascadeDailyWouldExceed: vi.fn(async () => false) }
+  return { ...mod, walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]), cascadeDailyWouldExceed: vi.fn(async () => false) }
 })
 
 import { POST as evaluation } from "../app/api/access/v1/evaluation/route"

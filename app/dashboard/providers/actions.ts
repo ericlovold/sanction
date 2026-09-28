@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
 import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { requireSessionRole } from "@/lib/session"
@@ -57,10 +56,14 @@ export async function disconnectProviderAction(form: FormData): Promise<void> {
   if (!provider.success) return
   const info = PROVIDERS.find((p) => p.id === provider.data)!
 
-  await db.credentialVault.updateMany({
-    where: { walletId: wallet.id, label: info.vaultLabel, revokedAt: null },
-    data: { revokedAt: new Date() },
-  })
+  // RLS-scoped (SEC-3): CredentialVault is FORCE RLS — unwrapped, this matches
+  // zero rows for the app role and the key silently stays live.
+  await withTenant(wallet.id, (tx) =>
+    tx.credentialVault.updateMany({
+      where: { walletId: wallet.id, label: info.vaultLabel, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  )
 
   revalidatePath("/dashboard/providers")
   revalidatePath("/dashboard/credentials")

@@ -410,10 +410,15 @@ async function resolveLegacyAuthorizationRequest(
   const status = decision === "approve" ? "approved" : "denied"
   const decisionNote = note?.trim() || (decision === "approve" ? `Approved by ${resolvedBy}` : `Rejected by ${resolvedBy}`)
 
-  const updated = await db.authorizationRequest.update({
-    where: { id: requestId },
+  // Guarded on status: a concurrent approve/deny race has exactly one winner.
+  const res = await db.authorizationRequest.updateMany({
+    where: { id: requestId, status: "escalated" },
     data: { status, decidedAt: new Date(), decisionNote },
   })
+  const updated = await db.authorizationRequest.findUnique({ where: { id: requestId } })
+  if (res.count === 0 || !updated) {
+    return { ok: false as const, error: `Request already ${updated?.status ?? "resolved"}`, status: 409 as const }
+  }
 
   after(() =>
     deliverEvent(walletId, "escalation.resolved", {
@@ -438,6 +443,21 @@ export async function listPendingApprovals(walletId: string) {
     if (!wasExpired) stillPending.push(row)
   }
   return stillPending
+}
+
+/**
+ * True when an approved request was settled through a PendingApproval (human or
+ * policy-timeout approve), which minted a one-use grant. An idempotent replay of
+ * such a row is status only — the grant, not the key, authorizes the attempt.
+ * Policy-approved rows and legacy pre-PendingApproval rows have no approval.
+ */
+export async function approvedViaGrant(r: { id: string; status: string }): Promise<boolean> {
+  if (r.status !== "approved") return false
+  const approval = await db.pendingApproval.findFirst({
+    where: { sourceType: SOURCE_AUTHORIZATION_REQUEST, sourceId: r.id },
+    select: { id: true },
+  })
+  return approval !== null
 }
 
 /** True once an escalated request has passed its policy timeout. 0 mins = never. */

@@ -29,6 +29,7 @@ const { dbMock } = vi.hoisted(() => ({
     agent: { findUnique: vi.fn(), update: vi.fn() },
     agentClearance: { findUnique: vi.fn() },
     authorizationRequest: { findUnique: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+    grant: { findMany: vi.fn(async () => []) },
     executionToken: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
     credentialVault: { findMany: vi.fn(), findFirst: vi.fn() },
     credentialInjection: { create: vi.fn() },
@@ -59,7 +60,7 @@ vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
   return {
     ...mod,
-    walletAncestorChain: vi.fn(async () => []),
+    walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]),
     reserveCascadeDailySpend: vi.fn(async () => []),
     cascadeDailyWouldExceed: vi.fn(async () => false),
   }

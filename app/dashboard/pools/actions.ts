@@ -8,6 +8,9 @@ import { parseOwnerEmail, parsePoolCapDollars, parsePoolName } from "@/lib/poolF
 import { agentIsInWalletSet, walletSubtreeIds } from "@/lib/poolAccess"
 import { upsertPolicyWithRevision } from "@/lib/policy"
 import { requireSessionRole } from "@/lib/session"
+import { withTenant } from "@/lib/rls"
+import { canNestUnder, MAX_WALLET_CHAIN } from "@/lib/freeze"
+import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 
 export type CreatePoolState = {
   ok: boolean
@@ -42,6 +45,10 @@ export async function createDelegatedPoolAction(
   if (!ownerEmail.ok) return { ok: false, message: ownerEmail.error }
   const cap = parsePoolCapDollars(form.get("subtree_daily_cap_usd"))
   if (!cap.ok) return { ok: false, message: cap.error }
+
+  if (!(await canNestUnder(db, wallet.id))) {
+    return { ok: false, message: `Pools can nest at most ${MAX_WALLET_CHAIN} levels deep.` }
+  }
 
   const mgmt = generateManagementKey()
 
@@ -192,6 +199,8 @@ export async function applyPoolAllocationAction(
   return { ok: true, message: `Allocation applied to ${allocation.length} child pools.` }
 }
 
+class AgentMovedError extends Error {}
+
 export async function moveAgentToPoolAction(
   _prev: PoolActionState,
   form: FormData,
@@ -210,16 +219,28 @@ export async function moveAgentToPoolAction(
   if (!agent) return { ok: false, message: "Not authorized for that agent." }
   if (agent.walletId === targetWalletId) return { ok: true, message: "Agent already belongs to that pool." }
 
-  await db.$transaction(async (tx) => {
-    await tx.agent.update({
-      where: { id: agentId },
-      data: { walletId: targetWalletId },
+  // RLS-scoped (SEC-3): the AgentClearance row must be visible under the source
+  // pool and writable under the target, so the tenant set is both.
+  // The move is conditional on the source wallet: a concurrent move leaves no
+  // matching row, and the throw rolls the whole transaction back.
+  try {
+    await withTenant([agent.walletId, targetWalletId], async (tx) => {
+      const moved = await tx.agent.updateMany({
+        where: { id: agentId, walletId: agent.walletId },
+        data: { walletId: targetWalletId },
+      })
+      if (moved.count !== 1) throw new AgentMovedError()
+      await tx.agentClearance.updateMany({
+        where: { agentId },
+        data: { walletId: targetWalletId },
+      })
+      // Execution tokens are bound to the source pool; strand none across a move.
+      await revokeActiveExecutionTokens({ agentId }, tx)
     })
-    await tx.agentClearance.updateMany({
-      where: { agentId },
-      data: { walletId: targetWalletId },
-    })
-  })
+  } catch (err) {
+    if (err instanceof AgentMovedError) return { ok: false, message: "Agent changed; refresh and try again." }
+    throw err
+  }
 
   revalidatePools()
   return { ok: true, message: "Agent moved" }

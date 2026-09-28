@@ -8,8 +8,9 @@
  * `walletId`, even if the query forgets its `where` clause. This is the
  * DB-level backstop beneath the app-layer `walletId` filtering.
  *
- * IMPORTANT — the app's DB role MUST be non-superuser for RLS to take effect.
- * Postgres bypasses RLS for superusers, and for a table's owner unless the table
+ * IMPORTANT — the app's DB role MUST have neither SUPERUSER nor BYPASSRLS for
+ * RLS to take effect (Neon's default owner has BYPASSRLS — see docs/SECURITY.md).
+ * Postgres bypasses RLS for those roles, and for a table's owner unless the table
  * is set to FORCE ROW LEVEL SECURITY (the migration does set FORCE, so a
  * non-superuser owner — e.g. Neon's default role — is correctly subject). Never
  * run the app as a superuser; tests verify isolation against a non-superuser role.
@@ -29,12 +30,21 @@ export function withTenant<T>(
   wallet: string | string[],
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const ids = (Array.isArray(wallet) ? wallet : [wallet]).filter(Boolean)
   return db.$transaction(async (tx) => {
-    // Transaction-local (is_local=true): auto-resets at COMMIT/ROLLBACK, so it
-    // can never leak to another tenant on a pooled connection. The CSV is a
-    // bound parameter (cuids contain no commas → no injection / no ambiguity).
-    await tx.$executeRaw`SELECT set_config('app.wallet_ids', ${ids.join(",")}, true)`
+    await scopeTenant(tx, wallet)
     return fn(tx)
   })
+}
+
+/**
+ * Scope an already-open transaction to a tenant — for a transaction that must
+ * also touch RLS-protected rows atomically with other writes (withTenant opens
+ * its own transaction, so it can't join one).
+ */
+export async function scopeTenant(tx: Prisma.TransactionClient, wallet: string | string[]): Promise<void> {
+  const ids = (Array.isArray(wallet) ? wallet : [wallet]).filter(Boolean)
+  // Transaction-local (is_local=true): auto-resets at COMMIT/ROLLBACK, so it
+  // can never leak to another tenant on a pooled connection. The CSV is a
+  // bound parameter (cuids contain no commas → no injection / no ambiguity).
+  await tx.$executeRaw`SELECT set_config('app.wallet_ids', ${ids.join(",")}, true)`
 }
