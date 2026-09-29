@@ -40,6 +40,12 @@ will not survive agents that do not share a prompt.
   (allow all except blocked). The upstream credential lives in the
   wallet's vault, never with the agent. Traffic that bypasses the broker
   is not governed; the plain wallet URL stays cooperative.
+  Refusals include `result._meta["sanction/decision"]` with `status` and,
+  `action_type` (`tool.invoke` or `spend`), and, when available, `request_id`,
+  `code`, and `reason`. For a trusted synthetic upstream, hosts can use the
+  [bounded approval-loop example](../examples/broker-approval-loop/README.md)
+  to poll and retry the identical call once with a valid grant. An unknown
+  execution outcome requires reconciliation, not an automatic retry.
 - **Present.** `POST /v1/exec` mints a 15-minute HS256 JWT: credential scope,
   hard spend cap, wallet-bound, freeze-aware. This is a mandate. It was
   documented as credential injection. It is also how a parent agent hires a

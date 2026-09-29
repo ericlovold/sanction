@@ -174,4 +174,6 @@ measurement — they hold prose and SVG paths, not decisions.
 
 ## Broker walkthrough
 
+The host-side example in `examples/broker-approval-loop/` reads structured refusal metadata from `lib/broker.ts`, polls the authenticated authorization endpoint, and permits one exact-request retry. `tests/broker-approval-loop.test.ts` covers bounded waiting and terminal failures; `tests/broker.route.test.ts` exercises the helper against the broker route with mocked persistence and approval polling. These checks do not prove live Slack delivery, host compatibility, or durable recovery across client restarts.
+
 `lib/brokerWalkthrough.ts` and `/dashboard/walkthrough` prove the existing broker approval loop with a harmless upstream that records its own invocation count. Completion requires an initial stop, argument-mismatch refusal without grant consumption, one execution, and reuse refusal. `tests/broker-walkthrough.db.test.ts` covers the real decision/approval/grant paths, concurrent clicks, inherited denial, tenant ownership and reparenting, expiry, and uncertain outcomes. Unit tests cover the upstream credential boundary and admin action authority. See [the walkthrough guide](BROKER-WALKTHROUGH.md) for its limits.
