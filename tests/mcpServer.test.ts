@@ -1,4 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
+import { resolve } from "node:path"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createSanctionMcpServer } from "../lib/mcpServer"
@@ -41,6 +43,50 @@ describe("createSanctionMcpServer — tool handlers", () => {
       expect(registry.description.length).toBeLessThanOrEqual(100)
       expect(registry.description).toContain("Cooperative")
     } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it("exposes conservative safety hints and matching bundled stdio metadata", async () => {
+    const { client, server } = await connectedClient()
+    const bundled = new Client({ name: "metadata-parity", version: "0.0.0" })
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    try {
+      const { tools } = await client.listTools()
+      // Explicit expectations catch accidental read-only classification of grant
+      // consumption and expiry settlement, including the latter's GET endpoint.
+      const expected = {
+        sanction_authorize: [false, true, false, true],
+        sanction_authorize_provision: [false, true, false, true],
+        sanction_authorize_tool: [false, true, false, true],
+        sanction_authorize_capability: [false, true, false, true],
+        sanction_log_tokens: [false, false, false, true],
+        sanction_log_outcome: [false, false, false, false],
+        sanction_request_execution: [false, false, false, false],
+        sanction_inject_credential: [false, true, false, false],
+        sanction_wallet_status: [true, false, true, false],
+        sanction_check_authorization: [false, true, false, false],
+      }
+      expect(tools).toHaveLength(10)
+      expect(Object.fromEntries(tools.map(tool => [tool.name, [
+        tool.annotations?.readOnlyHint, tool.annotations?.destructiveHint,
+        tool.annotations?.idempotentHint, tool.annotations?.openWorldHint,
+      ]]))).toEqual(expected)
+      for (const tool of tools) expect(tool.title).toEqual(expect.any(String))
+      expect(tools.find(tool => tool.name === "sanction_check_authorization")?.description).toContain("not read-only")
+      expect(fetchMock).not.toHaveBeenCalled()
+
+      await bundled.connect(new StdioClientTransport({
+        command: process.execPath,
+        args: [resolve("packages/sanction-mcp/mcp-server.js")],
+        // No real credentials or external API calls are needed for discovery.
+        env: { SANCTION_API_KEY: "pxy_metadata_test", SANCTION_API_URL: "http://127.0.0.1:1" },
+      }))
+      expect((await bundled.listTools()).tools).toEqual(tools)
+    } finally {
+      await bundled.close()
       await client.close()
       await server.close()
     }
