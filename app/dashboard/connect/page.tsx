@@ -4,6 +4,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { ConnectionConfig } from "@/components/connection-config"
 import { developerConfig, developerConnection } from "@/lib/developerConnection"
 import { hasRole } from "@/lib/roles"
+import { completedWalkthroughProof } from "@/lib/brokerWalkthrough"
 import { sourceNames } from "@/lib/usageObservation"
 
 export const dynamic = "force-dynamic"
@@ -20,7 +21,10 @@ export default async function ConnectPage({ searchParams }: {
   const check = typeof params.check === "string" && /^\d{1,6}$/.test(params.check) ? Number(params.check) + 1 : 1
   const source = params.source === "codex" ? "codex" : "claude-code"
   const seat = typeof params.seat === "string" ? params.seat : ""
-  const view = await developerConnection(wallet.id, seat, source)
+  const [view, proof] = await Promise.all([
+    developerConnection(wallet.id, seat, source),
+    completedWalkthroughProof(wallet.id),
+  ])
   return <div className="mx-auto max-w-3xl space-y-7 p-5 md:p-10">
     <header className="space-y-3">
       <Link href="/dashboard" className="text-sm underline">Back to roster</Link>
@@ -67,6 +71,13 @@ export default async function ConnectPage({ searchParams }: {
         <Link href="/dashboard/usage" className="block text-sm underline">View reported sessions</Link>
       </section>
       <section className="space-y-3 rounded-lg border p-5">
+        {proof ? <>
+          <h2 className="text-xl font-medium">4. Proof complete</h2>
+          <p role="status" className="text-sm">One approved execution recorded; changed arguments and grant reuse were refused.</p>
+          <p className="text-sm text-muted-foreground">Completed {date(proof.completedAt!)}. This is a wallet-level test of the controlled broker path, not proof that {sourceNames[source]} or this seat is governed.</p>
+          {hasRole(wallet.role, "admin") ? <Link href={`/dashboard/walkthrough?run=${encodeURIComponent(proof.id)}`} className="text-sm underline">View saved proof</Link> : <p className="text-sm text-muted-foreground">Ask a wallet admin to review the saved walkthrough with you.</p>}
+          <Link href="#govern-your-tool" className="block text-sm underline">Next: govern your own tool</Link>
+        </> : <>
         <h2 className="text-xl font-medium">4. Prove a governed action</h2>
         <p className="text-sm">Reporting shows activity. The broker walkthrough demonstrates a stop, human approval, and one recorded execution using a virtual test note.</p>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
@@ -76,11 +87,12 @@ export default async function ConnectPage({ searchParams }: {
         </ol>
         <p className="text-sm text-muted-foreground">This creates a separate test pool and agent under your wallet. It does not install protection for {sourceNames[source]} or change this seat’s policy. You can run it before telemetry arrives.</p>
         {hasRole(wallet.role, "admin") ? <Link href="/dashboard/walkthrough" className="inline-block rounded bg-primary px-4 py-2 text-sm text-primary-foreground">Start the broker approval test</Link> : <p className="text-sm">Ask a wallet admin to run the broker walkthrough with you. Your viewer role can inspect reporting but cannot create or approve the test.</p>}
+        </>}
       </section>
-      <section className="space-y-3 rounded-lg border p-5">
-        <h2 className="text-xl font-medium">Then govern your own tool</h2>
+      <section id="govern-your-tool" className="scroll-mt-28 space-y-3 rounded-lg border p-5">
+        <h2 className="text-xl font-medium">{proof ? "Next: govern your own tool" : "Then govern your own tool"}</h2>
         <p className="text-sm text-muted-foreground">Completing the walkthrough proves only its controlled broker path. Choose an enforcement path for your own traffic next.</p>
-        {source === "claude-code" ? <><p className="text-sm text-muted-foreground">The optional Claude Code approval test gates a configured Read call. It uses a dedicated test wallet and policy; reporting alone does not install it.</p><Link href="/docs/developer-usage" className="text-sm underline">Set up the native approval test</Link></> : <><p className="text-sm text-muted-foreground">This Codex connection observes usage. To enforce limits, route supported model calls through the gateway or MCP tool calls through the broker.</p><Link href="/docs/gateway" className="mr-4 text-sm underline">Gateway setup</Link><Link href="/docs/agent-wallet" className="text-sm underline">MCP broker setup</Link></>}
+        {source === "claude-code" ? <><p className="text-sm text-muted-foreground">The optional Claude Code approval test gates a configured Read call. It uses a dedicated test wallet and policy; reporting alone does not install it.</p><Link href="/docs/developer-usage" className={proof ? "inline-block rounded bg-primary px-4 py-2 text-sm text-primary-foreground" : "text-sm underline"}>Set up the native approval test</Link></> : <><p className="text-sm text-muted-foreground">This Codex connection observes usage. To enforce limits, route supported model calls through the gateway or MCP tool calls through the broker.</p><Link href="/docs/gateway" className="mr-4 text-sm underline">Gateway setup</Link><Link href="/docs/agent-wallet" className={proof ? "inline-block rounded bg-primary px-4 py-2 text-sm text-primary-foreground" : "text-sm underline"}>MCP broker setup</Link></>}
       </section>
     </>}
   </div>

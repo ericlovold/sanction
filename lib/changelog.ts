@@ -21,6 +21,18 @@ export const CHANGELOG: ChangelogEntry[] = [
     body: "Registry metadata now includes the hosted Streamable HTTP endpoint alongside npm, with the agent key marked secret and required. The Grok Bot guide separates a read-only connection check from cooperative authorization and enforced broker routing. Marketplace acceptance and OAuth onboarding remain pending; merging these artifacts does not publish the registry update. The roadmap prioritizes connection, approval resumption, and measured scale before broader distribution.",
   },
   {
+    date: "2026-09-28",
+    title: "Machine-readable broker approval handoff",
+    tags: ["mcp", "approvals"],
+    body: "Broker refusals now include structured decision metadata so hosts can read the approval request ID without parsing prose. A transport-independent client example bounds approval polling and retries the original call once with an active grant. Unknown outcomes are labeled explicitly and never automatically retried by the example. This prepares host integration; live Slack delivery and host-specific resumption still require verification.",
+  },
+  {
+    date: "2026-09-28",
+    title: "Keep the proof, move on to your own tool",
+    tags: ["onboarding", "approvals"],
+    body: "Developer setup now recognizes a completed broker walkthrough for the current wallet and links to that exact saved run, even after the test credentials expire or a newer test starts. Completion requires the recorded stop, changed-argument refusal, grant-reuse refusal, and one execution. The next action becomes configuring enforcement for your own tool; neither telemetry nor the synthetic proof is presented as protection for that tool.",
+  },
+  {
     date: "2026-09-27",
     title: "From developer reporting to an approval test",
     tags: ["onboarding", "approvals"],

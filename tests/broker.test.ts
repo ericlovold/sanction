@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js"
 
 vi.mock("@/lib/db", () => ({ db: { credentialVault: { findFirst: vi.fn() } } }))
 
@@ -51,6 +52,17 @@ describe("classifyBrokerBody — the interception boundary", () => {
 })
 
 describe("brokerRefusalResult — MCP result-with-isError, never a protocol error", () => {
+  it.each(["escalated", "denied", "unknown"])("exposes SDK-compatible structured %s evidence without relying on prose", status => {
+    const response = brokerRefusalResult(1, { status, request_id: "req_1", code: "TEST_CODE", reason: "test reason" })
+    const result = CallToolResultSchema.parse(response.result)
+    expect(result.isError).toBe(true)
+    expect(result._meta?.["sanction/decision"]).toEqual({ status, request_id: "req_1", code: "TEST_CODE", reason: "test reason" })
+    if (status === "unknown") {
+      expect(JSON.stringify(result.content)).toContain("OUTCOME UNKNOWN")
+      expect(JSON.stringify(result.content)).not.toContain("DENIED")
+    }
+  })
+
   it("a denial carries code, reason, and remediation", () => {
     const r = brokerRefusalResult(3, {
       status: "denied",

@@ -218,6 +218,34 @@
   color: var(--text-muted);
 }
 
+/* Homepage announcement ribbon (components/operators-hour-ribbon.tsx).
+   Scoped under .sanction so it outranks `.sanction a { color: inherit }`. */
+.sanction .sn-ribbon {
+  display: block;
+  background: var(--pine-9);
+  color: #ede9dc;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+}
+
+.sn-ribbon .sn-ribbon-date {
+  color: #78e0b2;
+  letter-spacing: 0.1em;
+  margin-right: 10px;
+}
+
+.sn-ribbon-cta {
+  margin-left: 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sanction .sn-ribbon:hover .sn-ribbon-cta {
+  color: #78e0b2;
+}
+
 /* Grids — desktop composition set inline; these collapse them on smaller
    viewports so the fixed-1280 design holds up on tablet and phone. */
 .sn-hero {

@@ -159,6 +159,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
       })
       return NextResponse.json(
         brokerRefusalResult(call.id, {
+          action_type: "tool.invoke",
           status: decision.status ?? "denied",
           code: decision.code,
           reason: decision.reason ?? decision.error,
@@ -188,6 +189,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ upstream: strin
       // A timeout does not prove the upstream did nothing. The grant remains
       // consumed; do not advise a blind retry of a possibly completed action.
       return NextResponse.json(brokerRefusalResult(call.id, {
+        action_type: "tool.invoke",
         status: "unknown", code: "TOOL_EXECUTION_OUTCOME_UNKNOWN",
         reason: "The upstream outcome is unknown. Check the target system before requesting another attempt. A consumed grant cannot be reused.",
         request_id: decision.request_id,
@@ -375,6 +377,7 @@ async function gateOrPassthrough(
     // The challenge is deliberately absent from this body.
     return NextResponse.json(
       brokerRefusalResult(ctx.rpcId, {
+        action_type: "spend",
         status: verdict.status,
         code: verdict.code,
         reason: verdict.reason,

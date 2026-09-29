@@ -4,16 +4,23 @@ import { walkthroughView } from "@/lib/brokerWalkthrough"
 import { BrokerWalkthroughControl } from "@/components/broker-walkthrough-control"
 export const maxDuration = 120
 export const dynamic = "force-dynamic"
-export default async function WalkthroughPage() {
+export default async function WalkthroughPage({ searchParams }: {
+  searchParams: Promise<{ run?: string }>
+}) {
   const wallet = await requireSessionRole("admin")
   if (!wallet) return <p className="p-6">Sign in as an admin to run the broker walkthrough.</p>
-  const run = await walkthroughView(wallet.id)
+  const params = await searchParams
+  const runId = typeof params.run === "string" ? params.run : undefined
+  const run = await walkthroughView(wallet.id, runId)
+  if (runId !== undefined && !run) return <div className="p-6 space-y-3"><p>Saved walkthrough unavailable in this wallet.</p><Link href="/dashboard/connect" className="underline">Back to developer setup</Link></div>
   const expired = run && new Date(run.expiresAt) <= new Date()
   return <main className="mx-auto max-w-3xl space-y-6 p-6">
     <h1 className="text-2xl font-semibold">Prove a governed tool call</h1>
     <p className="text-sm text-muted-foreground">Read a virtual test note through the broker. Nothing is installed, purchased, or read from your filesystem. A separate test pool inherits your restrictions; your existing policy stays unchanged.</p>
     <p className="text-sm text-muted-foreground">This creates a test agent and approval in your wallet tree. The test expires after one hour. Review and approve it in the inbox, then return here.</p>
-    {!run || (expired && run.state !== "completed") ? <BrokerWalkthroughControl operation="start" label="Create test pool" /> : <>
+    {!run || (expired && run.state !== "completed") ? runId !== undefined
+      ? <Link href="/dashboard/walkthrough" className="underline">This test expired. Open the current walkthrough to start or resume.</Link>
+      : <BrokerWalkthroughControl operation="start" label="Create test pool" /> : <>
       <ol className="space-y-3 rounded border border-border p-5 text-sm">
         <li>{run.initialStopped ? "Verified" : "Waiting"}: original call stopped before reaching the upstream.</li>
         <li>{run.approval?.status === "approved" ? "Approved" : run.approval?.status === "denied" ? "Denied" : run.approval?.status === "expired" ? "Expired" : "Waiting"}: approval for the exact request.</li>

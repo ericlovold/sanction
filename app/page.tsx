@@ -2,6 +2,12 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
+import { OperatorsHourRibbon } from "@/components/operators-hour-ribbon"
+import { formatSessionDate, nextOperatorsHour } from "@/lib/operatorsHour"
+
+// Regenerate hourly so the ribbon's server-rendered session date never trails
+// the schedule by more than an hour; the page stays static between regenerations.
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Sanction — Stop runaway AI API spend",
@@ -199,22 +205,8 @@ export default function Landing() {
     <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
-      {/* Product launch ribbon */}
-      <Link
-        href="/changelog"
-        style={{
-          display: "block",
-          background: "var(--pine-9)",
-          color: "#EDE9DC",
-          textAlign: "center",
-          padding: "10px 16px",
-          fontSize: 13.5,
-          letterSpacing: "0.01em",
-        }}
-      >
-        <span className="sn-mono" style={{ color: "#78E0B2", letterSpacing: "0.1em", marginRight: 10 }}>NEW</span>
-        x402 spend gate is live — authorize the demand before the wallet signs →
-      </Link>
+      {/* Announcement ribbon: the monthly live session, for visitors not yet ready for a wallet */}
+      <OperatorsHourRibbon serverDate={formatSessionDate(nextOperatorsHour())} />
 
       {/* Nav */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>

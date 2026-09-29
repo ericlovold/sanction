@@ -47,9 +47,28 @@ export async function startWalkthrough(ownerWalletId: string) {
   return run.row.id
 }
 
+// Completed evidence remains valid after the temporary agent expires.
+export async function completedWalkthroughProof(ownerWalletId: string) {
+  const { ids } = await subtreeWalletIds(ownerWalletId)
+  return db.brokerWalkthrough.findFirst({
+    where: {
+      ownerWalletId,
+      testWalletId: { in: ids },
+      state: "completed",
+      completedAt: { not: null },
+      initialStopped: true,
+      changedStopped: true,
+      reuseStopped: true,
+      executionCount: 1,
+    },
+    orderBy: { completedAt: "desc" },
+    select: { id: true, completedAt: true },
+  })
+}
+
 // Scope every management read to the authenticated wallet. No secrets reach UI.
-export async function walkthroughView(ownerWalletId: string) {
-  const run = await db.brokerWalkthrough.findFirst({ where: { ownerWalletId }, orderBy: { createdAt: "desc" }, select: { id: true, state: true, requestId: true, initialStopped: true, changedStopped: true, reuseStopped: true, executionCount: true, completedAt: true, expiresAt: true, testWalletId: true } })
+export async function walkthroughView(ownerWalletId: string, runId?: string) {
+  const run = await db.brokerWalkthrough.findFirst({ where: { ownerWalletId, ...(runId !== undefined ? { id: runId } : {}) }, orderBy: { createdAt: "desc" }, select: { id: true, state: true, requestId: true, initialStopped: true, changedStopped: true, reuseStopped: true, executionCount: true, completedAt: true, expiresAt: true, testWalletId: true } })
   if (!run || !(await subtreeWalletIds(ownerWalletId)).ids.includes(run.testWalletId)) return null
   const approval = run.requestId ? await db.pendingApproval.findFirst({ where: { walletId: run.testWalletId, sourceType: "authorization_request", sourceId: run.requestId }, select: { id: true, status: true } }) : null
   return { ...run, approval, expiresAt: run.expiresAt.toISOString(), completedAt: run.completedAt?.toISOString() ?? null }
