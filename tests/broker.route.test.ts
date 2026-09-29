@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
 import { hashApiKey } from "../lib/apiKey"
+import { callWithApproval } from "../examples/broker-approval-loop/approval-loop"
 
 // BROKER-1 route: interception before forwarding, one enforcement shell.
 const { dbMock } = vi.hoisted(() => ({
@@ -103,6 +104,29 @@ beforeEach(() => {
 })
 
 describe("/mcp/broker/[upstream] — interception before forwarding", () => {
+  it("hands structured escalation to a host, waits, then forwards the exact approved call once", async () => {
+    const callTool = vi.fn(async (call) => {
+      const response = await brokerPOST(rpc("tools/call", call), ctx)
+      return (await response.json()).result
+    })
+    let polls = 0
+    const pollAuthorization = vi.fn(async (requestId: string) => {
+      expect(requestId).toBe("req_1")
+      expect(global.fetch).not.toHaveBeenCalled()
+      return ++polls === 1
+        ? { request_id: requestId, status: "escalated" }
+        : { request_id: requestId, status: "approved", grant_id: "grant_1", grant_status: "active", grant_consumed_at: null, grant_expires_at: new Date(Date.now() + 60_000).toISOString() }
+    })
+    // Approval polling is stubbed here; Slack signature/install checks have their own route suite.
+    const result = await callWithApproval({ name: "deploy.production", arguments: { target: "synthetic-fixture", ref: "fixed" } }, { callTool, pollAuthorization }, { pollIntervalMs: 0 })
+    expect(result).toMatchObject({ status: "completed", retried: true })
+    expect(callTool).toHaveBeenCalledTimes(2)
+    expect(pollAuthorization).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    const sent = JSON.parse(String(vi.mocked(global.fetch).mock.calls[0][1]!.body))
+    expect(sent.params).toEqual({ name: "deploy.production", arguments: { target: "synthetic-fixture", ref: "fixed" } })
+  })
+
   it("a blocked tool is refused as an MCP result and the upstream is NEVER called", async () => {
     const res = await brokerPOST(rpc("tools/call", { name: "payments.charge" }, 5), ctx)
     expect(res.status).toBe(200)
@@ -120,6 +144,7 @@ describe("/mcp/broker/[upstream] — interception before forwarding", () => {
     expect(body.result.content[0].text).toContain("ESCALATED")
     expect(body.result.content[0].text).toContain("req_1")
     expect(body.result.content[0].text).toContain("sanction/grant_id")
+    expect(body.result._meta["sanction/decision"]).toMatchObject({ status: "escalated", action_type: "tool.invoke", request_id: "req_1" })
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
@@ -296,6 +321,7 @@ describe("/mcp/broker/[upstream] — the x402 spend gate (STABLE-1)", () => {
     const res = await brokerPOST(rpc("tools/list", {}, 7), ctx)
     const text = await res.text()
     expect(text).toContain("DAILY_BUDGET_EXCEEDED")
+    expect(JSON.parse(text).result._meta["sanction/decision"]).toMatchObject({ action_type: "spend", status: "denied" })
     // The enforcement: no payee, no amount, nothing to sign.
     expect(text).not.toContain("payTo")
     expect(text).not.toContain("maxAmountRequired")
@@ -341,6 +367,7 @@ it("reports unknown outcome after a forwarding failure without retrying", async 
   expect(body.result.isError).toBe(true)
   expect(JSON.stringify(body)).toContain("TOOL_EXECUTION_OUTCOME_UNKNOWN")
   expect(JSON.stringify(body)).not.toContain("sensitive detail")
+  expect(body.result._meta["sanction/decision"]).toMatchObject({ status: "unknown", code: "TOOL_EXECUTION_OUTCOME_UNKNOWN" })
   expect(global.fetch).toHaveBeenCalledTimes(1)
 })
 

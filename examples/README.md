@@ -21,6 +21,8 @@ You'll see real Gemini calls logged as token usage, then three spend attempts:
 
 ## Framework examples
 
+- [`broker-approval-loop/`](broker-approval-loop/) — bounded MCP pause, approval polling, and one exact-request retry; transport-independent host example.
+
 Same two first-successes (metered call + authorize decision), one per framework —
 each runs in ~2 minutes after `source <(bash examples/setup.sh)`:
 

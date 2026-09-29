@@ -83,6 +83,8 @@ export type BrokerCall =
 
 /** The _meta key an agent uses to redeem an approval through the broker. */
 export const GRANT_META_KEY = "sanction/grant_id"
+/** Structured refusal evidence for hosts; never permission to dispatch. */
+export const DECISION_META_KEY = "sanction/decision"
 
 /**
  * Classify one JSON-RPC message. Batches are passed through untouched only
@@ -124,16 +126,29 @@ export function classifyBrokerBody(body: unknown): BrokerCall {
 
 export function brokerRefusalResult(
   id: string | number | null,
-  decision: { status: string; code?: string; reason?: string; remediation?: string; request_id?: string },
+  decision: { status: string; action_type?: "tool.invoke" | "spend"; code?: string; reason?: string; remediation?: string; request_id?: string },
 ): Record<string, unknown> {
   const text =
     decision.status === "escalated"
-      ? `✗ ESCALATED — ${decision.reason ?? "Awaiting human approval"}. Request id: ${decision.request_id ?? "(see the record)"}. When the owner approves, retry this exact tools/call with _meta[\"${GRANT_META_KEY}\"] set to the grant_id (poll sanction_check_authorization, or GET /v1/authorize/{request_id}).`
-      : `✗ DENIED${decision.code ? ` (${decision.code})` : ""} — ${decision.reason ?? "Not authorized"}.${decision.remediation ? ` ${decision.remediation}` : ""}`
+      ? `ESCALATED — ${decision.reason ?? "Awaiting human approval"}. Request id: ${decision.request_id ?? "(see the record)"}. When the owner approves, retry this exact tools/call with _meta[\"${GRANT_META_KEY}\"] set to the grant_id (poll sanction_check_authorization, or GET /api/v1/authorize/{request_id}).`
+      : decision.status === "unknown"
+        ? `OUTCOME UNKNOWN — ${decision.reason ?? "Execution could not be confirmed"}. Reconcile with the target before requesting another attempt; do not automatically retry.`
+        : `DENIED${decision.code ? ` (${decision.code})` : ""} — ${decision.reason ?? "Not authorized"}.${decision.remediation ? ` ${decision.remediation}` : ""}`
   return {
     jsonrpc: "2.0",
     id,
-    result: { content: [{ type: "text", text }], isError: true },
+    result: {
+      content: [{ type: "text", text }], isError: true,
+      _meta: {
+        [DECISION_META_KEY]: {
+          status: decision.status,
+          ...(decision.action_type ? { action_type: decision.action_type } : {}),
+          ...(decision.code ? { code: decision.code } : {}),
+          ...(decision.request_id ? { request_id: decision.request_id } : {}),
+          ...(decision.reason ? { reason: decision.reason } : {}),
+        },
+      },
+    },
   }
 }
 
