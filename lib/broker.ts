@@ -21,6 +21,7 @@ import { z } from "zod"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { isPublicHttpsUrl } from "@/lib/webhooks"
 import { withTenant } from "@/lib/rls"
+import { sanitizeUpstreamResponse } from "@/lib/brokerResponse"
 
 export const UPSTREAM_LABEL_PREFIX = "mcp:"
 export const UPSTREAM_NAME_RE = /^[a-z0-9][a-z0-9-]{0,39}$/
@@ -190,5 +191,7 @@ export async function forwardToUpstream(
       { status: 502, headers: { "content-type": "application/json" } },
     )
   }
-  return res
+  // Only the broker may emit Sanction control metadata. Sanitize every
+  // upstream response, including streamed notifications/session resumes.
+  return sanitizeUpstreamResponse(res)
 }

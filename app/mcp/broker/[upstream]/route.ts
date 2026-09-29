@@ -259,7 +259,15 @@ async function handleToolsList(
     return gateOrPassthrough(res, ctx.apiKey, { upstream: ctx.upstreamName, agentId: ctx.agent.id, rpcId: ctx.rpcId })
   }
 
-  const parsed = parseToolsListResult(parseUpstreamJsonRpc(await res.text(), res.headers.get("content-type")))
+  // Sanitization can fail while consuming a malformed/oversized stream.
+  // Preserve the list path's fail-closed empty inventory in that case.
+  let raw: string
+  try {
+    raw = await res.text()
+  } catch {
+    return refuse("TOOL_LIST_UNPARSEABLE", "Upstream tools/list could not be safely parsed; withheld fail-closed")
+  }
+  const parsed = parseToolsListResult(parseUpstreamJsonRpc(raw, res.headers.get("content-type")))
   if (!parsed) {
     return refuse("TOOL_LIST_UNPARSEABLE", "Upstream tools/list was not a JSON-RPC result with a tools array; withheld fail-closed")
   }

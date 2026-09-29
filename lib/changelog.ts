@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-09-28",
+    title: "Reserve broker decision metadata",
+    tags: ["mcp", "security"],
+    body: "The broker removes reserved Sanction metadata from upstream JSON and streaming responses, including resumed sessions. An upstream tool can no longer impersonate a broker approval instruction through that metadata. Ordinary results and other metadata are preserved; malformed or oversized responses fail closed. Hosts still need a trusted broker connection, and durable restart protection remains separate work.",
+  },
+  {
+    date: "2026-09-28",
     title: "Machine-readable broker approval handoff",
     tags: ["mcp", "approvals"],
     body: "Broker refusals now include structured decision metadata so hosts can read the approval request ID without parsing prose. A transport-independent client example bounds approval polling and retries the original call once with an active grant. Unknown outcomes are labeled explicitly and never automatically retried by the example. This prepares host integration; live Slack delivery and host-specific resumption still require verification.",

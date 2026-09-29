@@ -46,6 +46,13 @@ will not survive agents that do not share a prompt.
   [bounded approval-loop example](../examples/broker-approval-loop/README.md)
   to poll and retry the identical call once with a valid grant. An unknown
   execution outcome requires reconciliation, not an automatic retry.
+  Upstream JSON and SSE responses lose reserved `sanction/` keys from
+  protocol/result metadata before forwarding, including session-resume
+  streams. Hosts must trust the configured broker connection, not markers
+  copied from another source. This is not a signed decision receipt.
+  Nonempty upstream responses must use `application/json` (up to 8 MiB)
+  or `text/event-stream` (up to 1 MiB per frame); this also applies to x402
+  JSON challenges. Unsupported, malformed, or oversized bodies fail closed.
 - **Present.** `POST /v1/exec` mints a 15-minute HS256 JWT: credential scope,
   hard spend cap, wallet-bound, freeze-aware. This is a mandate. It was
   documented as credential injection. It is also how a parent agent hires a
