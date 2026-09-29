@@ -1,6 +1,6 @@
 # sanction-mcp
 
-**The wallet an AI agent carries — over MCP.**
+**Approval and budget checks for AI agents — over MCP.**
 
 Give your agent a [Sanction](https://getsanction.com) key instead of your credit card.
 Before it buys anything, calls a paid API, or touches a secret, it asks Sanction — which
@@ -15,6 +15,15 @@ cooperation. The hosted broker at `/mcp/broker/<name>` intercepts `tools/call`.
 
 This package is the stdio client. The hosted endpoint is the same wallet over
 Streamable HTTP. Discovery: [Wallet Card](https://getsanction.com/.well-known/wallet-card.json).
+
+## Hosted connection (no npm install)
+
+Use `https://getsanction.com/mcp` with a secret `x-api-key` header containing
+your agent key. Check the connection with `sanction_wallet_status` before
+attempting any authorization. This is cooperative: adding the server does not
+intercept other tools. See the [Grok Bot connection guide](https://github.com/ericlovold/sanction/blob/main/docs/GROK-BOT.md)
+for setup boundaries and the broker path. Marketplace availability is separate
+from endpoint availability.
 
 ## Quickstart
 
@@ -34,6 +43,10 @@ curl -s -X POST https://getsanction.com/api/v1/agents \
   -H "x-mgmt-key: sk_REPLACE_ME" \
   -d '{"wallet_id":"REPLACE_WITH_WALLET_ID","name":"My Agent"}'
 ```
+
+First verified email sign-in claims an API-created wallet and revokes pre-claim
+agent access. Verify ownership before issuing long-lived client keys; see the
+[quickstart](https://github.com/ericlovold/sanction/blob/main/docs/QUICKSTART.md).
 
 You now have a `pxy_...` agent key (→ `SANCTION_API_KEY`) — the only
 configuration the server needs.
@@ -67,7 +80,7 @@ stdio (this package):
 }
 ```
 
-Works with any MCP host — Claude Code, Claude Desktop, Cursor.
+Use the transport and secret-header configuration supported by your MCP host.
 
 ## Tools
 
@@ -101,3 +114,17 @@ at $50/txn, $50/day). Tune per-agent limits and clearance with the management ke
 ## License
 
 MIT
+
+## Publishing this discovery update
+
+`server.json` version `0.9.1` is a registry metadata revision. Its npm package
+reference remains `sanction-mcp@0.9.0`; no new runtime version is claimed.
+Registry records are immutable, so reusing the published registry version would
+not update its discovery metadata.
+
+After merge, run the repository's **Publish MCP** workflow. It skips an npm
+version already published and publishes the new registry record using GitHub
+OIDC. Verify the registry's latest record contains `remotes`, the hosted URL,
+and the required secret header. A successful merge or Vercel deployment alone
+does not update the registry, and registry publication does not imply acceptance
+in a host's curated marketplace.

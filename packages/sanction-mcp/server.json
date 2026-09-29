@@ -2,13 +2,13 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ericlovold/sanction",
   "title": "Sanction",
-  "description": "The wallet an AI agent carries \u2014 mandate, budget, vault, and audit. Counterparties verify first.",
+  "description": "Approval and budget checks before agent spending or tool use. Cooperative MCP; host must ask.",
   "websiteUrl": "https://getsanction.com",
   "repository": {
     "url": "https://github.com/ericlovold/sanction",
     "source": "github"
   },
-  "version": "0.9.0",
+  "version": "0.9.1",
   "packages": [
     {
       "registryType": "npm",
@@ -36,6 +36,20 @@
           "description": "Sanction API base URL.",
           "isRequired": false,
           "default": "https://getsanction.com/api/v1"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://getsanction.com/mcp",
+      "headers": [
+        {
+          "name": "x-api-key",
+          "description": "Sanction agent key (pxy_...). Store in the host secret configuration, never in chat.",
+          "isRequired": true,
+          "isSecret": true
         }
       ]
     }

@@ -2,6 +2,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createSanctionMcpServer } from "../lib/mcpServer"
+import discovery from "../public/.well-known/mcp.json"
+import registry from "../packages/sanction-mcp/server.json"
+import mcpPackage from "../packages/sanction-mcp/package.json"
 
 async function connectedClient() {
   const server = createSanctionMcpServer({
@@ -24,6 +27,25 @@ afterEach(() => {
 })
 
 describe("createSanctionMcpServer — tool handlers", () => {
+  it("advertises the actual tool surface and both authenticated install transports", async () => {
+    const { client, server } = await connectedClient()
+    try {
+      const { tools } = await client.listTools()
+      expect(discovery.tools.map(tool => tool.name).sort()).toEqual(tools.map(tool => tool.name).sort())
+      expect(registry.packages[0]).toMatchObject({ identifier: mcpPackage.name, version: mcpPackage.version, transport: { type: "stdio" } })
+      expect(registry.remotes).toEqual([{
+        type: "streamable-http", url: discovery.url,
+        headers: [{ name: "x-api-key", description: expect.any(String), isRequired: true, isSecret: true }],
+      }])
+      expect(registry.remotes[0].url).toBe("https://getsanction.com/mcp")
+      expect(registry.description.length).toBeLessThanOrEqual(100)
+      expect(registry.description).toContain("Cooperative")
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
   it("renders approve, escalate, and a bare API error through sanction_authorize", async () => {
     const { client, server } = await connectedClient()
     const fetchMock = vi.fn()
