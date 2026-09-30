@@ -8,7 +8,17 @@ Working checklist, checked 2026-09-29. Package checks are not marketplace accept
 
 The hosted `/mcp` wallet and stdio package are cooperative: the host must ask before acting. Interception requires routing upstream tool calls through `/mcp/broker/<upstream>`. Neither listing nor installation makes unrelated tools governed automatically.
 
-The shared server exposes ten tools. This change adds titles and safety annotations without changing their inputs or handlers. Annotations describe behavior; they do not enforce permissions.
+The full wallet exposes ten tools with titles and safety annotations. Annotations describe behavior; they do not enforce permissions.
+
+## Approval-focused endpoint
+
+`POST /mcp/approvals` exposes eight existing tools through an explicit server-side allowlist: spend, provision, tool and capability authorization; token and outcome logging; wallet status; and authorization polling. It does not register `sanction_request_execution` or `sanction_inject_credential`. Direct calls to either excluded name fail before any downstream API call.
+
+For local protocol testing, use the same `x-api-key: pxy_...` header and MCP client setup as `/mcp`, with the URL changed to `/mcp/approvals`. `GET` and `DELETE` use the same authenticated transport. There is no browser setup page at this URL. Prefer `sanction_wallet_status` for a read-only smoke test; other calls can create real decisions or records.
+
+The route fixes the profile; query parameters, headers and tool arguments cannot widen it. `/mcp`, stdio and the Cursor package retain all ten tools. No new tool is introduced.
+
+This is a reduced tool surface, **not a restricted credential**. The supplied agent key still works against other authorized Sanction endpoints. OAuth must separately constrain tokens to the intended resource and scope. The endpoint remains cooperative and still returns request/grant identifiers needed for the approval loop; it is not a claim that arbitrary tool output is scrubbed of secrets or that marketplace review is complete.
 
 ## Channel readiness
 
@@ -17,7 +27,7 @@ The shared server exposes ten tools. This change adds titles and safety annotati
 | MCP Registry | Published `io.github.ericlovold/sanction` 0.9.0, npm transport | Publish merged registry metadata with hosted transport; release a new npm version for the annotated bundle. |
 | Cursor | `cursor-plugin/`: MCP connection and four skills | Live local installation and status smoke; standalone MIT package publication and marketplace submission. See its README. |
 | Claude connector directory | HTTPS hosted MCP and ten tools | OAuth, authenticated host testing, review account and listing materials. Submit the remote connector separately from a plugin. |
-| ChatGPT / Codex directory | Shared MCP server | OAuth, credential-safe directory surface, review cases and publisher/domain verification. Custom UI is optional. |
+| ChatGPT / Codex directory | Approval-focused MCP route implemented | OAuth, review of remaining output and grants, host cases and publisher/domain verification. Custom UI is optional. |
 | Slack Marketplace | Slack OAuth and approval interaction implementation | Verify installation and approval lifecycle in external workspaces, meet usage eligibility, then submit Slack app materials. MCP discovery is separate. |
 | Grok Bot | Hosted MCP connection guide | Verify the supported install/auth flow and obtain the publisher submission route. No public submission route or automatic distribution from Cursor is established here. |
 
@@ -26,7 +36,7 @@ Registry observation: the official Registry API returned latest version 0.9.0 wi
 ## Shared blockers
 
 1. **Authentication.** Current hosted MCP accepts agent keys. Build the OAuth connection flow required by authenticated Claude/OpenAI directory apps, preserving wallet/agent isolation and revocation. Slack's existing OAuth installation flow is a different connection.
-2. **Secrets in tool output.** `sanction_inject_credential` returns a decrypted credential; `sanction_request_execution` returns a bearer JWT. Review both against OpenAI's prohibition on authentication secrets in tool responses. Define a directory-safe surface or server-side credential use before submission. This change does not remove tools or claim eligibility.
+2. **Secrets in tool output.** `sanction_inject_credential` returns a decrypted credential; `sanction_request_execution` returns a bearer JWT. Review both against OpenAI's prohibition on authentication secrets in tool responses. The approval-focused route excludes both tools. Remaining responses, including the one-use grant flow and user-supplied text, still require review before claiming directory eligibility.
 3. **Review evidence.** Run each exposed tool in an isolated test wallet. Authorize calls create real decisions; they are not dry runs. Capture sanitized inputs, outputs, policy, host/version and pass/fail results. Never include keys, credential values or bearer tokens.
 4. **Listing materials.** Verify logo, support contact, privacy policy, terms, website, installation instructions, account deletion/disconnection instructions, and a reviewer account without interactive login obstacles. Complete publisher and domain verification where required.
 
