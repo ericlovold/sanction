@@ -9,10 +9,30 @@ import { z } from "zod"
 import { renderWalletStatus } from "./mcpWalletStatus"
 import { extractTraceContext, traceHeaders, type TraceContext } from "./traceContext"
 
+export type SanctionMcpToolProfile = "wallet" | "approvals"
+
+// Explicit allowlist: new wallet tools require a separate review before exposure.
+export const APPROVAL_MCP_TOOLS: readonly string[] = [
+  "sanction_authorize",
+  "sanction_authorize_provision",
+  "sanction_authorize_tool",
+  "sanction_authorize_capability",
+  "sanction_log_tokens",
+  "sanction_log_outcome",
+  "sanction_wallet_status",
+  "sanction_check_authorization",
+]
+
+export type SanctionMcpApiCall = (
+  path: string, method: "GET" | "POST", body?: unknown, bearerToken?: string, trace?: TraceContext,
+) => Promise<Record<string, unknown>>
+
 export type SanctionMcpOptions = {
   apiKey: string
   apiUrl: string
   walletId?: string
+  apiCall?: SanctionMcpApiCall
+  toolProfile?: SanctionMcpToolProfile
 }
 
 export const MCP_SERVER_VERSION = "0.9.0"
@@ -49,6 +69,7 @@ async function callSanction(
   // timeouts, and non-JSON bodies (gateway 502 pages) into the same
   // { authorized:false, code, reason } contract every tool description promises.
   try {
+    if (opts.apiCall) return await opts.apiCall(path, method, body, bearerToken, trace)
     const res = await fetch(`${opts.apiUrl}${path}`, {
       method,
       headers,
@@ -111,13 +132,19 @@ function renderAuthResult(
 }
 
 export function createSanctionMcpServer(opts: SanctionMcpOptions): McpServer {
+const profile = opts.toolProfile ?? "wallet"
+if (profile !== "wallet" && profile !== "approvals") throw new Error("Unknown MCP tool profile")
+const includesTool = (name: string) => profile === "wallet" || APPROVAL_MCP_TOOLS.includes(name)
 const server = new McpServer({
   name: "sanction",
   version: MCP_SERVER_VERSION,
-  description: "Sanction — the wallet an AI agent carries: spend, tool, capability, and credential authorization (not sanctions/AML screening)",
+  description: profile === "approvals"
+    ? "Sanction — approvals and budgets for AI agent actions; no execution-token issuance or vault retrieval (not sanctions/AML screening)"
+    : "Sanction — the wallet an AI agent carries: spend, tool, capability, and credential authorization (not sanctions/AML screening)",
 })
 
 // Tool: Check spend authorization
+if (includesTool("sanction_authorize")) {
 server.registerTool(
   "sanction_authorize",
   {
@@ -139,8 +166,10 @@ server.registerTool(
     return renderAuthResult(result, { success: `Authorized — ${merchant} $${amount_usd}`, verb: "proceed" })
   }
 )
+}
 
 // Tool: Authorize a provisioning action (seats, licenses, infrastructure)
+if (includesTool("sanction_authorize_provision")) {
 server.registerTool(
   "sanction_authorize_provision",
   {
@@ -173,8 +202,10 @@ server.registerTool(
     })
   }
 )
+}
 
 // Tool: Authorize an MCP tool invocation
+if (includesTool("sanction_authorize_tool")) {
 server.registerTool(
   "sanction_authorize_tool",
   {
@@ -193,8 +224,10 @@ server.registerTool(
     return renderAuthResult(result, { success: `Authorized — ${tool}`, verb: "invoke" })
   }
 )
+}
 
 // Tool: Authorize acquiring a capability (CAP-1)
+if (includesTool("sanction_authorize_capability")) {
 server.registerTool(
   "sanction_authorize_capability",
   {
@@ -212,8 +245,10 @@ server.registerTool(
     return renderAuthResult(result, { success: `Authorized — ${capability}`, verb: "acquire" })
   }
 )
+}
 
 // Tool: Log LLM token usage
+if (includesTool("sanction_log_tokens")) {
 server.registerTool(
   "sanction_log_tokens",
   {
@@ -238,8 +273,10 @@ server.registerTool(
     }
   }
 )
+}
 
 // Tool: Record a business outcome (CPO-1)
+if (includesTool("sanction_log_outcome")) {
 server.registerTool(
   "sanction_log_outcome",
   {
@@ -263,8 +300,10 @@ server.registerTool(
     }
   }
 )
+}
 
 // Tool: Request scoped execution JWT
+if (includesTool("sanction_request_execution")) {
 server.registerTool(
   "sanction_request_execution",
   {
@@ -297,8 +336,10 @@ server.registerTool(
     }
   }
 )
+}
 
 // Tool: Inject credential using execution JWT
+if (includesTool("sanction_inject_credential")) {
 server.registerTool(
   "sanction_inject_credential",
   {
@@ -323,8 +364,10 @@ server.registerTool(
     }
   }
 )
+}
 
 // Tool: Wallet status
+if (includesTool("sanction_wallet_status")) {
 server.registerTool(
   "sanction_wallet_status",
   {
@@ -355,8 +398,10 @@ server.registerTool(
     }
   }
 )
+}
 
 // Tool: Poll an escalated authorization for its grant
+if (includesTool("sanction_check_authorization")) {
 server.registerTool(
   "sanction_check_authorization",
   {
@@ -394,6 +439,7 @@ server.registerTool(
     }
   }
 )
+}
 
   return server
 }

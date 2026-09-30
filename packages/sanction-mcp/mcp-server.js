@@ -36560,6 +36560,16 @@ function traceHeaders(ctx) {
 }
 
 // lib/mcpServer.ts
+var APPROVAL_MCP_TOOLS = [
+  "sanction_authorize",
+  "sanction_authorize_provision",
+  "sanction_authorize_tool",
+  "sanction_authorize_capability",
+  "sanction_log_tokens",
+  "sanction_log_outcome",
+  "sanction_wallet_status",
+  "sanction_check_authorization"
+];
 var MCP_SERVER_VERSION = "0.9.0";
 var traceOf = (extra) => extractTraceContext(extra?._meta);
 async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
@@ -36572,6 +36582,7 @@ async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
     headers["Authorization"] = `Bearer ${bearerToken}`;
   }
   try {
+    if (opts.apiCall) return await opts.apiCall(path, method, body, bearerToken, trace);
     const res = await fetch(`${opts.apiUrl}${path}`, {
       method,
       headers,
@@ -36620,269 +36631,292 @@ function renderAuthResult(result, opts) {
   return { content: [{ type: "text", text }], isError: !authorized };
 }
 function createSanctionMcpServer(opts) {
+  const profile = opts.toolProfile ?? "wallet";
+  if (profile !== "wallet" && profile !== "approvals") throw new Error("Unknown MCP tool profile");
+  const includesTool = (name) => profile === "wallet" || APPROVAL_MCP_TOOLS.includes(name);
   const server2 = new McpServer({
     name: "sanction",
     version: MCP_SERVER_VERSION,
-    description: "Sanction \u2014 the wallet an AI agent carries: spend, tool, capability, and credential authorization (not sanctions/AML screening)"
+    description: profile === "approvals" ? "Sanction \u2014 approvals and budgets for AI agent actions; no execution-token issuance or vault retrieval (not sanctions/AML screening)" : "Sanction \u2014 the wallet an AI agent carries: spend, tool, capability, and credential authorization (not sanctions/AML screening)"
   });
-  server2.registerTool(
-    "sanction_authorize",
-    {
-      title: "Request spend authorization",
-      description: "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval \u2014 it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
-      inputSchema: {
-        action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
-        amount_usd: external_exports.number().positive().describe("Exact amount in US dollars"),
-        merchant: external_exports.string().describe("Vendor or service name, e.g. 'Anthropic', 'AWS', 'Stripe'"),
-        category: external_exports.string().describe("Spend category \u2014 one of: software, services, research, infrastructure, marketing, legal, other"),
-        description: external_exports.string().optional().describe("Brief human-readable description of what this spend is for \u2014 helps the wallet owner understand escalations"),
-        grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact request. Retry with the identical action/amount/merchant/category/description plus this grant_id to consume it. Any field mismatch is denied GRANT_MISMATCH."),
-        execution_jwt: external_exports.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap.")
+  if (includesTool("sanction_authorize")) {
+    server2.registerTool(
+      "sanction_authorize",
+      {
+        title: "Request spend authorization",
+        description: "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval \u2014 it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
+        inputSchema: {
+          action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
+          amount_usd: external_exports.number().positive().describe("Exact amount in US dollars"),
+          merchant: external_exports.string().describe("Vendor or service name, e.g. 'Anthropic', 'AWS', 'Stripe'"),
+          category: external_exports.string().describe("Spend category \u2014 one of: software, services, research, infrastructure, marketing, legal, other"),
+          description: external_exports.string().optional().describe("Brief human-readable description of what this spend is for \u2014 helps the wallet owner understand escalations"),
+          grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact request. Retry with the identical action/amount/merchant/category/description plus this grant_id to consume it. Any field mismatch is denied GRANT_MISMATCH."),
+          execution_jwt: external_exports.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap.")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
-    },
-    async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
-      const result = await callSanction(opts, "/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra));
-      return renderAuthResult(result, { success: `Authorized \u2014 ${merchant} $${amount_usd}`, verb: "proceed" });
-    }
-  );
-  server2.registerTool(
-    "sanction_authorize_provision",
-    {
-      title: "Request provisioning authorization",
-      description: "ALWAYS call this before provisioning any resource \u2014 user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant \u2014 retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
-      inputSchema: {
-        resource: external_exports.string().describe("What is being provisioned, e.g. 'azure.seat', 'm365.license', 'aws.instance'"),
-        line_item: external_exports.string().describe("The concrete SKU or plan, e.g. 'Microsoft 365 E3'"),
-        quantity: external_exports.number().int().positive().describe("Number of units to provision"),
-        unit_price_usd: external_exports.number().positive().optional().describe("Per-unit price in USD. When supplied, quantity \xD7 unit_price_usd must equal amount_usd exactly or the request is rejected AMOUNT_MISMATCH."),
-        amount_usd: external_exports.number().positive().describe("Total amount in US dollars"),
-        category: external_exports.string().describe("Spend category \u2014 shares the wallet's category governance and daily budget, e.g. 'licenses', 'infrastructure'"),
-        description: external_exports.string().optional().describe("Brief description of what this provision is for \u2014 helps the wallet owner understand escalations"),
-        grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact provision. Retry with identical fields plus this grant_id to consume it."),
-        execution_jwt: external_exports.string().optional().describe("If part of an execution, pass the JWT to additionally enforce that execution's hard spend cap.")
-      },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
-    },
-    async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }, extra) => {
-      const result = await callSanction(
-        opts,
-        "/authorize/provision",
-        "POST",
-        { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
-        execution_jwt,
-        traceOf(extra)
-      );
-      return renderAuthResult(result, {
-        success: `Authorized \u2014 ${quantity} \xD7 ${line_item} (${resource}) $${amount_usd}`,
-        verb: "provision"
-      });
-    }
-  );
-  server2.registerTool(
-    "sanction_authorize_tool",
-    {
-      title: "Request tool authorization",
-      description: "Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
-      inputSchema: {
-        tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
-        server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
-        arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation"),
-        grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it")
-      },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
-    },
-    async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
-      const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, void 0, traceOf(extra));
-      return renderAuthResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
-    }
-  );
-  server2.registerTool(
-    "sanction_authorize_capability",
-    {
-      title: "Request capability authorization",
-      description: "Call this BEFORE acquiring any new capability \u2014 installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, poll sanction_check_authorization with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
-      inputSchema: {
-        capability: external_exports.string().describe("Namespaced identifier of the capability about to be acquired, e.g. 'skill:install:web-scraper', 'plugin:browser', 'api:github.com/repos'"),
-        arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) \u2014 surfaced to the owner on escalation, not policy-evaluated"),
-        grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact capability. Retry with the identical capability plus this grant_id to consume it.")
-      },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
-    },
-    async ({ capability, arguments: args, grant_id }, extra) => {
-      const result = await callSanction(opts, "/authorize/capability", "POST", { capability, arguments: args, grant_id }, void 0, traceOf(extra));
-      return renderAuthResult(result, { success: `Authorized \u2014 ${capability}`, verb: "acquire" });
-    }
-  );
-  server2.registerTool(
-    "sanction_log_tokens",
-    {
-      title: "Record model usage",
-      description: "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption. It is metered against three budget horizons \u2014 the seat's daily budget, the seat's monthly budget, and the pooled per-department daily token cap \u2014 and returns a 402 budget error naming which horizon was hit if any is exceeded; on a budget error the agent should stop making LLM calls and notify the owner. Report the provider's actual billed cost_usd for the call (from the provider's usage/response), not an estimate \u2014 under-reporting silently defeats the budget. Prefer routing calls through the Sanction LLM gateway instead, which meters real usage server-side with no client honesty required.",
-      inputSchema: {
-        model: external_exports.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
-        tokens_in: external_exports.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
-        tokens_out: external_exports.number().int().nonnegative().describe("Output/completion token count from the API response usage field"),
-        cost_usd: external_exports.number().nonnegative().describe("Actual dollar cost of this call \u2014 compute from provider pricing or read from API response if available"),
-        task: external_exports.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' \u2014 used in spend reports")
-      },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
-    },
-    async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
-      const result = await callSanction(opts, "/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, void 0, traceOf(extra));
-      if (result.error) {
-        return { content: [{ type: "text", text: `Budget error: ${result.error}` }], isError: true };
+      async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
+        const result = await callSanction(opts, "/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra));
+        return renderAuthResult(result, { success: `Authorized \u2014 ${merchant} $${amount_usd}`, verb: "proceed" });
       }
-      return {
-        content: [{ type: "text", text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` }]
-      };
-    }
-  );
-  server2.registerTool(
-    "sanction_log_outcome",
-    {
-      title: "Record business outcome",
-      description: "Record a business outcome (an enrollment, booking, signed engagement, conversion) against this wallet. Outcomes are what the wallet's spend answers to: Sanction computes cost-per-outcome over a rolling window and, when the wallet has a cost_per_outcome ceiling configured, throttles further spend to human-gated once the ceiling is crossed. Call this when your system confirms a real outcome \u2014 never speculatively. Use dedupe_key (e.g. your CRM record id) so retries never double-count.",
-      inputSchema: {
-        kind: external_exports.string().describe("Outcome kind in your operating vocabulary, lowercase \u2014 e.g. 'enrollment', 'booking', 'signed-engagement'. Must match the policy's outcome_kind for ceiling governance."),
-        value_usd: external_exports.number().nonnegative().optional().describe("Optional dollar value of the outcome (e.g. expected LTV or contract value) \u2014 reporting only, not governance"),
-        play: external_exports.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
-        dedupe_key: external_exports.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted.")
+    );
+  }
+  if (includesTool("sanction_authorize_provision")) {
+    server2.registerTool(
+      "sanction_authorize_provision",
+      {
+        title: "Request provisioning authorization",
+        description: "ALWAYS call this before provisioning any resource \u2014 user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant \u2014 retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
+        inputSchema: {
+          resource: external_exports.string().describe("What is being provisioned, e.g. 'azure.seat', 'm365.license', 'aws.instance'"),
+          line_item: external_exports.string().describe("The concrete SKU or plan, e.g. 'Microsoft 365 E3'"),
+          quantity: external_exports.number().int().positive().describe("Number of units to provision"),
+          unit_price_usd: external_exports.number().positive().optional().describe("Per-unit price in USD. When supplied, quantity \xD7 unit_price_usd must equal amount_usd exactly or the request is rejected AMOUNT_MISMATCH."),
+          amount_usd: external_exports.number().positive().describe("Total amount in US dollars"),
+          category: external_exports.string().describe("Spend category \u2014 shares the wallet's category governance and daily budget, e.g. 'licenses', 'infrastructure'"),
+          description: external_exports.string().optional().describe("Brief description of what this provision is for \u2014 helps the wallet owner understand escalations"),
+          grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact provision. Retry with identical fields plus this grant_id to consume it."),
+          execution_jwt: external_exports.string().optional().describe("If part of an execution, pass the JWT to additionally enforce that execution's hard spend cap.")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
-    },
-    async ({ kind, value_usd, play, dedupe_key }, extra) => {
-      const result = await callSanction(opts, "/outcomes", "POST", { kind, value_usd, play, dedupe_key }, void 0, traceOf(extra));
-      if (result.error) {
-        return { content: [{ type: "text", text: `Outcome error: ${result.error}` }], isError: true };
+      async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }, extra) => {
+        const result = await callSanction(
+          opts,
+          "/authorize/provision",
+          "POST",
+          { resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id },
+          execution_jwt,
+          traceOf(extra)
+        );
+        return renderAuthResult(result, {
+          success: `Authorized \u2014 ${quantity} \xD7 ${line_item} (${resource}) $${amount_usd}`,
+          verb: "provision"
+        });
       }
-      return {
-        content: [{ type: "text", text: `Outcome recorded: ${kind}${dedupe_key ? ` (${result.deduped ? "deduped" : "new"})` : ""}` }]
-      };
-    }
-  );
-  server2.registerTool(
-    "sanction_request_execution",
-    {
-      title: "Request scoped execution token",
-      description: "Mint a short-lived mandate (signed JWT) for a child agent, subprocess, or counterparty: credential scope plus a hard spend cap. Pass the JWT \u2014 never the root pxy_ key. Default 15 min, wallet-bound, freeze-aware. The other party verifies it at POST /mandate/verify with no API key. Required before sanction_inject_credential.",
-      inputSchema: {
-        scope: external_exports.array(external_exports.string()).min(1).describe("List of credential labels the execution needs \u2014 e.g. ['STRIPE_KEY', 'OPENAI_API_KEY']. Only these labels will be injectable with the returned JWT. Request minimum required scope."),
-        budget_usd: external_exports.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
-        ttl_seconds: external_exports.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs.")
+    );
+  }
+  if (includesTool("sanction_authorize_tool")) {
+    server2.registerTool(
+      "sanction_authorize_tool",
+      {
+        title: "Request tool authorization",
+        description: "Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
+        inputSchema: {
+          tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
+          server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
+          arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("The arguments the tool would be called with \u2014 surfaced to the owner on escalation"),
+          grant_id: external_exports.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation \u2014 call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
-    },
-    async ({ scope, budget_usd, ttl_seconds }, extra) => {
-      const result = await callSanction(opts, "/exec", "POST", { scope, budget_usd, ttl_seconds }, void 0, traceOf(extra));
-      if (result.error) {
-        return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
+      async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
+        const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, void 0, traceOf(extra));
+        return renderAuthResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
       }
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            jwt: result.jwt,
-            jti: result.jti,
-            expires_at: result.expires_at,
-            clearance: result.clearance,
-            scope: result.scope,
-            budget_usd: result.budget_usd
-          })
-        }]
-      };
-    }
-  );
-  server2.registerTool(
-    "sanction_inject_credential",
-    {
-      title: "Retrieve scoped credential",
-      description: "Retrieve a decrypted credential value using a scoped execution JWT. Every injection is audit-logged with timestamp, agent ID, and credential label \u2014 raw values are never logged. Use the credential value immediately and do not store it in memory, files, or logs. Fails if the JWT is expired, revoked, or if the requested credential label was not in the original scope.",
-      inputSchema: {
-        jwt: external_exports.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
-        credential_label: external_exports.string().describe("Exact label of the credential to retrieve \u2014 must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive.")
+    );
+  }
+  if (includesTool("sanction_authorize_capability")) {
+    server2.registerTool(
+      "sanction_authorize_capability",
+      {
+        title: "Request capability authorization",
+        description: "Call this BEFORE acquiring any new capability \u2014 installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, poll sanction_check_authorization with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
+        inputSchema: {
+          capability: external_exports.string().describe("Namespaced identifier of the capability about to be acquired, e.g. 'skill:install:web-scraper', 'plugin:browser', 'api:github.com/repos'"),
+          arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) \u2014 surfaced to the owner on escalation, not policy-evaluated"),
+          grant_id: external_exports.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact capability. Retry with the identical capability plus this grant_id to consume it.")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
-    },
-    async ({ jwt: jwt2, credential_label }, extra) => {
-      const result = await callSanction(opts, "/credentials/inject", "POST", { credential_label }, jwt2, traceOf(extra));
-      if (result.error) {
-        return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
+      async ({ capability, arguments: args, grant_id }, extra) => {
+        const result = await callSanction(opts, "/authorize/capability", "POST", { capability, arguments: args, grant_id }, void 0, traceOf(extra));
+        return renderAuthResult(result, { success: `Authorized \u2014 ${capability}`, verb: "acquire" });
       }
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({ label: result.label, type: result.type, value: result.value, expires_at: result.expires_at })
-        }]
-      };
-    }
-  );
-  server2.registerTool(
-    "sanction_wallet_status",
-    {
-      title: "Check budget and approval status",
-      description: "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
-      inputSchema: {},
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-    },
-    async (_args, extra) => {
-      const result = await callSanction(
-        opts,
-        opts.walletId ? `/wallets/stats?wallet_id=${opts.walletId}` : "/wallets/stats",
-        "GET",
-        void 0,
-        void 0,
-        traceOf(extra)
-      );
-      const status = renderWalletStatus(result);
-      if (!status.ok) {
-        return { content: [{ type: "text", text: status.text }], isError: true };
-      }
-      return {
-        content: [{
-          type: "text",
-          text: status.text
-        }]
-      };
-    }
-  );
-  server2.registerTool(
-    "sanction_check_authorization",
-    {
-      title: "Check and settle authorization",
-      description: "Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, status stays 'escalated' \u2014 wait and poll again. Once the owner approves, status becomes 'approved' and a one-use grant_id is returned: retry the ORIGINAL authorize call with the identical fields plus that grant_id to complete the action. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
-      inputSchema: {
-        request_id: external_exports.string().describe("The request_id from an escalated authorize/provision/tool response")
+    );
+  }
+  if (includesTool("sanction_log_tokens")) {
+    server2.registerTool(
+      "sanction_log_tokens",
+      {
+        title: "Record model usage",
+        description: "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption. It is metered against three budget horizons \u2014 the seat's daily budget, the seat's monthly budget, and the pooled per-department daily token cap \u2014 and returns a 402 budget error naming which horizon was hit if any is exceeded; on a budget error the agent should stop making LLM calls and notify the owner. Report the provider's actual billed cost_usd for the call (from the provider's usage/response), not an estimate \u2014 under-reporting silently defeats the budget. Prefer routing calls through the Sanction LLM gateway instead, which meters real usage server-side with no client honesty required.",
+        inputSchema: {
+          model: external_exports.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
+          tokens_in: external_exports.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
+          tokens_out: external_exports.number().int().nonnegative().describe("Output/completion token count from the API response usage field"),
+          cost_usd: external_exports.number().nonnegative().describe("Actual dollar cost of this call \u2014 compute from provider pricing or read from API response if available"),
+          task: external_exports.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' \u2014 used in spend reports")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
       },
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
-    },
-    async ({ request_id }, extra) => {
-      const result = await callSanction(opts, `/authorize/${encodeURIComponent(request_id)}`, "GET", void 0, void 0, traceOf(extra));
-      const status = typeof result.status === "string" ? result.status : void 0;
-      const grantId = typeof result.grant_id === "string" ? result.grant_id : void 0;
-      if (status === "approved" && grantId) {
+      async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
+        const result = await callSanction(opts, "/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, void 0, traceOf(extra));
+        if (result.error) {
+          return { content: [{ type: "text", text: `Budget error: ${result.error}` }], isError: true };
+        }
+        return {
+          content: [{ type: "text", text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` }]
+        };
+      }
+    );
+  }
+  if (includesTool("sanction_log_outcome")) {
+    server2.registerTool(
+      "sanction_log_outcome",
+      {
+        title: "Record business outcome",
+        description: "Record a business outcome (an enrollment, booking, signed engagement, conversion) against this wallet. Outcomes are what the wallet's spend answers to: Sanction computes cost-per-outcome over a rolling window and, when the wallet has a cost_per_outcome ceiling configured, throttles further spend to human-gated once the ceiling is crossed. Call this when your system confirms a real outcome \u2014 never speculatively. Use dedupe_key (e.g. your CRM record id) so retries never double-count.",
+        inputSchema: {
+          kind: external_exports.string().describe("Outcome kind in your operating vocabulary, lowercase \u2014 e.g. 'enrollment', 'booking', 'signed-engagement'. Must match the policy's outcome_kind for ceiling governance."),
+          value_usd: external_exports.number().nonnegative().optional().describe("Optional dollar value of the outcome (e.g. expected LTV or contract value) \u2014 reporting only, not governance"),
+          play: external_exports.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
+          dedupe_key: external_exports.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted.")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+      },
+      async ({ kind, value_usd, play, dedupe_key }, extra) => {
+        const result = await callSanction(opts, "/outcomes", "POST", { kind, value_usd, play, dedupe_key }, void 0, traceOf(extra));
+        if (result.error) {
+          return { content: [{ type: "text", text: `Outcome error: ${result.error}` }], isError: true };
+        }
+        return {
+          content: [{ type: "text", text: `Outcome recorded: ${kind}${dedupe_key ? ` (${result.deduped ? "deduped" : "new"})` : ""}` }]
+        };
+      }
+    );
+  }
+  if (includesTool("sanction_request_execution")) {
+    server2.registerTool(
+      "sanction_request_execution",
+      {
+        title: "Request scoped execution token",
+        description: "Mint a short-lived mandate (signed JWT) for a child agent, subprocess, or counterparty: credential scope plus a hard spend cap. Pass the JWT \u2014 never the root pxy_ key. Default 15 min, wallet-bound, freeze-aware. The other party verifies it at POST /mandate/verify with no API key. Required before sanction_inject_credential.",
+        inputSchema: {
+          scope: external_exports.array(external_exports.string()).min(1).describe("List of credential labels the execution needs \u2014 e.g. ['STRIPE_KEY', 'OPENAI_API_KEY']. Only these labels will be injectable with the returned JWT. Request minimum required scope."),
+          budget_usd: external_exports.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
+          ttl_seconds: external_exports.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs.")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+      },
+      async ({ scope, budget_usd, ttl_seconds }, extra) => {
+        const result = await callSanction(opts, "/exec", "POST", { scope, budget_usd, ttl_seconds }, void 0, traceOf(extra));
+        if (result.error) {
+          return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
+        }
         return {
           content: [{
             type: "text",
-            text: `\u2713 APPROVED \u2014 retry your original request with grant_id: ${grantId}`
+            text: JSON.stringify({
+              jwt: result.jwt,
+              jti: result.jti,
+              expires_at: result.expires_at,
+              clearance: result.clearance,
+              scope: result.scope,
+              budget_usd: result.budget_usd
+            })
           }]
         };
       }
-      if (status === "escalated" || status === "pending") {
-        return { content: [{ type: "text", text: "\u23F3 Still awaiting the owner's approval \u2014 poll again shortly." }] };
-      }
-      if (status === "denied") {
+    );
+  }
+  if (includesTool("sanction_inject_credential")) {
+    server2.registerTool(
+      "sanction_inject_credential",
+      {
+        title: "Retrieve scoped credential",
+        description: "Retrieve a decrypted credential value using a scoped execution JWT. Every injection is audit-logged with timestamp, agent ID, and credential label \u2014 raw values are never logged. Use the credential value immediately and do not store it in memory, files, or logs. Fails if the JWT is expired, revoked, or if the requested credential label was not in the original scope.",
+        inputSchema: {
+          jwt: external_exports.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
+          credential_label: external_exports.string().describe("Exact label of the credential to retrieve \u2014 must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive.")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
+      },
+      async ({ jwt: jwt2, credential_label }, extra) => {
+        const result = await callSanction(opts, "/credentials/inject", "POST", { credential_label }, jwt2, traceOf(extra));
+        if (result.error) {
+          return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
+        }
         return {
-          content: [{ type: "text", text: `\u2717 DENIED \u2014 ${typeof result.reason === "string" ? result.reason : "the owner declined"}. Do not proceed.` }],
+          content: [{
+            type: "text",
+            text: JSON.stringify({ label: result.label, type: result.type, value: result.value, expires_at: result.expires_at })
+          }]
+        };
+      }
+    );
+  }
+  if (includesTool("sanction_wallet_status")) {
+    server2.registerTool(
+      "sanction_wallet_status",
+      {
+        title: "Check budget and approval status",
+        description: "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
+        inputSchema: {},
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+      },
+      async (_args, extra) => {
+        const result = await callSanction(
+          opts,
+          opts.walletId ? `/wallets/stats?wallet_id=${opts.walletId}` : "/wallets/stats",
+          "GET",
+          void 0,
+          void 0,
+          traceOf(extra)
+        );
+        const status = renderWalletStatus(result);
+        if (!status.ok) {
+          return { content: [{ type: "text", text: status.text }], isError: true };
+        }
+        return {
+          content: [{
+            type: "text",
+            text: status.text
+          }]
+        };
+      }
+    );
+  }
+  if (includesTool("sanction_check_authorization")) {
+    server2.registerTool(
+      "sanction_check_authorization",
+      {
+        title: "Check and settle authorization",
+        description: "Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, status stays 'escalated' \u2014 wait and poll again. Once the owner approves, status becomes 'approved' and a one-use grant_id is returned: retry the ORIGINAL authorize call with the identical fields plus that grant_id to complete the action. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
+        inputSchema: {
+          request_id: external_exports.string().describe("The request_id from an escalated authorize/provision/tool response")
+        },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
+      },
+      async ({ request_id }, extra) => {
+        const result = await callSanction(opts, `/authorize/${encodeURIComponent(request_id)}`, "GET", void 0, void 0, traceOf(extra));
+        const status = typeof result.status === "string" ? result.status : void 0;
+        const grantId = typeof result.grant_id === "string" ? result.grant_id : void 0;
+        if (status === "approved" && grantId) {
+          return {
+            content: [{
+              type: "text",
+              text: `\u2713 APPROVED \u2014 retry your original request with grant_id: ${grantId}`
+            }]
+          };
+        }
+        if (status === "escalated" || status === "pending") {
+          return { content: [{ type: "text", text: "\u23F3 Still awaiting the owner's approval \u2014 poll again shortly." }] };
+        }
+        if (status === "denied") {
+          return {
+            content: [{ type: "text", text: `\u2717 DENIED \u2014 ${typeof result.reason === "string" ? result.reason : "the owner declined"}. Do not proceed.` }],
+            isError: true
+          };
+        }
+        return {
+          content: [{ type: "text", text: `Could not read the authorization: ${typeof result.error === "string" ? result.error : "unknown error"}` }],
           isError: true
         };
       }
-      return {
-        content: [{ type: "text", text: `Could not read the authorization: ${typeof result.error === "string" ? result.error : "unknown error"}` }],
-        isError: true
-      };
-    }
-  );
+    );
+  }
   return server2;
 }
 

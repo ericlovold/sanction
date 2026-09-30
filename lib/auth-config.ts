@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
 import { nextCookies } from "better-auth/next-js"
 import { db } from "@/lib/db"
+import { mcpOAuthEnabled, mcpOAuthPlugins } from "./mcpOAuthProvider"
 
 // Better Auth = the human identity layer for the console (Google, GitHub,
 // Apple). It owns the User/Session/Account/Verification tables in our Neon
@@ -23,6 +24,8 @@ const appleEnabled = !!process.env.APPLE_CLIENT_ID
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
+  // OAuth access tokens come only from the provider's authorization flow.
+  ...(mcpOAuthEnabled() ? { disabledPaths: ["/token"] } : {}),
   database: prismaAdapter(db, { provider: "postgresql" }),
   socialProviders: {
     google: {
@@ -46,5 +49,5 @@ export const auth = betterAuth({
   // appleid.apple.com — it must be a trusted origin or the callback is rejected.
   ...(appleEnabled ? { trustedOrigins: ["https://appleid.apple.com"] } : {}),
   // nextCookies must be last — it flushes Set-Cookie from server actions.
-  plugins: [nextCookies()],
+  plugins: [...mcpOAuthPlugins(), nextCookies()],
 })
