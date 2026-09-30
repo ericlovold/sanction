@@ -1,6 +1,5 @@
 {
   "name": "sanction",
-  "displayName": "Sanction",
   "version": "0.1.0",
   "description": "Independent authorization plane for AI agents — approve, escalate, or deny spend, tools, credentials, and provisioning. Wires the hosted wallet MCP; the host must ask before acting.",
   "author": {
@@ -18,7 +17,6 @@
     "spend",
     "governance"
   ],
-  "category": "Agent Orchestration",
   "logo": "assets/logo.svg",
   "variables": {
     "type": "object",
