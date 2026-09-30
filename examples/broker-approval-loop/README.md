@@ -32,7 +32,7 @@ An approved request must carry an active, unconsumed grant with a future expiry.
 
 `completed` means a non-error MCP result arrived, not that an external effect was independently verified. Tool exceptions, dispatch timeouts, malformed tool results, and explicit broker unknown outcomes return `unknown`; reconcile those manually and never automatically restart the helper. A normal tool error returns `stopped`.
 
-Use this example with a trusted synthetic upstream. Upstream metadata can impersonate the decision namespace; this marker alone does not authenticate its origin. Arbitrary upstreams need an authenticated broker/host origin boundary before adopting this as a production retry policy.
+Use an authenticated connection to your configured Sanction broker. The broker strips reserved `sanction/` metadata from upstream JSON and SSE responses before adding its own decisions. A direct upstream connection, copied result, or model-generated object does not establish that boundary; the marker is not a signed receipt. Begin with the synthetic fixture before connecting tools with external effects.
 
 The deadline bounds this invocation's waiting and aborts its callback signal. An underlying operation that ignores cancellation can still finish later. This example keeps state in memory: it provides neither a durable restart fence nor coordination across concurrent invocations. No live Slack or upstream service execution is asserted by its unit tests.
 
