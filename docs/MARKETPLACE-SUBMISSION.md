@@ -18,7 +18,7 @@ For local protocol testing, use the same `x-api-key: pxy_...` header and MCP cli
 
 The route fixes the profile; query parameters, headers and tool arguments cannot widen it. `/mcp`, stdio and the Cursor package retain all ten tools. No new tool is introduced.
 
-This is a reduced tool surface, **not a restricted credential**. The supplied agent key still works against other authorized Sanction endpoints. OAuth must separately constrain tokens to the intended resource and scope. The endpoint remains cooperative and still returns request/grant identifiers needed for the approval loop; it is not a claim that arbitrary tool output is scrubbed of secrets or that marketplace review is complete.
+This is a reduced tool surface, **not a restricted credential**. The supplied agent key still works against other authorized Sanction endpoints. The optional [OAuth connection flow](MCP-OAUTH.md) separately constrains tokens to this resource and scope; it is disabled by default. The endpoint remains cooperative and still returns request/grant identifiers needed for the approval loop; it is not a claim that arbitrary tool output is scrubbed of secrets or that marketplace review is complete.
 
 ## Channel readiness
 
@@ -35,7 +35,7 @@ Registry observation: the official Registry API returned latest version 0.9.0 wi
 
 ## Shared blockers
 
-1. **Authentication.** Current hosted MCP accepts agent keys. Build the OAuth connection flow required by authenticated Claude/OpenAI directory apps, preserving wallet/agent isolation and revocation. Slack's existing OAuth installation flow is a different connection.
+1. **Authentication.** Hosted MCP accepts agent keys. The optional OAuth connection flow is implemented behind a rollout flag; verify social sign-in and a real host against the deployed endpoint before claiming onboarding is complete. Slack's existing OAuth installation flow is a different connection.
 2. **Secrets in tool output.** `sanction_inject_credential` returns a decrypted credential; `sanction_request_execution` returns a bearer JWT. Review both against OpenAI's prohibition on authentication secrets in tool responses. The approval-focused route excludes both tools. Remaining responses, including the one-use grant flow and user-supplied text, still require review before claiming directory eligibility.
 3. **Review evidence.** Run each exposed tool in an isolated test wallet. Authorize calls create real decisions; they are not dry runs. Capture sanitized inputs, outputs, policy, host/version and pass/fail results. Never include keys, credential values or bearer tokens.
 4. **Listing materials.** Verify logo, support contact, privacy policy, terms, website, installation instructions, account deletion/disconnection instructions, and a reviewer account without interactive login obstacles. Complete publisher and domain verification where required.

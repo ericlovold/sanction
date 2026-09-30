@@ -23,10 +23,15 @@ export const APPROVAL_MCP_TOOLS: readonly string[] = [
   "sanction_check_authorization",
 ]
 
+export type SanctionMcpApiCall = (
+  path: string, method: "GET" | "POST", body?: unknown, bearerToken?: string, trace?: TraceContext,
+) => Promise<Record<string, unknown>>
+
 export type SanctionMcpOptions = {
   apiKey: string
   apiUrl: string
   walletId?: string
+  apiCall?: SanctionMcpApiCall
   toolProfile?: SanctionMcpToolProfile
 }
 
@@ -64,6 +69,7 @@ async function callSanction(
   // timeouts, and non-JSON bodies (gateway 502 pages) into the same
   // { authorized:false, code, reason } contract every tool description promises.
   try {
+    if (opts.apiCall) return await opts.apiCall(path, method, body, bearerToken, trace)
     const res = await fetch(`${opts.apiUrl}${path}`, {
       method,
       headers,

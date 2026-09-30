@@ -36582,6 +36582,7 @@ async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
     headers["Authorization"] = `Bearer ${bearerToken}`;
   }
   try {
+    if (opts.apiCall) return await opts.apiCall(path, method, body, bearerToken, trace);
     const res = await fetch(`${opts.apiUrl}${path}`, {
       method,
       headers,

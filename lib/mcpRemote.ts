@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
 import { authenticateAgent } from "./auth"
 import { publicOrigin } from "./authzen"
-import { createSanctionMcpServer, type SanctionMcpToolProfile } from "./mcpServer"
+import { createSanctionMcpServer, type SanctionMcpToolProfile, type SanctionMcpOptions } from "./mcpServer"
 import { clientIp, rateLimit } from "./rateLimit"
 
 const NO_STORE = { "Cache-Control": "no-store" } as const
@@ -130,12 +130,14 @@ export async function handleSanctionMcpRequest(
   }
 
   const origin = publicOrigin(req)
-  const server = createSanctionMcpServer({
-    apiKey,
-    apiUrl: `${origin}/api/v1`,
-    walletId: agent.walletId,
-    toolProfile,
+  return handleAuthenticatedMcpRequest(req, {
+    apiKey, apiUrl: `${origin}/api/v1`, walletId: agent.walletId, toolProfile,
   })
+}
+
+// Call only after authenticating at the route boundary. Each instance is request-local.
+export async function handleAuthenticatedMcpRequest(req: NextRequest, opts: SanctionMcpOptions): Promise<Response> {
+  const server = createSanctionMcpServer(opts)
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
