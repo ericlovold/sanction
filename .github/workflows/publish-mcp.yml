@@ -7,7 +7,9 @@ name: Publish MCP
 # version is already on npm it skips, so a re-run can push a missed registry
 # publish without a version bump. To ship: bump the version in
 # packages/sanction-mcp/{package,server}.json (and mcp-server.ts serverInfo),
-# push, then run this workflow from the Actions tab.
+# push, then run this workflow from the Actions tab. Registry-only metadata
+# updates may bump server.json version while packages[].version still references
+# the existing npm release. Registry records are immutable: use a new version.
 on:
   workflow_dispatch:
 

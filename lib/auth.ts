@@ -1,8 +1,22 @@
 import { NextRequest } from "next/server"
 import { db } from "./db"
 import { hashApiKey } from "./apiKey"
+import { internalAgentIdentity } from "./internalAgentAuth"
 
 export async function authenticateAgent(req: NextRequest) {
+  const identity = internalAgentIdentity(req)
+  if (identity) {
+    const agent = await db.agent.findFirst({
+      where: { id: identity.agentId, walletId: identity.walletId },
+      include: { wallet: { include: { policy: true } } },
+    })
+    if (!agent) return { agent: null, error: "Invalid internal agent identity" }
+    if (!agent.isActive) return { agent: null, error: "Agent is inactive" }
+    if (agent.expiresAt && agent.expiresAt <= new Date()) {
+      return { agent: null, error: "Agent key expired" }
+    }
+    return { agent, error: null }
+  }
   const apiKey = req.headers.get("x-api-key")
   if (!apiKey) return { agent: null, error: "Missing x-api-key header" }
 
