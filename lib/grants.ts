@@ -16,7 +16,7 @@ export type GrantErrorCode = Extract<
 
 export type GrantConsumeResult =
   | { ok: true; request: SpendRequest; grantId: string; grantExpiresAt: Date | null; consumedAt: Date }
-  | { ok: false; code: GrantErrorCode; status: 403 | 404 | 409; reason: string }
+  | { ok: false; code: GrantErrorCode; status: 403 | 404 | 409; reason: string; auditReason?: "human_approval_required" }
 
 type GrantClient = CascadeTx & Pick<typeof db, "authorizationRequest" | "executionToken" | "grant">
 
@@ -30,6 +30,7 @@ type SpendRequest = {
 }
 
 type SpendGrant = {
+  issuedBy?: string
   id: string
   walletId: string
   agentId: string
@@ -127,6 +128,7 @@ export async function consumeToolGrant(
     walletId: string
     agentId: string
     request: ToolGrantRequest
+    requireHumanApproval?: boolean
     now?: Date
   },
 ): Promise<GrantConsumeResult> {
@@ -185,6 +187,7 @@ async function consumeGrantCore(
     execTokenId: string | null
     now?: Date
     expectedActionType: string
+    requireHumanApproval?: boolean
     matches: (resourceJson: unknown) => boolean | Promise<boolean>
     unsupportedReason: string
     mismatchReason: string
@@ -198,6 +201,9 @@ async function consumeGrantCore(
   }
   if (grant.actionType !== input.expectedActionType || grant.sourceType !== "authorization_request" || !grant.sourceId) {
     return denyGrant("GRANT_UNSUPPORTED", 403, input.unsupportedReason)
+  }
+  if (input.requireHumanApproval && (!grant.issuedBy || grant.issuedBy === "policy_timeout")) {
+    return { ok: false, code: "GRANT_UNSUPPORTED", status: 403, reason: "This request requires a human-issued approval grant", auditReason: "human_approval_required" }
   }
   if (grant.status === "consumed") return denyGrant("GRANT_ALREADY_USED", 409, "Grant already consumed")
   if (grant.status !== "active") return denyGrant("GRANT_NOT_FOUND", 404, `Grant is ${grant.status}`)

@@ -21,6 +21,43 @@ Discovery is forwarded to Better Auth at `/.well-known/oauth-authorization-serve
 
 The custom-connector smoke is not directory acceptance. Marketplace submission still needs review of remaining tool output, including grants, and the publisher's submission requirements.
 
+## Ask for one approval
+
+Once connected to an agent, ask Sanction for a human decision without editing a
+policy. Use the existing `sanction_authorize_tool` with `require_approval: true`.
+An initial request cannot override a hard denial. It pauses even in observe mode and can never
+auto-approve on timeout. It expires after the wallet's positive timeout, or 60
+minutes when the wallet has no timeout; that duration is fixed when requested.
+
+Try this prompt in your connected host:
+
+> Ask Sanction for my approval to run `demo.noop` with arguments
+> `{"message":"My first approval"}`. Set `require_approval` to true and
+> `approval_reason` to "I want to try a one-off approval." This is a synthetic
+> test: make one authorization call, show the request ID, then stop. Do not
+> execute any action, retry, or poll automatically.
+
+For your own action, provide its actual tool name, server, and exact arguments.
+Put the explanation in `approval_reason`; do not put credentials or secrets in it.
+The owner receives the existing email approval link and configured Slack delivery.
+Tool arguments are encrypted for authorized review; notification text is not a
+complete argument review. Open the review link when you need to inspect them.
+
+After the human decides, check `sanction_check_authorization` once with the
+request ID. On `retry_with_grant`, repeat the original tool authorization with
+identical tool, server, and arguments, plus the returned `grant_id`. Only an
+`authorized: true` redemption permits that attempt. Changed arguments, expired
+grants, and grant reuse are refused. Tool grant redemption uses the existing grant
+checks; it does not re-evaluate the current tool-policy ladder. A synthetic test should still execute no
+external action, even after successful redemption.
+
+This is cooperative: connecting does not intercept the host's other tools.
+Omitting `require_approval` uses the standing policy; confidence is never a reason
+to bypass a mandatory approval. A connection to a wallet and an agent is still
+required. No new MCP tool or additional OAuth scope is needed. Host-by-host live
+verification of this one-off flow remains pending; connection compatibility alone
+is not proof of approval resumption.
+
 ## MCP decision results
 
 The four authorization tools and `sanction_check_authorization` return readable text, a second text block containing the decision as JSON, and `structuredContent`. The JSON text block contains the same allowlisted fields as `structuredContent` for hosts that expose only text to the model. A successful MCP call is not permission: hosts must check `authorized` and `next_action`.

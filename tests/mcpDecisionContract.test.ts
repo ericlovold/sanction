@@ -112,3 +112,42 @@ describe("MCP decisions consumed by a host", () => {
     expect(JSON.stringify(response)).not.toContain("gr_other")
   })
 })
+
+
+describe("MCP explicit tool approval", () => {
+  it("exposes approval fields on the existing tool and forwards the exact request", async () => {
+    const apiCall = vi.fn().mockResolvedValue({ authorized: false, status: "escalated", code: "TOOL_ESCALATION_REQUIRED", request_id: "req_explicit" })
+    const server = createSanctionMcpServer({ apiKey: "", apiUrl: "https://unused.invalid", toolProfile: "approvals", apiCall })
+    const client = new Client({ name: "explicit-approval-contract", version: "1" })
+    const [a, b] = InMemoryTransport.createLinkedPair()
+    try {
+      await Promise.all([server.connect(b), client.connect(a)])
+      const { tools } = await client.listTools()
+      expect(tools.map(tool => tool.name).sort()).toEqual([
+        "sanction_authorize", "sanction_authorize_capability", "sanction_authorize_provision",
+        "sanction_authorize_tool", "sanction_check_authorization",
+        "sanction_log_tokens", "sanction_log_outcome", "sanction_wallet_status",
+      ].sort())
+      const authorize = tools.find(tool => tool.name === "sanction_authorize_tool")!
+      expect(authorize.inputSchema.properties).toMatchObject({
+        require_approval: { type: "boolean", description: expect.any(String) },
+        approval_reason: { type: "string", minLength: 1, maxLength: 500, description: expect.any(String) },
+      })
+      expect(authorize.inputSchema.required).not.toContain("require_approval")
+      const args = { tool: "deploy.prod", server: "release", arguments: { ref: "abc", stages: ["canary", "stable"] }, require_approval: true, approval_reason: "  Review rollout  " }
+      const response = await client.callTool({ name: "sanction_authorize_tool", arguments: args })
+      expect(apiCall).toHaveBeenCalledTimes(1)
+      expect(apiCall.mock.calls[0].slice(0, 3)).toEqual(["/authorize/tool", "POST", { ...args, approval_reason: "Review rollout" }])
+      expect(response.structuredContent).toMatchObject({ authorized: false, status: "escalated", next_action: "wait" })
+      const blocks = response.content as Array<{ type: string; text: string }>
+      expect(JSON.parse(blocks[1].text)).toEqual(response.structuredContent)
+      for (const invalid of [{ require_approval: "true" }, { approval_reason: " " }, { approval_reason: "x".repeat(501) }]) {
+        expect((await client.callTool({ name: "sanction_authorize_tool", arguments: { tool: "deploy.prod", ...invalid } })).isError).toBe(true)
+      }
+      expect(apiCall).toHaveBeenCalledTimes(1)
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+})

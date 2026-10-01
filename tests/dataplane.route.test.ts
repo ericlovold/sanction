@@ -1,7 +1,9 @@
-import { sealToolRequest } from "../lib/toolRequest"
+import { decisionCode } from "../lib/decisions"
+import { canonicalToolRequest, openToolRequest, sealToolRequest } from "../lib/toolRequest"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
 import { hashApiKey } from "../lib/apiKey"
+import { replayEvidence } from "../lib/evidence"
 
 // Route-handler tests (mocked Prisma) for the remaining untested data-plane and
 // management surfaces: tool authorization, token logging + daily token budget,
@@ -306,6 +308,121 @@ describe("authorize/tool — tool governance", () => {
     )
     expect(res.status).toBe(409)
     expect((await res.json()).code).toBe("GRANT_ALREADY_USED")
+  })
+})
+
+describe("authorize/tool — explicit human approval", () => {
+  beforeEach(() => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue(null)
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_explicit", createdAt: new Date("2026-09-30T12:00:00Z") })
+    dbMock.pendingApproval.create.mockResolvedValue({ id: "pa_explicit" })
+  })
+
+  it.each([0, 15])("escalates in observe mode with a deny timeout when policy timeout is %i", async timeout => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: {
+      ...POLICY, allowedTools: [], blockedTools: [], escalateTools: [], enforcementMode: "observe",
+      escalationTimeoutMins: timeout, escalationTimeoutAction: "approve",
+    } } })
+    const args = { environment: "production", rollout: ["canary", "stable"], options: { percent: 10 } }
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "deploy.prod", server: "release", arguments: args, require_approval: true,
+      approval_reason: "  Review production rollout  ",
+    } }))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ authorized: false, status: "escalated", code: "TOOL_ESCALATION_REQUIRED", request_id: "req_explicit" })
+    const row = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(row.detailsJson).toMatchObject({ require_approval: true, approval_timeout_mins: timeout || 60 })
+    expect(row.detailsJson).not.toHaveProperty("observed")
+    expect(row.decisionContextJson.ctx).toMatchObject({ requireApproval: true, approvalReason: "Review production rollout" })
+    expect(replayEvidence(row.decisionContextJson)).toMatchObject({ matches: true, effect: "escalate", reason: row.decisionNote })
+    expect(row.decisionNote).toContain("Review production rollout")
+    const pending = dbMock.pendingApproval.create.mock.calls[0][0].data
+    expect(pending).toMatchObject({ sourceId: "req_explicit", actionType: "tool.invoke",
+      constraintsJson: { one_use: true, timeout_action: "deny", timeout_mins: timeout || 60 },
+      expiresAt: new Date(new Date("2026-09-30T12:00:00Z").getTime() + (timeout || 60) * 60_000),
+    })
+    expect(await openToolRequest(WID, pending.resourceJson)).toBe(canonicalToolRequest({ tool: "deploy.prod", server: "release", arguments: args }))
+  })
+
+  it.each(["policy_timeout", undefined])("explicit approval rejects a matching grant without human provenance: %s", async issuedBy => {
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_provenance_denied" })
+    dbMock.grant.findUnique.mockResolvedValue({
+      id: "grant_explicit", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active", issuedBy,
+      resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "deploy.prod", arguments: { ref: "abc" } }) },
+      sourceType: "authorization_request", sourceId: "req_explicit", expiresAt: null,
+    })
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "deploy.prod", arguments: { ref: "abc" }, require_approval: true, grant_id: "grant_explicit",
+    } }))
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ authorized: false, code: "GRANT_UNSUPPORTED", request_id: "req_provenance_denied" })
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+    const denied = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(denied).toMatchObject({ agentId: AID, kind: "tool", status: "denied", merchant: "deploy.prod", decidedAt: expect.any(Date), decisionNote: "This request requires a human-issued approval grant" })
+    expect(decisionCode(denied.status, denied.decisionNote)).toBe("GRANT_UNSUPPORTED")
+    expect(denied.detailsJson).toMatchObject({ rejection: "human_approval_required", grant_id: "grant_explicit" })
+    expect(await openToolRequest(WID, denied.detailsJson)).toBe(canonicalToolRequest({ tool: "deploy.prod", arguments: { ref: "abc" } }))
+    expect(denied.detailsJson).not.toHaveProperty("arguments")
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it("redeems a human-issued explicit approval through the existing one-use path", async () => {
+    dbMock.grant.findUnique.mockResolvedValue({
+      id: "grant_explicit", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active", issuedBy: "wallet_owner",
+      resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "deploy.prod", arguments: { ref: "abc" } }) },
+      sourceType: "authorization_request", sourceId: "req_explicit", expiresAt: null,
+    })
+    dbMock.grant.updateMany.mockResolvedValue({ count: 1 })
+    dbMock.authorizationRequest.update.mockResolvedValue({ id: "req_explicit", status: "approved" })
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "deploy.prod", arguments: { ref: "abc" }, require_approval: true, grant_id: "grant_explicit",
+    } }))
+    expect(await response.json()).toMatchObject({ authorized: true, status: "allowed", grant_status: "consumed", grant_id: "grant_explicit" })
+    expect(dbMock.grant.updateMany).toHaveBeenCalledTimes(1)
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+  })
+
+  it("false leaves an unlisted tool allowed without creating approval", async () => {
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "web.search", require_approval: false,
+    } }))
+    expect(await response.json()).toMatchObject({ authorized: true, status: "allowed" })
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { blockedTools: ["deploy.prod"], allowedTools: [], code: "TOOL_BLOCKED" },
+    { blockedTools: [], allowedTools: ["web.search"], code: "TOOL_NOT_ALLOWED" },
+  ])("hard denial wins over explicit approval in observe mode: $code", async ({ code, ...lists }) => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: { ...POLICY, ...lists, enforcementMode: "observe" } } })
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "deploy.prod", require_approval: true } }))
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ authorized: false, status: "denied", code })
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+  })
+
+  it("ancestor denial wins over explicit approval in an observing child", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, parentId: "wallet_parent", policy: {
+      ...POLICY, blockedTools: [], allowedTools: [], escalateTools: [], enforcementMode: "observe",
+    } } })
+    dbMock.wallet.findUnique.mockResolvedValue({ id: "wallet_parent", parentId: null, policy: { ...POLICY, walletId: "wallet_parent", blockedTools: ["deploy.prod"] } })
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "deploy.prod", require_approval: true } }))
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ authorized: false, status: "denied", code: "TOOL_BLOCKED" })
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+    expect(replayEvidence(dbMock.authorizationRequest.create.mock.calls[0][0].data.decisionContextJson)).toMatchObject({ matches: true, effect: "deny" })
+  })
+
+  it.each([
+    { require_approval: "true" },
+    { approval_reason: "   " },
+    { approval_reason: "x".repeat(501) },
+  ])("rejects malformed explicit approval fields: %j", async fields => {
+    const response = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "web.search", ...fields } }))
+    expect(response.status).toBe(400)
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
   })
 })
 

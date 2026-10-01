@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-01",
+    title: "Ask for one human approval",
+    tags: ["mcp", "approvals"],
+    body: "The existing tool-authorization call accepts require_approval and an approval_reason. Agents can request human review without editing a policy, even when the action would otherwise be allowed. Hard denials still win, observe mode cannot skip an explicit request, and its timeout always denies. Approval uses the existing exact-argument, expiring, one-use grant. Hosted MCP remains cooperative; live host resumption and distribution of the rebuilt npm bundle remain pending.",
+  },
+  {
+    date: "2026-10-01",
     title: "Expose MCP decisions to text-only hosts",
     tags: ["mcp", "approvals"],
     body: "Authorization and approval polling now include the same decision fields as JSON text and structured content. Hosts that expose only text can read authorized, status, and next_action without parsing prose. Contract tests verify both representations agree, including errors and unusable grants. Live host verification remains pending; the rebuilt stdio bundle requires a new npm release.",

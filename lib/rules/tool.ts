@@ -28,6 +28,8 @@ function toolMatches(pattern: string, tool: string): boolean {
 
 export type ToolContext = {
   tool: string
+  requireApproval?: boolean
+  approvalReason?: string
   blockedTools: string[]
   allowedTools: string[]
   escalateTools: string[]
@@ -131,12 +133,23 @@ export const toolConditionEscalateRule: Rule<ToolContext> = {
   },
 }
 
+export const toolRequestedApprovalRule: Rule<ToolContext> = {
+  id: "tool_requested_approval",
+  run(c) {
+    if (c.requireApproval) {
+      return { effect: "escalate", ruleId: "tool_requested_approval", code: "TOOL_ESCALATION_REQUIRED", reason: c.approvalReason ? `Agent requested human approval: ${c.approvalReason}` : "Agent requested human approval" }
+    }
+    return allow("tool_requested_approval")
+  },
+}
+
 // Precedence (deny-overrides): blocked → conditional block → allow-list →
-// escalate → conditional escalate → allow.
+// requested approval → escalate → conditional escalate → allow.
 export const TOOL_RULES: Rule<ToolContext>[] = [
   toolBlockRule,
   toolConditionBlockRule,
   toolAllowlistRule,
+  toolRequestedApprovalRule,
   toolEscalateRule,
   toolConditionEscalateRule,
 ]

@@ -474,17 +474,25 @@ export function escalationExpired(createdAt: Date, timeoutMins: number): boolean
  * fields the caller should report.
  */
 export async function settleIfExpired(
-  row: { id: string; status: string; decisionNote: string | null; decidedAt: Date | null; createdAt: Date },
+  row: { id: string; status: string; decisionNote: string | null; decidedAt: Date | null; createdAt: Date; detailsJson?: unknown },
   policy: EscalationPolicy,
 ): Promise<DecisionFields> {
   const current = { status: row.status, decisionNote: row.decisionNote, decidedAt: row.decidedAt }
-  if (!policy || row.status !== "escalated" || !escalationExpired(row.createdAt, policy.escalationTimeoutMins)) {
+  // A caller-requested human decision cannot become a machine approval when
+  // the wallet policy changes. Its original bounded deadline travels with it.
+  const details = asRecord(row.detailsJson)
+  const requiresApproval = details.require_approval === true
+  const recordedTimeout = numberFromConstraints(details, "approval_timeout_mins")
+  const timeoutMins = requiresApproval
+    ? recordedTimeout && recordedTimeout > 0 ? recordedTimeout : 60
+    : policy?.escalationTimeoutMins ?? 0
+  if (row.status !== "escalated" || !escalationExpired(row.createdAt, timeoutMins)) {
     return current
   }
 
-  const status = policy.escalationTimeoutAction === "approve" ? "approved" : "denied"
+  const status = !requiresApproval && policy?.escalationTimeoutAction === "approve" ? "approved" : "denied"
   const decidedAt = new Date()
-  const decisionNote = `Escalation timed out after ${policy.escalationTimeoutMins}m — auto-${status} by policy`
+  const decisionNote = `Escalation timed out after ${timeoutMins}m — auto-${status} by policy`
 
   return settleTimedOutAuthorization(row.id, status, decidedAt, decisionNote, current)
 }

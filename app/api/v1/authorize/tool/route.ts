@@ -1,4 +1,4 @@
-import { canonicalToolRequest } from "@/lib/toolRequest"
+import { canonicalToolRequest, sealToolRequest } from "@/lib/toolRequest"
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
 import { z } from "zod"
@@ -33,6 +33,8 @@ const schema = z.object({
   server: z.string().optional(), // MCP server name, e.g. "github", "filesystem"
   arguments: z.record(z.string(), z.unknown()).optional(), // encrypted for approval binding; not policy-evaluated
   input: z.record(z.string(), z.unknown()).optional(), // legacy TypeScript SDK wire alias
+  require_approval: z.boolean().optional(),
+  approval_reason: z.string().trim().min(1).max(500).optional(),
   grant_id: z.string().optional(),
 }).refine(v => v.arguments === undefined || v.input === undefined, { message: "Send arguments or input, not both" })
 
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
   }
-  const { tool, server, grant_id } = parsed.data
+  const { tool, server, grant_id, require_approval, approval_reason } = parsed.data
   const args = parsed.data.arguments ?? parsed.data.input
   try { canonicalToolRequest({ tool, server, arguments: args }) } catch {
     return NextResponse.json({ error: "Invalid tool request: maximum 64 KiB and 32 nesting levels; finite JSON values required" }, { status: 400 })
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
   // the one-use grant and the invocation is authorized.
   if (grant_id) {
     const result = await db.$transaction((tx) =>
-      consumeToolGrant(tx, { grantId: grant_id, walletId: agent.walletId, agentId: agent.id, request: { tool, server, arguments: args } }),
+      consumeToolGrant(tx, { grantId: grant_id, walletId: agent.walletId, agentId: agent.id, request: { tool, server, arguments: args }, requireHumanApproval: require_approval }),
     )
     if (result.ok) {
       return NextResponse.json(
@@ -93,10 +95,34 @@ export async function POST(req: NextRequest) {
         { status: 200 },
       )
     }
+    // This is a new denied attempt, not a change to the original approval.
+    // Keep exact arguments encrypted, as for the approval request itself.
+    const deniedAttempt = result.auditReason === "human_approval_required"
+      ? await db.authorizationRequest.create({
+          data: {
+            agentId: agent.id,
+            kind: "tool",
+            action: "invoke",
+            amountUsd: 0,
+            merchant: tool,
+            category: "tool",
+            status: "denied",
+            decidedAt: new Date(),
+            decisionNote: result.reason,
+            detailsJson: {
+              tool, server: server ?? null, require_approval: true,
+              rejection: result.auditReason, grant_id,
+              requestBinding: await sealToolRequest(agent.walletId, { tool, server, arguments: args }),
+            },
+          },
+          select: { id: true },
+        })
+      : null
     return NextResponse.json(
       {
         authorized: false,
         status: "denied",
+        request_id: deniedAttempt?.id,
         reason: result.reason,
         code: result.code,
         remediation: REMEDIATION[result.code as DecisionCode],
@@ -120,7 +146,12 @@ export async function POST(req: NextRequest) {
 
   // OBS-1: observe mode — identical ladder, truthful persisted status with an
   // observed marker, nothing blocked, no approvals or pages (see spend route).
-  const observe = policy.enforcementMode === "observe"
+  // An explicit human gate is restrictive even in observe mode.
+  const observe = policy.enforcementMode === "observe" && !require_approval
+  const approvalTimeoutMins = policy.escalationTimeoutMins > 0 ? policy.escalationTimeoutMins : 60
+  const approvalPolicy = require_approval
+    ? { ...policy, escalationTimeoutMins: approvalTimeoutMins, escalationTimeoutAction: "deny" }
+    : policy
 
   // INHERIT-1: the decision spans every ancestor policy — a child may
   // tighten, never loosen. Leaf layer comes from the wallet already in hand;
@@ -133,6 +164,8 @@ export async function POST(req: NextRequest) {
   const signalDayStart = new Date()
   signalDayStart.setHours(0, 0, 0, 0)
   const signals = {
+    requireApproval: require_approval,
+    approvalReason: require_approval ? approval_reason : undefined,
     requestHourUtc: new Date().getUTCHours(),
     modelCallsToday: needsCallCount
       ? await db.tokenLog.count({ where: { agentId: agent.id, createdAt: { gte: signalDayStart } } })
@@ -149,6 +182,8 @@ export async function POST(req: NextRequest) {
   // invisible to the pure rules, so old and new rows replay identically.
   const evidenceCtx = {
     tool,
+    requireApproval: signals.requireApproval,
+    approvalReason: signals.approvalReason,
     blockedTools: outcome.decidedBy.blockedTools,
     allowedTools: outcome.decidedBy.allowedTools,
     escalateTools: outcome.decidedBy.escalateTools,
@@ -174,7 +209,7 @@ export async function POST(req: NextRequest) {
             amountUsd: 0,
             merchant: tool, // shared display/audit column, like provision's resource
             category: "tool",
-            detailsJson: { tool, server: server ?? null, ...(observe ? { observed: true } : {}) },
+            detailsJson: { tool, server: server ?? null, ...(require_approval ? { require_approval: true, approval_timeout_mins: approvalTimeoutMins } : {}), ...(observe ? { observed: true } : {}) },
             status: "escalated",
             decisionNote: decision.reason,
             // EVID-1: the tool ladder is fully stateless — the lists ARE the state.
@@ -189,7 +224,7 @@ export async function POST(req: NextRequest) {
             walletId: agent.walletId,
             agentName: agent.name,
             request: { id: row.id, agentId: agent.id, tool, server: server ?? null, arguments: args, createdAt: row.createdAt },
-            policy,
+            policy: approvalPolicy,
             reason: decision.reason ?? "Tool requires human approval",
           })
           approvalId = approval.id
@@ -276,7 +311,7 @@ export async function POST(req: NextRequest) {
           amountUsd: 0,
           merchant: tool,
           category: "tool",
-          detailsJson: { tool, server: server ?? null, ...(observe ? { observed: true } : {}) },
+          detailsJson: { tool, server: server ?? null, ...(require_approval ? { require_approval: true, approval_timeout_mins: approvalTimeoutMins } : {}), ...(observe ? { observed: true } : {}) },
           status: "denied",
           decidedAt: new Date(),
           decisionNote: decision.reason,
