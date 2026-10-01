@@ -1,6 +1,6 @@
 # Connect a host with OAuth
 
-Implementation status (2026-09-30): available behind `SANCTION_MCP_OAUTH_ENABLED=true`; disabled by default. Verified with a local browser, a synthetic MCP client and isolated Postgres. Named-host compatibility and production rollout are not yet verified.
+Rollout checkpoint (2026-09-30): enabled on getsanction.com after the migration. A custom Claude connector using automatic registration (DCR) completed consent, tool discovery, a budget read, synthetic escalation, operator rejection and revocation. Fresh social-provider login, approved redemption and refresh in Claude remain unverified. Other deployments default to disabled.
 
 ## User flow
 
@@ -19,7 +19,24 @@ Set a stable `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`, configure the existing 
 
 Discovery is forwarded to Better Auth at `/.well-known/oauth-authorization-server/api/auth`, `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/mcp/approvals`. The API auth handler serves authorization, token, registration and JWKS endpoints under `/api/auth`. Unauthenticated OAuth MCP requests receive the provider's discovery challenge.
 
-Do not advertise a marketplace listing until a real host completes installation, consent, a governed request and disconnect against the deployed endpoint. The rollout also needs a review of remaining tool output, including the grant flow.
+The custom-connector smoke is not directory acceptance. Marketplace submission still needs review of remaining tool output, including grants, and the publisher's submission requirements.
+
+## MCP decision results
+
+The four authorization tools and `sanction_check_authorization` return readable text plus `structuredContent`. A successful MCP call is not permission: hosts must check `authorized` and `next_action`.
+
+| Result | `authorized` | `next_action` | Host behavior |
+| --- | --- | --- | --- |
+| Authorization succeeds | `true` | `proceed` | Perform only the authorized action. |
+| Pending or escalated | `false` | `wait` | Pause; check once after human resolution, or use bounded polling with backoff. |
+| Denied | `false` | `stop` | Do not execute or automatically retry. |
+| Poll observes an active, unexpired grant | `false` | `retry_with_grant` | Submit the identical original authorization with `grant_id`; execute only if that redemption is authorized. |
+| Poll observes unusable or missing authority | `false` | `stop` | Do not reuse a consumed, expired or revoked grant. |
+| Authentication, transport or malformed-response failure | `false` | `stop` | Resolve the failure; do not assume permission or blindly replay a possibly processed request. |
+
+Ordinary decisions have `isError: false`, including a refusal. Actual call failures have `isError: true`. Decision fields are allowlisted; available request IDs, codes, reasons and grant state are retained. Only a usable polled grant exposes `grant_id`. An explicit null expiry means non-expiring; missing or invalid expiry does not prove usability. The redemption endpoint remains authoritative if policy or grant state changes after polling.
+
+This response contract also applies to the full wallet and bundled stdio server. It does not change tool permissions, the policy engine or grant consumption. Consumers that treated `isError: false` as permission must use the decision fields instead. A new npm release is needed to distribute the rebuilt bundle.
 
 ## Authorization boundaries
 
@@ -34,4 +51,6 @@ Do not advertise a marketplace listing until a real host completes installation,
 
 `tests/mcp-oauth.db.test.ts` drives the real provider and database with external HTTP blocked. The unit suites `mcpOAuthConsent`, `mcpOAuthAccess`, `mcpOAuthRemote` and `mcpApprovalDispatch` cover the application boundaries and forged identity inputs.
 
-Local browser testing exercised consent, code exchange, the eight-tool list, budget status, synthetic tool escalation, owner approval, single-use redemption, replay denial, excluded-tool denial, wrong-endpoint denial and disconnect. No external target action was executed. Social-provider login itself was represented by a seeded local Better Auth session; live provider login and named-host acceptance remain rollout checks.
+Local browser testing exercised consent, code exchange, the eight-tool list, budget status, synthetic tool escalation, owner approval, single-use redemption, replay denial, excluded-tool denial, wrong-endpoint denial and disconnect. It used a seeded local Better Auth session.
+
+The production Claude smoke used an existing signed-in session. The synthetic request appeared under the selected agent in Sanction, rejection reached Claude, and a subsequent budget call after disconnect required authentication. No purchase or external target action occurred. The run exposed text-only decisions appearing as failed tool calls; `tests/mcpDecisionContract.test.ts` covers the revised response contract through an MCP client. That revised contract still needs a post-deploy Claude check.

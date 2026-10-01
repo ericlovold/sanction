@@ -36470,6 +36470,63 @@ var EMPTY_COMPLETION_RESULT = {
   }
 };
 
+// lib/mcpDecisionResult.ts
+var string4 = (value) => typeof value === "string" && value.trim().length > 0 ? value : void 0;
+function renderDecisionResult(payload, opts) {
+  const polling = opts.requestId !== void 0;
+  const record2 = payload !== null && typeof payload === "object" && !Array.isArray(payload) ? payload : void 0;
+  const result = record2 ?? {};
+  const status = string4(result.status);
+  const requestId = string4(result.request_id);
+  const decision = {
+    authorized: false,
+    status: status ?? "error",
+    next_action: "stop"
+  };
+  for (const field of ["code", "reason", "remediation", "grant_status"]) {
+    const value = string4(result[field]);
+    if (value) decision[field] = value;
+  }
+  if (requestId || opts.requestId) decision.request_id = requestId ?? opts.requestId;
+  if (result.grant_expires_at === null || string4(result.grant_expires_at)) {
+    decision.grant_expires_at = result.grant_expires_at;
+  }
+  const hasError = result.error !== void 0 && result.error !== null;
+  const knownStatus = status === "approved" || status === "denied" || status === "escalated" || status === "pending";
+  const malformed = !record2 || result.status !== void 0 && !status || result.authorized !== void 0 && typeof result.authorized !== "boolean" || result.request_id != null && !requestId || polling && requestId !== void 0 && requestId !== opts.requestId || polling && result.authorized !== void 0 && result.authorized !== (status === "approved") || (polling ? !knownStatus : result.authorized === true ? status !== void 0 && status !== "approved" && status !== "allowed" : result.authorized !== false || !knownStatus || status === "approved");
+  const isError = hasError || malformed;
+  let text;
+  if (isError) {
+    decision.status = status === "unreachable" ? "unreachable" : "error";
+    decision.code ??= hasError ? "SANCTION_ERROR" : "SANCTION_INVALID_RESPONSE";
+    decision.reason ??= string4(result.error) ?? "Sanction returned a malformed or contradictory decision.";
+    if (polling) decision.request_id = opts.requestId;
+    text = `${decision.code} \u2014 ${decision.reason}. Do not ${opts.verb ?? "proceed"}; stop and notify the owner. Do not retry automatically.`;
+  } else if (!polling && result.authorized === true) {
+    decision.authorized = true;
+    decision.status = "approved";
+    decision.next_action = "proceed";
+    text = `${opts.success ?? "Authorized"}${requestId ? ` (${requestId})` : ""}${decision.grant_status === "consumed" ? " \xB7 grant consumed" : ""}`;
+  } else if (status === "escalated" || status === "pending") {
+    decision.next_action = "wait";
+    text = `${status.toUpperCase()} \u2014 ${decision.reason ?? "Still awaiting the owner's approval"}. Do not ${opts.verb ?? "proceed"}. Pause and wait for human review${decision.request_id ? `, then call sanction_check_authorization once with request_id: ${decision.request_id}` : "; notify the owner because no request_id was returned"}.`;
+  } else if (polling && status === "approved") {
+    const grantId = string4(result.grant_id);
+    const expiry = result.grant_expires_at;
+    const validExpiry = expiry === null || typeof expiry === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(expiry) && Number.isFinite(Date.parse(expiry)) && Date.parse(expiry) > Date.now();
+    if (result.grant_status === "active" && grantId && validExpiry && result.grant_consumed_at == null) {
+      decision.grant_id = grantId;
+      decision.next_action = "retry_with_grant";
+      text = `APPROVED \u2014 retry your original request with identical fields plus grant_id: ${grantId}. This check does not authorize execution; proceed only when that authorize call returns authorized:true.`;
+    } else {
+      text = `APPROVED \u2014 no usable active grant is available${decision.grant_status ? ` (grant ${decision.grant_status})` : ""}. Do not proceed or reuse a grant; stop and notify the owner.`;
+    }
+  } else {
+    text = `DENIED${decision.code ? ` (${decision.code})` : ""} \u2014 ${decision.reason ?? "Not authorized"}. Do not ${opts.verb ?? "proceed"}.`;
+  }
+  return { content: [{ type: "text", text }], structuredContent: { ...decision }, isError };
+}
+
 // lib/format.ts
 function fmtUsd(n) {
   const abs = Math.abs(n);
@@ -36590,14 +36647,26 @@ async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
       signal: AbortSignal.timeout(15e3)
     });
     try {
-      return await res.json();
+      const result = await res.json();
+      if (path.startsWith("/authorize") && !res.ok && !([403, 404, 409].includes(res.status) && result?.authorized === false && result?.status === "denied")) {
+        return {
+          authorized: false,
+          status: "error",
+          code: typeof result?.code === "string" ? result.code : "SANCTION_HTTP_ERROR",
+          reason: typeof result?.reason === "string" ? result.reason : void 0,
+          request_id: typeof result?.request_id === "string" ? result.request_id : void 0,
+          remediation: typeof result?.remediation === "string" ? result.remediation : void 0,
+          error: typeof result?.error === "string" ? result.error : `Sanction returned HTTP ${res.status}`
+        };
+      }
+      return result;
     } catch {
       return {
         authorized: false,
         status: "unreachable",
         code: "SANCTION_UNREACHABLE",
         error: `Sanction returned a non-JSON response (HTTP ${res.status})`,
-        reason: `Sanction returned a non-JSON response (HTTP ${res.status}). Treat as denied; retry once, then stop and notify the owner.`
+        reason: `Sanction returned a non-JSON response (HTTP ${res.status}). Do not proceed; stop and notify the owner. Do not retry automatically.`
       };
     }
   } catch (err) {
@@ -36607,28 +36676,9 @@ async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
       status: "unreachable",
       code: "SANCTION_UNREACHABLE",
       error: `Sanction unreachable: ${detail}`,
-      reason: `Sanction is unreachable (${detail}). Treat as denied; retry once, then stop and notify the owner.`
+      reason: `Sanction is unreachable (${detail}). Do not proceed; stop and notify the owner. Do not retry automatically.`
     };
   }
-}
-function renderAuthResult(result, opts) {
-  const authorized = result.authorized === true;
-  const status = typeof result.status === "string" ? result.status : void 0;
-  const code = typeof result.code === "string" ? result.code : void 0;
-  const reason = typeof result.reason === "string" ? result.reason : void 0;
-  const error62 = typeof result.error === "string" ? result.error : void 0;
-  const requestId = typeof result.request_id === "string" ? result.request_id : void 0;
-  let text;
-  if (authorized) {
-    text = `\u2713 ${opts.success}${requestId ? ` (${requestId})` : ""}${result.grant_status === "consumed" ? " \xB7 grant consumed" : ""}`;
-  } else if (!status && (code || error62)) {
-    text = `\u2717 ${code ?? "ERROR"} \u2014 ${reason ?? error62}. Do not ${opts.verb}; this is not a policy denial \u2014 resolve it or stop and notify the owner.`;
-  } else if (status === "escalated") {
-    text = `\u2717 ESCALATED \u2014 ${reason ?? "Awaiting human approval"}. Call sanction_check_authorization with request_id ${requestId ?? "(see the record)"} until it returns a grant_id, then retry this exact request with it.`;
-  } else {
-    text = `\u2717 ${status?.toUpperCase() ?? "DENIED"}${code ? ` (${code})` : ""} \u2014 ${reason ?? error62 ?? "Not authorized"}. Do not ${opts.verb}.`;
-  }
-  return { content: [{ type: "text", text }], isError: !authorized };
 }
 function createSanctionMcpServer(opts) {
   const profile = opts.toolProfile ?? "wallet";
@@ -36644,7 +36694,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize",
       {
         title: "Request spend authorization",
-        description: "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval \u2014 it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval \u2014 it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
         inputSchema: {
           action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
           amount_usd: external_exports.number().positive().describe("Exact amount in US dollars"),
@@ -36658,7 +36708,7 @@ function createSanctionMcpServer(opts) {
       },
       async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
         const result = await callSanction(opts, "/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra));
-        return renderAuthResult(result, { success: `Authorized \u2014 ${merchant} $${amount_usd}`, verb: "proceed" });
+        return renderDecisionResult(result, { success: `Authorized \u2014 ${merchant} $${amount_usd}`, verb: "proceed" });
       }
     );
   }
@@ -36667,7 +36717,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize_provision",
       {
         title: "Request provisioning authorization",
-        description: "ALWAYS call this before provisioning any resource \u2014 user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant \u2014 retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. ALWAYS call this before provisioning any resource \u2014 user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant \u2014 retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
         inputSchema: {
           resource: external_exports.string().describe("What is being provisioned, e.g. 'azure.seat', 'm365.license', 'aws.instance'"),
           line_item: external_exports.string().describe("The concrete SKU or plan, e.g. 'Microsoft 365 E3'"),
@@ -36690,7 +36740,7 @@ function createSanctionMcpServer(opts) {
           execution_jwt,
           traceOf(extra)
         );
-        return renderAuthResult(result, {
+        return renderDecisionResult(result, {
           success: `Authorized \u2014 ${quantity} \xD7 ${line_item} (${resource}) $${amount_usd}`,
           verb: "provision"
         });
@@ -36702,7 +36752,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize_tool",
       {
         title: "Request tool authorization",
-        description: "Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
         inputSchema: {
           tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
           server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
@@ -36713,7 +36763,7 @@ function createSanctionMcpServer(opts) {
       },
       async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
         const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, void 0, traceOf(extra));
-        return renderAuthResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
+        return renderDecisionResult(result, { success: `Authorized \u2014 ${tool}`, verb: "invoke" });
       }
     );
   }
@@ -36722,7 +36772,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize_capability",
       {
         title: "Request capability authorization",
-        description: "Call this BEFORE acquiring any new capability \u2014 installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, poll sanction_check_authorization with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE acquiring any new capability \u2014 installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, pause for human review, then check sanction_check_authorization once with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
         inputSchema: {
           capability: external_exports.string().describe("Namespaced identifier of the capability about to be acquired, e.g. 'skill:install:web-scraper', 'plugin:browser', 'api:github.com/repos'"),
           arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) \u2014 surfaced to the owner on escalation, not policy-evaluated"),
@@ -36732,7 +36782,7 @@ function createSanctionMcpServer(opts) {
       },
       async ({ capability, arguments: args, grant_id }, extra) => {
         const result = await callSanction(opts, "/authorize/capability", "POST", { capability, arguments: args, grant_id }, void 0, traceOf(extra));
-        return renderAuthResult(result, { success: `Authorized \u2014 ${capability}`, verb: "acquire" });
+        return renderDecisionResult(result, { success: `Authorized \u2014 ${capability}`, verb: "acquire" });
       }
     );
   }
@@ -36883,7 +36933,7 @@ function createSanctionMcpServer(opts) {
       "sanction_check_authorization",
       {
         title: "Check and settle authorization",
-        description: "Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, status stays 'escalated' \u2014 wait and poll again. Once the owner approves, status becomes 'approved' and a one-use grant_id is returned: retry the ORIGINAL authorize call with the identical fields plus that grant_id to complete the action. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, pause and wait for human review, then check once; do not poll indefinitely. This check always returns authorized:false. Only next_action:retry_with_grant exposes a usable active grant: retry the ORIGINAL authorize call with identical fields plus that grant_id; execute only after that call returns authorized:true. Consumed, expired, revoked, or missing grants mean stop. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
         inputSchema: {
           request_id: external_exports.string().describe("The request_id from an escalated authorize/provision/tool response")
         },
@@ -36891,29 +36941,7 @@ function createSanctionMcpServer(opts) {
       },
       async ({ request_id }, extra) => {
         const result = await callSanction(opts, `/authorize/${encodeURIComponent(request_id)}`, "GET", void 0, void 0, traceOf(extra));
-        const status = typeof result.status === "string" ? result.status : void 0;
-        const grantId = typeof result.grant_id === "string" ? result.grant_id : void 0;
-        if (status === "approved" && grantId) {
-          return {
-            content: [{
-              type: "text",
-              text: `\u2713 APPROVED \u2014 retry your original request with grant_id: ${grantId}`
-            }]
-          };
-        }
-        if (status === "escalated" || status === "pending") {
-          return { content: [{ type: "text", text: "\u23F3 Still awaiting the owner's approval \u2014 poll again shortly." }] };
-        }
-        if (status === "denied") {
-          return {
-            content: [{ type: "text", text: `\u2717 DENIED \u2014 ${typeof result.reason === "string" ? result.reason : "the owner declined"}. Do not proceed.` }],
-            isError: true
-          };
-        }
-        return {
-          content: [{ type: "text", text: `Could not read the authorization: ${typeof result.error === "string" ? result.error : "unknown error"}` }],
-          isError: true
-        };
+        return renderDecisionResult(result, { requestId: request_id });
       }
     );
   }
