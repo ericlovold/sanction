@@ -23,7 +23,7 @@ The custom-connector smoke is not directory acceptance. Marketplace submission s
 
 ## MCP decision results
 
-The four authorization tools and `sanction_check_authorization` return readable text plus `structuredContent`. A successful MCP call is not permission: hosts must check `authorized` and `next_action`.
+The four authorization tools and `sanction_check_authorization` return readable text, a second text block containing the decision as JSON, and `structuredContent`. The JSON text block contains the same allowlisted fields as `structuredContent` for hosts that expose only text to the model. A successful MCP call is not permission: hosts must check `authorized` and `next_action`.
 
 | Result | `authorized` | `next_action` | Host behavior |
 | --- | --- | --- | --- |
@@ -53,4 +53,4 @@ This response contract also applies to the full wallet and bundled stdio server.
 
 Local browser testing exercised consent, code exchange, the eight-tool list, budget status, synthetic tool escalation, owner approval, single-use redemption, replay denial, excluded-tool denial, wrong-endpoint denial and disconnect. It used a seeded local Better Auth session.
 
-The production Claude smoke used an existing signed-in session. The synthetic request appeared under the selected agent in Sanction, rejection reached Claude, and a subsequent budget call after disconnect required authentication. No purchase or external target action occurred. The run exposed text-only decisions appearing as failed tool calls; `tests/mcpDecisionContract.test.ts` covers the revised response contract through an MCP client. That revised contract still needs a post-deploy Claude check.
+The production Claude smoke used an existing signed-in session. The synthetic request appeared under the selected agent in Sanction, rejection reached Claude, and a subsequent budget call after disconnect required authentication. No purchase or external target action occurred. The run exposed text-only decisions appearing as failed tool calls; `tests/mcpDecisionContract.test.ts` covers the revised response contract through an MCP client. A post-deploy Claude check confirmed denial is a normal tool result, but Claude exposed only the readable text. The JSON text fallback addresses that compatibility gap; it still needs a post-deploy host check. Approved redemption and automatic token refresh remain unverified in Claude.

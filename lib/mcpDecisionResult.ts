@@ -83,5 +83,14 @@ export function renderDecisionResult(
   } else {
     text = `DENIED${decision.code ? ` (${decision.code})` : ""} — ${decision.reason ?? "Not authorized"}. Do not ${opts.verb ?? "proceed"}.`
   }
-  return { content: [{ type: "text" as const, text }], structuredContent: { ...decision }, isError }
+  // Some hosts expose only content to the model. Serialize the same allowlisted
+  // decision, never the raw API payload, so both representations agree.
+  return {
+    content: [
+      { type: "text" as const, text },
+      { type: "text" as const, text: JSON.stringify(decision) },
+    ],
+    structuredContent: { ...decision },
+    isError,
+  }
 }

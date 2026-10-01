@@ -36524,7 +36524,14 @@ function renderDecisionResult(payload, opts) {
   } else {
     text = `DENIED${decision.code ? ` (${decision.code})` : ""} \u2014 ${decision.reason ?? "Not authorized"}. Do not ${opts.verb ?? "proceed"}.`;
   }
-  return { content: [{ type: "text", text }], structuredContent: { ...decision }, isError };
+  return {
+    content: [
+      { type: "text", text },
+      { type: "text", text: JSON.stringify(decision) }
+    ],
+    structuredContent: { ...decision },
+    isError
+  };
 }
 
 // lib/format.ts
