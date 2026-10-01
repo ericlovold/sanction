@@ -3,16 +3,17 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { resolve } from "node:path"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { createSanctionMcpServer } from "../lib/mcpServer"
+import { createSanctionMcpServer, type SanctionMcpApiCall } from "../lib/mcpServer"
 import discovery from "../public/.well-known/mcp.json"
 import registry from "../packages/sanction-mcp/server.json"
 import mcpPackage from "../packages/sanction-mcp/package.json"
 
-async function connectedClient() {
+async function connectedClient(apiCall?: SanctionMcpApiCall) {
   const server = createSanctionMcpServer({
     apiKey: "pxy_test",
     apiUrl: "https://sanction.test/api/v1",
     walletId: "wal_test",
+    apiCall,
   })
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   const client = new Client({ name: "mcp-server-test", version: "0.0.0" })
@@ -112,7 +113,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
       name: "sanction_authorize",
       arguments: { action: "purchase", amount_usd: 80, merchant: "Acme", category: "software" },
     })) as { content: { text: string }[]; isError?: boolean }
-    expect(esc.isError).toBe(true)
+    expect(esc.isError).toBe(false)
     expect(esc.content[0].text).toMatch(/ESCALATED.*req_esc/)
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Invalid API key", code: "UNAUTHORIZED" }))
@@ -121,7 +122,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
       arguments: { action: "purchase", amount_usd: 1, merchant: "Acme", category: "software" },
     })) as { content: { text: string }[]; isError?: boolean }
     expect(bare.isError).toBe(true)
-    expect(bare.content[0].text).toMatch(/UNAUTHORIZED.*not a policy denial/)
+    expect(bare.content[0].text).toMatch(/UNAUTHORIZED.*Invalid API key.*stop and notify the owner/)
 
     await server.close()
   })
@@ -148,6 +149,94 @@ describe("createSanctionMcpServer — tool handlers", () => {
     expect(html.content[0].text).toMatch(/non-JSON|UNREACHABLE/)
 
     await server.close()
+  })
+
+  it("preserves real null-id denials and rejects permission in failed HTTP responses", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    const { client, server } = await connectedClient()
+    const tool = {
+      name: "sanction_authorize",
+      arguments: { action: "purchase", amount_usd: 1, merchant: "Synthetic", category: "software" },
+    }
+    try {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ authorized: false, status: "denied", request_id: null, code: "GRANT_EXPIRED" }, 403))
+      const denied = await client.callTool(tool)
+      expect(denied.isError).toBe(false)
+      expect(denied.structuredContent).toMatchObject({ authorized: false, status: "denied", code: "GRANT_EXPIRED", next_action: "stop" })
+      expect(denied.structuredContent).not.toHaveProperty("request_id")
+
+      for (const status of [401, 403, 500]) {
+        fetchMock.mockResolvedValueOnce(jsonResponse({ authorized: true, status: "approved" }, status))
+        const failed = await client.callTool(tool)
+        expect(failed.isError).toBe(true)
+        expect(failed.structuredContent).toMatchObject({ authorized: false, next_action: "stop" })
+      }
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it.each([
+    { authorized: false, status: "approved" },
+    { authorized: true, status: "denied" },
+    { authorized: true, status: "pending" },
+  ])("rejects contradictory polling decisions: %j", async contradiction => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({
+      ...contradiction, request_id: "req_test", grant_id: "unusable-grant",
+      grant_status: "active", grant_expires_at: "2099-01-01T00:00:00Z",
+    })))
+    const { client, server } = await connectedClient()
+    try {
+      const result = await client.callTool({ name: "sanction_check_authorization", arguments: { request_id: "req_test" } })
+      expect(result.isError).toBe(true)
+      expect(result.structuredContent).toMatchObject({ authorized: false, next_action: "stop" })
+      expect(JSON.stringify(result)).not.toContain("unusable-grant")
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it.each([
+    { name: "sanction_authorize", status: "approved", arguments: { action: "purchase", amount_usd: 1, merchant: "Synthetic", category: "software" } },
+    { name: "sanction_authorize_provision", status: "approved", arguments: { resource: "test.seat", line_item: "Synthetic", quantity: 1, amount_usd: 1, category: "software" } },
+    { name: "sanction_authorize_tool", status: "allowed", arguments: { tool: "test.noop" } },
+    { name: "sanction_authorize_capability", status: "allowed", arguments: { capability: "skill:install:synthetic" } },
+  ])("accepts the actual success shape for $name", async ({ name, status, arguments: args }) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ authorized: true, status, request_id: status === "allowed" ? null : "req_test" })))
+    const { client, server } = await connectedClient()
+    try {
+      const result = await client.callTool({ name, arguments: args })
+      expect(result.isError).toBe(false)
+      expect(result.structuredContent).toMatchObject({ authorized: true, status: "approved", next_action: "proceed" })
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it.each([
+    { status: 404, code: "GRANT_NOT_FOUND" },
+    { status: 409, code: "GRANT_ALREADY_USED" },
+  ])("renders HTTP $status grant denial identically across transports", async ({ status, code }) => {
+    const payload = { authorized: false, status: "denied", code, reason: "Unusable grant" }
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload, status)))
+    const fetched = await connectedClient()
+    const injected = await connectedClient(async () => payload)
+    const tool = { name: "sanction_authorize_tool", arguments: { tool: "test.noop", grant_id: "unusable-grant" } }
+    try {
+      const result = await fetched.client.callTool(tool)
+      expect(result).toEqual(await injected.client.callTool(tool))
+      expect(result.isError).toBe(false)
+      expect(result.structuredContent).toMatchObject({ authorized: false, status: "denied", code, next_action: "stop" })
+    } finally {
+      await fetched.client.close()
+      await fetched.server.close()
+      await injected.client.close()
+      await injected.server.close()
+    }
   })
 
   it("covers provision, tokens, outcome, exec, inject, status, and grant poll", async () => {
@@ -246,7 +335,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
     }
     expect(statusErr.isError).toBe(true)
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ status: "approved", grant_id: "gr_1" }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ authorized: true, status: "approved", request_id: "req_1", grant_id: "gr_1", grant_status: "active", grant_expires_at: new Date(Date.now() + 60_000).toISOString() }))
     const pollOk = (await client.callTool({
       name: "sanction_check_authorization",
       arguments: { request_id: "req_1" },
@@ -265,7 +354,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
       name: "sanction_check_authorization",
       arguments: { request_id: "req_1" },
     })) as { content: { text: string }[]; isError?: boolean }
-    expect(pollNo.isError).toBe(true)
+    expect(pollNo.isError).toBe(false)
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "not found" }))
     const pollMiss = (await client.callTool({

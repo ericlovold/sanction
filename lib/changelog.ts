@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-30",
+    title: "Separate MCP decisions from tool failures",
+    tags: ["mcp", "approvals"],
+    body: "Authorization and approval polling now return structured decisions alongside readable text. Waiting and denial are normal decisions, not tool failures; neither permits execution. Polling distinguishes a usable grant from expired or consumed authority and never authorizes execution by itself. A production Claude OAuth smoke verified connection, escalation, rejection and disconnect; the revised response rendering still needs a post-deploy host check. The rebuilt stdio bundle requires a new npm release.",
+  },
+  {
     date: "2026-09-28",
     title: "Reserve broker decision metadata",
     tags: ["mcp", "security"],

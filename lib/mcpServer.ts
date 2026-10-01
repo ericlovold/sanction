@@ -6,6 +6,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
+import { renderDecisionResult } from "./mcpDecisionResult"
 import { renderWalletStatus } from "./mcpWalletStatus"
 import { extractTraceContext, traceHeaders, type TraceContext } from "./traceContext"
 
@@ -77,14 +78,30 @@ async function callSanction(
       signal: AbortSignal.timeout(15_000),
     })
     try {
-      return await res.json()
+      const result = await res.json()
+      // Policy and grant denials use HTTP 403/404/409; other failed HTTP responses
+      // cannot confer permission even if their JSON claims approval.
+      if (path.startsWith("/authorize") && !res.ok && !(
+        [403, 404, 409].includes(res.status) && result?.authorized === false && result?.status === "denied"
+      )) {
+        return {
+          authorized: false,
+          status: "error",
+          code: typeof result?.code === "string" ? result.code : "SANCTION_HTTP_ERROR",
+          reason: typeof result?.reason === "string" ? result.reason : undefined,
+          request_id: typeof result?.request_id === "string" ? result.request_id : undefined,
+          remediation: typeof result?.remediation === "string" ? result.remediation : undefined,
+          error: typeof result?.error === "string" ? result.error : `Sanction returned HTTP ${res.status}`,
+        }
+      }
+      return result
     } catch {
       return {
         authorized: false,
         status: "unreachable",
         code: "SANCTION_UNREACHABLE",
         error: `Sanction returned a non-JSON response (HTTP ${res.status})`,
-        reason: `Sanction returned a non-JSON response (HTTP ${res.status}). Treat as denied; retry once, then stop and notify the owner.`,
+        reason: `Sanction returned a non-JSON response (HTTP ${res.status}). Do not proceed; stop and notify the owner. Do not retry automatically.`,
       }
     }
   } catch (err) {
@@ -94,41 +111,9 @@ async function callSanction(
       status: "unreachable",
       code: "SANCTION_UNREACHABLE",
       error: `Sanction unreachable: ${detail}`,
-      reason: `Sanction is unreachable (${detail}). Treat as denied; retry once, then stop and notify the owner.`,
+      reason: `Sanction is unreachable (${detail}). Do not proceed; stop and notify the owner. Do not retry automatically.`,
     }
   }
-}
-
-// One renderer for every authorize tool, so the escalation/grant loop and error
-// surfacing stay identical across spend/provision/tool (they had drifted).
-//   - success: names the request_id (needed to poll for the grant on escalation)
-//   - escalated: tells the agent to poll via sanction_check_authorization
-//   - a bare { error } body (401 bad key, 400 validation, 403 WALLET_FROZEN with
-//     no status/reason envelope) is surfaced verbatim with its code, NOT masked
-//     as a generic policy denial — the agent must fix config / stop, not replan.
-function renderAuthResult(
-  result: Record<string, unknown>,
-  opts: { success: string; verb: string },
-): { content: { type: "text"; text: string }[]; isError: boolean } {
-  const authorized = result.authorized === true
-  const status = typeof result.status === "string" ? result.status : undefined
-  const code = typeof result.code === "string" ? result.code : undefined
-  const reason = typeof result.reason === "string" ? result.reason : undefined
-  const error = typeof result.error === "string" ? result.error : undefined
-  const requestId = typeof result.request_id === "string" ? result.request_id : undefined
-
-  let text: string
-  if (authorized) {
-    text = `✓ ${opts.success}${requestId ? ` (${requestId})` : ""}${result.grant_status === "consumed" ? " · grant consumed" : ""}`
-  } else if (!status && (code || error)) {
-    // Non-policy failure (auth/validation/frozen): surface the real cause.
-    text = `✗ ${code ?? "ERROR"} — ${reason ?? error}. Do not ${opts.verb}; this is not a policy denial — resolve it or stop and notify the owner.`
-  } else if (status === "escalated") {
-    text = `✗ ESCALATED — ${reason ?? "Awaiting human approval"}. Call sanction_check_authorization with request_id ${requestId ?? "(see the record)"} until it returns a grant_id, then retry this exact request with it.`
-  } else {
-    text = `✗ ${status?.toUpperCase() ?? "DENIED"}${code ? ` (${code})` : ""} — ${reason ?? error ?? "Not authorized"}. Do not ${opts.verb}.`
-  }
-  return { content: [{ type: "text" as const, text }], isError: !authorized }
 }
 
 export function createSanctionMcpServer(opts: SanctionMcpOptions): McpServer {
@@ -149,7 +134,7 @@ server.registerTool(
   "sanction_authorize",
   {
     title: "Request spend authorization",
-    description: "ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval — it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
+    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval — it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
     inputSchema: {
       action: z.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
       amount_usd: z.number().positive().describe("Exact amount in US dollars"),
@@ -163,7 +148,7 @@ server.registerTool(
   },
   async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
     const result = await callSanction(opts, "/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra))
-    return renderAuthResult(result, { success: `Authorized — ${merchant} $${amount_usd}`, verb: "proceed" })
+    return renderDecisionResult(result, { success: `Authorized — ${merchant} $${amount_usd}`, verb: "proceed" })
   }
 )
 }
@@ -174,7 +159,7 @@ server.registerTool(
   "sanction_authorize_provision",
   {
     title: "Request provisioning authorization",
-    description: "ALWAYS call this before provisioning any resource — user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant — retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
+    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. ALWAYS call this before provisioning any resource — user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant — retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
     inputSchema: {
       resource: z.string().describe("What is being provisioned, e.g. 'azure.seat', 'm365.license', 'aws.instance'"),
       line_item: z.string().describe("The concrete SKU or plan, e.g. 'Microsoft 365 E3'"),
@@ -196,7 +181,7 @@ server.registerTool(
       execution_jwt,
       traceOf(extra),
     )
-    return renderAuthResult(result, {
+    return renderDecisionResult(result, {
       success: `Authorized — ${quantity} × ${line_item} (${resource}) $${amount_usd}`,
       verb: "provision",
     })
@@ -210,7 +195,7 @@ server.registerTool(
   "sanction_authorize_tool",
   {
     title: "Request tool authorization",
-    description: "Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
+    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
     inputSchema: {
       tool: z.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
       server: z.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' — advisory context for the owner"),
@@ -221,7 +206,7 @@ server.registerTool(
   },
   async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
     const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, undefined, traceOf(extra))
-    return renderAuthResult(result, { success: `Authorized — ${tool}`, verb: "invoke" })
+    return renderDecisionResult(result, { success: `Authorized — ${tool}`, verb: "invoke" })
   }
 )
 }
@@ -232,7 +217,7 @@ server.registerTool(
   "sanction_authorize_capability",
   {
     title: "Request capability authorization",
-    description: "Call this BEFORE acquiring any new capability — installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, poll sanction_check_authorization with the request_id; approval mints a one-use grant — retry this exact request with that grant_id. Never acquire the capability if this returns false.",
+    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE acquiring any new capability — installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, pause for human review, then check sanction_check_authorization once with the request_id; approval mints a one-use grant — retry this exact request with that grant_id. Never acquire the capability if this returns false.",
     inputSchema: {
       capability: z.string().describe("Namespaced identifier of the capability about to be acquired, e.g. 'skill:install:web-scraper', 'plugin:browser', 'api:github.com/repos'"),
       arguments: z.record(z.string(), z.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) — surfaced to the owner on escalation, not policy-evaluated"),
@@ -242,7 +227,7 @@ server.registerTool(
   },
   async ({ capability, arguments: args, grant_id }, extra) => {
     const result = await callSanction(opts, "/authorize/capability", "POST", { capability, arguments: args, grant_id }, undefined, traceOf(extra))
-    return renderAuthResult(result, { success: `Authorized — ${capability}`, verb: "acquire" })
+    return renderDecisionResult(result, { success: `Authorized — ${capability}`, verb: "acquire" })
   }
 )
 }
@@ -406,7 +391,7 @@ server.registerTool(
   "sanction_check_authorization",
   {
     title: "Check and settle authorization",
-    description: "Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, status stays 'escalated' — wait and poll again. Once the owner approves, status becomes 'approved' and a one-use grant_id is returned: retry the ORIGINAL authorize call with the identical fields plus that grant_id to complete the action. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
+    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, pause and wait for human review, then check once; do not poll indefinitely. This check always returns authorized:false. Only next_action:retry_with_grant exposes a usable active grant: retry the ORIGINAL authorize call with identical fields plus that grant_id; execute only after that call returns authorized:true. Consumed, expired, revoked, or missing grants mean stop. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
     inputSchema: {
       request_id: z.string().describe("The request_id from an escalated authorize/provision/tool response"),
     },
@@ -414,29 +399,7 @@ server.registerTool(
   },
   async ({ request_id }, extra) => {
     const result = await callSanction(opts, `/authorize/${encodeURIComponent(request_id)}`, "GET", undefined, undefined, traceOf(extra))
-    const status = typeof result.status === "string" ? result.status : undefined
-    const grantId = typeof result.grant_id === "string" ? result.grant_id : undefined
-    if (status === "approved" && grantId) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: `✓ APPROVED — retry your original request with grant_id: ${grantId}`,
-        }],
-      }
-    }
-    if (status === "escalated" || status === "pending") {
-      return { content: [{ type: "text" as const, text: "⏳ Still awaiting the owner's approval — poll again shortly." }] }
-    }
-    if (status === "denied") {
-      return {
-        content: [{ type: "text" as const, text: `✗ DENIED — ${typeof result.reason === "string" ? result.reason : "the owner declined"}. Do not proceed.` }],
-        isError: true,
-      }
-    }
-    return {
-      content: [{ type: "text" as const, text: `Could not read the authorization: ${typeof result.error === "string" ? result.error : "unknown error"}` }],
-      isError: true,
-    }
+    return renderDecisionResult(result, { requestId: request_id })
   }
 )
 }
