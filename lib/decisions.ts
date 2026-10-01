@@ -196,6 +196,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   // denied
   if (!note) return "POLICY_DENIED"
   if (note.startsWith("Escalation timed out")) return "ESCALATION_TIMED_OUT"
+  if (note === "This request requires a human-issued approval grant") return "GRANT_UNSUPPORTED"
   if (note === "No policy configured") return "NO_POLICY"
   if (note.includes("not in the resource allow-list")) return "RESOURCE_NOT_ALLOWED"
   if (note.startsWith("Resource")) return "RESOURCE_BLOCKED"

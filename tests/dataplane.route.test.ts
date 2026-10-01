@@ -1,3 +1,4 @@
+import { decisionCode } from "../lib/decisions"
 import { canonicalToolRequest, openToolRequest, sealToolRequest } from "../lib/toolRequest"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
@@ -344,6 +345,7 @@ describe("authorize/tool — explicit human approval", () => {
   })
 
   it.each(["policy_timeout", undefined])("explicit approval rejects a matching grant without human provenance: %s", async issuedBy => {
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_provenance_denied" })
     dbMock.grant.findUnique.mockResolvedValue({
       id: "grant_explicit", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active", issuedBy,
       resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "deploy.prod", arguments: { ref: "abc" } }) },
@@ -353,7 +355,16 @@ describe("authorize/tool — explicit human approval", () => {
       tool: "deploy.prod", arguments: { ref: "abc" }, require_approval: true, grant_id: "grant_explicit",
     } }))
     expect(response.status).toBe(403)
-    expect(await response.json()).toMatchObject({ authorized: false, code: "GRANT_UNSUPPORTED" })
+    expect(await response.json()).toMatchObject({ authorized: false, code: "GRANT_UNSUPPORTED", request_id: "req_provenance_denied" })
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+    const denied = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(denied).toMatchObject({ agentId: AID, kind: "tool", status: "denied", merchant: "deploy.prod", decidedAt: expect.any(Date), decisionNote: "This request requires a human-issued approval grant" })
+    expect(decisionCode(denied.status, denied.decisionNote)).toBe("GRANT_UNSUPPORTED")
+    expect(denied.detailsJson).toMatchObject({ rejection: "human_approval_required", grant_id: "grant_explicit" })
+    expect(await openToolRequest(WID, denied.detailsJson)).toBe(canonicalToolRequest({ tool: "deploy.prod", arguments: { ref: "abc" } }))
+    expect(denied.detailsJson).not.toHaveProperty("arguments")
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
     expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
   })
 

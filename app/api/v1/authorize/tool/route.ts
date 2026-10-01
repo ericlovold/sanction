@@ -1,4 +1,4 @@
-import { canonicalToolRequest } from "@/lib/toolRequest"
+import { canonicalToolRequest, sealToolRequest } from "@/lib/toolRequest"
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
 import { z } from "zod"
@@ -95,10 +95,34 @@ export async function POST(req: NextRequest) {
         { status: 200 },
       )
     }
+    // This is a new denied attempt, not a change to the original approval.
+    // Keep exact arguments encrypted, as for the approval request itself.
+    const deniedAttempt = result.auditReason === "human_approval_required"
+      ? await db.authorizationRequest.create({
+          data: {
+            agentId: agent.id,
+            kind: "tool",
+            action: "invoke",
+            amountUsd: 0,
+            merchant: tool,
+            category: "tool",
+            status: "denied",
+            decidedAt: new Date(),
+            decisionNote: result.reason,
+            detailsJson: {
+              tool, server: server ?? null, require_approval: true,
+              rejection: result.auditReason, grant_id,
+              requestBinding: await sealToolRequest(agent.walletId, { tool, server, arguments: args }),
+            },
+          },
+          select: { id: true },
+        })
+      : null
     return NextResponse.json(
       {
         authorized: false,
         status: "denied",
+        request_id: deniedAttempt?.id,
         reason: result.reason,
         code: result.code,
         remediation: REMEDIATION[result.code as DecisionCode],
