@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-01",
+    title: "Expose MCP decisions to text-only hosts",
+    tags: ["mcp", "approvals"],
+    body: "Authorization and approval polling now include the same decision fields as JSON text and structured content. Hosts that expose only text can read authorized, status, and next_action without parsing prose. Contract tests verify both representations agree, including errors and unusable grants. Live host verification remains pending; the rebuilt stdio bundle requires a new npm release.",
+  },
+  {
     date: "2026-09-30",
     title: "Separate MCP decisions from tool failures",
     tags: ["mcp", "approvals"],
