@@ -41,7 +41,7 @@ export type PolicyLayer = {
 }
 
 /** Signals the shell supplies once per request — never read inside rules. */
-export type ToolSignals = { requestHourUtc?: number; modelCallsToday?: number }
+export type ToolSignals = { requestHourUtc?: number; modelCallsToday?: number; requireApproval?: boolean; approvalReason?: string }
 
 /** Parse a Policy.toolConditions Json column (bad entries dropped, like
  * parseCapabilityRules — the write path validates, the read path tolerates). */
@@ -193,6 +193,8 @@ export function decideToolLayered(tool: string, layers: PolicyLayer[], signals: 
   const verdicts = layers.map((layer) => {
     const ctx: ToolContext = {
       tool,
+      requireApproval: signals.requireApproval,
+      approvalReason: signals.approvalReason,
       blockedTools: layer.blockedTools,
       allowedTools: layer.allowedTools,
       escalateTools: layer.escalateTools,

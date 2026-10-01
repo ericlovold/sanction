@@ -195,17 +195,19 @@ server.registerTool(
   "sanction_authorize_tool",
   {
     title: "Request tool authorization",
-    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
+    description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). For a one-off human decision, set require_approval:true and explain why in approval_reason; no policy edit is needed. This pauses even in observe mode, never auto-approves on timeout, and an initial request cannot override a hard denial. Approval is bound to the exact tool, server and arguments; redeem the one-use grant before acting. Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
     inputSchema: {
       tool: z.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
       server: z.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' — advisory context for the owner"),
       arguments: z.record(z.string(), z.unknown()).optional().describe("The arguments the tool would be called with — surfaced to the owner on escalation"),
+      require_approval: z.boolean().optional().describe("Ask the owner for a one-off human approval even if policy would allow this action. Never execute while waiting."),
+      approval_reason: z.string().trim().min(1).max(500).optional().describe("Why you want the owner to review this action; shown in the approval request. Do not include secrets."),
       grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it"),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  async ({ tool, server: srv, arguments: args, grant_id }, extra) => {
-    const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id }, undefined, traceOf(extra))
+  async ({ tool, server: srv, arguments: args, grant_id, require_approval, approval_reason }, extra) => {
+    const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id, require_approval, approval_reason }, undefined, traceOf(extra))
     return renderDecisionResult(result, { success: `Authorized — ${tool}`, verb: "invoke" })
   }
 )

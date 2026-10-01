@@ -184,6 +184,8 @@ export const spec = {
           server: { type: "string", description: "MCP server or integration the tool belongs to (e.g. github, filesystem) — matched on grant redemption" },
           arguments: { type: "object", additionalProperties: true, description: "Arguments bound to a one-use approval. Encrypted at rest; reviewed by an admin in the dashboard. Not policy-evaluated. Maximum request size 64 KiB and nesting depth 32." },
           input: { type: "object", additionalProperties: true, deprecated: true, description: "Legacy SDK alias for arguments. Send only one of input or arguments." },
+          require_approval: { type: "boolean", description: "Request a one-off human approval even when policy allows. Enforced in observe mode; hard denials win. Timeout always denies." },
+          approval_reason: { type: "string", minLength: 1, maxLength: 500, description: "Why the agent requests review. Shown to the owner; omit secrets." },
           grant_id: {
             type: "string",
             description: "One-use grant minted when a human approves the escalation. Retry the same tool, server, and arguments with this field to consume it. Legacy unbound tool grants require fresh approval.",

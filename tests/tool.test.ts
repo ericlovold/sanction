@@ -10,6 +10,24 @@ describe("decideTool — tool governance", () => {
     expect(decide("github.create_deployment")).toEqual({ status: "allowed", code: undefined, reason: undefined })
   })
 
+  it("explicit approval escalates with no governance lists", () => {
+    expect(decide("deploy.prod", { requireApproval: true, approvalReason: "Review production rollout" })).toMatchObject({
+      status: "escalated", code: "TOOL_ESCALATION_REQUIRED",
+      reason: expect.stringContaining("Review production rollout"),
+    })
+    expect(decide("deploy.prod", { requireApproval: true }).status).toBe("escalated")
+    expect(decide("deploy.prod", { requireApproval: false }).status).toBe("allowed")
+    expect(decide("deploy.prod", { approvalReason: "Advisory only" }).status).toBe("allowed")
+  })
+
+  it.each([
+    { blockedTools: ["deploy.prod"] },
+    { allowedTools: ["web.search"] },
+    { conditions: [{ pattern: "deploy.*", effect: "block" as const, when: { after_model_calls_today: 1 } }], modelCallsToday: 1 },
+  ])("explicit approval never overrides a denial: %j", over => {
+    expect(decide("deploy.prod", { ...over, requireApproval: true }).status).toBe("denied")
+  })
+
   it("denies a blocked tool", () => {
     expect(decide("shell.exec", { blockedTools: ["shell.exec"] })).toEqual({
       status: "denied",

@@ -8,6 +8,18 @@ human, or denies. Every decision is logged and auditable. Sanction belongs to
 no platform: one policy engine answers across model providers, payment rails,
 identities, and agent ecosystems.
 
+## Need one human approval?
+
+Connect Sanction to your agent, then ask it to call `sanction_authorize_tool`
+with `require_approval: true` and the exact proposed action. Approve or deny
+through the existing approval link or configured Slack channel. Approval gives
+that request an expiring, single-use grant; the agent must redeem it before acting.
+No policy edit is required, and blocked actions stay blocked.
+
+Individuals can use Sanction free, without a card. The host must ask and honor the
+decision; connection alone does not enforce its other tools.
+[Try one synthetic approval](docs/MCP-OAUTH.md#ask-for-one-approval).
+
 ## Who runs Sanction
 
 - **Organizations governing their own AI** — the primary case. Teams and
