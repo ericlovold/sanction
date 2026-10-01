@@ -4,6 +4,8 @@ type Decision = {
   status: string
   next_action: "proceed" | "wait" | "retry_with_grant" | "stop"
   request_id?: string
+  original_request_id?: string
+  rejected_grant_id?: string
   code?: string
   reason?: string
   remediation?: string
@@ -82,6 +84,15 @@ export function renderDecisionResult(
     }
   } else {
     text = `DENIED${decision.code ? ` (${decision.code})` : ""} — ${decision.reason ?? "Not authorized"}. Do not ${opts.verb ?? "proceed"}.`
+  }
+  // Audit references are not redeemable authority. Do not reuse grant_id,
+  // which is reserved here for a usable grant returned by an approval check.
+  if (!isError && status === "denied" && decision.code === "GRANT_ALREADY_USED") {
+    for (const field of ["original_request_id", "rejected_grant_id"] as const) {
+      const value = string(result[field])
+      if (value) decision[field] = value
+    }
+    text += " Stop; do not retry or automatically request another approval."
   }
   // Some hosts expose only content to the model. Serialize the same allowlisted
   // decision, never the raw API payload, so both representations agree.

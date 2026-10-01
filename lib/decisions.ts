@@ -65,7 +65,7 @@ export const REMEDIATION: Record<DecisionCode, string> = {
   WALLET_FROZEN:
     "This wallet (or a parent wallet) is frozen — all agent actions are paused. Ask the owner to unfreeze it.",
   GRANT_NOT_FOUND: "Request a fresh approval. This grant does not exist for the current agent.",
-  GRANT_ALREADY_USED: "Request a fresh approval. This grant has already been consumed.",
+  GRANT_ALREADY_USED: "Stop. This grant has already been consumed. Do not retry or automatically request another approval.",
   GRANT_EXPIRED: "Request a fresh approval. This grant has expired.",
   GRANT_MISMATCH: "Retry with the exact action, amount, merchant, and category that the owner approved.",
   GRANT_UNSUPPORTED: "This grant type is not consumable by this endpoint.",
@@ -197,6 +197,7 @@ export function decisionCode(status: string, note: string | null): DecisionCode 
   if (!note) return "POLICY_DENIED"
   if (note.startsWith("Escalation timed out")) return "ESCALATION_TIMED_OUT"
   if (note === "This request requires a human-issued approval grant") return "GRANT_UNSUPPORTED"
+  if (note === "Grant already consumed") return "GRANT_ALREADY_USED"
   if (note === "No policy configured") return "NO_POLICY"
   if (note.includes("not in the resource allow-list")) return "RESOURCE_NOT_ALLOWED"
   if (note.startsWith("Resource")) return "RESOURCE_BLOCKED"
