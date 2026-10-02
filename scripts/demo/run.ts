@@ -25,6 +25,7 @@ import type { Persona, Keys, HqKeys, SpendSpec, TokenLogSpec, OutcomeSpec } from
 import { meridian } from "./personas/meridian"
 import { coastline } from "./personas/coastline"
 import { harborwren } from "./personas/harborwren"
+import { checkPulseFixtures } from "./preflight"
 
 const PERSONAS: Record<string, Persona> = { meridian, coastline, harborwren }
 
@@ -282,6 +283,8 @@ async function prime(persona: Persona) {
 async function pulse(persona: Persona, watch: boolean) {
   const keys = loadKeys(persona.key)
   if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
+  const problems = await checkPulseFixtures(persona, keys)
+  if (problems.length) fail(`pulse fixture preflight failed before writes:\n${problems.join("\n")}\nWait for fresh fixtures; do not reset counters or relax expectations.`)
   const c = makeChecker()
   keys.pending = [] // reset staging; re-pulse restages
 

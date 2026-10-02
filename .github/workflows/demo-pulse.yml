@@ -22,8 +22,8 @@ on:
   schedule:
     - cron: "0 13 * * *" # daily, morning US
 
-# Never overlap two pulses (a queued rerun would replay the same day's
-# budgets and trip the staged expectations).
+# Never overlap two pulses. A queued same-day rerun encounters the fixture
+# guard; concurrency alone does not make daily fixtures reusable.
 concurrency:
   group: demo-pulse
   cancel-in-progress: false
@@ -68,7 +68,20 @@ jobs:
           SANCTION_API_URL: ${{ vars.DEMO_API_URL || 'https://getsanction.com/api/v1' }}
         run: |
           set -e
+          failed=0
+          printf '## Demo Pulse\n\n| Persona | Result | Exit code |\n| --- | --- | --- |\n' >> "$GITHUB_STEP_SUMMARY"
           for p in meridian coastline harborwren; do
-            echo "════ pulse $p ════"
-            npx --no-install tsx scripts/demo/run.ts pulse "$p"
+            echo "::group::Pulse $p"
+            # Bound hung API calls so every persona gets a result. A timeout
+            # may follow a completed write; record failure and never retry it.
+            if timeout --kill-after=10s 5m npx --no-install tsx scripts/demo/run.ts pulse "$p"; then
+              printf '| %s | Passed | 0 |\n' "$p" >> "$GITHUB_STEP_SUMMARY"
+            else
+              pulse_exit=$?
+              failed=1
+              printf '| %s | Failed | %s |\n' "$p" "$pulse_exit" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::Demo Pulse $p failed (exit $pulse_exit)."
+            fi
+            echo "::endgroup::"
           done
+          exit "$failed"
