@@ -15,6 +15,27 @@ For teams governing their own agents — budgets, tool policy, vaulted credentia
 
 The plugin calls `https://getsanction.com/mcp` (Streamable HTTP) with `x-api-key`. Bearer also works on the hosted URL; this package leads with `x-api-key`.
 
+## Ask for one human approval
+
+After the read-only connection check, ask for a synthetic one-off decision:
+
+> Call `sanction_authorize_tool` for `demo.noop` with server `demo`, arguments
+> `{"message":"My first approval"}`, `require_approval: true`, and
+> `approval_reason: "I want to try a one-off approval."` Make one request,
+> show its request ID, then stop. Do not execute, retry, or poll automatically.
+
+No policy edit is needed; hard denials still apply. After the owner decides, ask
+Cursor to check that request once. On `next_action: retry_with_grant`, retry the
+same authorization once with identical fields plus the returned `grant_id`.
+Only `authorized: true` with `next_action: proceed` permits that attempt. This
+synthetic test still executes nothing.
+
+The skills read the machine decision, pause pending requests for human input,
+and stop on denial, reused authority, errors or unknown outcomes. They do not
+start fresh requests to evade those results. Approval binds the exact tool,
+server and arguments; authorization and grant redemption do not execute the
+target. A live Cursor test of this lifecycle remains pending.
+
 ## What the MCP exposes
 
 Same ten tools as the hosted wallet. Do not invent others.
@@ -25,7 +46,7 @@ Same ten tools as the hosted wallet. Do not invent others.
 | `sanction_authorize_tool` | Ask before another MCP tool, shell, deploy, or email send. |
 | `sanction_authorize_capability` | Ask before acquiring a new skill, plugin, integration, or API. |
 | `sanction_authorize_provision` | Ask before provisioning seats, licenses, or infrastructure (resource + dollars). |
-| `sanction_check_authorization` | Poll an escalated request for its one-use grant. |
+| `sanction_check_authorization` | Check a pending request once; return a usable one-use grant after approval. |
 | `sanction_wallet_status` | Today / MTD spend and token totals, plus pending approvals. |
 | `sanction_request_execution` | Mint a short-lived mandate (JWT) for a child agent or counterparty. |
 | `sanction_inject_credential` | Retrieve a vaulted secret under that mandate (audit-logged). |
@@ -37,9 +58,9 @@ Same ten tools as the hosted wallet. Do not invent others.
 | Skill | When to use |
 |-------|-------------|
 | `before-spend` | Before purchase, subscribe, transfer, or API credit top-up. |
-| `before-tool` | Before another MCP tool, shell, deploy, or email send. |
+| `before-tool` | Before another tool or external action, including explicit one-off human approval. |
 | `wallet-status` | Start of long or expensive work, or after a budget error. |
-| `handle-escalation` | When any `authorize*` call returns `escalated`. |
+| `handle-escalation` | When authorization returns `next_action: wait`; check once, then pause for the human. |
 
 v1 is MCP + skills only (portable Agent Orchestration connector). No rules, agents, commands, or hooks.
 
