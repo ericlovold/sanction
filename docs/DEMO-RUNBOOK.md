@@ -33,6 +33,23 @@ re-pulses all three companies daily, so dashboards always show a live day
 and fresh pending approvals. The pulse asserts every decision it stages, so
 a red workflow run is a real signal: the demo drifted or prod did.
 
+**Do not rerun a used daily pulse.** Before changing state, each persona reads
+owner-authenticated reporting for its token seats. Any positive token spend
+in the current UTC day, missing data, or failed read stops that persona before
+writes and preserves its local pending-request list. This conservative guard
+can reject a run that would still fit the budget. It is not a policy simulation:
+monthly and ancestor limits, CPO drift, concurrent traffic, and a deployment's
+budget-reset timezone can still make a fresh fixture fail the actual pulse.
+Never reset counters or loosen assertions to obtain a green run.
+
+Actions attempts all three personas and summarizes each result; any failed
+or blocked persona keeps the workflow red. Each persona has a five-minute
+deadline; a timeout is a failure with potentially completed writes, never an
+automatic retry. A successful individual pulse does
+not replace a green complete canary. For Bluebird drift, inspect both the
+outcome sample size and the projected CPO before deciding to re-prime; priming
+creates real synthetic decisions and is not an automatic repair.
+
 Entering a company: **`/login` → paste that company's `sk_` key.** You are
 now their ops lead — approvals are clickable. Your own login (HQ's owner)
 sees every company at once via the subtree views. `SANCTION_WALLET_ID` can
