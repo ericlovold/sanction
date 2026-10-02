@@ -47,6 +47,50 @@ describe("MCP decisions consumed by a host", () => {
     expect(response.structuredContent).toMatchObject({ authorized: false, status: "denied", next_action: "stop" })
   })
 
+  it.each([...actions, poll])("$name omits the default rejecting operator identity", async tool => {
+    const payload = { authorized: false, status: "denied", request_id: "req_test",
+      code: "POLICY_DENIED", reason: "Rejected by synthetic-owner@example.invalid" }
+    const response = await call(payload, tool)
+    expect(response.isError).toBe(false)
+    expect(response.structuredContent).toMatchObject({ authorized: false, status: "denied",
+      next_action: "stop", code: "POLICY_DENIED", reason: "Rejected by owner" })
+    expect(JSON.stringify(response)).not.toContain("synthetic-owner@example.invalid")
+    expect(payload.reason).toBe("Rejected by synthetic-owner@example.invalid")
+  })
+
+  it("omits the approving operator identity without changing grant resumption", async () => {
+    const response = await call({ authorized: true, status: "approved", request_id: "req_test",
+      reason: "Approved by synthetic-owner@example.invalid", grant_id: "gr_test", grant_status: "active",
+      grant_expires_at: new Date(Date.now() + 60_000).toISOString() }, poll)
+    expect(response.isError).toBe(false)
+    expect(response.structuredContent).toMatchObject({ authorized: false, next_action: "retry_with_grant",
+      reason: "Approved by owner", grant_id: "gr_test" })
+    expect(JSON.stringify(response)).not.toContain("synthetic-owner@example.invalid")
+  })
+
+  it.each(actions)("$name omits default approval identity in successful responses", async tool => {
+    const response = await call({ authorized: true, status: "approved", reason: "Approved by synthetic-operator@example.invalid" }, tool)
+    expect(response.structuredContent).toMatchObject({ authorized: true, next_action: "proceed", reason: "Approved by owner" })
+    expect(JSON.stringify(response)).not.toContain("synthetic-operator@example.invalid")
+  })
+
+  it("does not leak default approver identity when rejecting a contradictory payload", async () => {
+    const response = await call({ authorized: true, status: "denied", reason: "Rejected by synthetic-operator@example.invalid" })
+    expect(response.isError).toBe(true)
+    expect(response.structuredContent).toMatchObject({ authorized: false, next_action: "stop" })
+    expect(JSON.stringify(response)).not.toContain("synthetic-operator@example.invalid")
+  })
+
+  it.each(["Tool blocked by policy", "Grant already consumed", "Escalation timed out — denied by policy",
+    "Use staging first; production needs a separate review.",
+    "Rejected by policy review because production access is prohibited",
+    "Approved by the owner only for staging",
+    "Rejected by reviewer@example.invalid because the target changed",
+    "Approved by synthetic-operator"])("preserves the decision explanation: %s", async reason => {
+    const response = await call({ authorized: false, status: "denied", reason })
+    expect(response.structuredContent).toMatchObject({ reason })
+  })
+
   it.each([actions[2], poll])("$name preserves consumed-grant denial linkage without reusable authority", async tool => {
     const remediation = "Stop. This grant has already been consumed. Do not retry or automatically request another approval."
     const response = await call({ authorized: false, status: "denied", code: "GRANT_ALREADY_USED",
@@ -56,7 +100,7 @@ describe("MCP decisions consumed by a host", () => {
     expect(response.isError).toBe(false)
     expect(response.structuredContent).toMatchObject({ authorized: false, status: "denied", next_action: "stop",
       code: "GRANT_ALREADY_USED", request_id: "req_test", original_request_id: "req_original",
-      rejected_grant_id: "gr_consumed", remediation })
+      rejected_grant_id: "gr_consumed", reason: "Grant has already been consumed", remediation })
     expect(response.structuredContent).not.toHaveProperty("grant_id")
     expect(JSON.stringify(response)).not.toContain("must-not-be-usable")
     const blocks = response.content as Array<{ type: string; text: string }>

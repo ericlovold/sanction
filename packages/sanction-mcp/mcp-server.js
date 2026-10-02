@@ -36487,6 +36487,8 @@ function renderDecisionResult(payload, opts) {
     const value = string4(result[field]);
     if (value) decision[field] = value;
   }
+  const emailAttribution = decision.reason?.match(/^(Approved|Rejected) by [^\s@]+@[^\s@]+$/);
+  if (emailAttribution) decision.reason = `${emailAttribution[1]} by owner`;
   if (requestId || opts.requestId) decision.request_id = requestId ?? opts.requestId;
   if (result.grant_expires_at === null || string4(result.grant_expires_at)) {
     decision.grant_expires_at = result.grant_expires_at;

@@ -36,6 +36,12 @@ export function renderDecisionResult(
     const value = string(result[field])
     if (value) decision[field] = value
   }
+  // Default email-attributed approval notes need no operator address in model
+  // context. Match the whole note: a custom explanation beginning with the
+  // same words must not be discarded. Other identity formats need provenance
+  // from the API; this is not a general-purpose personal-data redactor.
+  const emailAttribution = decision.reason?.match(/^(Approved|Rejected) by [^\s@]+@[^\s@]+$/)
+  if (emailAttribution) decision.reason = `${emailAttribution[1]} by owner`
   if (requestId || opts.requestId) decision.request_id = requestId ?? opts.requestId
   if (result.grant_expires_at === null || string(result.grant_expires_at)) {
     decision.grant_expires_at = result.grant_expires_at as string | null
