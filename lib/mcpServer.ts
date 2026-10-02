@@ -36,7 +36,7 @@ export type SanctionMcpOptions = {
   toolProfile?: SanctionMcpToolProfile
 }
 
-export const MCP_SERVER_VERSION = "0.9.0"
+export const MCP_SERVER_VERSION = "0.10.0"
 
 // MCP 2026-07-28 reserves `traceparent`/`tracestate`/`baggage` in `_meta` for
 // W3C trace context, replacing deprecated protocol Logging as the sanctioned

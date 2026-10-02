@@ -115,16 +115,31 @@ at $50/txn, $50/day). Tune per-agent limits and clearance with the management ke
 
 MIT
 
-## Publishing this discovery update
+## Upgrade to 0.10.0
 
-`server.json` version `0.9.1` is a registry metadata revision. Its npm package
-reference remains `sanction-mcp@0.9.0`; no new runtime version is claimed.
-Registry records are immutable, so reusing the published registry version would
-not update its discovery metadata.
+This release adds `require_approval` and `approval_reason` to the existing
+`sanction_authorize_tool` call. Request human review without editing policy;
+existing hard denials still win. Approval produces an expiring, one-use grant
+bound to the reviewed request. Retry the exact original authorization with that
+grant before executing anything.
 
-After merge, run the repository's **Publish MCP** workflow. It skips an npm
-version already published and publishes the new registry record using GitHub
-OIDC. Verify the registry's latest record contains `remotes`, the hosted URL,
-and the required secret header. A successful merge or Vercel deployment alone
-does not update the registry, and registry publication does not imply acceptance
-in a host's curated marketplace.
+**Decision-contract change:** denial and waiting are normal MCP results
+(`isError: false`). This is not permission. Read `authorized`, `status`, and
+`next_action` from structured content or the matching JSON text block. Only
+`authorized: true` permits the attempt. `wait` means pause; `retry_with_grant`
+means redeem the original request; `stop` means do not act or automatically
+request another approval. Transport errors also mean stop.
+
+The package still exposes ten cooperative tools. Connecting it does not
+intercept other tools, and consuming a grant is not proof of execution.
+
+## Publishing this release
+
+The package and Registry record target `0.10.0`. After merge and successful CI,
+run the repository's **Publish MCP** workflow. It publishes npm first, then the
+Registry using GitHub OIDC. An existing npm version is skipped on reruns.
+
+Verify the published npm version and tool schema, then the Registry's latest
+record, package version, hosted URL and required secret header. A merge or
+Vercel deployment alone publishes neither artifact. Registry publication does
+not imply acceptance in a host's curated marketplace.

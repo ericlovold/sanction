@@ -36643,7 +36643,7 @@ var APPROVAL_MCP_TOOLS = [
   "sanction_wallet_status",
   "sanction_check_authorization"
 ];
-var MCP_SERVER_VERSION = "0.9.0";
+var MCP_SERVER_VERSION = "0.10.0";
 var traceOf = (extra) => extractTraceContext(extra?._meta);
 async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
   const headers = {
