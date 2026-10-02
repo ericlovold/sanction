@@ -1,6 +1,6 @@
 # Connect a host with OAuth
 
-Rollout checkpoint (2026-09-30): enabled on getsanction.com after the migration. A custom Claude connector using automatic registration (DCR) completed consent, tool discovery, a budget read, synthetic escalation, operator rejection and revocation. Fresh social-provider login, approved redemption and refresh in Claude remain unverified. Other deployments default to disabled.
+Rollout checkpoint (2026-09-30): enabled on getsanction.com after the migration. A custom Claude connector using automatic registration (DCR) completed consent, tool discovery, a budget read, synthetic escalation, operator rejection and revocation. An October 1 follow-up verified explicit one-off tool approval, exact-request redemption, and consumed-grant replay denial in Claude. Fresh social-provider login and automatic token refresh remain unverified. Other deployments default to disabled.
 
 ## User flow
 
@@ -54,9 +54,7 @@ external action, even after successful redemption.
 This is cooperative: connecting does not intercept the host's other tools.
 Omitting `require_approval` uses the standing policy; confidence is never a reason
 to bypass a mandatory approval. A connection to a wallet and an agent is still
-required. No new MCP tool or additional OAuth scope is needed. Host-by-host live
-verification of this one-off flow remains pending; connection compatibility alone
-is not proof of approval resumption.
+required. No new MCP tool or additional OAuth scope is needed. The October 1 Claude production smoke verified this one-off flow through redemption and replay denial, with no external action executed. Other hosts remain unverified; connection compatibility alone is not proof of approval resumption. See [host setup and the first-approval prompt](/docs/connect).
 
 ## MCP decision results
 
@@ -90,4 +88,4 @@ This response contract also applies to the full wallet and bundled stdio server.
 
 Local browser testing exercised consent, code exchange, the eight-tool list, budget status, synthetic tool escalation, owner approval, single-use redemption, replay denial, excluded-tool denial, wrong-endpoint denial and disconnect. It used a seeded local Better Auth session.
 
-The production Claude smoke used an existing signed-in session. The synthetic request appeared under the selected agent in Sanction, rejection reached Claude, and a subsequent budget call after disconnect required authentication. No purchase or external target action occurred. The run exposed text-only decisions appearing as failed tool calls; `tests/mcpDecisionContract.test.ts` covers the revised response contract through an MCP client. A post-deploy Claude check confirmed denial is a normal tool result, but Claude exposed only the readable text. The JSON text fallback addresses that compatibility gap; it still needs a post-deploy host check. Approved redemption and automatic token refresh remain unverified in Claude.
+The production Claude smoke used an existing signed-in session. The synthetic request appeared under the selected agent in Sanction, rejection reached Claude, and a subsequent budget call after disconnect required authentication. No purchase or external target action occurred. The run exposed text-only decisions appearing as failed tool calls; `tests/mcpDecisionContract.test.ts` covers the revised response contract through an MCP client. A post-deploy Claude check confirmed denial is a normal tool result, but Claude exposed only the readable text. The October 1 follow-up verified the JSON text fallback, explicit approval without a policy edit, exact-request redemption, and consumed-grant replay denial. Claude needed **Refresh tools list** on the existing connector to see the new request fields. Argument tampering, grant expiry, and a fresh recorded revocation sequence remain host-test follow-ups; automatic token refresh is not established by continued connection alone.

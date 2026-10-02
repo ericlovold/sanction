@@ -4,6 +4,9 @@ import path from "node:path"
 // On-site docs rendered from the repo's markdown guides. Server-only (reads fs).
 // Only public-facing guides are listed here.
 export const DOCS: Record<string, { file: string; title: string; description: string }> = {
+  connect: { file: "CONNECT.md", title: "Connect and ask for approval", description: "Choose your AI host and try one human approval. Setup paths, test status, and a harmless first request." },
+  "grok-bot": { file: "GROK-BOT.md", title: "Grok Bot connection boundaries", description: "Hosted MCP, safe connection checks, and the distinction between Grok consumer and Grok Bot." },
+  "mcp-oauth": { file: "MCP-OAUTH.md", title: "MCP OAuth and decisions", description: "Connect an approval-focused host, understand the decision contract, and disconnect access." },
   "developer-usage": { file: "DEVELOPER-USAGE.md", title: "Developer usage", description: "Connect Claude Code and Codex telemetry, then prove one native tool approval." },
   authorization: {
     file: "CONCEPTS-AUTHORIZATION.md",

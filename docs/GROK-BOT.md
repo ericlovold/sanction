@@ -1,10 +1,15 @@
 # Connect Grok Bot to Sanction
 
-Sanction’s hosted wallet MCP endpoint is `https://getsanction.com/mcp`. This guide describes a connection contract and a safe first check; it does not claim a Sanction marketplace listing or verified Grok Bot compatibility. The [Cursor plugin scaffold](../cursor-plugin/README.md) is unpublished.
+Sanction’s hosted wallet MCP endpoint is `https://getsanction.com/mcp`. This guide describes a connection contract and a safe first check; it does not claim a Sanction marketplace listing or verified Grok Bot compatibility. The [Cursor plugin scaffold](https://github.com/ericlovold/sanction/blob/main/cursor-plugin/README.md) is unpublished.
+
+Consumer Grok now documents a separate custom-MCP path at grok.com/connectors.
+See [choose your host](/docs/connect) for that candidate setup. Consumer Grok,
+Grok Bot, and the xAI API are distinct surfaces; support in one does not prove
+Sanction compatibility or marketplace acceptance in another.
 
 ## Check host support first
 
-Grok’s documented connector flow is Marketplace → choose a plugin → Add → authenticate if requested → attach it in chat with `@`. Its documentation does not establish an arbitrary custom MCP import flow. If Sanction is unavailable and your host exposes no supported remote MCP configuration, stop at that limitation rather than inventing an installation step. See [Grok’s computer and apps guide](https://docs.x.ai/grok-bot/computer-and-apps) (checked 2026-09-28).
+Grok Bot’s documented connector flow is Marketplace → choose a plugin → Add → authenticate if requested → attach it in chat with `@`. Its documentation does not establish an arbitrary custom MCP import flow. If Sanction is unavailable and your host exposes no supported remote MCP configuration, stop at that limitation rather than inventing an installation step. See [Grok’s computer and apps guide](https://docs.x.ai/grok-bot/computer-and-apps) (checked 2026-09-28).
 
 Where a host supports custom remote MCP, configure:
 
