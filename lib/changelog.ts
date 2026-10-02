@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-02",
+    title: "Prepare MCP 0.10.0 for one-off approvals",
+    tags: ["mcp", "release"],
+    body: "The stdio release candidate brings explicit human-approval requests, structured decisions with a JSON text fallback, replay audit references, and default approver-email redaction into one bundle. Waiting and denial are normal MCP results: integrations must branch on authorized and next_action, never isError alone. Package, runtime and Registry metadata now target 0.10.0; npm and Registry publication remain separate post-merge steps. The ten-tool wallet remains cooperative.",
+  },
+  {
     date: "2026-10-01",
     title: "Keep default approver emails out of MCP decisions",
     tags: ["mcp", "privacy"],
