@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { NextRequest } from "next/server"
+import mcpPackage from "../packages/sanction-mcp/package.json"
 import { MCP_WALLET_TOOLS, walletCard } from "../lib/walletCard"
 import { GET as walletCardGet } from "../app/.well-known/wallet-card.json/route"
 
@@ -52,7 +53,7 @@ describe("public/.well-known/mcp.json", () => {
       url: string
       tools: { name: string }[]
     }
-    expect(listed.version).toBe("0.9.0")
+    expect(listed.version).toBe(mcpPackage.version)
     expect(listed.url).toBe("https://getsanction.com/mcp")
     expect(listed.tools.map((t) => t.name)).toEqual(MCP_WALLET_TOOLS.map((t) => t.name))
   })
