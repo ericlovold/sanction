@@ -16,6 +16,12 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-01",
+    title: "Keep default approver emails out of MCP decisions",
+    tags: ["mcp", "privacy"],
+    body: "MCP replaces a complete default approval or rejection note containing an email address with an owner label in both readable text and JSON. Stored audit notes and REST responses stay unchanged. Other note formats, including custom explanations, are preserved; this is not general personal-data redaction. Decision codes, stop guidance, and grant resumption are unchanged.",
+  },
+  {
+    date: "2026-10-01",
     title: "Trace rejected tool-grant replays",
     tags: ["mcp", "security"],
     body: "Reusing a consumed tool grant records a separate denied attempt linked to the original approval after wallet and agent ownership checks. The original approval stays intact. REST and MCP expose audit references separately from usable grants, and replay guidance tells agents to stop without automatically requesting another approval. This adds traceability, not execution or retry authority.",
