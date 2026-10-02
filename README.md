@@ -18,7 +18,7 @@ No policy edit is required, and blocked actions stay blocked.
 
 Individuals can use Sanction free, without a card. The host must ask and honor the
 decision; connection alone does not enforce its other tools.
-[Try one synthetic approval](docs/MCP-OAUTH.md#ask-for-one-approval).
+[Choose your host and try one approval](https://getsanction.com/docs/connect).
 
 ## Who runs Sanction
 
