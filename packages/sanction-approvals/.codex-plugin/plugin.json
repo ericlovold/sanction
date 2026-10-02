@@ -1,0 +1,31 @@
+{
+  "name": "sanction-approvals",
+  "version": "0.1.0",
+  "description": "Request human approval for an exact action and resume through a one-use Sanction grant.",
+  "author": {
+    "name": "Sanction",
+    "url": "https://getsanction.com"
+  },
+  "homepage": "https://getsanction.com",
+  "license": "FSL-1.1-MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Sanction Approvals",
+    "shortDescription": "Pause for human approval",
+    "longDescription": "Request human review of an exact tool action, then check and redeem its one-use grant when the user resumes. Synthetic tests execute nothing. This cooperative approval workflow does not intercept other tools, install enforcement hooks, or replace host permissions. Requires a Sanction account and connection.",
+    "developerName": "Sanction",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Request approval",
+      "Check authorization"
+    ],
+    "websiteURL": "https://getsanction.com",
+    "privacyPolicyURL": "https://getsanction.com/privacy",
+    "defaultPrompt": [
+      "Request approval for a synthetic action; execute nothing."
+    ],
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg"
+  }
+}
