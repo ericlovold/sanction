@@ -232,7 +232,7 @@ export default async function Landing() {
             Autonomy for your agents. Authority for your team.
           </h1>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "48ch", margin: "24px 0 32px" }}>
-            Where your AI spend is going, who&apos;s cleared to spend it, and the calls big enough to need your sign-off — in one place, above whatever gateway your engineers run. Every decision on a signed record, made before the money moves.
+            Track connected agents, set budgets, and review requests that need your sign-off. Sanction records authorization decisions and provides signed audit exports. Agents must ask before acting, or route supported traffic through Sanction for enforcement.
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <TrackCTA className="sn-btn sn-btn-primary sn-btn-l" href="/start" location="hero" target="start">Start free</TrackCTA>
@@ -260,13 +260,13 @@ export default async function Landing() {
             Your gateway routes the calls. Sanction is where you answer for them.
           </h2>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "58ch", margin: "20px 0 0" }}>
-            LiteLLM, Bedrock, Vercel — let them route, cache, and log. Sanction sits above whatever you run: the one place the people accountable for the spend can see it, set the budget, and sign off on the calls that cross the line.
+            Connect supported integrations to report usage and request authorization. Route model calls through the Sanction gateway or tool calls through the MCP broker for enforcement on that path. Calls that bypass Sanction are outside its control.
           </p>
         </div>
         <div className="sn-cards">
           {[
-            ["For the CFO", "The monthly number", "Where AI spend went this month — by team, by provider — and whether you're on budget. The one figure that rolls up across every agent, in every division."],
-            ["For the CTO", "Who can do what", "Which agents are cleared for which actions, the line where a human takes over, and a signed record of every call. Set the policy once; it holds across providers."],
+            ["For the CFO", "The monthly number", "Reported AI spend by team and provider, alongside budgets for connected agents and wallets."],
+            ["For the CTO", "Who can do what", "Set policies for governed requests, review escalations, and export hash-chained decision evidence signed at export time."],
             ["For the CMO", "My team's usage", "Your department's agent spend and budget at a glance — no ticket to engineering to find out what your team's AI actually costs this month."],
           ].map(([k, t, d]) => (
             <div key={k} className="sn-card" style={{ padding: 28 }}>
@@ -282,9 +282,9 @@ export default async function Landing() {
       <section style={{ ...wrap, padding: "0 32px 112px" }}>
         <div className="sn-cards">
           {[
-            ["Authorize", "Agent Wallet", "Budgets and policy on every spend and provisioning action. Auto-approve under threshold, escalate over it, deny what's blocked."],
-            ["Protect", "Credential Vault", "AES-256-GCM at rest under a rotating KMS-wrapped key, tenant-isolated at the database. A 15-minute mandate gates every injection; counterparties verify it without a Sanction key."],
-            ["Govern", "Clearance Levels", "A 1–5 clearance system. Agents only ever touch what they're explicitly cleared for. Fail-closed by default."],
+            ["Authorize", "Agent Wallet", "Budgets and policy on spend and provisioning requests sent to Sanction. Auto-approve under threshold, escalate over it, deny what's blocked."],
+            ["Protect", "Credential Vault", "Credentials use AES-256-GCM envelope encryption with per-wallet keys and tenant-scoped access. A short-lived mandate gates credential injection."],
+            ["Govern", "Clearance Levels", "Clearance levels constrain governed requests. Tool governance is opt-in: empty tool lists allow tools unless another rule restricts them. Apply a policy pack or request explicit approval."],
           ].map(([k, t, d]) => (
             <div key={k} className="sn-card" style={{ padding: 28 }}>
               <MonoLabel color="var(--pine-7)">{k}</MonoLabel>
@@ -305,7 +305,7 @@ export default async function Landing() {
           {[
             ["approved", "Under the threshold, allowed category. The agent proceeds; the spend is logged."],
             ["escalated", "Over your line. The request pauses and waits for a human — approval mints a one-use grant."],
-            ["denied", "Blocked category or over the hard cap. It never reaches the merchant."],
+            ["denied", "Blocked category or over the hard cap. The caller must stop; a cooperative decision does not itself block an external payment."],
           ].map(([d, txt]) => (
             <div key={d} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 20 }}>
               <DecisionPill decision={d as keyof typeof DECISIONS} />
@@ -320,13 +320,12 @@ export default async function Landing() {
         <div style={{ maxWidth: 640, marginBottom: 48 }}>
           <MonoLabel mb={16}>The settlement rail is changing</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Sanction authorizes the spend; any rail settles it.
+            Check authorization before settlement.
           </h2>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "58ch", margin: "20px 0 0" }}>
-            Agent payments are moving to stablecoin rails — USDC over x402. On card rails, authorization is one control
-            point among several: disputes, chargebacks, and issuer reversals stand behind it. On stablecoin rails there
-            are no chargebacks. Settlement is irreversible, and the pre-transaction decision is the only control point.
-            That decision is what Sanction makes.
+            Sanction evaluates supported payment requirements before the caller signs or settles.
+            Its decision records permission, not payment completion. The caller remains responsible
+            for settlement and confirming the outcome.
           </p>
         </div>
         <div className="sn-security-items" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px 40px" }}>
@@ -337,15 +336,15 @@ export default async function Landing() {
             ],
             [
               "Every decision point, shipped",
-              "The MCP broker intercepts tool calls before they run. The LLM gateway meters model spend per call. Escalations pause for a human; approval mints a one-use grant. All of it replayable, with hash-chained evidence exports.",
+              "The MCP broker intercepts tool calls routed through it. The LLM gateway meters routed model usage. Escalations can pause for a human; approval mints a one-use grant. Stored decision evidence supports replay and hash-chained audit exports.",
             ],
             [
               "The x402 spend gate — live",
-              "When an agent meets an x402 payment requirement, Sanction prices the quote and runs it through the same ladder as any purchase — before the wallet signs. Through the MCP broker this is interception: a refused challenge is withheld, and an agent that never receives the payment requirements cannot sign them. Quotes priced in USD-pegged stablecoins only; a rate we would have to guess is denied, never estimated.",
+              "Sanction evaluates supported x402 quotes before the caller signs. On the governed broker path, a refused payment challenge is withheld. This does not prevent a caller obtaining it through another path. Unpriceable quotes are denied rather than estimated.",
             ],
             [
-              "Non-custodial, veto-only",
-              "Sanction never holds funds or keys, and can never initiate a transfer — it can only refuse one. The GENIUS Act made payment stablecoins a regulated instrument; the pending CLARITY Act (Senate vote scheduled September 2026) would codify that non-custodial, non-controlling software is not a money transmitter. Sanction is built deliberately to that shape — and every decision leaves auditable evidence that supports your compliance program.",
+              "Authorization and settlement are separate",
+              "The x402 authorization path evaluates the quote; the caller signs and settles. Separately, Sanction stores encrypted credentials. Connected provider keys stay server-side; other vaulted credentials require scoped authorization. An authorization decision is not evidence that a payment occurred.",
             ],
           ].map(([t, d]) => (
             <div key={t} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 16 }}>
@@ -403,10 +402,10 @@ export default async function Landing() {
           </div>
           <div className="sn-security-items" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px 40px", alignSelf: "center" }}>
             {[
-              ["SOC 2 Type II", "In flight — report available under NDA on completion."],
-              ["Encrypted + isolated", "AES-256-GCM at rest under a rotating key; row-level tenant isolation at the database."],
-              ["Fail-closed", "No policy match, no action. Denial is the default state."],
-              ["Full audit trail", "Every decision attributable, exportable, on the record."],
+              ["Documented security model", "Published threat model covering controls, trust boundaries, and enforcement limits."],
+              ["Encrypted + isolated", "AES-256-GCM envelope encryption and tenant-scoped credential access."],
+              ["Explicit limits", "Hard policy denials override approval requests. Tool restrictions must be configured; empty tool lists allow tools."],
+              ["Decision evidence", "Recorded decisions can be exported as a hash-chained snapshot signed at export time."],
             ].map(([t, d]) => (
               <div key={t} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 16 }}>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{t}</div>
