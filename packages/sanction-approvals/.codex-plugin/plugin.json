@@ -21,6 +21,7 @@
       "Check authorization"
     ],
     "websiteURL": "https://getsanction.com",
+    "supportURL": "https://getsanction.com/support",
     "privacyPolicyURL": "https://getsanction.com/privacy",
     "defaultPrompt": [
       "Request approval for a synthetic action; execute nothing."
