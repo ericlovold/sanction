@@ -1,0 +1,11 @@
+interface:
+  display_name: "Request approval"
+  short_description: "Request and resume a human approval"
+  default_prompt: "Use $request-approval for a synthetic approval test; execute nothing."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "sanction-approvals"
+      description: "Sanction approval requests and grant checks"
+      transport: "streamable_http"
+      url: "https://getsanction.com/mcp/approvals"

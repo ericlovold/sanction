@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "sanction-approvals": {
+      "url": "https://getsanction.com/mcp/approvals"
+    }
+  }
+}
