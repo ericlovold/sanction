@@ -198,7 +198,9 @@ export const spec = {
           authorized: { type: "boolean" },
           approval_status: { type: "string", description: "Historical status on an idempotent replay; never permission to execute. Redeem the grant for an attempt." },
           status: { type: "string", enum: ["allowed", "denied", "escalated"] },
-          request_id: { type: "string", description: "Present on escalations — poll /authorize/{id} or replay the Idempotency-Key for the terminal decision" },
+          request_id: { type: "string", description: "Decision request ID. A consumed tool-grant replay gets a separate denied attempt ID; poll /authorize/{id} for its terminal decision." },
+          original_request_id: { type: "string", description: "Original approval request linked to a consumed tool-grant replay, after wallet and agent ownership checks." },
+          rejected_grant_id: { type: "string", description: "Consumed grant referenced for audit only. Never usable authority." },
           reason: { type: "string" },
           code: {
             type: "string",

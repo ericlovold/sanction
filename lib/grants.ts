@@ -16,7 +16,7 @@ export type GrantErrorCode = Extract<
 
 export type GrantConsumeResult =
   | { ok: true; request: SpendRequest; grantId: string; grantExpiresAt: Date | null; consumedAt: Date }
-  | { ok: false; code: GrantErrorCode; status: 403 | 404 | 409; reason: string; auditReason?: "human_approval_required" }
+  | { ok: false; code: GrantErrorCode; status: 403 | 404 | 409; reason: string; auditReason?: "human_approval_required"; replay?: { originalRequestId: string; grantId: string } }
 
 type GrantClient = CascadeTx & Pick<typeof db, "authorizationRequest" | "executionToken" | "grant">
 
@@ -205,7 +205,14 @@ async function consumeGrantCore(
   if (input.requireHumanApproval && (!grant.issuedBy || grant.issuedBy === "policy_timeout")) {
     return { ok: false, code: "GRANT_UNSUPPORTED", status: 403, reason: "This request requires a human-issued approval grant", auditReason: "human_approval_required" }
   }
-  if (grant.status === "consumed") return denyGrant("GRANT_ALREADY_USED", 409, "Grant already consumed")
+  const replayDenied = (): GrantConsumeResult => ({
+    ok: false, code: "GRANT_ALREADY_USED", status: 409, reason: "Grant already consumed",
+    // Only tool replay auditing consumes this linkage. Ownership and source
+    // validation above must precede exposing the original request identity.
+    ...(input.expectedActionType === "tool.invoke"
+      ? { replay: { originalRequestId: grant.sourceId!, grantId: grant.id } } : {}),
+  })
+  if (grant.status === "consumed") return replayDenied()
   if (grant.status !== "active") return denyGrant("GRANT_NOT_FOUND", 404, `Grant is ${grant.status}`)
   if (grant.expiresAt && grant.expiresAt <= now) {
     await client.grant.updateMany({ where: { id: grant.id, status: "active" }, data: { status: "expired" } })
@@ -229,7 +236,17 @@ async function consumeGrantCore(
     where: { id: grant.id, status: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
     data: { status: "consumed", consumedAt: now },
   })
-  if (consumed.count === 0) return denyGrant("GRANT_ALREADY_USED", 409, "Grant already consumed")
+  if (consumed.count === 0) {
+    // A losing concurrent redemption may have read an active grant. Confirm
+    // consumption before attributing the denial to an already-used grant.
+    if (input.expectedActionType === "tool.invoke") {
+      const latest = await client.grant.findUnique({ where: { id: grant.id } })
+      if (latest?.status === "consumed" && latest.walletId === input.walletId
+        && latest.agentId === input.agentId && latest.sourceId === grant.sourceId
+        && latest.sourceType === grant.sourceType && latest.actionType === grant.actionType) return replayDenied()
+    }
+    return denyGrant("GRANT_ALREADY_USED", 409, "Grant already consumed")
+  }
 
   await reserveCascadeDailySpend(client, input.walletId, input.amountCents, now, input.ancestorChain, grant.sourceId)
 

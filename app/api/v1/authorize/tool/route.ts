@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
     // This is a new denied attempt, not a change to the original approval.
     // Keep exact arguments encrypted, as for the approval request itself.
-    const deniedAttempt = result.auditReason === "human_approval_required"
+    const deniedAttempt = (result.auditReason === "human_approval_required" || result.replay)
       ? await db.authorizationRequest.create({
           data: {
             agentId: agent.id,
@@ -110,8 +110,9 @@ export async function POST(req: NextRequest) {
             decidedAt: new Date(),
             decisionNote: result.reason,
             detailsJson: {
-              tool, server: server ?? null, require_approval: true,
-              rejection: result.auditReason, grant_id,
+              tool, server: server ?? null, require_approval: require_approval === true,
+              rejection: result.replay ? "grant_already_used" : result.auditReason, grant_id,
+              ...(result.replay ? { original_request_id: result.replay.originalRequestId } : {}),
               requestBinding: await sealToolRequest(agent.walletId, { tool, server, arguments: args }),
             },
           },
@@ -123,6 +124,10 @@ export async function POST(req: NextRequest) {
         authorized: false,
         status: "denied",
         request_id: deniedAttempt?.id,
+        ...(result.replay ? {
+          original_request_id: result.replay.originalRequestId,
+          rejected_grant_id: result.replay.grantId,
+        } : {}),
         reason: result.reason,
         code: result.code,
         remediation: REMEDIATION[result.code as DecisionCode],

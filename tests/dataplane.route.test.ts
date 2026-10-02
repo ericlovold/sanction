@@ -297,17 +297,113 @@ describe("authorize/tool — tool governance", () => {
     expect((await res.json()).code).toBe("GRANT_MISMATCH")
   })
 
-  it("refuses an already-consumed tool grant (409)", async () => {
+  it.each([true, false, undefined])("audits a consumed replay separately with require_approval=%s", async requireApproval => {
+    const args = { token: "synthetic-secret-do-not-persist", ref: "abc" }
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_replay_denied" })
     dbMock.grant.findUnique.mockResolvedValue({
-      id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "consumed",
+      id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "consumed", issuedBy: "wallet_owner",
       resourceJson: { kind: "tool", tool: "payments.charge", server: null },
       sourceType: "authorization_request", sourceId: "req_t1", expiresAt: null,
     })
-    const res = await authorizeTool(
-      req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "payments.charge", grant_id: "grant_t1" } }),
-    )
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "payments.charge", arguments: args, grant_id: "grant_t1", require_approval: requireApproval,
+    } }))
     expect(res.status).toBe(409)
-    expect((await res.json()).code).toBe("GRANT_ALREADY_USED")
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: false, status: "denied", code: "GRANT_ALREADY_USED",
+      request_id: "req_replay_denied", original_request_id: "req_t1", rejected_grant_id: "grant_t1",
+      remediation: "Stop. This grant has already been consumed. Do not retry or automatically request another approval.",
+    })
+    expect(body).not.toHaveProperty("grant_id")
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+    const denied = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(denied).toMatchObject({ agentId: AID, kind: "tool", action: "invoke", amountUsd: 0,
+      merchant: "payments.charge", status: "denied", decidedAt: expect.any(Date) })
+    expect(decisionCode(denied.status, denied.decisionNote)).toBe("GRANT_ALREADY_USED")
+    expect(denied.detailsJson).toMatchObject({ rejection: "grant_already_used", grant_id: "grant_t1",
+      original_request_id: "req_t1", require_approval: requireApproval === true })
+    expect(await openToolRequest(WID, denied.detailsJson)).toBe(canonicalToolRequest({ tool: "payments.charge", arguments: args }))
+    expect(JSON.stringify(denied)).not.toContain(args.token)
+    expect(denied.detailsJson).not.toHaveProperty("arguments")
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...denied, id: body.request_id,
+      agent: { name: AGENT.name, walletId: WID, wallet: { policy: POLICY } } })
+    const polled = await authStatus(req("GET", `/api/v1/authorize/${body.request_id}`, { headers: agentH }),
+      { params: Promise.resolve({ id: body.request_id }) })
+    expect(await polled.json()).toMatchObject({ authorized: false, status: "denied", request_id: body.request_id,
+      code: "GRANT_ALREADY_USED", remediation: body.remediation })
+    expect(dbMock.grant.findFirst).not.toHaveBeenCalled()
+  })
+
+  it.each([{ walletId: "wallet_other" }, { agentId: "agent_other" }])("conceals consumed-grant linkage from another owner: %j", async owner => {
+    dbMock.grant.findUnique.mockResolvedValue({
+      id: "grant_private", walletId: WID, agentId: AID, ...owner, actionType: "tool.invoke", status: "consumed",
+      sourceType: "authorization_request", sourceId: "req_private", expiresAt: null,
+    })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "payments.charge", grant_id: "grant_private", require_approval: true,
+    } }))
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: false, code: "GRANT_NOT_FOUND" })
+    expect(JSON.stringify(body)).not.toMatch(/grant_private|req_private/)
+    expect(body).not.toHaveProperty("original_request_id")
+    expect(body).not.toHaveProperty("rejected_grant_id")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it("audits the losing redemption only after confirming the grant was consumed", async () => {
+    const grant = {
+      id: "grant_race", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",
+      resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "payments.charge" }) },
+      sourceType: "authorization_request", sourceId: "req_original", expiresAt: null,
+    }
+    dbMock.grant.findUnique.mockResolvedValueOnce(grant).mockResolvedValueOnce({ ...grant, status: "consumed" })
+    dbMock.grant.updateMany.mockResolvedValue({ count: 0 })
+    dbMock.authorizationRequest.create.mockResolvedValue({ id: "req_race_denied" })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "payments.charge", grant_id: grant.id,
+    } }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ authorized: false, code: "GRANT_ALREADY_USED",
+      request_id: "req_race_denied", original_request_id: "req_original", rejected_grant_id: grant.id })
+    expect(dbMock.grant.findUnique).toHaveBeenCalledTimes(2)
+    expect(dbMock.grant.updateMany).toHaveBeenCalledTimes(1)
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+    expect(dbMock.authorizationRequest.create.mock.calls[0][0].data.detailsJson).toMatchObject({
+      rejection: "grant_already_used", original_request_id: "req_original", grant_id: grant.id,
+    })
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+  })
+
+  it.each([null, { status: "revoked" }, { status: "consumed", walletId: "wallet_other" },
+    { status: "consumed", agentId: "agent_other" }])("does not attribute an unconfirmed losing redemption: %j", async latest => {
+    const grant = {
+      id: "grant_race", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",
+      resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "payments.charge" }) },
+      sourceType: "authorization_request", sourceId: "req_original", expiresAt: null,
+    }
+    dbMock.grant.findUnique.mockResolvedValueOnce(grant).mockResolvedValueOnce(latest ? { ...grant, ...latest } : null)
+    dbMock.grant.updateMany.mockResolvedValue({ count: 0 })
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "payments.charge", grant_id: grant.id,
+    } }))
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.authorized).toBe(false)
+    expect(body).not.toHaveProperty("original_request_id")
+    expect(body).not.toHaveProperty("rejected_grant_id")
+    expect(dbMock.grant.findUnique).toHaveBeenCalledTimes(2)
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
   })
 })
 

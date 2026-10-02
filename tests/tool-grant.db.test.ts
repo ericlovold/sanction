@@ -15,7 +15,13 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("tool grant concurrency", () =
       const attempt = () => db.$transaction(tx => consumeToolGrant(tx, { grantId: grant.id, walletId: wallet.id, agentId, request }))
       const results = await Promise.all(Array.from({ length: 8 }, attempt))
       expect(results.filter(r => r.ok)).toHaveLength(1)
-      expect(results.filter(r => !r.ok && r.code === "GRANT_ALREADY_USED")).toHaveLength(7)
+      const replays = results.filter(r => !r.ok && r.code === "GRANT_ALREADY_USED")
+      expect(replays).toHaveLength(7)
+      for (const replay of replays) {
+        expect(replay).toMatchObject({ replay: { originalRequestId: row.id, grantId: grant.id } })
+      }
+      expect(await db.grant.findUnique({ where: { id: grant.id } })).toMatchObject({ status: "consumed" })
+      expect(await db.authorizationRequest.findUnique({ where: { id: row.id } })).toMatchObject({ status: "approved", decisionNote: "Grant consumed" })
     } finally {
       await db.grant.deleteMany({ where: { walletId: wallet.id } })
       await db.authorizationRequest.deleteMany({ where: { agentId } })

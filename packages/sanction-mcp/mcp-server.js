@@ -36524,6 +36524,13 @@ function renderDecisionResult(payload, opts) {
   } else {
     text = `DENIED${decision.code ? ` (${decision.code})` : ""} \u2014 ${decision.reason ?? "Not authorized"}. Do not ${opts.verb ?? "proceed"}.`;
   }
+  if (!isError && status === "denied" && decision.code === "GRANT_ALREADY_USED") {
+    for (const field of ["original_request_id", "rejected_grant_id"]) {
+      const value = string4(result[field]);
+      if (value) decision[field] = value;
+    }
+    text += " Stop; do not retry or automatically request another approval.";
+  }
   return {
     content: [
       { type: "text", text },
