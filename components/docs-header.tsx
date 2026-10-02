@@ -5,12 +5,12 @@ export function DocsHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
       <nav className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex shrink-0 items-center">
           <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[18px] w-auto" />
         </Link>
-        <div className="flex items-center gap-6 text-sm text-zinc-400">
+        <div className="flex items-center gap-3 whitespace-nowrap text-sm text-zinc-400 sm:gap-6">
           <Link href="/docs" className="hover:text-zinc-100 transition-colors">Docs</Link>
-          <Link href="/architecture" className="hover:text-zinc-100 transition-colors">Architecture</Link>
+          <Link href="/architecture" className="hidden sm:inline hover:text-zinc-100 transition-colors">Architecture</Link>
           <Link href="/compliance" className="hidden sm:inline hover:text-zinc-100 transition-colors">EU AI Act</Link>
           <Link href="/roadmap" className="hidden sm:inline hover:text-zinc-100 transition-colors">Roadmap</Link>
           <Link href="/changelog" className="hidden sm:inline hover:text-zinc-100 transition-colors">Changelog</Link>

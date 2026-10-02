@@ -238,6 +238,9 @@ export default async function Landing() {
             <TrackCTA className="sn-btn sn-btn-primary sn-btn-l" href="/start" location="hero" target="start">Start free</TrackCTA>
             <TrackCTA className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} location="hero" target="talk">Talk to us →</TrackCTA>
           </div>
+          <p style={{ marginTop: 24, fontSize: 15, color: "var(--text-secondary)" }}>
+            Need one human decision? <TrackCTA className="sanction-link" href="/docs/connect" location="hero" target="first-approval">Connect your AI tool and ask for approval →</TrackCTA>
+          </p>
           <MonoLabel mt={28} color="var(--text-faint)">Agent wallet · MCP · REST · Any rail</MonoLabel>
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>

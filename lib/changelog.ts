@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-02",
+    title: "Find your first approval from the product",
+    tags: ["mcp", "distribution"],
+    body: "A public connection guide brings together host setup, a harmless one-off approval prompt, exact-request redemption, and disconnection. The product page links to it directly. Claude's recorded approval-and-redemption smoke is distinguished from untested host configurations and marketplace submissions; connection alone remains cooperative.",
+  },
+  {
     date: "2026-10-01",
     title: "Keep default approver emails out of MCP decisions",
     tags: ["mcp", "privacy"],
