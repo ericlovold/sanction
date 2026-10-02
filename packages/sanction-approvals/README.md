@@ -40,12 +40,16 @@ See OpenAI's [packaging](https://developers.openai.com/plugins/build/plugins),
 [submission](https://developers.openai.com/plugins/deploy/submission), and
 [authentication](https://developers.openai.com/plugins/build/auth) documentation.
 
+The manifest includes `interface.supportURL` as documented in OpenAI's
+[Codex-format example](https://developers.openai.com/plugins/deploy/submission#codex-format)
+and [listing validation rules](https://developers.openai.com/plugins/deploy/submission-errors#listing-and-interface-errors).
+The older bundled validator rejected this field; its allowlist does not reflect
+those requirements. JSON and URL checks are not full schema validation. Portal
+validation and acceptance remain unverified.
+
 ## Submission blockers
 
 - Verify the publisher identity and listing name in the portal.
-- Add `supportURL: https://getsanction.com/support` before submission using the
-  current portal schema. The bundled local validator rejects that documented
-  field, so it is omitted from this compatibility candidate.
 - Supply a verified public terms-of-service URL. Source routes exist for
   `/privacy` and `/support`; no terms route was found during package preparation.
   The manifest deliberately omits `termsOfServiceURL`.
