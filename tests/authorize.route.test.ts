@@ -115,6 +115,7 @@ beforeEach(() => {
   dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 0 } })
   dbMock.authorizationRequest.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
     id: "req_1",
+    kind: "spend",
     createdAt: new Date(),
     decidedAt: null,
     decisionNote: null,
@@ -209,7 +210,7 @@ describe("authorize — the spend ladder", () => {
 
 describe("authorize — idempotency + simulate (FUND-1)", () => {
   it("replays the stored decision for a repeated Idempotency-Key", async () => {
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ kind: "spend",
       id: "req_prev", status: "approved", decisionNote: "Auto-approved", amountUsd: 5, merchant: "Anthropic",
     })
     const res = await authorize(req(SPEND, { idempotencyKey: "idem-1" }))
@@ -220,7 +221,7 @@ describe("authorize — idempotency + simulate (FUND-1)", () => {
 
   it("replays a policy-approved row as authorized (no escalation, budget debited once)", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue(null)
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ kind: "spend",
       id: "req_prev", status: "approved", decisionNote: "Auto-approved", amountUsd: 5, merchant: "Anthropic",
     })
     const res = await authorize(req(SPEND, { idempotencyKey: "idem-1" }))
@@ -230,7 +231,7 @@ describe("authorize — idempotency + simulate (FUND-1)", () => {
 
   it("replays a human-approved escalation as status only — the one-use grant must be redeemed", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1" })
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ kind: "spend",
       id: "req_prev", status: "approved", decisionNote: "Approved by owner", amountUsd: 75, merchant: "Anthropic",
     })
     const res = await authorize(req({ ...SPEND, amount_usd: 75 }, { idempotencyKey: "idem-1" }))
@@ -328,5 +329,29 @@ describe("authorize — attribution tags", () => {
   it("400 on non-string tag values and oversized values", async () => {
     expect((await authorize(req({ ...SPEND, tags: { n: 42 } }))).status).toBe(400)
     expect((await authorize(req({ ...SPEND, tags: { k: "x".repeat(81) } }))).status).toBe(400)
+  })
+})
+
+
+describe("spend — cross-kind idempotency isolation", () => {
+  it.each([false, true])("refuses approved capability authority (concurrent insert=%s)", async (racing) => {
+    const foreign = {
+      id: "capability-request-private", kind: "capability", action: "use", status: "approved",
+      decisionNote: null, amountUsd: 0, merchant: "plugin:review",
+      detailsJson: { capability: "plugin:review" },
+    }
+    if (racing) {
+      dbMock.authorizationRequest.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(foreign)
+      dbMock.authorizationRequest.create.mockRejectedValueOnce({ code: "P2002" })
+    } else {
+      dbMock.authorizationRequest.findUnique.mockResolvedValue(foreign)
+    }
+    const res = await authorize(req(SPEND, { idempotencyKey: "shared-key" }))
+    expect(res.status).toBe(409)
+    const result = await res.json()
+    expect(result).toEqual({ authorized: false, status: "denied", code: "IDEMPOTENCY_CONFLICT", reason: "Idempotency key belongs to a different action" })
+    expect(JSON.stringify(result)).not.toContain(foreign.id)
+    expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(racing ? 1 : 0)
   })
 })

@@ -3,6 +3,9 @@ import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { decisionCode, REMEDIATION } from "@/lib/decisions"
+import { TOOL_REMEDIATION } from "@/lib/toolDecisions"
+import { CAPABILITY_REMEDIATION } from "@/lib/capability"
+import { isDecisionEvidence } from "@/lib/evidence"
 import { settleIfExpired } from "@/lib/approvals"
 
 // Poll the status of an authorization request. An escalated request flips to
@@ -36,14 +39,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })
       : null
 
-  const code = decisionCode(d.status, d.decisionNote)
+  let code: string | undefined = decisionCode(d.status, d.decisionNote)
+  let remediation = code ? REMEDIATION[code as keyof typeof REMEDIATION] : undefined
+  const evidence = reqRow.decisionContextJson
+  const typedRemediation = reqRow.kind === "tool" ? TOOL_REMEDIATION
+    : reqRow.kind === "capability" ? CAPABILITY_REMEDIATION : undefined
+  // Only use original rule evidence while it still describes this decision.
+  // A later human rejection or timeout must keep its terminal reason/code.
+  if (typedRemediation && isDecisionEvidence(evidence)
+      && evidence.ladder === reqRow.kind && evidence.reason === d.decisionNote
+      && ((d.status === "escalated" && evidence.effect === "escalate")
+        || (d.status === "denied" && evidence.effect === "deny"))
+      && evidence.code && Object.hasOwn(typedRemediation, evidence.code)) {
+    code = evidence.code
+    remediation = (typedRemediation as Record<string, string>)[code]
+  } else if (d.status === "escalated" && typedRemediation) {
+    code = reqRow.kind === "tool" ? "TOOL_ESCALATION_REQUIRED" : "CAPABILITY_ESCALATION_REQUIRED"
+    remediation = (typedRemediation as Record<string, string>)[code]
+  }
   return NextResponse.json({
     authorized: d.status === "approved",
     status: d.status,
     request_id: reqRow.id,
     reason: d.decisionNote ?? undefined,
     code,
-    remediation: code ? REMEDIATION[code] : undefined,
+    remediation,
     agent: reqRow.agent.name,
     amount_usd: reqRow.amountUsd,
     merchant: reqRow.merchant,

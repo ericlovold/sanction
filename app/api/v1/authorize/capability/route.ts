@@ -8,7 +8,8 @@ import {
   CAPABILITY_REMEDIATION,
   type CapabilityDecisionCode,
 } from "@/lib/capability"
-import { decisionEvidence } from "@/lib/evidence"
+import type { Prisma } from "@/lib/generated/prisma/client"
+import { decisionEvidence, isDecisionEvidence } from "@/lib/evidence"
 import { recordDecision } from "@/lib/decisionMeter"
 import { policyLayerChain, decideCapabilityLayered } from "@/lib/inheritance"
 import { approvedViaGrant, createCapabilityPendingApproval } from "@/lib/approvals"
@@ -23,7 +24,7 @@ const log = logger("v1/authorize/capability")
 // Capability governance (CAP-1): acquiring capability — installing a skill,
 // adding a plugin, calling a new API — is authorized like a tool invocation.
 // One ordered rule list (Policy.capabilityRules) with namespaced patterns;
-// allowed/denied calls are decision-only, escalations persist to the same
+// every fresh policy decision is persisted; escalations also enter the
 // approval inbox, and approval mints a one-use grant redeemed with grant_id.
 const schema = z.object({
   capability: z.string().min(1).max(200), // namespaced: skill:install:x, plugin:y, api:host/path
@@ -51,13 +52,13 @@ export async function POST(req: NextRequest) {
   const { capability, grant_id } = parsed.data
   const idempotencyKey = req.headers.get("idempotency-key") || undefined
 
-  // Idempotent replay: only escalations persist; a re-POST with the same key
-  // doubles as a status check once the owner decides.
+  // Idempotent replay must bind the key to this action, not another route or
+  // capability. Approved escalations remain status-only until grant redemption.
   if (idempotencyKey && !grant_id) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
-    if (existing) return NextResponse.json(replayResponse(existing, agent.name, capability, await approvedViaGrant(existing)), { status: statusCode(existing.status) })
+    if (existing) return replayExisting(existing, agent.name, capability)
   }
 
   // Grant redemption: the owner approved this exact capability.
@@ -97,12 +98,13 @@ export async function POST(req: NextRequest) {
 
   const policy = agent.wallet.policy
   if (!policy) {
-    // MONO-0: deny-by-default is still a rendered decision.
-    after(() => recordDecision(agent.walletId))
-    return NextResponse.json(
-      { authorized: false, status: "denied", code: "NO_POLICY", reason: "No policy configured", agent: agent.name, capability },
-      { status: 403 },
-    )
+    // No policy was evaluated: persist the refusal without invented rule evidence.
+    return persistTerminalDecision({
+      agentId: agent.id, kind: "capability", action: "use", amountUsd: 0,
+      merchant: capability, category: "capability", detailsJson: { capability },
+      status: "denied", decidedAt: new Date(), decisionNote: "No policy configured",
+      idempotencyKey,
+    }, agent.walletId, agent.name, capability)
   }
 
   // INHERIT-1: every ancestor policy is consulted — a child may tighten,
@@ -181,6 +183,8 @@ export async function POST(req: NextRequest) {
           authorized: false,
           status: "escalated",
           request_id: escalated.row.id,
+          created_at: escalated.row.createdAt,
+          decided_at: escalated.row.decidedAt,
           code: decision.code,
           remediation: decision.code ? CAPABILITY_REMEDIATION[decision.code] : undefined,
           reason: decision.reason,
@@ -195,37 +199,73 @@ export async function POST(req: NextRequest) {
         const existing = await db.authorizationRequest.findUnique({
           where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
         })
-        if (existing) return NextResponse.json(replayResponse(existing, agent.name, capability, await approvedViaGrant(existing)), { status: statusCode(existing.status) })
+        if (existing) return replayExisting(existing, agent.name, capability)
       }
       throw e
     }
   }
 
-  // MONO-0: allowed and denied capability decisions are decision-only — the
-  // meter is the one place they count (escalations counted above).
-  after(() => recordDecision(agent.walletId))
-  const authorized = decision.status === "allowed"
-  return NextResponse.json(
-    {
-      authorized,
-      status: decision.status,
-      code: decision.code,
-      remediation: decision.code ? CAPABILITY_REMEDIATION[decision.code] : undefined,
-      reason: decision.reason,
-      agent: agent.name,
-      capability,
-    },
-    { status: decision.status === "denied" ? 403 : 200 },
-  )
+  return persistTerminalDecision({
+    agentId: agent.id, kind: "capability", action: "use", amountUsd: 0,
+    merchant: capability, category: "capability", detailsJson: { capability },
+    status: decision.status === "allowed" ? "approved" : "denied",
+    decidedAt: new Date(), decisionNote: decision.reason,
+    policyRevision: policy.currentRevision,
+    decisionContextJson: decisionEvidence("capability", evidenceCtx),
+    idempotencyKey,
+  }, agent.walletId, agent.name, capability)
 }
 
-type Persisted = { id: string; status: string; decisionNote: string | null }
+type Persisted = {
+  id: string; kind: string; action: string; merchant: string; detailsJson: unknown
+  status: string; decisionNote: string | null; decisionContextJson?: unknown
+  createdAt: Date; decidedAt: Date | null
+}
+
+async function replayExisting(row: Persisted, agentName: string, capability: string) {
+  const details = row.detailsJson as { capability?: unknown } | null
+  if (row.kind !== "capability" || row.action !== "use" || row.merchant !== capability || details?.capability !== capability) {
+    return NextResponse.json({
+      authorized: false, status: "denied", code: "IDEMPOTENCY_CONFLICT",
+      reason: "Idempotency key belongs to a different action", agent: agentName, capability,
+    }, { status: 409 })
+  }
+  return NextResponse.json(replayResponse(row, agentName, capability, await approvedViaGrant(row)), { status: statusCode(row.status) })
+}
+
+async function persistTerminalDecision(
+  data: Prisma.AuthorizationRequestUncheckedCreateInput,
+  walletId: string, agentName: string, capability: string,
+) {
+  try {
+    const row = await db.authorizationRequest.create({ data })
+    after(() => recordDecision(walletId))
+    return NextResponse.json(replayResponse(row, agentName, capability), { status: statusCode(row.status) })
+  } catch (error) {
+    if (data.idempotencyKey && isUniqueViolation(error)) {
+      const existing = await db.authorizationRequest.findUnique({
+        where: { agentId_idempotencyKey: { agentId: data.agentId, idempotencyKey: data.idempotencyKey } },
+      })
+      if (existing) return replayExisting(existing, agentName, capability)
+    }
+    throw error
+  }
+}
 
 function replayResponse(r: Persisted, agentName: string, capability: string, grantGated = false) {
-  const { code, remediation } = deriveReplayCode(r.status, r.decisionNote, {
+  let { code, remediation } = deriveReplayCode(r.status, r.decisionNote, {
     code: "CAPABILITY_ESCALATION_REQUIRED" as CapabilityDecisionCode,
     remediation: CAPABILITY_REMEDIATION.CAPABILITY_ESCALATION_REQUIRED,
   })
+  // Fresh policy denials keep their capability-specific code on replay. Settled
+  // escalations still derive timeout/owner results from the final decision note.
+  const evidence = r.decisionContextJson
+  if (r.status === "denied" && isDecisionEvidence(evidence) && evidence.ladder === "capability" && evidence.effect === "deny") {
+    if (evidence.code === "CAPABILITY_BLOCKED" || evidence.code === "CAPABILITY_NOT_ALLOWED") {
+      code = evidence.code
+      remediation = CAPABILITY_REMEDIATION[evidence.code]
+    }
+  }
   if (grantGated) {
     // Approval minted a one-use grant; the replay is status only (see approvedViaGrant).
     return {
@@ -233,6 +273,8 @@ function replayResponse(r: Persisted, agentName: string, capability: string, gra
       status: "denied",
       approval_status: r.status,
       request_id: r.id,
+      created_at: r.createdAt,
+      decided_at: r.decidedAt,
       reason: "Approval status only; redeem the one-use grant to authorize an attempt",
       code,
       remediation,
@@ -245,6 +287,8 @@ function replayResponse(r: Persisted, agentName: string, capability: string, gra
     authorized: r.status === "approved",
     status: r.status === "approved" ? "allowed" : r.status,
     request_id: r.id,
+    created_at: r.createdAt,
+    decided_at: r.decidedAt,
     reason: r.decisionNote ?? undefined,
     code,
     remediation,

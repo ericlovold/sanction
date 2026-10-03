@@ -36493,6 +36493,13 @@ function renderDecisionResult(payload, opts) {
   if (result.grant_expires_at === null || string4(result.grant_expires_at)) {
     decision.grant_expires_at = result.grant_expires_at;
   }
+  for (const field of ["decided_at", "grant_consumed_at"]) {
+    const value = result[field];
+    if (value === null || typeof value === "string" && Number.isFinite(Date.parse(value))) {
+      decision[field] = value;
+    }
+  }
+  const sentence = (value) => value.replace(/[.!?]+$/, "");
   const hasError = result.error !== void 0 && result.error !== null;
   const knownStatus = status === "approved" || status === "denied" || status === "escalated" || status === "pending";
   const malformed = !record2 || result.status !== void 0 && !status || result.authorized !== void 0 && typeof result.authorized !== "boolean" || result.request_id != null && !requestId || polling && requestId !== void 0 && requestId !== opts.requestId || polling && result.authorized !== void 0 && result.authorized !== (status === "approved") || (polling ? !knownStatus : result.authorized === true ? status !== void 0 && status !== "approved" && status !== "allowed" : result.authorized !== false || !knownStatus || status === "approved");
@@ -36508,10 +36515,11 @@ function renderDecisionResult(payload, opts) {
     decision.authorized = true;
     decision.status = "approved";
     decision.next_action = "proceed";
+    decision.code ??= decision.grant_status === "consumed" ? "GRANT_CONSUMED" : "AUTHORIZED";
     text = `${opts.success ?? "Authorized"}${requestId ? ` (${requestId})` : ""}${decision.grant_status === "consumed" ? " \xB7 grant consumed" : ""}`;
   } else if (status === "escalated" || status === "pending") {
     decision.next_action = "wait";
-    text = `${status.toUpperCase()} \u2014 ${decision.reason ?? "Still awaiting the owner's approval"}. Do not ${opts.verb ?? "proceed"}. Pause and wait for human review${decision.request_id ? `, then call sanction_check_authorization once with request_id: ${decision.request_id}` : "; notify the owner because no request_id was returned"}.`;
+    text = `${status.toUpperCase()} \u2014 ${sentence(decision.reason ?? "Still awaiting the owner's approval")}. Do not ${opts.verb ?? "proceed"}. Pause and wait for human review${decision.request_id ? `, then call sanction_check_authorization once with request_id: ${decision.request_id}` : "; notify the owner because no request_id was returned"}.`;
   } else if (polling && status === "approved") {
     const grantId = string4(result.grant_id);
     const expiry = result.grant_expires_at;
@@ -36519,6 +36527,7 @@ function renderDecisionResult(payload, opts) {
     if (result.grant_status === "active" && grantId && validExpiry && result.grant_consumed_at == null) {
       decision.grant_id = grantId;
       decision.next_action = "retry_with_grant";
+      decision.code ??= "GRANT_ISSUED";
       text = `APPROVED \u2014 retry your original request with identical fields plus grant_id: ${grantId}. This check does not authorize execution; proceed only when that authorize call returns authorized:true.`;
     } else {
       text = `APPROVED \u2014 no usable active grant is available${decision.grant_status ? ` (grant ${decision.grant_status})` : ""}. Do not proceed or reuse a grant; stop and notify the owner.`;
@@ -36645,6 +36654,17 @@ var APPROVAL_MCP_TOOLS = [
 ];
 var MCP_SERVER_VERSION = "0.10.0";
 var traceOf = (extra) => extractTraceContext(extra?._meta);
+var logReceiptSchema = external_exports.object({
+  id: external_exports.string().refine((value) => value.trim().length > 0),
+  recorded: external_exports.literal(true)
+});
+var outcomeReceiptSchema = logReceiptSchema.extend({ deduped: external_exports.boolean() });
+function logReceiptError(result, label) {
+  if (result && typeof result === "object" && "error" in result) {
+    return `${label} error: ${typeof result.error === "string" && result.error ? result.error : "Sanction returned an error"}`;
+  }
+  return void 0;
+}
 async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -36664,6 +36684,9 @@ async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
     });
     try {
       const result = await res.json();
+      if ((path === "/tokens" || path === "/outcomes") && !res.ok) {
+        return { error: typeof result?.error === "string" && result.error ? result.error : `Sanction returned HTTP ${res.status}` };
+      }
       if (path.startsWith("/authorize") && !res.ok && !([403, 404, 409].includes(res.status) && result?.authorized === false && result?.status === "denied")) {
         return {
           authorized: false,
@@ -36821,11 +36844,17 @@ function createSanctionMcpServer(opts) {
       },
       async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
         const result = await callSanction(opts, "/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, void 0, traceOf(extra));
-        if (result.error) {
-          return { content: [{ type: "text", text: `Budget error: ${result.error}` }], isError: true };
+        const error62 = logReceiptError(result, "Budget");
+        const receipt = logReceiptSchema.safeParse(result);
+        if (error62 || !receipt.success) {
+          return { content: [{ type: "text", text: error62 ?? "Recording status unknown: Sanction returned an invalid token receipt. Do not retry automatically; the write may have completed." }], isError: true };
         }
         return {
-          content: [{ type: "text", text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` }]
+          content: [
+            { type: "text", text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` },
+            { type: "text", text: JSON.stringify(receipt.data) }
+          ],
+          structuredContent: receipt.data
         };
       }
     );
@@ -36846,11 +36875,17 @@ function createSanctionMcpServer(opts) {
       },
       async ({ kind, value_usd, play, dedupe_key }, extra) => {
         const result = await callSanction(opts, "/outcomes", "POST", { kind, value_usd, play, dedupe_key }, void 0, traceOf(extra));
-        if (result.error) {
-          return { content: [{ type: "text", text: `Outcome error: ${result.error}` }], isError: true };
+        const error62 = logReceiptError(result, "Outcome");
+        const receipt = outcomeReceiptSchema.safeParse(result);
+        if (error62 || !receipt.success) {
+          return { content: [{ type: "text", text: error62 ?? "Recording status unknown: Sanction returned an invalid outcome receipt. Do not retry automatically; the write may have completed." }], isError: true };
         }
         return {
-          content: [{ type: "text", text: `Outcome recorded: ${kind}${dedupe_key ? ` (${result.deduped ? "deduped" : "new"})` : ""}` }]
+          content: [
+            { type: "text", text: `Outcome recorded: ${kind}${dedupe_key ? ` (${receipt.data.deduped ? "deduped" : "new"})` : ""}` },
+            { type: "text", text: JSON.stringify(receipt.data) }
+          ],
+          structuredContent: receipt.data
         };
       }
     );

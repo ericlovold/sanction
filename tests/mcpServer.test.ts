@@ -25,6 +25,94 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 }
 
+describe.each([
+  { name: "sanction_log_tokens", args: { model: "fixture", tokens_in: 1, tokens_out: 2, cost_usd: 0.01 }, receipt: { id: "tokens_fixture", recorded: true }, label: "Budget" },
+  { name: "sanction_log_outcome", args: { kind: "fixture", dedupe_key: "fixture-key" }, receipt: { id: "outcome_fixture", recorded: true, deduped: false }, label: "Outcome" },
+])("$name receipts", ({ name, args, receipt, label }) => {
+  it.each(["http", "dispatch"])("preserves an allowlisted receipt through %s", async transport => {
+    const response = { ...receipt, agent: "private-name", cost_usd: 42, budget_remaining: 999, secret: "must-not-leak" }
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(response)))
+    const { client, server } = await connectedClient(transport === "dispatch" ? async () => response : undefined)
+    try {
+      const result = await client.callTool({ name, arguments: args })
+      expect(result.isError).toBeFalsy()
+      expect(result.structuredContent).toEqual(receipt)
+      const content = result.content as { type: string; text: string }[]
+      expect(content).toHaveLength(2)
+      expect(content[0].text).toMatch(/Logged|Outcome recorded/)
+      expect(JSON.parse(content[1].text)).toEqual(result.structuredContent)
+      expect(JSON.stringify(result)).not.toMatch(/private-name|must-not-leak|budget_remaining/)
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it("rejects missing, malformed and contradictory receipts without claiming a write failed", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    const { client, server } = await connectedClient()
+    const malformed: unknown[] = [null, [], "ok", {}, { ok: true }, { ...receipt, id: " " }, { ...receipt, id: 1 }, { ...receipt, recorded: false }, { ...receipt, recorded: "true" }]
+    if (name === "sanction_log_outcome") malformed.push({ id: "outcome_fixture", recorded: true }, { ...receipt, deduped: "false" })
+    try {
+      for (const body of malformed) {
+        fetchMock.mockResolvedValueOnce(jsonResponse(body))
+        const result = await client.callTool({ name, arguments: args })
+        expect(result.isError).toBe(true)
+        expect(result.structuredContent).toBeUndefined()
+        expect((result.content as { text: string }[])[0].text).toMatch(/Recording status unknown.*Do not retry automatically/)
+      }
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it("preserves API errors and rejects success-shaped failed HTTP responses", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    const { client, server } = await connectedClient()
+    try {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ...receipt, error: "Fixture refusal" }, 402))
+      const denied = await client.callTool({ name, arguments: args })
+      expect(denied.isError).toBe(true)
+      expect(denied.structuredContent).toBeUndefined()
+      expect((denied.content as { text: string }[])[0].text).toBe(`${label} error: Fixture refusal`)
+      for (const status of [401, 500]) {
+        fetchMock.mockResolvedValueOnce(jsonResponse(receipt, status))
+        const failed = await client.callTool({ name, arguments: args })
+        expect(failed.isError).toBe(true)
+        expect(failed.structuredContent).toBeUndefined()
+        expect((failed.content as { text: string }[])[0].text).toContain(`HTTP ${status}`)
+      }
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ...receipt, error: "" }))
+      expect((await client.callTool({ name, arguments: args })).isError).toBe(true)
+      fetchMock.mockRejectedValueOnce(new Error("Fixture network failure"))
+      expect((await client.callTool({ name, arguments: args })).isError).toBe(true)
+      fetchMock.mockResolvedValueOnce(new Response("not json", { status: 502 }))
+      expect((await client.callTool({ name, arguments: args })).isError).toBe(true)
+    } finally {
+      await client.close()
+      await server.close()
+    }
+  })
+})
+
+it("preserves deduplicated outcome identity instead of inventing a new record", async () => {
+  const receipt = { id: "original_outcome", recorded: true, deduped: true }
+  const { client, server } = await connectedClient(async () => receipt)
+  try {
+    const result = await client.callTool({ name: "sanction_log_outcome", arguments: { kind: "fixture", dedupe_key: "same-key" } })
+    expect(result.structuredContent).toEqual(receipt)
+    const content = result.content as { text: string }[]
+    expect(content[0].text).toContain("(deduped)")
+    expect(JSON.parse(content[1].text)).toEqual(receipt)
+  } finally {
+    await client.close()
+    await server.close()
+  }
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -260,7 +348,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
     })) as { content: { text: string }[] }
     expect(provision.content[0].text).toMatch(/Authorized.*E3/)
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "tokens_1", recorded: true }))
     const tokens = (await client.callTool({
       name: "sanction_log_tokens",
       arguments: { model: "claude-sonnet-4-6", tokens_in: 10, tokens_out: 4, cost_usd: 0.01 },
@@ -274,7 +362,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
     })) as { content: { text: string }[]; isError?: boolean }
     expect(tokenErr.isError).toBe(true)
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ kind: "enrollment", deduped: false }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "outcome_1", recorded: true, kind: "enrollment", deduped: false }))
     const outcome = (await client.callTool({
       name: "sanction_log_outcome",
       arguments: { kind: "enrollment", dedupe_key: "crm_1" },

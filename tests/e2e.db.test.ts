@@ -20,6 +20,8 @@ import { POST as issueExec } from "../app/api/v1/exec/route"
 import { POST as inject } from "../app/api/v1/credentials/inject/route"
 import { POST as revokeExec } from "../app/api/v1/exec/revoke/route"
 import { POST as resolveApproval } from "../app/api/v1/approvals/route"
+import { POST as authorizeCapability } from "../app/api/v1/authorize/capability/route"
+import { POST as authorizeProvision } from "../app/api/v1/authorize/provision/route"
 import { POST as authorizeTool } from "../app/api/v1/authorize/tool/route"
 import { GET as authStatus } from "../app/api/v1/authorize/[id]/route"
 import { POST as batchSeats } from "../app/api/v1/agents/batch/route"
@@ -213,6 +215,25 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
     expect(oldKey.status).toBe(401)
     const newKey = await authorize(req("POST", "/api/v1/authorize", { headers: { "x-api-key": rotBody.api_key }, body: { action: "purchase", amount_usd: 3, merchant: "Anthropic", category: "software" } }))
     expect(newKey.status).toBe(200)
+  })
+
+  it("persists one capability decision under concurrency without authorizing another action kind", async () => {
+    const key = `capability-${Date.now()}`
+    const headers = { ...agentH(), "idempotency-key": key }
+    const results = await Promise.all(Array.from({ length: 2 }, async () =>
+      (await authorizeCapability(req("POST", "/api/v1/authorize/capability", { headers, body: { capability: "skill:install:db-fixture" } }))).json()))
+    expect(results[0]).toMatchObject({ authorized: true, status: "allowed" })
+    expect(results[1].request_id).toBe(results[0].request_id)
+    const rows = await db.authorizationRequest.findMany({ where: { agent: { walletId }, idempotencyKey: key } })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ kind: "capability", status: "approved", amountUsd: 0 })
+    expect(rows[0].decidedAt).toBeInstanceOf(Date)
+    const spend = await authorize(req("POST", "/api/v1/authorize", { headers, body: { action: "purchase", amount_usd: 1000, merchant: "Synthetic", category: "gambling" } }))
+    expect(spend.status).toBe(409)
+    expect(await spend.json()).toMatchObject({ authorized: false, code: "IDEMPOTENCY_CONFLICT" })
+    const provision = await authorizeProvision(req("POST", "/api/v1/authorize/provision", { headers, body: { resource: "fixture", line_item: "Synthetic", quantity: 1, amount_usd: 1000, category: "gambling" } }))
+    expect(provision.status).toBe(409)
+    expect(await provision.json()).toMatchObject({ authorized: false, code: "IDEMPOTENCY_CONFLICT" })
   })
 
   it("rejects an unauthenticated data-plane call", async () => {
