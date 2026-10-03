@@ -17,6 +17,8 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-10-03 — Today’s docket: discuss and refresh website/content around one-off human approvals and the current connector feature set. Lead with the user problem and a concrete approval flow; distinguish available connections from accepted marketplace listings and cooperative requests from enforced broker routing. (founder request; after Claude readiness)
+
 - [ ] 2026-08-22 — GTM launch arc (Eric: "timing is everything"): platform
       positioning goes stablecoin-era (irreversibility argument, rail-aware,
       non-custodial/veto-only), pricing gains **Pro $20/mo early access**
