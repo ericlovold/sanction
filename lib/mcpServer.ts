@@ -144,7 +144,7 @@ server.registerTool(
       grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact request. Retry with the identical action/amount/merchant/category/description plus this grant_id to consume it. Any field mismatch is denied GRANT_MISMATCH."),
       execution_jwt: z.string().optional().describe("If this spend is part of an execution (the JWT from sanction_request_execution), pass it here to additionally enforce that execution's hard spend cap. The charge is denied EXEC_BUDGET_EXCEEDED if it would exceed the cap."),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    annotations: { title: "Request spend authorization", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   async ({ action, amount_usd, merchant, category, description, grant_id, execution_jwt }, extra) => {
     const result = await callSanction(opts, "/authorize", "POST", { action, amount_usd, merchant, category, description, grant_id }, execution_jwt, traceOf(extra))
@@ -171,7 +171,7 @@ server.registerTool(
       grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact provision. Retry with identical fields plus this grant_id to consume it."),
       execution_jwt: z.string().optional().describe("If part of an execution, pass the JWT to additionally enforce that execution's hard spend cap."),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    annotations: { title: "Request provisioning authorization", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   async ({ resource, line_item, quantity, unit_price_usd, amount_usd, category, description, grant_id, execution_jwt }, extra) => {
     const result = await callSanction(opts, 
@@ -204,7 +204,7 @@ server.registerTool(
       approval_reason: z.string().trim().min(1).max(500).optional().describe("Why you want the owner to review this action; shown in the approval request. Do not include secrets."),
       grant_id: z.string().optional().describe("Redeem a grant minted when the owner approved this tool's escalation — call sanction_check_authorization with the request_id to get the grant_id, then retry this exact request with it"),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    annotations: { title: "Request tool authorization", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   async ({ tool, server: srv, arguments: args, grant_id, require_approval, approval_reason }, extra) => {
     const result = await callSanction(opts, "/authorize/tool", "POST", { tool, server: srv, arguments: args, grant_id, require_approval, approval_reason }, undefined, traceOf(extra))
@@ -225,7 +225,7 @@ server.registerTool(
       arguments: z.record(z.string(), z.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) — surfaced to the owner on escalation, not policy-evaluated"),
       grant_id: z.string().optional().describe("One-use grant minted when the owner approved a prior escalation of this exact capability. Retry with the identical capability plus this grant_id to consume it."),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    annotations: { title: "Request capability authorization", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   async ({ capability, arguments: args, grant_id }, extra) => {
     const result = await callSanction(opts, "/authorize/capability", "POST", { capability, arguments: args, grant_id }, undefined, traceOf(extra))
@@ -248,7 +248,7 @@ server.registerTool(
       cost_usd: z.number().nonnegative().describe("Actual dollar cost of this call — compute from provider pricing or read from API response if available"),
       task: z.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' — used in spend reports"),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    annotations: { title: "Record model usage", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
     const result = await callSanction(opts, "/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, undefined, traceOf(extra))
@@ -275,7 +275,7 @@ server.registerTool(
       play: z.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
       dedupe_key: z.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted."),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    annotations: { title: "Record business outcome", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   },
   async ({ kind, value_usd, play, dedupe_key }, extra) => {
     const result = await callSanction(opts, "/outcomes", "POST", { kind, value_usd, play, dedupe_key }, undefined, traceOf(extra))
@@ -301,7 +301,7 @@ server.registerTool(
       budget_usd: z.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
       ttl_seconds: z.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs."),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    annotations: { title: "Request scoped execution token", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   },
   async ({ scope, budget_usd, ttl_seconds }, extra) => {
     const result = await callSanction(opts, "/exec", "POST", { scope, budget_usd, ttl_seconds }, undefined, traceOf(extra))
@@ -336,7 +336,7 @@ server.registerTool(
       jwt: z.string().describe("Execution JWT returned by sanction_request_execution. Must not be expired."),
       credential_label: z.string().describe("Exact label of the credential to retrieve — must match one of the labels in the JWT scope, e.g. 'STRIPE_KEY', 'DATABASE_URL'. Case-sensitive."),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    annotations: { title: "Retrieve scoped credential", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   },
   async ({ jwt, credential_label }, extra) => {
     const result = await callSanction(opts, "/credentials/inject", "POST", { credential_label }, jwt, traceOf(extra))
@@ -361,7 +361,7 @@ server.registerTool(
     title: "Check budget and approval status",
     description: "Check the wallet's current spend and token budget consumption. Returns today's and month-to-date LLM token costs and real-money spend, plus a count of authorization requests pending human approval. Call this at the start of long agentic tasks to confirm budget headroom before initiating expensive operations, or when a prior authorize/log_tokens call returns a budget error.",
     inputSchema: {},
-    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    annotations: { title: "Check budget and approval status", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   async (_args, extra) => {
     // The agent key names its wallet, so wallet_id is optional — the API
@@ -397,7 +397,7 @@ server.registerTool(
     inputSchema: {
       request_id: z.string().describe("The request_id from an escalated authorize/provision/tool response"),
     },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    annotations: { title: "Check and settle authorization", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   },
   async ({ request_id }, extra) => {
     const result = await callSanction(opts, `/authorize/${encodeURIComponent(request_id)}`, "GET", undefined, undefined, traceOf(extra))

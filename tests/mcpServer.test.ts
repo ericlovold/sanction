@@ -75,7 +75,10 @@ describe("createSanctionMcpServer — tool handlers", () => {
         tool.annotations?.readOnlyHint, tool.annotations?.destructiveHint,
         tool.annotations?.idempotentHint, tool.annotations?.openWorldHint,
       ]]))).toEqual(expected)
-      for (const tool of tools) expect(tool.title).toEqual(expect.any(String))
+      for (const tool of tools) {
+        expect(tool.title).toEqual(expect.any(String))
+        expect(tool.annotations?.title).toBe(tool.title)
+      }
       expect(tools.find(tool => tool.name === "sanction_check_authorization")?.description).toContain("not read-only")
       expect(fetchMock).not.toHaveBeenCalled()
 
