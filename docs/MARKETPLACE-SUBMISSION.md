@@ -48,11 +48,12 @@ Portal identity, eligibility and review status must be checked in the actual acc
 - [ ] **Together:** Record the actual host, version, date, input, sanitized result and outcome for every case. No credentials in recordings, packages or public reports.
 
 The backend harness in [PR #342](https://github.com/ericlovold/sanction/pull/342)
-passed eight scenarios twice against disposable local Postgres. At this check
-the PR is open. It uses scripted owner decisions and in-memory MCP → REST;
+passed eight scenarios twice against disposable local Postgres. Merged in #342; this remains backend-only evidence. It uses scripted owner decisions and in-memory MCP → REST;
 it does **not** complete host, OAuth, human-review or recording requirements.
 
 ### Claude — remote connector first
+
+Use the [Claude review packet](CLAUDE-SUBMISSION.md) for listing copy and tool-by-tool test inputs.
 
 Portal: [Claude directory management](https://claude.ai/directory/manage).
 
@@ -177,9 +178,9 @@ Only `sanction_wallet_status` is marked read-only and idempotent. It reads scope
 | --- | --- |
 | Four `sanction_authorize*` tools | May consume grants, change authorization/budget state, and notify owners or webhooks. Marked destructive conservatively because existing authority can be spent; they do not themselves perform the requested purchase/tool/install. |
 | `sanction_check_authorization` | Polling can settle an expired approval and mint a grant. Mutating, closed-world; timeout settlement does not invoke the human-resolution webhook path. |
-| `sanction_log_tokens` | Adds metered usage and may send budget notifications. Additive, open-world, not idempotent. |
-| `sanction_log_outcome` | Adds an outcome inside Sanction. Optional dedupe key does not justify a blanket idempotency claim. |
-| `sanction_request_execution` | Creates scoped authority. Additive and closed-world; not read-only or retry-safe by annotation. |
+| `sanction_log_tokens` | Adds metered usage and may send budget notifications. State-changing, conservatively destructive, open-world, not idempotent. |
+| `sanction_log_outcome` | Adds an outcome inside Sanction; conservatively destructive because it changes recorded data. Optional dedupe key does not justify a blanket idempotency claim. |
+| `sanction_request_execution` | Creates scoped authority. Conservatively destructive and closed-world; not read-only or retry-safe by annotation. |
 | `sanction_inject_credential` | Retrieves a secret, adds an audit record, and can replace stored ciphertext during lazy key rotation. Destructive conservatively and closed-world; these hints do not imply that exposing the secret to a host is safe. |
 
 Closed-world tools still call the Sanction API. The distinction concerns the resources and side effects involved, not whether a network request occurs.
