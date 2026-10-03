@@ -36710,7 +36710,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize",
       {
         title: "Request spend authorization",
-        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. ALWAYS call this before any purchase, subscription, API credit top-up, or money transfer. Sanction enforces the wallet owner's spend policy: amounts under the auto-approve threshold return immediately; amounts over the escalation threshold pause for human approval; blocked categories are hard-denied. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval \u2014 it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Evaluates a requested purchase, subscription, API credit top-up, or money transfer against Sanction policy. Records authorization only; it does not transfer money or execute the purchase. Evaluates the wallet's spend policy and enforcement mode, including approval thresholds, category rules and budgets. Returns authorized:true with a request_id on approval, or authorized:false with a machine-readable code and remediation hint on denial. When status is 'escalated', wait for the owner's approval \u2014 it mints a one-use grant; retry the EXACT same request with that grant_id to proceed. Never proceed with a transaction if this returns false.",
         inputSchema: {
           action: external_exports.enum(["purchase", "subscribe", "transfer"]).describe("Type of spend action: purchase (one-time), subscribe (recurring), transfer (move funds)"),
           amount_usd: external_exports.number().positive().describe("Exact amount in US dollars"),
@@ -36733,7 +36733,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize_provision",
       {
         title: "Request provisioning authorization",
-        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. ALWAYS call this before provisioning any resource \u2014 user seats, software licenses, cloud infrastructure, subscriptions with unit counts. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Amounts or resources over the line pause for human approval; approval mints a one-use grant \u2014 retry the exact same request with that grant_id to proceed. Never provision if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Evaluates authorization for a requested resource \u2014 user seats, software licenses, cloud infrastructure, or subscriptions with unit counts. It does not provision the resource. One call governs both the resource (the wallet's resource allow/block/escalate lists) and the dollars (the same spend ladder and daily budget as purchases). Returns allowance, denial or escalation according to the configured resource rules, spend limits, budgets and enforcement mode. An approved escalation mints a one-use grant for the identical request. Never provision if this returns false.",
         inputSchema: {
           resource: external_exports.string().describe("What is being provisioned, e.g. 'azure.seat', 'm365.license', 'aws.instance'"),
           line_item: external_exports.string().describe("The concrete SKU or plan, e.g. 'Microsoft 365 E3'"),
@@ -36768,7 +36768,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize_tool",
       {
         title: "Request tool authorization",
-        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE invoking any other tool or external action (a different MCP tool, a shell command, a deploy, an email send). For a one-off human decision, set require_approval:true and explain why in approval_reason; no policy edit is needed. This pauses even in observe mode, never auto-approves on timeout, and an initial request cannot override a hard denial. Approval is bound to the exact tool, server and arguments; redeem the one-use grant before acting. Sanction enforces the wallet owner's tool-governance policy: blocked tools are hard-denied, tools off the allow-list are denied, and sensitive tools return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Requests Sanction authorization for a specified tool or external action when the user or configured workflow requires a policy or human approval check. It does not invoke or intercept the target action. For a one-off human decision, set require_approval:true and explain why in approval_reason; no policy edit is needed. This pauses even in observe mode, never auto-approves on timeout, and an initial request cannot override a hard denial. Approval is bound to the exact tool, server and arguments; redeem the one-use grant before acting. Evaluates the wallet's tool policy and enforcement mode, including block, allow and escalation rules. Returns authorized:true to proceed, or authorized:false with a machine-readable code (TOOL_BLOCKED, TOOL_NOT_ALLOWED, TOOL_ESCALATION_REQUIRED) and a remediation hint. Never invoke the target tool if this returns false.",
         inputSchema: {
           tool: external_exports.string().describe("The exact name of the tool/action about to be invoked, e.g. 'github.create_deployment', 'shell.exec', 'email.send'"),
           server: external_exports.string().optional().describe("The MCP server or integration the tool belongs to, e.g. 'github', 'filesystem' \u2014 advisory context for the owner"),
@@ -36790,7 +36790,7 @@ function createSanctionMcpServer(opts) {
       "sanction_authorize_capability",
       {
         title: "Request capability authorization",
-        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Call this BEFORE acquiring any new capability \u2014 installing a skill or plugin, enabling an integration, or calling an API you haven't used before. Sanction enforces the wallet owner's capability policy: blocked capabilities are hard-denied, capabilities off the allow-list are denied, and sensitive ones return escalated for human approval. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, pause for human review, then check sanction_check_authorization once with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Evaluates authorization for a requested capability acquisition, such as installing a skill or plugin or enabling an integration. It does not install or enable the capability. Evaluates the wallet's capability policy and enforcement mode, including block, allow and escalation rules. Returns authorized:true to proceed, or authorized:false with a machine-readable code (CAPABILITY_BLOCKED, CAPABILITY_NOT_ALLOWED, CAPABILITY_ESCALATION_REQUIRED) and a remediation hint. When escalated, pause for human review, then check sanction_check_authorization once with the request_id; approval mints a one-use grant \u2014 retry this exact request with that grant_id. Never acquire the capability if this returns false.",
         inputSchema: {
           capability: external_exports.string().describe("Namespaced identifier of the capability about to be acquired, e.g. 'skill:install:web-scraper', 'plugin:browser', 'api:github.com/repos'"),
           arguments: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Advisory context about the acquisition (version, source, config) \u2014 surfaced to the owner on escalation, not policy-evaluated"),
@@ -36809,7 +36809,7 @@ function createSanctionMcpServer(opts) {
       "sanction_log_tokens",
       {
         title: "Record model usage",
-        description: "Call this after every LLM inference call (Claude, GPT-4, Gemini, Llama, etc.) to record token consumption. It is metered against three budget horizons \u2014 the seat's daily budget, the seat's monthly budget, and the pooled per-department daily token cap \u2014 and returns a 402 budget error naming which horizon was hit if any is exceeded; on a budget error the agent should stop making LLM calls and notify the owner. Report the provider's actual billed cost_usd for the call (from the provider's usage/response), not an estimate \u2014 under-reporting silently defeats the budget. Prefer routing calls through the Sanction LLM gateway instead, which meters real usage server-side with no client honesty required.",
+        description: "Records reported token consumption and cost for a completed LLM inference call in a Sanction usage-reporting workflow. It is metered against three budget horizons \u2014 the seat's daily budget, the seat's monthly budget, and the pooled per-department daily token cap \u2014 and returns a 402 budget error naming which horizon was hit if any is exceeded; on a budget error the agent should stop making LLM calls and notify the owner. Requires provider-reported usage and cost_usd from billing or calculated from that usage and applicable provider pricing; missing usage must not be invented. It does not retrieve Claude's internal usage or provider billing. This records caller-supplied usage; it does not observe or intercept model calls.",
         inputSchema: {
           model: external_exports.string().describe("LLM model identifier exactly as returned by the provider, e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash"),
           tokens_in: external_exports.number().int().nonnegative().describe("Input/prompt token count from the API response usage field"),
@@ -36817,7 +36817,7 @@ function createSanctionMcpServer(opts) {
           cost_usd: external_exports.number().nonnegative().describe("Actual dollar cost of this call \u2014 compute from provider pricing or read from API response if available"),
           task: external_exports.string().optional().describe("Short label for what this call did, e.g. 'summarize-email', 'plan-task', 'code-review' \u2014 used in spend reports")
         },
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
       },
       async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
         const result = await callSanction(opts, "/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, void 0, traceOf(extra));
@@ -36842,7 +36842,7 @@ function createSanctionMcpServer(opts) {
           play: external_exports.string().optional().describe("Optional campaign/play label for reporting, e.g. 'speed-to-lead'"),
           dedupe_key: external_exports.string().optional().describe("Idempotency key unique per outcome (e.g. CRM record id). Same key = same outcome, never double-counted.")
         },
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
       },
       async ({ kind, value_usd, play, dedupe_key }, extra) => {
         const result = await callSanction(opts, "/outcomes", "POST", { kind, value_usd, play, dedupe_key }, void 0, traceOf(extra));
@@ -36866,7 +36866,7 @@ function createSanctionMcpServer(opts) {
           budget_usd: external_exports.number().positive().describe("Hard spend cap for this execution in USD. The execution cannot authorize more than this amount even if the wallet policy allows more. Use the minimum amount needed."),
           ttl_seconds: external_exports.number().int().min(60).max(3600).optional().describe("Token lifetime in seconds. Default 900 (15 min). Use shorter values for quick tasks; max 3600 (1 hour) for long-running jobs.")
         },
-        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
       },
       async ({ scope, budget_usd, ttl_seconds }, extra) => {
         const result = await callSanction(opts, "/exec", "POST", { scope, budget_usd, ttl_seconds }, void 0, traceOf(extra));
