@@ -129,6 +129,7 @@ beforeEach(() => {
   dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 0 } })
   dbMock.authorizationRequest.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
     id: "req_1",
+    kind: "provision",
     createdAt: new Date(),
     decidedAt: null,
     decisionNote: null,
@@ -266,7 +267,7 @@ describe("provision route — the dollar ladder (shared with spend)", () => {
 
 describe("provision route — idempotency", () => {
   it("replays the stored decision instead of re-deciding", async () => {
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ kind: "provision",
       id: "req_prev",
       status: "approved",
       decisionNote: "Auto-approved",
@@ -282,7 +283,7 @@ describe("provision route — idempotency", () => {
 
   it("replays a policy-approved row as authorized", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue(null)
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ kind: "provision",
       id: "req_prev", status: "approved", decisionNote: "Auto-approved", amountUsd: 5, merchant: "azure:seat",
     })
     const res = await provision(req(SEATS, { idempotencyKey: "idem-1" }))
@@ -292,7 +293,7 @@ describe("provision route — idempotency", () => {
 
   it("replays a human-approved escalation as status only — the one-use grant must be redeemed", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1" })
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ kind: "provision",
       id: "req_prev", status: "approved", decisionNote: "Approved by owner", amountUsd: 75, merchant: "azure:seat",
     })
     const res = await provision(req(SEATS, { idempotencyKey: "idem-1" }))
@@ -437,5 +438,29 @@ describe("provision route — cost-per-outcome ceiling (CPO-1 parity with spend 
     vi.mocked(cpoContext).mockResolvedValue(undefined)
     const res = await provision(req({ ...SEATS, amount_usd: 5 }))
     expect((await res.json()).status).toBe("approved")
+  })
+})
+
+
+describe("provision — cross-kind idempotency isolation", () => {
+  it.each([false, true])("refuses approved capability authority (concurrent insert=%s)", async (racing) => {
+    const foreign = {
+      id: "capability-request-private", kind: "capability", action: "use", status: "approved",
+      decisionNote: null, amountUsd: 0, merchant: "plugin:review",
+      detailsJson: { capability: "plugin:review" },
+    }
+    if (racing) {
+      dbMock.authorizationRequest.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(foreign)
+      dbMock.authorizationRequest.create.mockRejectedValueOnce({ code: "P2002" })
+    } else {
+      dbMock.authorizationRequest.findUnique.mockResolvedValue(foreign)
+    }
+    const res = await provision(req(SEATS, { idempotencyKey: "shared-key" }))
+    expect(res.status).toBe(409)
+    const result = await res.json()
+    expect(result).toEqual({ authorized: false, status: "denied", code: "IDEMPOTENCY_CONFLICT", reason: "Idempotency key belongs to a different action" })
+    expect(JSON.stringify(result)).not.toContain(foreign.id)
+    expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(racing ? 1 : 0)
   })
 })

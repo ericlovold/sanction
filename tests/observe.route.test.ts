@@ -190,6 +190,7 @@ describe("observe mode — spend route", () => {
   it("an idempotent replay of an observed row keeps the observed envelope", async () => {
     dbMock.authorizationRequest.findUnique.mockResolvedValue({
       id: "req_prev",
+      kind: "spend",
       status: "denied",
       decisionNote: "Category 'gambling' is blocked",
       amountUsd: 5,

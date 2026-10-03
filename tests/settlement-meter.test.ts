@@ -175,6 +175,7 @@ describe("decision meter (MONO-0)", () => {
   it("never counts an idempotent replay", async () => {
     dbMock.authorizationRequest.findUnique.mockResolvedValue({
       id: "req_prior",
+      kind: "spend",
       status: "approved",
       decisionNote: null,
       amountUsd: 5,

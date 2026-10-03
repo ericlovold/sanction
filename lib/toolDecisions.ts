@@ -9,11 +9,11 @@ export type ToolDecisionCode = "TOOL_BLOCKED" | "TOOL_NOT_ALLOWED" | "TOOL_ESCAL
 export const TOOL_REMEDIATION: Record<ToolDecisionCode, string> = {
   TOOL_BLOCKED: "This tool is on the wallet's blocked list. Use an allowed tool or ask the owner to unblock it.",
   TOOL_NOT_ALLOWED: "This tool is not on the wallet's allow-list. Ask the owner to add it, or use an allowed tool.",
-  TOOL_ESCALATION_REQUIRED: "This tool requires human approval. Poll for status, or wait for the owner to approve.",
+  TOOL_ESCALATION_REQUIRED: "This tool requires human approval. Wait for human review, then check the request status once.",
   TOOL_CONDITION_BLOCKED:
     "A conditional rule blocks this tool right now (time window or usage threshold). Retry when the condition clears, or ask the owner to adjust it.",
   TOOL_CONDITION_ESCALATION_REQUIRED:
-    "A conditional rule requires human approval right now (time window or usage threshold). Poll for status, or wait for the owner to approve.",
+    "A conditional rule requires human approval right now (time window or usage threshold). Wait for human review, then check the request status once.",
 }
 
 export type ToolStatus = "allowed" | "escalated" | "denied"

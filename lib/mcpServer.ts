@@ -45,6 +45,20 @@ export const MCP_SERVER_VERSION = "0.10.0"
 // connection state (spec § Statelessness, which binds stdio too).
 const traceOf = (extra: { _meta?: unknown } | undefined): TraceContext => extractTraceContext(extra?._meta)
 
+// Strip unrecognized API fields rather than passing the response through to hosts.
+const logReceiptSchema = z.object({
+  id: z.string().refine(value => value.trim().length > 0),
+  recorded: z.literal(true),
+})
+const outcomeReceiptSchema = logReceiptSchema.extend({ deduped: z.boolean() })
+
+function logReceiptError(result: unknown, label: string) {
+  if (result && typeof result === "object" && "error" in result) {
+    return `${label} error: ${typeof result.error === "string" && result.error ? result.error : "Sanction returned an error"}`
+  }
+  return undefined
+}
+
 async function callSanction(
   opts: SanctionMcpOptions,
   path: string,
@@ -79,6 +93,9 @@ async function callSanction(
     })
     try {
       const result = await res.json()
+      if ((path === "/tokens" || path === "/outcomes") && !res.ok) {
+        return { error: typeof result?.error === "string" && result.error ? result.error : `Sanction returned HTTP ${res.status}` }
+      }
       // Policy and grant denials use HTTP 403/404/409; other failed HTTP responses
       // cannot confer permission even if their JSON claims approval.
       if (path.startsWith("/authorize") && !res.ok && !(
@@ -252,11 +269,17 @@ server.registerTool(
   },
   async ({ model, tokens_in, tokens_out, cost_usd, task }, extra) => {
     const result = await callSanction(opts, "/tokens", "POST", { model, tokens_in, tokens_out, cost_usd, task }, undefined, traceOf(extra))
-    if (result.error) {
-      return { content: [{ type: "text" as const, text: `Budget error: ${result.error}` }], isError: true }
+    const error = logReceiptError(result, "Budget")
+    const receipt = logReceiptSchema.safeParse(result)
+    if (error || !receipt.success) {
+      return { content: [{ type: "text" as const, text: error ?? "Recording status unknown: Sanction returned an invalid token receipt. Do not retry automatically; the write may have completed." }], isError: true }
     }
     return {
-      content: [{ type: "text" as const, text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` }],
+      content: [
+        { type: "text" as const, text: `Logged $${cost_usd} (${tokens_in + tokens_out} tokens, ${model})` },
+        { type: "text" as const, text: JSON.stringify(receipt.data) },
+      ],
+      structuredContent: receipt.data,
     }
   }
 )
@@ -279,11 +302,17 @@ server.registerTool(
   },
   async ({ kind, value_usd, play, dedupe_key }, extra) => {
     const result = await callSanction(opts, "/outcomes", "POST", { kind, value_usd, play, dedupe_key }, undefined, traceOf(extra))
-    if (result.error) {
-      return { content: [{ type: "text" as const, text: `Outcome error: ${result.error}` }], isError: true }
+    const error = logReceiptError(result, "Outcome")
+    const receipt = outcomeReceiptSchema.safeParse(result)
+    if (error || !receipt.success) {
+      return { content: [{ type: "text" as const, text: error ?? "Recording status unknown: Sanction returned an invalid outcome receipt. Do not retry automatically; the write may have completed." }], isError: true }
     }
     return {
-      content: [{ type: "text" as const, text: `Outcome recorded: ${kind}${dedupe_key ? ` (${result.deduped ? "deduped" : "new"})` : ""}` }],
+      content: [
+        { type: "text" as const, text: `Outcome recorded: ${kind}${dedupe_key ? ` (${receipt.data.deduped ? "deduped" : "new"})` : ""}` },
+        { type: "text" as const, text: JSON.stringify(receipt.data) },
+      ],
+      structuredContent: receipt.data,
     }
   }
 )
@@ -408,4 +437,3 @@ server.registerTool(
 
   return server
 }
-

@@ -35,7 +35,7 @@ export type DecisionCode =
 
 export const REMEDIATION: Record<DecisionCode, string> = {
   ESCALATION_REQUIRED:
-    "Over the auto-approve threshold; a human must approve. Poll request_id for status, or wait for the escalation to resolve.",
+    "Human approval is required. Wait for human review, then check the request status once.",
   ESCALATION_TIMED_OUT:
     "The escalation passed its approval deadline and was auto-resolved by policy. Treat as denied; ask the owner to approve manually or raise the limit.",
   NO_POLICY:

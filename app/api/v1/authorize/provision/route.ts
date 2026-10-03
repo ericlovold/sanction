@@ -106,6 +106,9 @@ export async function POST(req: NextRequest) {
     const existing = await db.authorizationRequest.findUnique({
       where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
     })
+    if (existing && existing.kind !== "provision") {
+      return NextResponse.json({ authorized: false, status: "denied", code: "IDEMPOTENCY_CONFLICT", reason: "Idempotency key belongs to a different action" }, { status: 409 })
+    }
     if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: statusCode(existing.status) })
   }
 
@@ -437,6 +440,9 @@ export async function POST(req: NextRequest) {
       const existing = await db.authorizationRequest.findUnique({
         where: { agentId_idempotencyKey: { agentId: agent.id, idempotencyKey } },
       })
+      if (existing && existing.kind !== "provision") {
+        return NextResponse.json({ authorized: false, status: "denied", code: "IDEMPOTENCY_CONFLICT", reason: "Idempotency key belongs to a different action" }, { status: 409 })
+      }
       if (existing) return NextResponse.json(await withAppeal(decisionResponse(existing, agent.name, await approvedViaGrant(existing))), { status: statusCode(existing.status) })
     }
     throw e

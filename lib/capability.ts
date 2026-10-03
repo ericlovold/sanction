@@ -87,7 +87,7 @@ export type CapabilityDecisionCode = "CAPABILITY_BLOCKED" | "CAPABILITY_NOT_ALLO
 export const CAPABILITY_REMEDIATION: Record<CapabilityDecisionCode, string> = {
   CAPABILITY_BLOCKED: "This capability is blocked by policy. Use an allowed capability or ask the owner to unblock the pattern.",
   CAPABILITY_NOT_ALLOWED: "This capability is not in the allow-list. Ask the owner to add a matching pattern, or use an allowed capability.",
-  CAPABILITY_ESCALATION_REQUIRED: "This capability requires human approval. Poll for status, or wait for the owner to approve.",
+  CAPABILITY_ESCALATION_REQUIRED: "This capability requires human approval. Wait for human review, then check the request status once.",
 }
 
 export type CapabilityDecision = {

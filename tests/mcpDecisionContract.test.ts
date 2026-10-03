@@ -34,6 +34,29 @@ async function call(result: unknown, tool: { name: string; arguments: Record<str
 const poll = { name: "sanction_check_authorization", arguments: { request_id: "req_test" } }
 
 describe("MCP decisions consumed by a host", () => {
+  it("preserves approval and consumption timestamps without turning a check into permission", async () => {
+    const decided = "2026-10-03T12:00:00.000Z"
+    const consumed = "2026-10-03T12:01:00.000Z"
+    const issued = await call({ authorized: true, status: "approved", request_id: "req_test", decided_at: decided,
+      grant_id: "gr_test", grant_status: "active", grant_expires_at: new Date(Date.now() + 60_000).toISOString(), grant_consumed_at: null }, poll)
+    expect(issued.structuredContent).toMatchObject({ authorized: false, code: "GRANT_ISSUED", next_action: "retry_with_grant", decided_at: decided, grant_consumed_at: null })
+    const redeemed = await call({ authorized: true, status: "approved", request_id: "req_test", grant_status: "consumed", grant_consumed_at: consumed })
+    expect(redeemed.structuredContent).toMatchObject({ authorized: true, code: "GRANT_CONSUMED", grant_consumed_at: consumed })
+    const checked = await call({ authorized: true, status: "approved", request_id: "req_test", grant_status: "consumed", grant_consumed_at: consumed }, poll)
+    expect(checked.structuredContent).toMatchObject({ authorized: false, next_action: "stop", grant_consumed_at: consumed })
+    expect(checked.structuredContent).not.toHaveProperty("grant_id")
+  })
+
+  it.each(actions)("$name supplies a neutral success code without inventing approval provenance", async tool => {
+    const response = await call({ authorized: true, status: "approved" }, tool)
+    expect(response.structuredContent).toMatchObject({ authorized: true, code: "AUTHORIZED", next_action: "proceed" })
+  })
+
+  it("does not duplicate reason punctuation for a pending request", async () => {
+    const response = await call({ authorized: false, status: "escalated", reason: "Review this.", request_id: "req_test" })
+    expect(JSON.stringify(response.content)).not.toContain("Review this..")
+  })
+
   it.each(actions)("$name reports waiting as a decision without permission", async tool => {
     const response = await call({ authorized: false, status: "escalated", request_id: "req_test", code: "ESCALATION_REQUIRED", reason: "Human approval required" }, tool)
     expect(response.isError).toBe(false)

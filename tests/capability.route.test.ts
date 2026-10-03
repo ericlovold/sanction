@@ -4,7 +4,7 @@ import { hashApiKey } from "../lib/apiKey"
 
 // CAP-1: capability governance. Pure-ladder semantics (prefix-glob patterns,
 // block → allow-list → escalate precedence), the native route's full lifecycle
-// (decision-only allow/deny, persisted escalation, grant redemption), and the
+// (persisted allow/deny/escalation, grant redemption), and the
 // AuthZEN wire's resource.type "capability".
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
@@ -30,6 +30,7 @@ vi.mock("@/lib/cascadeBudget", async (orig) => {
   return { ...mod, walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]), reserveCascadeDailySpend: vi.fn(async () => []), cascadeDailyWouldExceed: vi.fn(async () => false) }
 })
 
+import { replayEvidence } from "../lib/evidence"
 import { capabilityMatches, decideCapability, parseCapabilityRules } from "../lib/capability"
 import { POST as capability } from "../app/api/v1/authorize/capability/route"
 import { POST as evaluation } from "../app/api/access/v1/evaluation/route"
@@ -56,6 +57,12 @@ const POLICY = {
   blockedResources: [], allowedResources: [], escalateResources: [],
   dailyTokenBudgetUsd: 1000, dailySpendBudgetUsd: 1_000_000, monthlySpendBudgetUsd: null,
   subtreeDailyCapUsd: null, perTransactionMaxUsd: 10_000, autoApproveUnderUsd: 1_000, escalateOverUsd: 5_000,
+}
+
+const STORED = {
+  kind: "capability", action: "use", merchant: "skill:install:scraper",
+  detailsJson: { capability: "skill:install:scraper" },
+  createdAt: new Date("2026-10-03T12:00:00Z"), decidedAt: null,
 }
 
 const AGENT = {
@@ -118,13 +125,18 @@ describe("capability ladder (pure)", () => {
 })
 
 describe("POST /v1/authorize/capability", () => {
-  it("denies a blocked capability decision-only (no persistence)", async () => {
+  it("persists a blocked capability with replayable denial evidence", async () => {
     const res = await capability(capReq({ capability: "skill:install:crypto-miner" }))
     expect(res.status).toBe(403)
     const body = await res.json()
     expect(body.code).toBe("CAPABILITY_BLOCKED")
     expect(body.remediation).toBeDefined()
-    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(body.request_id).toBe("req_1")
+    expect(body.decided_at).toBeDefined()
+    const data = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(data).toMatchObject({ kind: "capability", status: "denied", policyRevision: 2 })
+    expect(replayEvidence(data.decisionContextJson)).toMatchObject({ matches: true, effect: "deny", code: "CAPABILITY_BLOCKED" })
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
   })
 
   it("persists an escalation to the inbox with evidence", async () => {
@@ -145,7 +157,7 @@ describe("POST /v1/authorize/capability", () => {
 
   it("replays a timed-out escalation with ESCALATION_TIMED_OUT, not a bare denial (F-1)", async () => {
     dbMock.authorizationRequest.findUnique.mockResolvedValue({
-      id: "req_1", status: "denied", decisionNote: "Escalation timed out after 240m — auto-denied by policy",
+      ...STORED, id: "req_1", status: "denied", decisionNote: "Escalation timed out after 240m — auto-denied by policy",
     })
     const res = await capability(capReq({ capability: "skill:install:scraper" }, "idem-c1"))
     expect(res.status).toBe(403)
@@ -157,7 +169,7 @@ describe("POST /v1/authorize/capability", () => {
 
   it("replays a human-approved escalation as status only — the one-use grant must be redeemed", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1" })
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_prev", status: "approved", decisionNote: "Approved by owner" })
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...STORED, id: "req_prev", status: "approved", decisionNote: "Approved by owner" })
     const res = await capability(capReq({ capability: "skill:install:scraper" }, "idem-c2"))
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({
@@ -170,10 +182,94 @@ describe("POST /v1/authorize/capability", () => {
   })
 
   it("replays a legacy approved row (no PendingApproval) as allowed", async () => {
-    dbMock.authorizationRequest.findUnique.mockResolvedValue({ id: "req_prev", status: "approved", decisionNote: "Approved by owner" })
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...STORED, id: "req_prev", status: "approved", decisionNote: "Approved by owner" })
     const res = await capability(capReq({ capability: "skill:install:scraper" }, "idem-c3"))
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ authorized: true, status: "allowed", request_id: "req_prev" })
+  })
+
+  it("persists a policy allowance and replays its original identity without writing again", async () => {
+    const request = { capability: "api:github.com/repos", arguments: { advisory: "not persisted" } }
+    const first = await (await capability(capReq(request, "allow-key"))).json()
+    const data = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(data).toMatchObject({ status: "approved", kind: "capability", detailsJson: { capability: request.capability }, idempotencyKey: "allow-key" })
+    expect(data.detailsJson).not.toHaveProperty("arguments")
+    expect(replayEvidence(data.decisionContextJson)).toMatchObject({ effect: "allow", matches: true })
+    expect(first).toMatchObject({ authorized: true, status: "allowed", request_id: "req_1" })
+    expect(first.created_at).toBeDefined()
+    expect(first.decided_at).toBeDefined()
+    const row = await dbMock.authorizationRequest.create.mock.results[0].value
+    dbMock.authorizationRequest.findUnique.mockResolvedValue(row)
+    // Advisory arguments deliberately do not change capability binding.
+    const replay = await (await capability(capReq({ ...request, arguments: { advisory: "changed" } }, "allow-key"))).json()
+    expect(replay).toEqual(first)
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["skill:install:crypto-miner", "plugin:unknown"])("retains the exact policy denial code on replay: %s", async (name) => {
+    const first = await (await capability(capReq({ capability: name }, "deny-key"))).json()
+    dbMock.authorizationRequest.findUnique.mockResolvedValue(await dbMock.authorizationRequest.create.mock.results[0].value)
+    const replay = await (await capability(capReq({ capability: name }, "deny-key"))).json()
+    expect(replay).toEqual(first)
+    expect(first.code).toBe(name.startsWith("skill:") ? "CAPABILITY_BLOCKED" : "CAPABILITY_NOT_ALLOWED")
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { kind: "spend" },
+    { merchant: "plugin:other", detailsJson: { capability: "plugin:other" } },
+    { action: "purchase" },
+    { detailsJson: null },
+  ])("refuses a reused key with mismatched action binding: %j", async (mismatch) => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...STORED, id: "foreign", status: "approved", decisionNote: null, ...mismatch })
+    const res = await capability(capReq({ capability: "skill:install:scraper" }, "collision"))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ authorized: false, code: "IDEMPOTENCY_CONFLICT" })
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])("handles a concurrent key winner without issuing another decision (mismatch=%s)", async (mismatch) => {
+    const row = { ...STORED, id: "winner", status: "approved", decisionNote: null,
+      merchant: mismatch ? "different" : "api:github.com/repos",
+      detailsJson: { capability: mismatch ? "different" : "api:github.com/repos" },
+    }
+    dbMock.authorizationRequest.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(row)
+    dbMock.authorizationRequest.create.mockRejectedValueOnce({ code: "P2002" })
+    const res = await capability(capReq({ capability: "api:github.com/repos" }, "racing-key"))
+    expect(res.status).toBe(mismatch ? 409 : 200)
+    expect(await res.json()).toMatchObject(mismatch
+      ? { authorized: false, code: "IDEMPOTENCY_CONFLICT" }
+      : { authorized: true, request_id: "winner" })
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+  })
+
+  it("refuses a cross-kind winner of an escalation insert race", async () => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      ...STORED, id: "foreign", kind: "spend", status: "approved", decisionNote: null,
+    })
+    dbMock.authorizationRequest.create.mockRejectedValueOnce({ code: "P2002" })
+    const res = await capability(capReq({ capability: "skill:install:scraper" }, "racing-escalation"))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ authorized: false, code: "IDEMPOTENCY_CONFLICT" })
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+  })
+
+  it("does not return allowance when its audit write fails", async () => {
+    dbMock.authorizationRequest.create.mockRejectedValueOnce(new Error("storage unavailable"))
+    await expect(capability(capReq({ capability: "api:github.com/repos" }))).rejects.toThrow("storage unavailable")
+  })
+
+  it("persists no-policy refusal without fabricating replayable policy evidence", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: null } })
+    const first = await (await capability(capReq({ capability: "plugin:test" }, "no-policy-key"))).json()
+    const data = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(first).toMatchObject({ authorized: false, code: "NO_POLICY", request_id: "req_1" })
+    expect(data).toMatchObject({ status: "denied", kind: "capability", decisionNote: "No policy configured" })
+    expect(data.decisionContextJson).toBeUndefined()
+    expect(data.policyRevision).toBeUndefined()
+    dbMock.authorizationRequest.findUnique.mockResolvedValue(await dbMock.authorizationRequest.create.mock.results[0].value)
+    expect(await (await capability(capReq({ capability: "plugin:test" }, "no-policy-key"))).json()).toEqual(first)
   })
 
   it("redeems a one-use grant and refuses a replay", async () => {

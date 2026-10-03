@@ -610,6 +610,27 @@ describe("authorize/[id] — status polling stays inside the wallet", () => {
     expect(body).toMatchObject({ authorized: true, status: "approved", request_id: "req_1", grant_id: "grant_1", grant_status: "active" })
   })
 
+  it.each([
+    ["tool", "TOOL_ESCALATION_REQUIRED"],
+    ["capability", "CAPABILITY_ESCALATION_REQUIRED"],
+  ])("preserves %s pending codes without spend or polling guidance", async (kind, code) => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind, status: "escalated", decisionNote: "Agent requested human approval", decidedAt: null })
+    const body = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
+    expect(body).toMatchObject({ authorized: false, status: "escalated", code })
+    expect(body.remediation).toContain("check the request status once")
+    expect(body.remediation).not.toMatch(/threshold|poll/i)
+  })
+
+  it("preserves a conditional tool rule while pending, but not after human rejection", async () => {
+    const evidence = { ladder: "tool", effect: "escalate", rule_id: "condition", code: "TOOL_CONDITION_ESCALATION_REQUIRED", reason: "Conditional approval", ctx: {} }
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind: "tool", status: "escalated", decisionNote: evidence.reason, decisionContextJson: evidence })
+    const pending = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
+    expect(pending.code).toBe(evidence.code)
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind: "tool", status: "denied", decisionNote: "Rejected by owner", decisionContextJson: evidence })
+    const denied = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
+    expect(denied).toMatchObject({ authorized: false, code: "POLICY_DENIED", reason: "Rejected by owner" })
+  })
+
   it("lets the wallet owner (management key) read it too", async () => {
     dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, status: "escalated", decidedAt: null })
     dbMock.agent.findUnique.mockResolvedValue(null) // no agent key presented
