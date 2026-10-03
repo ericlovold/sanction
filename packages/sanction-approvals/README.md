@@ -65,7 +65,44 @@ The listing has no screenshots because this package has no custom UI. The logo
 is copied from the repository's Cursor plugin. The included license is an exact
 copy of the repository's FSL-1.1-MIT license; this package is not newly MIT-licensed.
 
-## Candidate review cases — not executed
+## Local backend evidence
+
+From a repository checkout, run the reviewer harness against a separately
+started local Sanction server backed by a disposable test database. Configure
+`DATABASE_URL` and the migration connection for that database, apply migrations,
+and provide local signing/encryption secrets. Leave email, Slack, webhook, and
+provider credentials unset. A loopback API URL does **not** verify where the
+server's database lives; confirm its environment before running the harness.
+
+From the repository root, with the server listening on port 3000:
+
+```bash
+npx --no-install tsx scripts/reviewer/run.ts \
+  --api-url http://127.0.0.1:3000/api/v1 \
+  --output /tmp/sanction-reviewer-evidence.json
+```
+
+Use a fresh output path for each run. The optional output file is created
+exclusively with mode `0600` before fixture creation; omitting `--output` prints
+the report to stdout. `--timeout-ms` controls the per-request timeout (default
+15000). The CLI accepts only loopback HTTP(S) URLs ending in `/api/v1`, without
+credentials, query parameters, or fragments, and rejects redirects.
+
+The harness creates fresh synthetic enforce, observe, and blocked wallets,
+issues agent keys, and exercises eight backend cases through an in-memory MCP
+adapter connected to the local REST API. Owner approvals and rejections are scripted REST calls,
+not human decisions. It never invokes the synthetic target action. Keys remain
+in process memory; the evidence report omits credentials. Fixtures remain after
+success or failure, with their names in the report for inspection and deliberate
+cleanup of the disposable database.
+
+A passing report is local backend evidence only. It does not establish plugin
+installation, real-host resumption, OAuth or consent behavior, skill/prompt
+compliance, or a video walkthrough. The fixtures are not portal-ready reviewer
+accounts. All eight host review cases below remain pending until separately run
+in a real host with suitable reviewer access and recorded outcomes.
+
+## Candidate host review cases — not executed
 
 These are proposed scenarios, not evidence of working host behavior. Prepare the
 specified policy and approval outcomes in a dedicated test wallet before review.
