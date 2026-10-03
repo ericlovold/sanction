@@ -20,28 +20,154 @@ The route fixes the profile; query parameters, headers and tool arguments cannot
 
 This is a reduced tool surface, **not a restricted credential**. The supplied agent key still works against other authorized Sanction endpoints. The [OAuth connection flow](MCP-OAUTH.md) separately constrains tokens to this resource and scope. It was enabled on getsanction.com on 2026-09-30; other deployments default to disabled. The endpoint remains cooperative and still returns request/grant identifiers needed for the approval loop; it is not a claim that arbitrary tool output is scrubbed of secrets or that marketplace review is complete.
 
-## Channel readiness
+## Submission board
 
-| Channel | Current evidence | Next requirement |
-| --- | --- | --- |
-| MCP Registry / npm | Registry 0.9.0 with npm transport observed 2026-09-29; npm 0.9.0 remains the older bundle | Publish hosted registry metadata and a new npm bundle separately; neither is published by this guide. |
-| Claude | Production custom OAuth connector; 2026-10-01 synthetic request → approval → redemption → reuse denial, with no external action | Complete fresh-login/refresh and full-tool review cases; submit the remote connector separately from any plugin. |
-| Cursor | Direct remote MCP/OAuth configuration and install links are supported; `cursor-plugin/` contains MCP configuration and four skills | Verify Sanction in Cursor, then publish the standalone package and submit its public repository. No Cursor acceptance is claimed. |
-| Codex | Custom remote MCP path in the connection guide; OpenAI plugin packaging supports MCP and skills | Verify Sanction connection and approval lifecycle in Codex; prepare the reviewed plugin package. |
-| ChatGPT | Remote MCP plugin distribution path; package and review pending | Verify Sanction in ChatGPT, remaining outputs/grants and review cases; complete publisher/domain verification. UI is optional. |
-| Grok consumer | Official custom MCP flow: Connectors → New Connector → Custom | Test Sanction authentication and approval lifecycle; consumer support does not prove Grok Bot compatibility. |
-| Grok Bot | Official Marketplace → Add → authenticate → attach with `@`; connectors are account-wide | Establish a supported Sanction install and publisher route. No arbitrary import or automatic Cursor distribution is established. |
-| xAI API | Remote MCP supports Streamable HTTP/SSE, headers and tool allowlists | Run a wallet-status-only Sanction smoke before an approval lifecycle; API support is separate from consumer catalogs. |
-| Slack Marketplace | Slack OAuth and approval interaction implementation | Verify external-workspace lifecycle and usage eligibility, then submit Slack app materials. MCP discovery is separate. |
+Verified 2026-10-02 (America/Chicago). Checked boxes mean observed evidence,
+not assumed acceptance. **Engineering** prepares artifacts and fixes; **Eric**
+owns accounts, identity, legal approval and submission; **Together** runs host tests.
+Portal identity, eligibility and review status must be checked in the actual account.
 
-The Claude results are dated historical evidence, not a fresh test of every host. Fresh social-provider login and automatic refresh remain unverified. The Registry's merged 0.9.1 metadata adds the hosted URL, but publication is unverified; registry record versions and npm versions are independent.
+| Provider | Artifact / route | Current Sanction evidence | Next gate |
+| --- | --- | --- | --- |
+| MCP Registry / npm | `packages/sanction-mcp/` | 0.10.0 published; hosted `/mcp` entry verified | Complete; monitor releases separately from directories |
+| Claude | Remote connector / plugin submission | Historical production OAuth approval loop; no directory acceptance evidenced | Full review evidence and portal draft |
+| ChatGPT + Codex | `packages/sanction-approvals/` ZIP | Candidate and support URL prepared; no submission evidenced | Terms, reviewer access, host tests, publisher/domain verification |
+| Cursor | `cursor-plugin/` public repository | MIT scaffold; no live lifecycle or listing acceptance evidenced | Standalone package, local host test, publish form |
+| Grok consumer | Custom MCP connection | Instructions prepared; current lifecycle unverified | Connection test, then establish public catalog route |
+| Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
+| Slack | Slack app submission | OAuth install and approval-card implementation | External-workspace proof and current usage eligibility |
 
-## Shared blockers
+### Shared preparation — do once, reuse carefully
 
-1. **Authentication.** Production OAuth is enabled for `/mcp/approvals`. Repeat connection, fresh sign-in, refresh and disconnection in each target host. Claude supports DCR; fixed request headers are a limited beta, not the default onboarding path. Slack OAuth is a separate installation.
-2. **Secrets in tool output.** `sanction_inject_credential` returns a decrypted credential; `sanction_request_execution` returns a bearer JWT. Review both against OpenAI's prohibition on authentication secrets in tool responses. The approval-focused route excludes both tools. Remaining responses, including the one-use grant flow and user-supplied text, still require review before claiming directory eligibility.
-3. **Review evidence.** Run every exposed tool in an isolated test wallet. Authorization calls create real decisions. Capture sanitized inputs, outputs, policy, host/version and results. OpenAI requires exactly five positive and three negative cases; the candidates below still need host-specific execution. Never include secrets.
-4. **Listing materials.** Prepare logo, support contact, privacy policy, terms, website, setup and disconnection instructions. OpenAI requires identity/domain verification, a reviewer-accessible video walkthrough, and a fully populated reviewer account without MFA, email/SMS codes or magic links. Package MCP and skills in its plugin ZIP; a Cursor package is not automatically that artifact. Claude requires a paid submitting account and its own connector submission.
+- [x] **Engineering:** Publish MCP 0.10.0 to npm and the official Registry. [Successful workflow](https://github.com/ericlovold/sanction/actions/runs/37089864969).
+- [x] **Engineering:** Complete the production canary across all three personas. [Passing run](https://github.com/ericlovold/sanction/actions/runs/37089772489).
+- [x] **Engineering:** Verify public `/privacy` and `/support` return HTTP 200.
+- [ ] **Eric + Engineering:** Approve and publish terms; `/terms` returned 404 at this check. Add the URL to relevant listing manifests.
+- [ ] **Together:** Prepare a dedicated reviewer identity, sample data and host-specific login instructions. Do not weaken production authentication for review.
+- [ ] **Engineering:** Assemble logo, concise one-off approval description, setup/disconnection guide, annotation rationale and versioned release notes.
+- [ ] **Together:** Record the actual host, version, date, input, sanitized result and outcome for every case. No credentials in recordings, packages or public reports.
+
+The backend harness in [PR #342](https://github.com/ericlovold/sanction/pull/342)
+passed eight scenarios twice against disposable local Postgres. At this check
+the PR is open. It uses scripted owner decisions and in-memory MCP → REST;
+it does **not** complete host, OAuth, human-review or recording requirements.
+
+### Claude — remote connector first
+
+Portal: [Claude directory management](https://claude.ai/directory/manage).
+
+- [ ] **Eric:** Select the owning organization and confirm eligible account/role access. Keep ownership consistent if adding a plugin bundle later.
+- [ ] **Engineering:** Prepare the HTTPS approval endpoint, OAuth discovery and supported client registration, tool titles and accurate safety annotations.
+- [ ] **Together:** Test every exposed tool using MCP Inspector and a Claude custom connection with synthetic inputs; record approval, denial, redemption, reconnect and revocation behavior.
+- [ ] **Engineering:** Audit Claude-specific annotation requirements: its review checklist calls for `destructiveHint: true` on data-modifying tools. Resolve any discrepancy with the current metadata rationale below before submission; do not assume existing annotations pass or change shared metadata without review.
+- [ ] **Engineering:** Prepare listing copy, categories, icon, documentation, privacy/support links, prerequisites, data-handling answers and reviewer instructions.
+- [ ] **Eric:** Supply a populated reviewer account privately and complete compliance declarations. Explain that Sanction grants permission; it does not transfer financial assets or execute purchases.
+- [ ] **Eric + Engineering:** Submit the remote connector, resolve scan/review findings and verify the actual directory entry and fresh installation. Do not claim Verified status from a Community listing.
+- [ ] **Engineering, if adding skills:** Build and validate a Claude-compatible plugin bundle, then submit it as a separate entry under the same organization and MCP URL. The Cursor/OpenAI package is not automatically a Claude submission.
+
+**Done:** A published connector and recorded Claude behavior. Connector and
+plugin-bundle review paths differ; do not assume OpenAI's publish steps apply.
+[Directory publishing](https://claude.com/docs/directory/publish),
+[connector submission requirements](https://claude.com/docs/connectors/building/submission),
+[authentication](https://claude.com/docs/connectors/building/authentication),
+[review criteria](https://claude.com/docs/connectors/building/review-criteria).
+
+### ChatGPT and Codex — one OpenAI submission, separate host verification
+
+Portal: [OpenAI Plugins](https://platform.openai.com/plugins).
+
+- [ ] **Eric:** Select the owning organization/project; verify publishing identity and submission permission.
+- [ ] **Engineering:** Rebuild the ZIP from current `packages/sanction-approvals/`, including its MCP configuration and skill. Exclude secrets; do not upload an older archive missing `supportURL`.
+- [ ] **Engineering:** Supply HTTPS website/support/privacy/terms URLs; validate listing fields, assets and tool annotations with justifications.
+- [ ] **Eric + Engineering:** Upload, resolve package/skill findings, select the MCP server, complete the exact domain challenge, authenticate, and obtain a current successful tool scan.
+- [ ] **Together:** Run exactly five positive and three negative cases with the review account; provide an accessible video and release notes.
+- [ ] **Eric:** Enter reviewer credentials privately in the portal. Review access must work without interactive MFA, email/SMS codes, magic links or private-network access.
+- [ ] **Together:** Verify installation and approval resumption separately in ChatGPT and Codex; a local MCP config is not a ChatGPT listing.
+- [ ] **Eric:** Submit attestations and draft; after approval, explicitly publish.
+- [ ] **Together:** Confirm the public listing and fresh install; record URLs and submission/version identifiers.
+
+**Done:** Published listing plus recorded behavior on each claimed host. No custom
+UI is currently packaged; screenshots are required only if UI is introduced.
+[Submission procedure](https://developers.openai.com/plugins/deploy/submission),
+[final validation requirements](https://developers.openai.com/plugins/deploy/submission-errors#final-directory-submission).
+
+### Cursor — public plugin repository
+
+Portal: [Cursor Marketplace publish](https://cursor.com/marketplace/publish).
+
+- [ ] **Engineering:** Extract the MIT `cursor-plugin/` package into its own public repository, with manifest, license, logo, four skills, MCP configuration and setup README at the supported root. Do not relabel the parent FSL repository as MIT.
+- [ ] **Engineering:** Validate manifest paths/frontmatter and every declared `${SANCTION_AGENT_KEY}` variable; remove all credential values.
+- [ ] **Together:** Load the plugin locally in Cursor. Verify discovery, secret configuration, wallet status, request/pause, exact redemption and denial.
+- [ ] **Eric:** Review publisher terms and permissive licensing for all included components, then submit the public repository URL and listing details for manual review.
+- [ ] **Together:** Resolve review findings, then verify installation from the actual listing in a clean profile.
+
+**Done:** Accepted public listing and a recorded Cursor lifecycle. A direct MCP
+install link or successful local load is not marketplace acceptance. Cursor
+requires open-source marketplace plugins; the standalone MIT package is our
+chosen packaging path. [Plugin requirements](https://cursor.com/docs/reference/plugins),
+[local testing](https://cursor.com/docs/plugins),
+[publisher terms](https://cursor.com/marketplace-publisher-terms),
+[marketplace security policy](https://cursor.com/help/security-and-privacy/marketplace-security).
+
+### Grok consumer — custom connection first; catalog route unverified
+
+Connection entry: [Grok Connectors](https://grok.com/connectors).
+
+- [ ] **Eric:** Complete any account/terms steps personally; for a business team, confirm admin provisioning.
+- [ ] **Together:** Add New Connector → Custom using `https://getsanction.com/mcp/approvals`; complete the offered authentication and verify eight-tool discovery.
+- [ ] **Together:** Run the common approval evidence checks, reconnect and revoke. Record the supported account/plan and authentication behavior.
+- [ ] **Eric:** Confirm the public catalog submission process with xAI; retain their actual publisher instructions before claiming a submission route.
+- [ ] **Engineering:** Adapt listing materials to that confirmed process.
+
+**Done for connection:** Repeatable custom installation and approval lifecycle.
+**Done for distribution:** A separately verified public catalog listing. The
+[official custom MCP guide](https://docs.x.ai/grok/connectors) documents connection,
+not a public publisher application procedure.
+
+### Grok Bot — verify its own marketplace path
+
+- [ ] **Eric:** Confirm the supported publisher route and whether the intended Sanction package can appear in Bot's Marketplace. No automatic Cursor-to-Bot public listing is established here.
+- [ ] **Together:** In the supported Marketplace flow, add the connector, authenticate, attach it with `@`, and test the approval lifecycle.
+- [ ] **Eric / team admin:** Check Cursor's Plugins & MCPs / Team Marketplace policy for allowed servers. Bot inherits that connector policy; it has no independent team connector list.
+- [ ] **Together:** Use a dedicated test identity and record the shared-account boundary. A user's Bots share their computer and permitted connectors; Bot names do not isolate credentials.
+- [ ] **Together:** Verify fresh installation from any eventual listing and save the result.
+
+**Done:** Verified Bot installation plus a confirmed publisher/listing route.
+Consumer Grok, Grok Build, xAI API and Bot are not interchangeable evidence.
+[Bot connection flow](https://docs.x.ai/grok-bot/computer-and-apps),
+[team connector policy](https://docs.x.ai/grok-bot/teams-and-enterprises).
+
+### Slack Marketplace — approval app
+
+Portal: select the app in [Slack app management](https://api.slack.com/apps), then
+Review and Submit.
+
+- [ ] **Eric:** Verify eligibility: at least ten active workspace installations maintained throughout review, and ten weekly active users. Active workspaces must have used the app within 28 days; sandbox installs do not count. Confirm live account counters before applying.
+- [ ] **Together:** Prove public OAuth installation in an external workspace, correct owner/workspace routing, approval and rejection, and uninstall behavior.
+- [ ] **Engineering:** Check OAuth state, authenticated Slack requests, token handling and HTTPS against the review requirements.
+- [ ] **Engineering:** Publish Slack-specific setup/install guidance, listing screenshots, privacy disclosures and support reachable without a Sanction account.
+- [ ] **Eric:** Commit to support responses within two business days and confirm the app's eligibility. Describe approval decisions separately from financial transactions or remote action execution.
+- [ ] **Together:** Prepare populated Sanction reviewer credentials and instructions for Slack's reviewers to install into their own workspace. Do not provide a Slack workspace login as the test account.
+- [ ] **Engineering:** Record the install → setup → approval/rejection → uninstall walkthrough; run automated checks and resolve findings.
+- [ ] **Eric:** Add the required app collaborator to preserve configuration access, submit, and track review feedback. Verify the eventual listing with a fresh workspace install.
+
+**Done:** Accepted listing and external-workspace lifecycle evidence. The install
+threshold is an adoption gate; package preparation cannot satisfy it.
+[Ten-workspace requirement](https://docs.slack.dev/changelog/2026/09/01/slack-marketplace-install-requirement/),
+[distribution eligibility](https://docs.slack.dev/slack-marketplace/distributing-your-app-in-the-slack-marketplace/),
+[app requirements](https://docs.slack.dev/slack-marketplace/slack-marketplace-app-guidelines-and-requirements/),
+[review guide](https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/).
+
+### Slackbot MCP — separate from approval notifications
+
+- [ ] **Engineering:** Configure the Slackbot MCP distribution path, including `mcp:connect`, the controlled HTTPS endpoint and supported authentication. Existing approval cards do not establish this integration.
+- [ ] **Engineering + Eric:** If using OAuth, configure the provider/client and Slack's documented callback; keep its client secret in the appropriate secure configuration.
+- [ ] **Together:** Install, fetch tools in app settings, verify titles/input schemas/read-only annotations, then prove discovery and invocation in Slackbot.
+- [ ] **Engineering:** Add reviewer instructions covering install, authentication, invocation and expected outputs. For an MCP App UI, include at least one screenshot showing the tool inside a Slackbot conversation.
+- [ ] **Eric:** Confirm the applicable distribution/review gates in the app's portal and submit only after this separate path passes.
+
+**Done:** Recorded Slackbot tool discovery and approval lifecycle plus the
+applicable distribution approval. [Slackbot MCP distribution requirements](https://docs.slack.dev/ai/slackbot-mcp-client/distributing/).
 
 ## Tool metadata rationale
 
@@ -58,27 +184,28 @@ Only `sanction_wallet_status` is marked read-only and idempotent. It reads scope
 
 Closed-world tools still call the Sanction API. The distinction concerns the resources and side effects involved, not whether a network request occurs.
 
-## Candidate directory review cases
+## Common approval evidence checklist
 
-These five positive and three negative cases are a review set to execute per host. A historical Claude smoke does not complete the set. Use a test wallet and synthetic targets; do not purchase, send, deploy or retrieve production credentials.
+Use the one-off approval cases in the [package guide](../packages/sanction-approvals/README.md) as the canonical OpenAI set. Keep prompts, setup, expected tools and observed results together. For other providers, these are Sanction's recommended test cases, not a claim that their portal mandates the same count.
 
-| Case | Prompt / setup | Expected evidence |
-| --- | --- | --- |
-| Positive 1 | “Check my agent's remaining budget.” | `sanction_wallet_status`; correct scoped totals, no authorization created. |
-| Positive 2 | “Request permission for a $5 research purchase.” Policy allows it. | `sanction_authorize` permits; authorization evidence, no external purchase. |
-| Positive 3 | “Ask for my approval to run `demo.noop`.” Use `sanction_authorize_tool` with `require_approval: true`; no policy edit. | Pending request and owner notification; no target execution. |
-| Positive 4 | “Check that pending request after I approve it.” | Poll yields a grant; identical retry consumes it once; no automatic target execution. |
-| Positive 5 | “Request permission to call the synthetic deployment tool.” Tool policy blocks it. | Stable denial, no target dispatch. |
-| Negative 1 | “What does economic sanctions screening mean?” | Do not select Sanction: it is agent authorization, not sanctions screening. |
-| Negative 2 | “Explain MCP in a paragraph.” | No Sanction tool needed. |
-| Negative 3 | “Draft a shopping list without buying anything.” | No spend authorization or purchase implied. |
+- [ ] Request one synthetic approval; agent pauses without target execution.
+- [ ] Check pending once; agent waits without polling or a new request.
+- [ ] Approve; check, redeem the exact input once, and still execute no synthetic target.
+- [ ] Explicit approval in observe mode still waits.
+- [ ] Reject; agent stops without a replacement request.
+- [ ] Changed arguments cannot reuse an approval.
+- [ ] Hard policy denial remains a denial.
+- [ ] Consumed authority cannot permit another action.
 
-Also test altered arguments, reused/expired grants, frozen wallets, and unreachable Sanction with no target execution. Existing unit tests support implementation claims; directory tests must separately prove host behavior.
+Also capture initial wallet-status discovery, fresh login, reconnect/refresh,
+revocation, expiry and unavailable-server behavior per host. Test every exposed
+tool with synthetic inputs. A backend pass, a connection check and a host's
+compliance with pause/stop instructions are different pieces of evidence.
 
-## Official submission references
+## Track submission through publication
 
-- [Claude submission](https://claude.com/docs/connectors/building/submission) and [authentication](https://claude.com/docs/connectors/building/authentication): remote HTTPS connector, OAuth, tool annotations, review account and listing materials; submit at [the developer portal](https://claude.ai/directory/manage).
-- [Cursor plugin requirements](https://cursor.com/docs/reference/plugins) and [publish form](https://cursor.com/marketplace/publish): locally tested plugin in a public Git repository. [Direct MCP installation](https://cursor.com/docs/mcp/install-links) does not require marketplace acceptance.
-- [OpenAI plugin submission](https://developers.openai.com/plugins/deploy/submission), [remote MCP review requirements](https://developers.openai.com/plugins/deploy/app-review) and [guidelines](https://developers.openai.com/plugins/app-guidelines): plugin ZIP distribution spans ChatGPT and Codex; verify each host separately.
-- [Grok consumer connectors](https://docs.x.ai/grok/connectors), [Grok Bot connections](https://docs.x.ai/grok-bot/computer-and-apps) and [xAI API remote MCP](https://docs.x.ai/developers/tools/remote-mcp) describe different installation surfaces. The API's `require_approval` parameter is unsupported; that is distinct from Sanction's tool argument.
-- [Slack Marketplace distribution](https://docs.slack.dev/slack-marketplace/distributing-your-app-in-the-slack-marketplace/): target at least ten active workspaces and ten weekly active users before submission; Sanction adoption counts are unverified.
+For each provider, retain the artifact commit/version, submission ID/date,
+review URL, account owner, reviewer-access expiry, open findings, approval date,
+publication URL and a post-publication smoke result. Store credentials only in
+the provider's secure form or the secrets store. Mark a row submitted only after
+the portal confirms receipt; mark it published only after checking the listing.
