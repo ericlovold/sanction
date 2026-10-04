@@ -24,6 +24,34 @@ This connection exposes eight existing tools and excludes execution-token
 issuance and vault credential retrieval. It is a custom connection, not evidence
 of a Sanction directory listing.
 
+### Which MCP profile?
+
+Sanction serves two MCP profiles from one decision engine. Both stay available;
+pick by what the agent needs.
+
+| Profile | Endpoint | Auth | Tools |
+| --- | --- | --- | --- |
+| Approvals, for AI hosts | `/mcp/approvals` | OAuth; API key also works | 8 |
+| Full wallet, for developers | `/mcp`, or `npx sanction-mcp` (stdio) | Agent API key | 10 |
+
+- **Approvals profile** (`https://getsanction.com/mcp/approvals`): authorization
+  requests (`sanction_authorize`, `sanction_authorize_provision`,
+  `sanction_authorize_tool`, `sanction_authorize_capability`), decision checks
+  (`sanction_check_authorization`), `sanction_wallet_status`, and
+  usage/business-outcome logging (`sanction_log_tokens`, `sanction_log_outcome`).
+  No execution-token issuance or vault credential retrieval.
+- **Full wallet profile** (`https://getsanction.com/mcp`): the same eight tools
+  plus `sanction_request_execution` (scoped execution tokens) and
+  `sanction_inject_credential` (credential retrieval from the encrypted vault).
+
+These URLs are MCP protocol endpoints for hosts, not pages to open in a browser.
+Both profiles are cooperative: the host must consult Sanction and honor its
+answer. Enforcement of upstream tool calls applies only to traffic routed
+through the [MCP broker](/docs/agent-wallet). The `/.well-known/mcp.json`
+manifest lists both profiles.
+
+### Host setup and evidence
+
 | Host | Setup | Sanction evidence as of October 2, 2026 |
 | --- | --- | --- |
 | Claude | Customize → Connectors → Add custom connector. Enter the URL above, choose automatic registration when offered, and complete Sanction consent. | Production synthetic request, approval, exact redemption and consumed-grant refusal observed October 1. No external action executed. |
@@ -94,11 +122,12 @@ host cannot find Sanction or asks for authentication, fix that before proceeding
 
 Copy this prompt into the connected host:
 
-> Ask Sanction for my approval to run `demo.noop` with arguments
-> `{"message":"My first approval"}`. Set `require_approval` to true and
-> `approval_reason` to "I want to try a one-off approval." Make one
-> `sanction_authorize_tool` call, show the request ID, then stop. This is a
-> synthetic test: do not execute any action, retry, or poll automatically.
+> Ask Sanction for my approval to run `sanction.demo.approval` with arguments
+> `{"synthetic":true,"execute":false}` and no server. Set `require_approval` to
+> true and `approval_reason` to "Tests the approval flow only; executes
+> nothing." Make one `sanction_authorize_tool` call, show the request ID and any
+> approval link, then stop. This is a synthetic test: do not execute any action,
+> retry, or poll automatically.
 
 Expected: `authorized: false`, `status: escalated`, and `next_action: wait`.
 A hard policy denial is also a valid result; it is not overridden by asking for
@@ -116,9 +145,18 @@ the request ID. A denial means stop. Approval alone is not execution permission:
 `next_action: retry_with_grant` means repeat the original authorization with the
 same tool, server and arguments, plus the returned `grant_id`.
 
-Only a redemption returning `authorized: true` permits that attempt. For this
-synthetic test, execute nothing even after redemption. Never automatically
+Only a redemption returning `authorized: true` and `next_action: proceed`
+permits that attempt. For this synthetic test, report the result and execute
+nothing even after redemption. Never automatically
 request fresh approval after a refusal, an ambiguous result, or a consumed grant.
+A yes in chat is not a substitute for checking, and it cannot override
+organizational policy or a hard denial.
+
+A decision record proves the authorization decision, not that an external
+action ran. `sanction_log_outcome` records business outcomes, not execution
+receipts. If you cannot tell whether an approved action ran, treat it as
+unknown: do not retry automatically, and do not treat expiry as proof that
+nothing happened.
 
 Tool grants bind the reviewed arguments and expire. Redemption checks the grant;
 it does not re-evaluate the current tool-policy ladder. [OAuth and decision

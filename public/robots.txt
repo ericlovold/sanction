@@ -1,0 +1,10 @@
+# Crawler guidance for getsanction.com. This is not access control:
+# private routes stay protected by authentication, not by this file.
+User-agent: *
+Allow: /
+Allow: /api/openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /invite
+Disallow: /auth
