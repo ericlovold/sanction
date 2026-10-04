@@ -81,7 +81,7 @@ The important distinctions:
 - Cooperative connections require the host to consult Sanction and honor its
   answer. Connecting it does not intercept unrelated tools. Broker enforcement
   applies only to routed upstream calls.
-- Grants bind to wallet, agent, tool, server, and arguments. A different host is
+- Tool grants bind to wallet, agent, tool, server, and arguments. A different host is
   not automatically a different authorized executor. Do not advertise transferable grants.
 - A decision record proves the recorded authorization decision, not that an
   external action executed or obeyed it. `sanction_log_outcome` records business
@@ -106,8 +106,9 @@ no-duplicate guarantees, or a completed cross-company approval flow.
 
 Use the current skill at `packages/sanction-approvals/skills/request-approval/`.
 Request approval for `sanction.demo.approval` with
-`{"execute":false,"message":"Website approval demo"}` and
-`require_approval: true`; explain that this tests approval only.
+`{"synthetic":true,"execute":false}`, no server, and
+`require_approval: true`. Set `approval_reason` to explain that this tests the
+approval flow only and executes nothing.
 
 On `wait`, show the request ID and link, then pause. After user resumption, check
 once with `sanction_check_authorization`. On `retry_with_grant`, call
