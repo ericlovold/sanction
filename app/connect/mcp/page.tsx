@@ -7,7 +7,8 @@ import { getSessionMember } from "@/lib/session"
 import { hasRole } from "@/lib/roles"
 import { mcpOAuthEnabled } from "@/lib/mcpOAuthProvider"
 import { mcpOAuthQuery } from "@/lib/mcpOAuthQuery"
-import { consentMcpConnection, revokeMcpConnection } from "./actions"
+import { revokeMcpConnection } from "./actions"
+import { AgentAssignment } from "./agent-assignment"
 
 export const dynamic = "force-dynamic"
 export default async function ConnectMcpPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -33,12 +34,7 @@ export default async function ConnectMcpPage({ searchParams }: { searchParams: P
       <p className="mt-4">This host can request spend, tool and capability decisions, record usage and outcomes, and check budgets and approvals for the agent you select. Your wallet policy still applies.</p>
       <p className="mt-3 text-sm text-zinc-400">It cannot retrieve vault credentials or issue execution tokens through this connection. Approval requests can notify you. The host must ask Sanction before acting; connecting does not intercept its other tools.</p>
       {params.get("scope")?.split(" ").includes("offline_access") && <p className="mt-3 text-sm text-zinc-400">The host can renew access until you disconnect it.</p>}
-      <form action={consentMcpConnection} className="mt-6 space-y-4">
-        <input type="hidden" name="oauth_query" value={query} />
-        <label className="block">Agent<select name="agent_id" className="mt-2 block w-full rounded border border-zinc-600 bg-zinc-900 p-3">{agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
-        {!agents.length && <p>Create an active agent in your <Link href="/dashboard" className="underline">roster</Link> first.</p>}
-        <div className="flex gap-4"><button name="decision" value="allow" disabled={!agents.length} className="rounded bg-emerald-700 px-5 py-2 disabled:opacity-40">Connect agent</button><button name="decision" value="deny" className="rounded border border-zinc-600 px-5 py-2">Cancel</button></div>
-      </form>
+      <AgentAssignment key={member.wallet.id} agents={agents} walletId={member.wallet.id} query={query} />
     </section>}
     <h2 className="mt-10 text-xl">Active connections</h2>
     <p className="mt-2 text-sm text-zinc-400">Disconnect stops future requests immediately. It does not undo decisions already made.</p>
