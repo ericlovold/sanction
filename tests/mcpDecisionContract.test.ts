@@ -116,7 +116,7 @@ describe("MCP decisions consumed by a host", () => {
   })
 
   it.each([actions[2], poll])("$name preserves consumed-grant denial linkage without reusable authority", async tool => {
-    const remediation = "Stop. This grant has already been consumed. Do not retry or automatically request another approval."
+    const remediation = "Stop. This grant has already been consumed. Report this result to the user; do not retry or automatically request another approval."
     const response = await call({ authorized: false, status: "denied", code: "GRANT_ALREADY_USED",
       request_id: "req_test", original_request_id: "req_original", rejected_grant_id: "gr_consumed",
       grant_id: "must-not-be-usable", reason: "Grant has already been consumed", remediation,

@@ -360,7 +360,7 @@ describe("authorize/tool — tool governance", () => {
     const body = await res.json()
     expect(body).toMatchObject({ authorized: false, status: "denied", code: "GRANT_ALREADY_USED",
       request_id: "req_replay_denied", original_request_id: "req_t1", rejected_grant_id: "grant_t1",
-      remediation: "Stop. This grant has already been consumed. Do not retry or automatically request another approval.",
+      remediation: "Stop. This grant has already been consumed. Report this result to the user; do not retry or automatically request another approval.",
     })
     expect(body).not.toHaveProperty("grant_id")
     expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
@@ -680,6 +680,15 @@ describe("authorize/[id] — status polling stays inside the wallet", () => {
     dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind: "tool", status: "denied", decisionNote: "Rejected by owner", decisionContextJson: evidence })
     const denied = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
     expect(denied).toMatchObject({ authorized: false, code: "POLICY_DENIED", reason: "Rejected by owner" })
+  })
+
+  it.each(["spend", "provision"])("keeps shared consumed-grant guidance for %s status", async kind => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind, status: "denied", decisionNote: "Grant already consumed" })
+    const body = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
+    expect(body).toMatchObject({ authorized: false, code: "GRANT_ALREADY_USED",
+      remediation: "Stop. This grant has already been consumed. Do not retry or automatically request another approval.",
+    })
+    expect(dbMock.grant.findFirst).not.toHaveBeenCalled()
   })
 
   it("lets the wallet owner (management key) read it too", async () => {

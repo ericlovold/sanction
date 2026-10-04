@@ -315,7 +315,7 @@ describe("createSanctionMcpServer — tool handlers", () => {
     { status: 403, code: "GRANT_MISMATCH" as const },
     { status: 409, code: "GRANT_ALREADY_USED" as const },
   ])("renders HTTP $status grant denial identically across transports", async ({ status, code }) => {
-    const remediation = TOOL_GRANT_REMEDIATION[code] ?? "Stop. This grant has already been consumed. Do not retry or automatically request another approval."
+    const remediation = TOOL_GRANT_REMEDIATION[code]
     const payload = { authorized: false, status: "denied", code, reason: "Unusable grant", remediation }
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload, status)))
     const fetched = await connectedClient()
