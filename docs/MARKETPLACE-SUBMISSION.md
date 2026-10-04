@@ -32,7 +32,7 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | MCP Registry / npm | `packages/sanction-mcp/` | 0.10.0 published; hosted `/mcp` entry verified | Complete; monitor releases separately from directories |
 | Claude | Remote connector submission | Portal confirmed receipt on 2026-10-03 | Review response; acceptance and publication pending |
 | ChatGPT + Codex | `packages/sanction-approvals/` ZIP | Current ZIP rebuilt with support URL; upload blocked by developer identity verification in both available organizations | Select publisher, verify identity, then terms, reviewer access, host tests and domain challenge |
-| Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Package published and publisher application filled; no receipt yet | Publisher Terms acceptance and submission; authenticated host test remains pending |
+| Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Publisher application submitted; receipt confirmed 2026-10-03 | Marketplace review and authenticated host test remain pending |
 | Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) submitted 2026-10-03; pinned source and official local validators pass | Catalog review and authenticated host tests; publication pending |
 | Grok consumer | Custom MCP connection | Instructions prepared; current lifecycle unverified | Connection test, then establish public catalog route |
 | Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
@@ -108,13 +108,15 @@ Portal: [Cursor Marketplace publish](https://cursor.com/marketplace/publish).
 Published package: [sanction-plugin](https://github.com/ericlovold/sanction-plugin),
 version 0.1.0, commit `f0e079be6715b99b8a7d0dc4644ed1fd0543644e`. It contains
 only the MIT plugin, with separate Cursor and Grok Build configurations. Both use
-the full ten-tool `/mcp` profile and an agent key. The Cursor application is
-filled but awaits Publisher Terms acceptance; no submission receipt is recorded.
+the full ten-tool `/mcp` profile and an agent key. Eric supplied the portal receipt
+on 2026-10-03 at 19:44 America/Chicago: “Thanks for applying” and “We've received
+your submission.” Marketplace acceptance and authenticated host testing remain
+pending.
 
 - [x] **Engineering:** Extract the MIT `cursor-plugin/` package into its own public repository, with manifest, license, logo, four skills, MCP configuration and setup README at the supported root. Do not relabel the parent FSL repository as MIT.
 - [x] **Engineering:** Validate manifest paths/frontmatter and every declared `${SANCTION_AGENT_KEY}` variable; remove all credential values.
 - [ ] **Together:** Load the plugin locally in Cursor. Verify discovery, secret configuration, wallet status, request/pause, exact redemption and denial.
-- [ ] **Eric:** Review publisher terms and permissive licensing for all included components, then submit the public repository URL and listing details for manual review.
+- [x] **Eric:** Submit the public repository URL and publisher application for manual review; portal receipt confirmed 2026-10-03.
 - [ ] **Together:** Resolve review findings, then verify installation from the actual listing in a clean profile.
 
 **Done:** Accepted public listing and a recorded Cursor lifecycle. A direct MCP
