@@ -1,3 +1,4 @@
+import type { DecisionCode } from "@/lib/decisions"
 import { evaluate } from "@/lib/evaluation"
 import { TOOL_RULES, type ToolContext } from "@/lib/rules/tool"
 
@@ -14,6 +15,14 @@ export const TOOL_REMEDIATION: Record<ToolDecisionCode, string> = {
     "A conditional rule blocks this tool right now (time window or usage threshold). Retry when the condition clears, or ask the owner to adjust it.",
   TOOL_CONDITION_ESCALATION_REQUIRED:
     "A conditional rule requires human approval right now (time window or usage threshold). Wait for human review, then check the request status once.",
+}
+
+// Failed tool-grant redemption is terminal; recovery requires owner review.
+// Keep spend/provision remediation unchanged on their respective endpoints.
+export const TOOL_GRANT_REMEDIATION: Partial<Record<DecisionCode, string>> = {
+  GRANT_NOT_FOUND: "Stop. No usable grant is available for this request. Report this result to the user; do not retry or automatically request another approval.",
+  GRANT_EXPIRED: "Stop. This grant has expired. Report this result to the user; do not retry or automatically request another approval.",
+  GRANT_MISMATCH: "Stop. This grant does not authorize these tool, server, and argument values. Report this result to the user; do not retry or automatically request another approval.",
 }
 
 export type ToolStatus = "allowed" | "escalated" | "denied"

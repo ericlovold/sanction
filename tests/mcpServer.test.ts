@@ -1,3 +1,4 @@
+import { TOOL_GRANT_REMEDIATION } from "../lib/toolDecisions"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { resolve } from "node:path"
@@ -309,10 +310,13 @@ describe("createSanctionMcpServer — tool handlers", () => {
   })
 
   it.each([
-    { status: 404, code: "GRANT_NOT_FOUND" },
-    { status: 409, code: "GRANT_ALREADY_USED" },
+    { status: 404, code: "GRANT_NOT_FOUND" as const },
+    { status: 403, code: "GRANT_EXPIRED" as const },
+    { status: 403, code: "GRANT_MISMATCH" as const },
+    { status: 409, code: "GRANT_ALREADY_USED" as const },
   ])("renders HTTP $status grant denial identically across transports", async ({ status, code }) => {
-    const payload = { authorized: false, status: "denied", code, reason: "Unusable grant" }
+    const remediation = TOOL_GRANT_REMEDIATION[code] ?? "Stop. This grant has already been consumed. Do not retry or automatically request another approval."
+    const payload = { authorized: false, status: "denied", code, reason: "Unusable grant", remediation }
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload, status)))
     const fetched = await connectedClient()
     const injected = await connectedClient(async () => payload)
@@ -321,7 +325,11 @@ describe("createSanctionMcpServer — tool handlers", () => {
       const result = await fetched.client.callTool(tool)
       expect(result).toEqual(await injected.client.callTool(tool))
       expect(result.isError).toBe(false)
-      expect(result.structuredContent).toMatchObject({ authorized: false, status: "denied", code, next_action: "stop" })
+      expect(result.structuredContent).toMatchObject({ authorized: false, status: "denied", code, next_action: "stop", remediation })
+      const blocks = result.content as Array<{ type: string; text: string }>
+      expect(blocks[0].text).toContain("Do not invoke.")
+      expect(JSON.parse(blocks[1].text)).toEqual(result.structuredContent)
+      expect(result.structuredContent).not.toHaveProperty("grant_id")
     } finally {
       await fetched.client.close()
       await fetched.server.close()
