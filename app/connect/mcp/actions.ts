@@ -2,12 +2,48 @@
 
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
+import { revalidatePath } from "next/cache"
+import { z } from "zod"
 import { auth } from "@/lib/auth-config"
+import { generateApiKey } from "@/lib/apiKey"
 import { db } from "@/lib/db"
 import { getSessionMember } from "@/lib/session"
 import { hasRole } from "@/lib/roles"
 import { mcpOAuthEnabled, mcpOAuthResource, MCP_APPROVALS_SCOPE } from "@/lib/mcpOAuthProvider"
 import { mcpOAuthConsentContext } from "@/lib/mcpOAuthContext"
+
+export type CreateMcpAgentState = { error: string; agent?: { id: string; name: string } }
+
+export async function createMcpAgent(_previous: CreateMcpAgentState, form: FormData): Promise<CreateMcpAgentState> {
+  if (!mcpOAuthEnabled()) return { error: "MCP connections are not enabled." }
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user.emailVerified) return { error: "Sign in with a verified account to create an agent." }
+  const member = await getSessionMember()
+  if (!member || member.actor.type !== "user" || member.actor.userId !== session.user.id || !hasRole(member.role, "admin")) {
+    return { error: "Only a wallet owner or administrator can create an agent." }
+  }
+  if (form.get("wallet_id") !== member.wallet.id) {
+    return { error: "Your active wallet changed. Reload this page before creating an agent." }
+  }
+  const name = z.string().trim().min(1).max(64).safeParse(form.get("name"))
+  if (!name.success) return { error: "Enter an agent name (1–64 characters)." }
+
+  // The schema requires an API key hash. This flow uses OAuth, so discard the
+  // unused raw key; an administrator can rotate it in the dashboard if needed.
+  const key = generateApiKey()
+  let agent: { id: string; name: string }
+  try {
+    agent = await db.agent.create({
+      data: { walletId: member.wallet.id, name: name.data, apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
+      select: { id: true, name: true },
+    })
+  } catch {
+    return { error: "Could not create the agent. Try again." }
+  }
+  revalidatePath("/dashboard")
+  revalidatePath("/dashboard/agents")
+  return { error: "", agent }
+}
 
 export async function consentMcpConnection(form: FormData): Promise<void> {
   if (!mcpOAuthEnabled()) throw new Error("MCP connections are not enabled")
