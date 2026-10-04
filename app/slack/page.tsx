@@ -48,6 +48,10 @@ export default function SlackPage() {
         <p className="mt-12 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
           Slack is the human approval surface. Developers install Sanction through MCP, the SDK, or the REST API; the same policy and decision record applies across every surface.
         </p>
+        <nav aria-label="Slack app resources" className="mt-6 flex flex-wrap gap-5 text-sm">
+          <Link href="/privacy" className="sanction-link">Privacy policy</Link>
+          <Link href="/support" className="sanction-link">Support</Link>
+        </nav>
       </main>
     </div>
   )
