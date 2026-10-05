@@ -284,17 +284,65 @@ describe("authorize/tool — tool governance", () => {
     expect((await res.json())).toMatchObject({ authorized: true, status: "allowed", grant_id: "grant_t1", grant_status: "consumed" })
   })
 
-  it("refuses a grant minted for a different tool (GRANT_MISMATCH)", async () => {
+  it.each([
+    { tool: "shell.exec", server: "stripe", arguments: { amount: 1 } },
+    { tool: "payments.charge", server: "other", arguments: { amount: 1 } },
+    { tool: "payments.charge", server: "stripe", arguments: { amount: 2 } },
+  ])("stops after tool-grant request mismatch: %j", async request => {
     dbMock.grant.findUnique.mockResolvedValue({
       id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: "active",
-      resourceJson: { kind: "tool", tool: "payments.charge", server: "stripe" },
+      resourceJson: { requestBinding: await sealToolRequest(WID, { tool: "payments.charge", server: "stripe", arguments: { amount: 1 } }) },
       sourceType: "authorization_request", sourceId: "req_t1", expiresAt: null,
     })
     const res = await authorizeTool(
-      req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { tool: "shell.exec", grant_id: "grant_t1" } }),
+      req("POST", "/api/v1/authorize/tool", { headers: agentH, body: { ...request, grant_id: "grant_t1" } }),
     )
     expect(res.status).toBe(403)
-    expect((await res.json()).code).toBe("GRANT_MISMATCH")
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: false, status: "denied", code: "GRANT_MISMATCH" })
+    expect(body.remediation).toContain("tool, server, and argument values")
+    expect(body.remediation).toMatch(/^Stop\..*Report this result to the user; do not retry or automatically request another approval\.$/)
+    expect(body.remediation).not.toMatch(/amount|merchant|category/)
+    expect(body).not.toHaveProperty("grant_id")
+    expect(body).not.toHaveProperty("original_request_id")
+    expect(body).not.toHaveProperty("rejected_grant_id")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+    expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { grantStatus: null, code: "GRANT_NOT_FOUND", status: 404 },
+    { grantStatus: "expired", code: "GRANT_NOT_FOUND", status: 404 },
+    { grantStatus: "revoked", code: "GRANT_NOT_FOUND", status: 404 },
+    { grantStatus: "active", code: "GRANT_EXPIRED", status: 403 },
+  ])("stops after an unusable tool grant: $grantStatus", async ({ grantStatus, code, status }) => {
+    dbMock.grant.findUnique.mockResolvedValue(grantStatus ? {
+      id: "grant_t1", walletId: WID, agentId: AID, actionType: "tool.invoke", status: grantStatus,
+      issuedBy: "wallet_owner", sourceType: "authorization_request", sourceId: "req_t1",
+      expiresAt: new Date("2000-01-01T00:00:00Z"),
+    } : null)
+    const res = await authorizeTool(req("POST", "/api/v1/authorize/tool", { headers: agentH, body: {
+      tool: "payments.charge", grant_id: "grant_t1", require_approval: true,
+    } }))
+    expect(res.status).toBe(status)
+    const body = await res.json()
+    expect(body).toMatchObject({ authorized: false, status: "denied", code })
+    expect(body.remediation).toMatch(/^Stop\..*Report this result to the user; do not retry or automatically request another approval\.$/)
+    expect(body).not.toHaveProperty("grant_id")
+    expect(body).not.toHaveProperty("original_request_id")
+    expect(body).not.toHaveProperty("rejected_grant_id")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.update).not.toHaveBeenCalled()
+    expect(dbMock.pendingApproval.create).not.toHaveBeenCalled()
+    if (grantStatus === "active") {
+      expect(dbMock.grant.updateMany).toHaveBeenCalledExactlyOnceWith({
+        where: { id: "grant_t1", status: "active" }, data: { status: "expired" },
+      })
+    } else {
+      expect(dbMock.grant.updateMany).not.toHaveBeenCalled()
+    }
   })
 
   it.each([true, false, undefined])("audits a consumed replay separately with require_approval=%s", async requireApproval => {
@@ -312,7 +360,7 @@ describe("authorize/tool — tool governance", () => {
     const body = await res.json()
     expect(body).toMatchObject({ authorized: false, status: "denied", code: "GRANT_ALREADY_USED",
       request_id: "req_replay_denied", original_request_id: "req_t1", rejected_grant_id: "grant_t1",
-      remediation: "Stop. This grant has already been consumed. Do not retry or automatically request another approval.",
+      remediation: "Stop. This grant has already been consumed. Report this result to the user; do not retry or automatically request another approval.",
     })
     expect(body).not.toHaveProperty("grant_id")
     expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
@@ -349,7 +397,9 @@ describe("authorize/tool — tool governance", () => {
     expect(res.status).toBe(404)
     const body = await res.json()
     expect(body).toMatchObject({ authorized: false, code: "GRANT_NOT_FOUND" })
-    expect(JSON.stringify(body)).not.toMatch(/grant_private|req_private/)
+    expect(body.remediation).toBe("Stop. No usable grant is available for this request. Report this result to the user; do not retry or automatically request another approval.")
+    expect(JSON.stringify(body)).not.toMatch(/grant_private|req_private|wallet_other|agent_other/)
+    expect(body).not.toHaveProperty("grant_id")
     expect(body).not.toHaveProperty("original_request_id")
     expect(body).not.toHaveProperty("rejected_grant_id")
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
@@ -451,7 +501,8 @@ describe("authorize/tool — explicit human approval", () => {
       tool: "deploy.prod", arguments: { ref: "abc" }, require_approval: true, grant_id: "grant_explicit",
     } }))
     expect(response.status).toBe(403)
-    expect(await response.json()).toMatchObject({ authorized: false, code: "GRANT_UNSUPPORTED", request_id: "req_provenance_denied" })
+    expect(await response.json()).toMatchObject({ authorized: false, code: "GRANT_UNSUPPORTED", request_id: "req_provenance_denied",
+      remediation: "This grant type is not consumable by this endpoint." })
     expect(dbMock.authorizationRequest.create).toHaveBeenCalledTimes(1)
     const denied = dbMock.authorizationRequest.create.mock.calls[0][0].data
     expect(denied).toMatchObject({ agentId: AID, kind: "tool", status: "denied", merchant: "deploy.prod", decidedAt: expect.any(Date), decisionNote: "This request requires a human-issued approval grant" })
@@ -629,6 +680,15 @@ describe("authorize/[id] — status polling stays inside the wallet", () => {
     dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind: "tool", status: "denied", decisionNote: "Rejected by owner", decisionContextJson: evidence })
     const denied = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
     expect(denied).toMatchObject({ authorized: false, code: "POLICY_DENIED", reason: "Rejected by owner" })
+  })
+
+  it.each(["spend", "provision"])("keeps shared consumed-grant guidance for %s status", async kind => {
+    dbMock.authorizationRequest.findUnique.mockResolvedValue({ ...ROW, kind, status: "denied", decisionNote: "Grant already consumed" })
+    const body = await (await authStatus(req("GET", "/api/v1/authorize/req_1", { headers: agentH }), params)).json()
+    expect(body).toMatchObject({ authorized: false, code: "GRANT_ALREADY_USED",
+      remediation: "Stop. This grant has already been consumed. Do not retry or automatically request another approval.",
+    })
+    expect(dbMock.grant.findFirst).not.toHaveBeenCalled()
   })
 
   it("lets the wallet owner (management key) read it too", async () => {

@@ -5,14 +5,14 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
-import { TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
+import { TOOL_GRANT_REMEDIATION, TOOL_REMEDIATION, type ToolDecisionCode } from "@/lib/toolDecisions"
 import { policyLayerChain, decideToolLayered } from "@/lib/inheritance"
 import { decisionEvidence } from "@/lib/evidence"
 import { createToolPendingApproval } from "@/lib/approvals"
 import { consumeToolGrant } from "@/lib/grants"
 import { deliverEvent, approveUrlFor } from "@/lib/webhooks"
 import { sendEscalationEmail } from "@/lib/email"
-import { REMEDIATION, deriveReplayCode, isObserved, type DecisionCode } from "@/lib/decisions"
+import { REMEDIATION, deriveReplayCode, isObserved } from "@/lib/decisions"
 import { recordDecision } from "@/lib/decisionMeter"
 import { logger } from "@/lib/log"
 
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
         } : {}),
         reason: result.reason,
         code: result.code,
-        remediation: REMEDIATION[result.code as DecisionCode],
+        remediation: TOOL_GRANT_REMEDIATION[result.code] ?? REMEDIATION[result.code],
         agent: agent.name,
         tool,
         server,

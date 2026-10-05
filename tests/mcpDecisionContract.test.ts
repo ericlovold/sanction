@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js"
 import { describe, expect, it, vi } from "vitest"
 import { createSanctionMcpServer } from "../lib/mcpServer"
+import { TOOL_GRANT_REMEDIATION } from "../lib/toolDecisions"
 
 const actions = [
   { name: "sanction_authorize", arguments: { action: "purchase", amount_usd: 1, merchant: "Synthetic", category: "software" } },
@@ -115,7 +116,7 @@ describe("MCP decisions consumed by a host", () => {
   })
 
   it.each([actions[2], poll])("$name preserves consumed-grant denial linkage without reusable authority", async tool => {
-    const remediation = "Stop. This grant has already been consumed. Do not retry or automatically request another approval."
+    const remediation = "Stop. This grant has already been consumed. Report this result to the user; do not retry or automatically request another approval."
     const response = await call({ authorized: false, status: "denied", code: "GRANT_ALREADY_USED",
       request_id: "req_test", original_request_id: "req_original", rejected_grant_id: "gr_consumed",
       grant_id: "must-not-be-usable", reason: "Grant has already been consumed", remediation,
@@ -128,6 +129,20 @@ describe("MCP decisions consumed by a host", () => {
     expect(JSON.stringify(response)).not.toContain("must-not-be-usable")
     const blocks = response.content as Array<{ type: string; text: string }>
     expect(blocks[0].text).toMatch(/stop[.;] do not retry or automatically request another approval/i)
+  })
+
+  it.each(["GRANT_NOT_FOUND", "GRANT_EXPIRED", "GRANT_MISMATCH"] as const)("keeps terminal tool-grant guidance consistent with stop: %s", async code => {
+    const remediation = TOOL_GRANT_REMEDIATION[code]
+    const response = await call({ authorized: false, status: "denied", code, reason: "Unusable tool grant", remediation,
+      grant_id: "must-not-be-usable", original_request_id: "private-original", rejected_grant_id: "private-grant",
+    }, actions[2])
+    expect(response.isError).toBe(false)
+    expect(response.structuredContent).toMatchObject({ authorized: false, status: "denied", code, next_action: "stop", remediation })
+    expect(response.structuredContent).not.toHaveProperty("grant_id")
+    expect(JSON.stringify(response)).not.toMatch(/must-not-be-usable|private-original|private-grant/)
+    const blocks = response.content as Array<{ type: string; text: string }>
+    expect(blocks[0].text).toContain("Do not invoke.")
+    expect(JSON.parse(blocks[1].text).remediation).toMatch(/^Stop\..*Report this result to the user; do not retry or automatically request another approval\.$/)
   })
 
   it.each([

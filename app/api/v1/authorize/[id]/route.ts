@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { decisionCode, REMEDIATION } from "@/lib/decisions"
-import { TOOL_REMEDIATION } from "@/lib/toolDecisions"
+import { TOOL_GRANT_REMEDIATION, TOOL_REMEDIATION } from "@/lib/toolDecisions"
 import { CAPABILITY_REMEDIATION } from "@/lib/capability"
 import { isDecisionEvidence } from "@/lib/evidence"
 import { settleIfExpired } from "@/lib/approvals"
@@ -41,6 +41,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   let code: string | undefined = decisionCode(d.status, d.decisionNote)
   let remediation = code ? REMEDIATION[code as keyof typeof REMEDIATION] : undefined
+  if (reqRow.kind === "tool" && code) {
+    remediation = TOOL_GRANT_REMEDIATION[code as keyof typeof TOOL_GRANT_REMEDIATION] ?? remediation
+  }
   const evidence = reqRow.decisionContextJson
   const typedRemediation = reqRow.kind === "tool" ? TOOL_REMEDIATION
     : reqRow.kind === "capability" ? CAPABILITY_REMEDIATION : undefined
