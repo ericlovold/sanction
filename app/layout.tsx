@@ -12,20 +12,20 @@ const spaceGrotesk = Space_Grotesk({
 })
 export const metadata: Metadata = {
   metadataBase: new URL("https://getsanction.com"),
-  title: "Sanction — Stop runaway AI API spend",
+  title: "Sanction — One-off human approvals for AI agent actions",
   description:
-    "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
+    "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
   openGraph: {
-    title: "Your agent can run. Your API bill can't.",
-    description: "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
+    title: "Let your agent ask before it acts.",
+    description: "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
     url: "https://getsanction.com",
     siteName: "Sanction",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Your agent can run. Your API bill can't.",
-    description: "Put hard limits in front of AI spend, MCP tools, and x402 payments. Sanction authorizes the spend; any rail settles it.",
+    title: "Let your agent ask before it acts.",
+    description: "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
   },
   appleWebApp: {
     capable: true,

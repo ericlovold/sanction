@@ -1,7 +1,7 @@
 {
   "protocolVersion": "0.3.0",
   "name": "Sanction",
-  "description": "The trust and governance layer for autonomous AI agents. Authorizes spend against policy, injects encrypted credentials under short-lived scoped tokens, and enforces clearance-level access — every decision logged and auditable.",
+  "description": "One-off human approvals for exact AI agent actions, within the trust and governance layer for autonomous AI agents. Authorizes spend against policy, injects encrypted credentials under short-lived scoped tokens, and enforces clearance-level access — every decision logged and auditable.",
   "url": "https://getsanction.com/api/v1",
   "preferredTransport": "JSONRPC",
   "version": "1.0.0",
@@ -18,6 +18,15 @@
   "defaultInputModes": ["application/json"],
   "defaultOutputModes": ["application/json"],
   "skills": [
+    {
+      "id": "request-tool-approval",
+      "name": "Request one-off tool approval",
+      "description": "Ask an authorized person to approve or reject an exact tool action (tool, server, and arguments) with require_approval: true. Approval mints an expiring, one-use grant; the caller repeats the identical request with that grant before acting. Hard denials still apply; changed arguments and reused grants are refused. Cooperative: the caller must ask and honor the answer.",
+      "tags": ["approval", "human-in-the-loop", "policy", "governance"],
+      "examples": [
+        "Request approval to run sanction.demo.approval with {\"synthetic\":true,\"execute\":false}; execute nothing."
+      ]
+    },
     {
       "id": "authorize-spend",
       "name": "Authorize spend",

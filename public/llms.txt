@@ -1,0 +1,32 @@
+# Sanction
+
+> One-off human approvals for AI agent actions. An agent proposes an exact action, an authorized person approves or rejects it, and the agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals; no card required.
+
+Sanction is cooperative unless traffic is routed through its MCP broker: the agent or host must consult Sanction and honor its answer. Connecting Sanction does not intercept a host's other tools. A decision record proves the authorization decision, not that an external action ran. Unknown execution is not evidence of no effect. A yes in chat does not override organizational policy or a hard denial.
+
+## Connect
+- [Connection guide](https://getsanction.com/docs/connect): host setup, dated test status, and a synthetic first request that executes nothing.
+- [MCP OAuth and decisions](https://getsanction.com/docs/mcp-oauth): the decision contract and its boundaries.
+- [MCP discovery manifest](https://getsanction.com/.well-known/mcp.json): both MCP profiles and their tools.
+
+## MCP profiles
+- Approvals profile, `https://getsanction.com/mcp/approvals`: Streamable HTTP, OAuth for AI hosts (API-key access is also supported). Eight tools for authorization requests, decision checks, wallet status, and usage/business-outcome logging. Excludes execution-token issuance and vault credential retrieval.
+- Full wallet profile, `https://getsanction.com/mcp` or `npx sanction-mcp` (stdio): agent API key. Ten tools, adding `sanction_request_execution` (scoped execution tokens) and `sanction_inject_credential` (credential retrieval from the encrypted vault).
+
+These URLs are MCP protocol endpoints, not browser pages.
+
+## One-off approval contract
+1. Call `sanction_authorize_tool` once with the exact `tool`, optional `server`, complete `arguments`, `require_approval: true`, and a short `approval_reason`.
+2. On `next_action: "wait"`, show the request ID and approval link, then pause. Do not poll in a loop or create another request.
+3. After the user resumes, call `sanction_check_authorization` once with the saved `request_id`. Checking can settle a timed-out request; it is not a read-only lookup.
+4. On `next_action: "retry_with_grant"`, call `sanction_authorize_tool` once with the original input unchanged plus `grant_id`.
+5. Act only if that call returns `authorized: true` and `next_action: "proceed"`, and only once.
+6. On `stop`, a denial, an expired, revoked, or consumed grant, or an uncertain result: stop and report. Do not retry with altered arguments or request approval again automatically.
+
+Grants bind to the wallet, agent, tool, server, and arguments. `isError: false` means the check ran, not that the action is permitted.
+
+## Optional
+- [Agent wallet architecture](https://getsanction.com/docs/agent-wallet): budgets, broker enforcement, execution tokens, and the vault.
+- [Wallet Card](https://getsanction.com/.well-known/wallet-card.json)
+- [OpenAPI](https://getsanction.com/api/openapi.json)
+- [Repository](https://github.com/ericlovold/sanction)
