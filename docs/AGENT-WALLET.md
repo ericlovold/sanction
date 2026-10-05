@@ -32,6 +32,10 @@ will not survive agents that do not share a prompt.
 - **Carry (URL).** `https://getsanction.com/mcp` — Streamable HTTP, agent API
   key (`x-api-key` or `Authorization: Bearer pxy_...`). Same ten tools.
   Cooperative. This is the paste for Claude / Cursor connectors.
+- **Carry (approvals URL).** `https://getsanction.com/mcp/approvals` —
+  Streamable HTTP. OAuth for AI hosts (API-key also works). Eight tools.
+  Cooperative. No execution-token issuance or vault credential retrieval.
+  Full wallet `/mcp` and stdio stay API key; the broker stays agent-key.
 - **Carry (broker).** Register an upstream with `POST /v1/broker/upstreams`
   and point the host at `/mcp/broker/<upstream>`. INTERCEPTED: every
   `tools/call` runs the wallet's tool ladder BEFORE it is forwarded;
@@ -62,10 +66,12 @@ will not survive agents that do not share a prompt.
   revoked, expired, and garbage each have a named status. Invalid is HTTP 200
   `{valid:false}` so agents fail closed on the body.
 - **Discover.** `GET /.well-known/wallet-card.json` — the issuer's card. Names
-  carry (stdio + URL + broker), present, verify, evidence, and the honesty
-  contract (cooperative on stdio and the wallet URL; INTERCEPTED on the LLM
-  gateway and on any MCP server fronted by the broker at
-  `/mcp/broker/<upstream>`).
+  carry (stdio + wallet URL + broker), present, verify, evidence, and the
+  honesty contract (cooperative on stdio and the wallet URL; INTERCEPTED on
+  the LLM gateway and on any MCP server fronted by the broker at
+  `/mcp/broker/<upstream>`). `GET /.well-known/mcp.json` names both MCP
+  profiles: approvals (`/mcp/approvals`, OAuth + API-key) and wallet
+  (`/mcp`, API-key).
 
 The decision engine, seats, cascade budgets, grants, vault, freeze, and
 tamper-evident export were already the wallet. These surfaces make it
@@ -75,7 +81,10 @@ presentable.
 
 ## What is Next
 
-**OAuth onboarding** so the hosted MCP surfaces are not API-key paste only.
+**Find and connect inside the agent.** OAuth for `/mcp/approvals` is shipped.
+Remaining work is tested host install paths, not building OAuth. Full wallet
+`/mcp`, stdio, and the broker stay API key. Registry metadata is not
+marketplace acceptance.
 
 **Per-agent Wallet Cards** (this seat, this remaining budget band, never the
 key) attach to A2A Agent Cards so a peer can fetch constraints before a task.
@@ -101,10 +110,13 @@ protocols present: carry, present, verify, evidence.
 
 ## The next phase
 
-Hosted remote MCP and broker mode are shipped. The remaining work is the
-install that is not a paste, and the A2A surfaces.
+Hosted remote MCP, broker mode, and OAuth for the approvals profile are
+shipped. Remaining work is verified host install (not building OAuth) and
+the A2A surfaces.
 
-1. **OAuth onboarding.** Paste is not the only install.
+1. **Verified host install.** OAuth for `/mcp/approvals` is live; full wallet
+   `/mcp`, stdio, and the broker stay API key. Marketplace acceptance is not
+   claimed.
 2. **One A2A demo.** Agent A mints a mandate; agent B verifies before working.
    That demo is the GTM object — not another MCP directory listing.
 3. **Per-agent Wallet Cards** attach to A2A Agent Cards. Directory listings
@@ -117,9 +129,9 @@ become an identity provider or a payment rail.
 
 ## Honesty
 
-stdio MCP and the hosted `/mcp` URL are agent-invoked. Skipping
-`sanction_authorize*` is possible — those surfaces stay cooperative. The
-LLM gateway and the MCP broker at `/mcp/broker/<name>` are interception:
+stdio MCP and the hosted `/mcp` and `/mcp/approvals` URLs are agent-invoked.
+Skipping `sanction_authorize*` is possible — those surfaces stay cooperative.
+The LLM gateway and the MCP broker at `/mcp/broker/<name>` are interception:
 inference and `tools/call` are authorized before they are forwarded, and
 `tools/list` is filtered through the same ladder. Traffic that skips the
 broker or the gateway is not governed.
