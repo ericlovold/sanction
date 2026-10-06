@@ -13,11 +13,6 @@ export function slackSigningSecret(): string | undefined {
   return secret && secret.length > 0 ? secret : undefined
 }
 
-export function slackBotToken(): string | undefined {
-  const token = process.env.SANCTION_SLACK_BOT_TOKEN
-  return token && token.length > 0 ? token : undefined
-}
-
 /** Slack HMAC over `v0:{timestamp}:{rawBody}`. Fail closed on missing/mismatched fields. */
 export function verifySlackSignature(opts: {
   signingSecret: string
@@ -39,22 +34,15 @@ export function verifySlackSignature(opts: {
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
-/** Channel id from a Slack archive URL or `?channel=` on an incoming-webhook URL. */
-export function slackChannelIdFromUrl(raw: string): string | null {
+/** Archive links are UI destinations, never notification endpoints. */
+export function isSlackArchiveUrl(raw: string): boolean {
   try {
     const u = new URL(raw)
-    if (u.hostname === "slack.com" || u.hostname === "app.slack.com") {
-      const match = u.pathname.match(/\/archives\/(C[A-Z0-9]+)/i)
-      return match ? match[1] : null
-    }
-    if (u.hostname === "hooks.slack.com") {
-      const channel = u.searchParams.get("channel")
-      return channel && /^C[A-Z0-9]+$/i.test(channel) ? channel : null
-    }
+    return (u.hostname === "slack.com" || u.hostname.endsWith(".slack.com"))
+      && /\/archives(?:\/|$)/i.test(u.pathname)
   } catch {
-    return null
+    return false
   }
-  return null
 }
 
 export function parseSlackInteractiveBody(raw: string): unknown {
@@ -197,7 +185,7 @@ export function slackReplacementMessage(decision: "approve" | "reject", actor: s
   }
 }
 
-export async function postSlackChat(channel: string, body: string, token = slackBotToken()): Promise<void> {
+export async function postSlackChat(channel: string, body: string, token: string): Promise<void> {
   if (!token) return
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 5000)

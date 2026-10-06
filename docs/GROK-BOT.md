@@ -1,11 +1,21 @@
 # Connect Grok Bot to Sanction
 
-Sanction’s hosted wallet MCP endpoint is `https://getsanction.com/mcp`. This guide describes a connection contract and a safe first check; it does not claim a Sanction marketplace listing or verified Grok Bot compatibility. The [Cursor plugin scaffold](https://github.com/ericlovold/sanction/blob/main/cursor-plugin/README.md) is unpublished.
+Sanction’s hosted wallet MCP endpoint is `https://getsanction.com/mcp`. This guide describes a connection contract and a safe first check; it does not claim a Sanction marketplace listing or verified Grok Bot compatibility. The [standalone plugin repository](https://github.com/ericlovold/sanction-plugin) is public; this does not establish a Grok Bot listing.
 
 Consumer Grok now documents a separate custom-MCP path at grok.com/connectors.
 See [choose your host](/docs/connect) for that candidate setup. Consumer Grok,
 Grok Bot, and the xAI API are distinct surfaces; support in one does not prove
 Sanction compatibility or marketplace acceptance in another.
+
+As of 2026-10-06, consumer Grok's custom `/mcp/approvals` connection reaches
+Sanction OAuth consent identifying Grok. With owner authorization, a dedicated
+review agent was created and connected; OAuth returned to Grok with Sanction
+Approvals shown as Connected and Added, with all eight tools visible and enabled.
+One `sanction_wallet_status` call succeeded with zero pending approvals; no
+authorization or write action was invoked. Approval lifecycle tests remain incomplete. Separately, the [Grok Build catalog
+PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) is open with
+successful security checks and no reviews. Neither observation verifies Bot
+compatibility. Track these distinct gates in the [submission checklist](MARKETPLACE-SUBMISSION.md).
 
 ## Check host support first
 

@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "crypto"
 import { decryptCredentialEnvelope } from "./credentialCrypto"
 import { db } from "./db"
 import { withTenant } from "./rls"
-import { issueSlackActionToken, postSlackChat, slackBotToken, slackChannelIdFromUrl, slackInteractivePayload } from "./slack"
+import { issueSlackActionToken, postSlackChat, isSlackArchiveUrl, slackInteractivePayload } from "./slack"
 import { slackOAuthLabel } from "./slackOAuth"
 
 // Owner-registered webhooks notified on events. Each delivery is signed with
@@ -242,12 +242,9 @@ export async function deliverEvent(walletId: string, event: string, data: Record
   const body = JSON.stringify({ event, created_at: new Date().toISOString(), wallet_id: walletId, ...data })
   await Promise.allSettled([
     ...targets.map((h) => {
-      const channelId = slackChannelIdFromUrl(h.url)
-      if (channelId) {
-        return slackBotToken()
-          ? postSlackChat(channelId, slackPayload(event, data))
-          : Promise.resolve()
-      }
+      // Legacy archive targets stay stored but cannot use a shared token or
+      // fall through to a generic HTTP delivery. Reconnect with Add to Slack.
+      if (isSlackArchiveUrl(h.url)) return Promise.resolve()
       return isSlackWebhookUrl(h.url)
         ? post(h.url, null, event, slackPayload(event, data))
         : post(h.url, h.secret, event, body)
@@ -258,13 +255,9 @@ export async function deliverEvent(walletId: string, event: string, data: Record
 
 /** Send a one-off test ping to a single endpoint (used when a webhook is created). */
 export async function deliverPing(url: string, secret: string) {
+  if (isSlackArchiveUrl(url)) return
   if (isSlackWebhookUrl(url)) {
     await post(url, null, "ping", slackPayload("ping", {}))
-    return
-  }
-  const channelId = slackChannelIdFromUrl(url)
-  if (channelId) {
-    if (slackBotToken()) await postSlackChat(channelId, slackPayload("ping", {}))
     return
   }
   const body = JSON.stringify({ event: "ping", created_at: new Date().toISOString(), message: "Sanction webhook connected." })

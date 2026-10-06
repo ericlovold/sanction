@@ -55,11 +55,11 @@ checks, not evidence of a successful production installation or a security audit
   app and enable public distribution; verify the registered OAuth callback is
   `https://getsanction.com/api/slack/oauth/callback` and Interactivity Request URL
   is `https://getsanction.com/api/slack/interactive`.
-- [ ] Before attesting that workspace-specific configuration has been removed,
-  resolve the legacy `SANCTION_SLACK_BOT_TOKEN` path: `lib/webhooks.ts` can send
-  to a channel extracted from a pasted URL using this platform-wide token,
-  without matching an OAuth install. Verify production configuration privately;
-  do not infer safety from the separate per-install OAuth path.
+- [ ] Verify the deployed version has removed legacy platform-token delivery.
+  The source requires per-install OAuth tokens; saved archive-URL routes stay
+  stored but no longer deliver. Reconnect affected routes with **Add to Slack**
+  or replace them with incoming-webhook URLs. Verify deployment and production
+  configuration privately before attesting public-distribution readiness.
 - [ ] Confirm the portal's live usage eligibility. Slack requires ten active
   workspace installs maintained throughout review; its guidelines also name ten
   weekly active users. Active workspaces have been used within 28 days and exclude

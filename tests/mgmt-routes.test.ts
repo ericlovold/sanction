@@ -181,3 +181,10 @@ describe("webhooks route — registration", () => {
     expect(res.status).toBe(400)
   })
 })
+
+it("rejects Slack archive URLs before creating webhook routes", async () => {
+  const res = await createWebhook(req("POST", "/api/v1/webhooks", { headers: mgmtH, body: { wallet_id: WID, url: "https://slack.com/archives/C123" } }))
+  expect(res.status).toBe(400)
+  expect((await res.json()).error).toContain("Add to Slack")
+  expect(dbMock.webhook.create).not.toHaveBeenCalled()
+})
