@@ -10,8 +10,8 @@ Sanction compatibility or marketplace acceptance in another.
 As of 2026-10-06, consumer Grok's custom `/mcp/approvals` connection reaches
 Sanction OAuth consent identifying Grok. With owner authorization, a dedicated
 review agent was created and connected; OAuth returned to Grok with Sanction
-Approvals shown as Connected and Added. Eight-tool discovery and approval
-lifecycle tests remain incomplete. Separately, the [Grok Build catalog
+Approvals shown as Connected and Added, with all eight tools visible and enabled.
+Tool invocation and approval lifecycle tests remain incomplete. Separately, the [Grok Build catalog
 PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) is open with
 successful security checks and no reviews. Neither observation verifies Bot
 compatibility. Track these distinct gates in the [submission checklist](MARKETPLACE-SUBMISSION.md).
