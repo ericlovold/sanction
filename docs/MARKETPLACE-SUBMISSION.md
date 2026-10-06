@@ -34,7 +34,7 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | ChatGPT + Codex | `packages/sanction-approvals/` ZIP | 0.1.0 draft needs attention; MCP configured and authorized, domain verified, skill checks pass (2026-10-06) | Public terms URL, reviewer credentials, video, tool review and host evidence |
 | Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Marketplace rejected per publisher email; [community submission](https://cursor.directory/plugins/sanction) scanning, unpublished and hidden (2026-10-06) | Community security scan and authenticated host test; no public listing established |
 | Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-06 | Catalog review and authenticated host tests; publication pending |
-| Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible and enabled; invocation and lifecycle tests pending; public catalog route unverified |
+| Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible; read-only wallet smoke passed; approval lifecycle and public catalog route unverified |
 | Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
 | Slack | Slack app submission | Portal says not distributed; submission disabled. [Review packet / landing-page PR #347](https://github.com/ericlovold/sanction/pull/347) prepared | Audit legacy token delivery before public-distribution attestation, then external-workspace proof and usage eligibility |
 
@@ -176,11 +176,13 @@ On 2026-10-06, a custom `/mcp/approvals` connection reached the real Sanction
 OAuth consent page identifying Grok. After owner authorization, a dedicated
 review agent was created and connected; OAuth returned to Grok with Sanction
 Approvals shown as **Connected** and **Added**. Connection setup is verified;
-all eight tools are visible and enabled. Invocation and lifecycle tests remain pending.
+all eight tools are visible and enabled. One `sanction_wallet_status` invocation
+succeeded with zero pending approvals. No authorization or write action was
+invoked. Approval lifecycle tests remain pending.
 
 - [ ] **Eric:** Complete any account/terms steps personally; for a business team, confirm admin provisioning.
 - [x] **Together:** Add the custom `https://getsanction.com/mcp/approvals` connector and complete OAuth (2026-10-06).
-- [x] **Together:** Verify all eight tools are visible and enabled (2026-10-06).
+- [x] **Together:** Verify all eight tools are visible and enabled; run one successful read-only wallet-status call (2026-10-06).
 - [ ] **Together:** Run the common approval evidence checks, reconnect and revoke. Record the supported account/plan and authentication behavior.
 - [ ] **Eric:** Confirm the public catalog submission process with xAI; retain their actual publisher instructions before claiming a submission route.
 - [ ] **Engineering:** Adapt listing materials to that confirmed process.
@@ -209,8 +211,8 @@ Portal: select the app in [Slack app management](https://api.slack.com/apps), th
 Review and Submit.
 
 On 2026-10-06, a source audit confirmed the legacy shared-token path and
-missing uninstall/revocation handlers remain in main. A separate fix is pending;
-it is not deployed.
+missing uninstall/revocation handlers remain in main. [Fix PR #358](https://github.com/ericlovold/sanction/pull/358) is open;
+it is not merged or deployed.
 
 On 2026-10-03, submission was disabled until public distribution is enabled.
 The code still has a platform-wide `SANCTION_SLACK_BOT_TOKEN` fallback alongside
