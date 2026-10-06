@@ -47,9 +47,12 @@ the client id is set.
 An **incoming webhook** URL (`https://hooks.slack.com/...`) pasted into
 Notification routes gets readable Block Kit messages with a **Review in
 Sanction** link — no app, the URL is the secret, but Slack cannot send button
-clicks back. The env `SANCTION_SLACK_BOT_TOKEN` plus a pasted channel archive
-URL (`https://slack.com/archives/C…`) is the older platform-token fallback and
-also posts the link only. Interactive decisions require Add to Slack.
+clicks back. Interactive decisions require Add to Slack.
+
+**Compatibility:** pasted channel archive URLs (`https://slack.com/archives/C…`)
+no longer deliver notifications, even if `SANCTION_SLACK_BOT_TOKEN` is set.
+Existing routes remain stored; reconnect with **Add to Slack** or replace the
+route with an incoming-webhook URL. New archive routes are rejected.
 </details>
 
 ## Route different events to different channels

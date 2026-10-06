@@ -147,39 +147,32 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     expect(JSON.parse(String(slack[1].body)).blocks[0].text.text).toContain("84%")
   })
 
-  it("posts a review link via chat.postMessage when a channel URL and bot token are set", async () => {
+  it.each(["https://slack.com/archives/C0123456789", "https://app.slack.com/archives/C123"])("never delivers a saved archive target even with a legacy token: %s", async (url) => {
     vi.stubEnv("SANCTION_SLACK_BOT_TOKEN", "xoxb-test")
-    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
-    dbMock.webhook.findMany.mockResolvedValue([
-      { url: "https://slack.com/archives/C0123456789", secret: "whsec_slack", events: ["*"], isActive: true },
-    ])
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true })))
-    global.fetch = fetchMock as never
-
-    await deliverEvent("wallet_1", "approval.created", {
-      approval_id: "appr_1",
-      agent: "tenet",
-      amount_usd: 60,
-      merchant: "Vendor",
-    })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe("https://slack.com/api/chat.postMessage")
-    expect(new Headers(init.headers).get("authorization")).toBe("Bearer xoxb-test")
-    const body = JSON.parse(String(init.body))
-    expect(body.channel).toBe("C0123456789")
-    expect(body.blocks[1].elements[0]).toMatchObject({ text: { text: "Review in Sanction" } })
-  })
-
-  it("does not POST to slack.com/archives when the bot token is unset", async () => {
-    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
-    dbMock.webhook.findMany.mockResolvedValue([
-      { url: "https://slack.com/archives/C0123456789", secret: "whsec_slack", events: ["*"], isActive: true },
-    ])
+    const { deliverEvent, deliverPing } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    dbMock.webhook.findMany.mockResolvedValue([{ url, secret: "whsec_slack", events: ["*"], isActive: true }])
     const fetchMock = vi.fn(async () => new Response("ok"))
     global.fetch = fetchMock as never
     await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_1" })
+    await deliverPing(url, "whsec_slack")
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("keeps incoming-webhook query strings on webhook delivery, never the shared token", async () => {
+    vi.stubEnv("SANCTION_SLACK_BOT_TOKEN", "xoxb-test")
+    const { deliverEvent, deliverPing } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    const url = "https://hooks.slack.com/services/T/B/x?channel=C123"
+    dbMock.webhook.findMany.mockResolvedValue([{ url, secret: "whsec_slack", events: ["*"], isActive: true }])
+    const fetchMock = vi.fn(async () => new Response("ok"))
+    global.fetch = fetchMock as never
+    await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_1" })
+    await deliverPing(url, "whsec_slack")
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const [target, init] of fetchMock.mock.calls as unknown as Array<[string, RequestInit]>) {
+      expect(target).toBe(url)
+      expect(new Headers(init.headers).has("authorization")).toBe(false)
+      expect(new Headers(init.headers).has("x-sanction-signature")).toBe(false)
+    }
   })
 
   it("posts Approve/Deny via an OAuth install token without the env bot token", async () => {
@@ -209,6 +202,8 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe("https://slack.com/api/chat.postMessage")
     expect(new Headers(init.headers).get("authorization")).toBe("Bearer xoxb-install")
+    expect(dbMock.slackInstall.findMany).toHaveBeenCalledWith({ where: { walletId: "wallet_1", revokedAt: null } })
+    expect(decryptMock).toHaveBeenCalledWith({ encryptedValue: "enc", walletId: "wallet_1", label: "slack:bot:T123", keyId: "key_1" })
     const body = JSON.parse(String(init.body))
     expect(body.channel).toBe("C0123456789")
     const actionIds = body.blocks[1].elements.map((el: { action_id?: string }) => el.action_id)

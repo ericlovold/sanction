@@ -1,5 +1,6 @@
 "use server"
 
+import { isSlackArchiveUrl } from "@/lib/slack"
 import { openToolRequest } from "@/lib/toolRequest"
 import { revalidatePath } from "next/cache"
 import { after } from "next/server"
@@ -49,6 +50,7 @@ export async function addWebhookAction(_prev: WebhookActionState, form: FormData
   if (!wallet) return { ok: false, message: "Log in to add a webhook." }
 
   const url = String(form.get("url") ?? "").trim()
+  if (isSlackArchiveUrl(url)) return { ok: false, message: "Use Add to Slack to connect a channel, or enter an incoming-webhook URL." }
   if (!isPublicHttpsUrl(url)) return { ok: false, message: "Enter a public https:// URL." }
 
   // Per-channel routing: the form submits an events[] subset; anything outside

@@ -63,4 +63,10 @@ describe("addWebhookAction — event subscriptions", () => {
     expect(res.ok).toBe(false)
     expect(dbMock.webhook.create).not.toHaveBeenCalled()
   })
+
+  it.each(["https://slack.com/archives/C123", "https://app.slack.com/archives/C123"])("rejects archive registration: %s", async (url) => {
+    const res = await addWebhookAction({ ok: false, message: "" }, form(url, ["*"]))
+    expect(res).toMatchObject({ ok: false, message: expect.stringContaining("Add to Slack") })
+    expect(dbMock.webhook.create).not.toHaveBeenCalled()
+  })
 })
