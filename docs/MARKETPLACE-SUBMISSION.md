@@ -1,6 +1,6 @@
 # MCP distribution submission checklist
 
-Working checklist, checked 2026-10-03. Start with the [connection guide](CONNECT.md) ([public version](https://getsanction.com/docs/connect)). Connection tests, package checks and marketplace acceptance are separate milestones.
+Working checklist, updated 2026-10-06. Start with the [connection guide](CONNECT.md) ([public version](https://getsanction.com/docs/connect)). Connection tests, package checks and marketplace acceptance are separate milestones.
 
 ## What we are distributing
 
@@ -22,7 +22,7 @@ This is a reduced tool surface, **not a restricted credential**. The supplied ag
 
 ## Submission board
 
-Verified 2026-10-03 (America/Chicago). Checked boxes mean observed evidence,
+Observations are dated below; connector status updated 2026-10-06 (America/Chicago). Checked boxes mean observed evidence,
 not assumed acceptance. **Engineering** prepares artifacts and fixes; **Eric**
 owns accounts, identity, legal approval and submission; **Together** runs host tests.
 Portal identity, eligibility and review status must be checked in the actual account.
@@ -30,20 +30,22 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | Provider | Artifact / route | Current Sanction evidence | Next gate |
 | --- | --- | --- | --- |
 | MCP Registry / npm | `packages/sanction-mcp/` | 0.10.0 published; hosted `/mcp` entry verified | Complete; monitor releases separately from directories |
-| Claude | Remote connector submission | Portal confirmed receipt on 2026-10-03 | Review response; acceptance and publication pending |
-| ChatGPT + Codex | `packages/sanction-approvals/` ZIP | Current ZIP rebuilt with support URL; upload blocked by developer identity verification in both available organizations | Select publisher, verify identity, then terms, reviewer access, host tests and domain challenge |
-| Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Publisher application submitted; receipt confirmed 2026-10-03 | Marketplace review and authenticated host test remain pending |
-| Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) submitted 2026-10-03; pinned source and official local validators pass | Catalog review and authenticated host tests; publication pending |
-| Grok consumer | Custom MCP connection | Instructions prepared; current lifecycle unverified | Connection test, then establish public catalog route |
+| Claude | Remote connector | [Community listing](https://claude.ai/directory/sanction-approvals) renders all eight tools, observed 2026-10-06 | Fresh installation and recorded host lifecycle remain unverified |
+| ChatGPT + Codex | `packages/sanction-approvals/` ZIP | 0.1.0 draft needs attention; MCP configured and authorized, domain verified, skill checks pass (2026-10-06) | Public terms URL, reviewer credentials, video, tool review and host evidence |
+| Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Marketplace rejected per publisher email; [community submission](https://cursor.directory/plugins/sanction) scanning, unpublished and hidden (2026-10-06) | Community security scan and authenticated host test; no public listing established |
+| Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-06 | Catalog review and authenticated host tests; publication pending |
+| Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight-tool discovery and lifecycle tests; public catalog route unverified |
 | Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
 | Slack | Slack app submission | Portal says not distributed; submission disabled. [Review packet / landing-page PR #347](https://github.com/ericlovold/sanction/pull/347) prepared | Audit legacy token delivery before public-distribution attestation, then external-workspace proof and usage eligibility |
+
+Connector completion precedes activation and go-to-market work; listing presence alone does not complete the host tests.
 
 ### Shared preparation — do once, reuse carefully
 
 - [x] **Engineering:** Publish MCP 0.10.0 to npm and the official Registry. [Successful workflow](https://github.com/ericlovold/sanction/actions/runs/37089864969).
 - [x] **Engineering:** Complete the production canary across all three personas. [Passing run](https://github.com/ericlovold/sanction/actions/runs/37089772489).
 - [x] **Engineering:** Verify public `/privacy` and `/support` return HTTP 200.
-- [ ] **Eric + Engineering:** Approve and publish terms; `/terms` returned 404 at this check. Add the URL to relevant listing manifests.
+- [ ] **Eric + Engineering:** Approve and publish terms; `/terms` returned 404 on 2026-10-06. Add the URL to relevant listing manifests.
 - [ ] **Together:** Prepare a dedicated reviewer identity, sample data and host-specific login instructions. Do not weaken production authentication for review.
 - [ ] **Engineering:** Assemble logo, concise one-off approval description, setup/disconnection guide, annotation rationale and versioned release notes.
 - [ ] **Together:** Record the actual host, version, date, input, sanitized result and outcome for every case. No credentials in recordings, packages or public reports.
@@ -58,9 +60,10 @@ Use the [Claude review packet](CLAUDE-SUBMISSION.md) for listing copy and tool-b
 
 Portal: [Claude directory management](https://claude.ai/directory/manage).
 
-On 2026-10-03, the portal confirmed **Server submitted for review** for Sanction
-Approvals at `/mcp/approvals`. This records receipt only; the remaining review,
-publication and fresh-install checks below are not complete.
+On 2026-10-06, the [Sanction Approvals directory page](https://claude.ai/directory/sanction-approvals)
+rendered a **Community** listing with all eight tools. This is listing evidence,
+not Verified status or a fresh-install test. The portal receipt was recorded on
+2026-10-03; recorded host lifecycle checks remain incomplete.
 
 - [ ] **Eric:** Select the owning organization and confirm eligible account/role access. Keep ownership consistent if adding a plugin bundle later.
 - [ ] **Engineering:** Prepare the HTTPS approval endpoint, OAuth discovery and supported client registration, tool titles and accurate safety annotations.
@@ -68,7 +71,8 @@ publication and fresh-install checks below are not complete.
 - [ ] **Engineering:** Audit Claude-specific annotation requirements: its review checklist calls for `destructiveHint: true` on data-modifying tools. Resolve any discrepancy with the current metadata rationale below before submission; do not assume existing annotations pass or change shared metadata without review.
 - [ ] **Engineering:** Prepare listing copy, categories, icon, documentation, privacy/support links, prerequisites, data-handling answers and reviewer instructions.
 - [ ] **Eric:** Supply a populated reviewer account privately and complete compliance declarations. Explain that Sanction grants permission; it does not transfer financial assets or execute purchases.
-- [ ] **Eric + Engineering:** Submit the remote connector, resolve scan/review findings and verify the actual directory entry and fresh installation. Do not claim Verified status from a Community listing.
+- [x] **Eric + Engineering:** Submit the remote connector and verify its Community directory entry (2026-10-06).
+- [ ] **Together:** Verify a fresh installation and resolve any remaining host findings. Do not claim Verified status from a Community listing.
 - [ ] **Engineering, if adding skills:** Build and validate a Claude-compatible plugin bundle, then submit it as a separate entry under the same organization and MCP URL. The Cursor/OpenAI package is not automatically a Claude submission.
 
 **Done:** A published connector and recorded Claude behavior. Connector and
@@ -82,14 +86,21 @@ plugin-bundle review paths differ; do not assume OpenAI's publish steps apply.
 
 Portal: [OpenAI Plugins](https://platform.openai.com/plugins).
 
-On 2026-10-03, both available organizations required developer identity
-verification before creating or uploading a plugin. No draft or domain challenge
-was created. The rebuilt ZIP includes `supportURL`; `/terms` still returned 404.
+On 2026-10-06, Sanction Approvals 0.1.0 is **Draft — Needs attention**.
+MCP is configured and authorized, the domain is verified, and skill checks pass.
+Five positive and three negative review cases are populated; their presence
+is not execution evidence. Reviewer credentials and the video URL are blank.
+The authorize/provision tools show a generic further-review notice; the portal
+shows no specific schema fault to repair.
 
-- [ ] **Eric:** Select the owning organization/project; verify publishing identity and submission permission.
+The required `interface.termsOfServiceURL` is absent. `/terms` returns 404 and
+no approved alternative was found. Publish approved terms before adding the URL;
+do not package a broken link as a completed gate.
+
+- [x] **Eric + Engineering:** Create the draft, upload the package, authorize MCP and verify the domain (2026-10-06).
 - [x] **Engineering:** Rebuild the ZIP from current `packages/sanction-approvals/`, including its MCP configuration and skill. Exclude secrets; do not upload an older archive missing `supportURL`.
 - [ ] **Engineering:** Supply HTTPS website/support/privacy/terms URLs; validate listing fields, assets and tool annotations with justifications.
-- [ ] **Eric + Engineering:** Upload, resolve package/skill findings, select the MCP server, complete the exact domain challenge, authenticate, and obtain a current successful tool scan.
+- [ ] **Eric + Engineering:** Resolve remaining listing and tool-review findings; obtain a successful review outcome.
 - [ ] **Together:** Run exactly five positive and three negative cases with the review account; provide an accessible video and release notes.
 - [ ] **Eric:** Enter reviewer credentials privately in the portal. Review access must work without interactive MFA, email/SMS codes, magic links or private-network access.
 - [ ] **Together:** Verify installation and approval resumption separately in ChatGPT and Codex; a local MCP config is not a ChatGPT listing.
@@ -108,16 +119,22 @@ Portal: [Cursor Marketplace publish](https://cursor.com/marketplace/publish).
 Published package: [sanction-plugin](https://github.com/ericlovold/sanction-plugin),
 version 0.1.0, commit `f0e079be6715b99b8a7d0dc4644ed1fd0543644e`. It contains
 only the MIT plugin, with separate Cursor and Grok Build configurations. Both use
-the full ten-tool `/mcp` profile and an agent key. Eric supplied the portal receipt
-on 2026-10-03 at 19:44 America/Chicago: “Thanks for applying” and “We've received
-your submission.” Marketplace acceptance and authenticated host testing remain
-pending.
+the full ten-tool `/mcp` profile and an agent key. The marketplace application
+was rejected, per the publisher email reviewed on 2026-10-06.
+
+A separate [Cursor Directory community submission](https://cursor.directory/plugins/sanction)
+was created on 2026-10-06 through its [submission form](https://cursor.directory/plugins/new).
+It reports a pending security scan and remains unpublished and hidden. The
+scanner selected the repository's Grok configuration; the submitted MCP component
+was corrected to the Cursor configuration: `/mcp` with
+`x-api-key: ${SANCTION_AGENT_KEY}`. No credential value was submitted in that field.
+Authenticated host testing remains pending.
 
 - [x] **Engineering:** Extract the MIT `cursor-plugin/` package into its own public repository, with manifest, license, logo, four skills, MCP configuration and setup README at the supported root. Do not relabel the parent FSL repository as MIT.
 - [x] **Engineering:** Validate manifest paths/frontmatter and every declared `${SANCTION_AGENT_KEY}` variable; remove all credential values.
 - [ ] **Together:** Load the plugin locally in Cursor. Verify discovery, secret configuration, wallet status, request/pause, exact redemption and denial.
 - [x] **Eric:** Submit the public repository URL and publisher application for manual review; portal receipt confirmed 2026-10-03.
-- [ ] **Together:** Resolve review findings, then verify installation from the actual listing in a clean profile.
+- [ ] **Together:** Track the community security scan and resolve findings; verify any published listing and installation in a clean profile. Community acceptance does not reverse the marketplace rejection.
 
 **Done:** Accepted public listing and a recorded Cursor lifecycle. A direct MCP
 install link or successful local load is not marketplace acceptance. Cursor
@@ -131,7 +148,8 @@ chosen packaging path. [Plugin requirements](https://cursor.com/docs/reference/p
 
 Submitted [xAI catalog PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156)
 on 2026-10-03. The official route is a catalog pull request; consumer Grok and
-Grok Bot remain separate distribution questions.
+Grok Bot remain separate distribution questions. On 2026-10-06, PR #1156 is
+open, its security checks pass, and it has no reviews; publication remains pending.
 
 - [x] **Engineering:** Publish the standalone MIT package and pin source commit `f0e079be6715b99b8a7d0dc4644ed1fd0543644e`.
 - [x] **Engineering:** Add the Sanction entry and regenerate the index; full generation fetched the public source. `validate-catalog.py` and `generate-plugin-index.py --check` pass.
@@ -154,8 +172,15 @@ scope; it does not attest that this is an approvals-only connector.
 
 Connection entry: [Grok Connectors](https://grok.com/connectors).
 
+On 2026-10-06, a custom `/mcp/approvals` connection reached the real Sanction
+OAuth consent page identifying Grok. After owner authorization, a dedicated
+review agent was created and connected; OAuth returned to Grok with Sanction
+Approvals shown as **Connected** and **Added**. Connection setup is verified;
+tool discovery and lifecycle tests remain pending.
+
 - [ ] **Eric:** Complete any account/terms steps personally; for a business team, confirm admin provisioning.
-- [ ] **Together:** Add New Connector → Custom using `https://getsanction.com/mcp/approvals`; complete the offered authentication and verify eight-tool discovery.
+- [x] **Together:** Add the custom `https://getsanction.com/mcp/approvals` connector and complete OAuth (2026-10-06).
+- [ ] **Together:** Verify eight-tool discovery.
 - [ ] **Together:** Run the common approval evidence checks, reconnect and revoke. Record the supported account/plan and authentication behavior.
 - [ ] **Eric:** Confirm the public catalog submission process with xAI; retain their actual publisher instructions before claiming a submission route.
 - [ ] **Engineering:** Adapt listing materials to that confirmed process.
