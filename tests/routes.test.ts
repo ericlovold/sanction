@@ -204,3 +204,10 @@ describe("reserved vault labels are feature-owned (PROV-1 fix)", () => {
     expect(res.status).toBe(400)
   })
 })
+
+it("rejects changing a webhook to a Slack archive URL", async () => {
+  const res = await patchWebhook(req("PATCH", "/api/v1/webhooks", { headers: mgmt, body: { wallet_id: WID, id: "wh1", url: "https://app.slack.com/archives/C123" } }))
+  expect(res.status).toBe(400)
+  expect((await res.json()).error).toContain("Add to Slack")
+  expect(dbMock.webhook.update).not.toHaveBeenCalled()
+})

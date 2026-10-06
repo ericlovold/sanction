@@ -2,7 +2,7 @@ import { createHmac } from "crypto"
 import { describe, expect, it } from "vitest"
 import {
   parseSlackInteractiveBody,
-  slackChannelIdFromUrl,
+  isSlackArchiveUrl,
   slackDecisionFromPayload,
   slackInteractivePayload,
   issueSlackActionToken,
@@ -66,12 +66,12 @@ describe("verifySlackSignature", () => {
   })
 })
 
-describe("slackChannelIdFromUrl", () => {
-  it("reads C-ids from archive URLs and incoming-webhook query params", () => {
-    expect(slackChannelIdFromUrl("https://slack.com/archives/C0123456789")).toBe("C0123456789")
-    expect(slackChannelIdFromUrl("https://hooks.slack.com/services/T/B/x?channel=C0ABCDEFG")).toBe("C0ABCDEFG")
-    expect(slackChannelIdFromUrl("https://hooks.slack.com/services/T/B/x")).toBeNull()
-    expect(slackChannelIdFromUrl("https://api.example.com/hook")).toBeNull()
+describe("isSlackArchiveUrl", () => {
+  it.each(["https://slack.com/archives/C0123456789", "https://app.slack.com/archives/C123", "https://example.slack.com/archives/C123"])("rejects archive destination %s", (url) => {
+    expect(isSlackArchiveUrl(url)).toBe(true)
+  })
+  it.each(["https://hooks.slack.com/services/T/B/x?channel=C123", "https://api.example.com/archives/C123", "invalid"])("does not classify a webhook as an archive: %s", (url) => {
+    expect(isSlackArchiveUrl(url)).toBe(false)
   })
 })
 
