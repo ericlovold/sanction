@@ -218,12 +218,13 @@ worth keeping as canonical positioning:
   bypasses the broker is not governed; the claim stays scoped to what flows
   through it.
 - **The arc.** Today: govern spend, provisioning, tool, and capability actions
-  through one engine, with human approval everywhere it escalates and Sanction
-  Local for air-gapped deployments — both shipped. Next: the MCP broker, the
-  published SDK and its Python side, per-agent Wallet Cards, and decision
-  receipts. Later: cryptographic audit anchors + customer-managed keys +
-  payment-rail neutrality. `lib/roadmap.ts` is the authority; this line is a
-  summary of it.
+  through one engine, with human approval everywhere it escalates, Sanction
+  Local for air-gapped deployments, the MCP broker, and the published
+  TypeScript SDK (`npm install sanction-sdk`) — shipped. Next: PyPI publish
+  and LangChain/LangGraph + CrewAI adapters, per-agent Wallet Cards, and
+  decision receipts. Later: cryptographic audit anchors + customer-managed
+  keys + payment-rail neutrality. `lib/roadmap.ts` is the authority; this
+  line is a summary of it.
 - **Across platforms, not inside one.** Incumbents optimize governance inside
   their own platform. Sanction optimizes authorization across platforms —
   providers, payment rails, identities, and agent ecosystems.
