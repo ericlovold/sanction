@@ -36523,7 +36523,12 @@ function renderDecisionResult(payload, opts) {
   } else if (polling && status === "approved") {
     const grantId = string4(result.grant_id);
     const expiry = result.grant_expires_at;
-    const validExpiry = expiry === null || typeof expiry === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(expiry) && Number.isFinite(Date.parse(expiry)) && Date.parse(expiry) > Date.now();
+    const now = Date.now();
+    const parsedExpiry = typeof expiry === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(expiry) ? Date.parse(expiry) : NaN;
+    if (decision.grant_status === "active" && result.grant_consumed_at == null && Number.isFinite(parsedExpiry) && parsedExpiry <= now) {
+      decision.grant_status = "expired";
+    }
+    const validExpiry = expiry === null || Number.isFinite(parsedExpiry) && parsedExpiry > now;
     if (result.grant_status === "active" && grantId && validExpiry && result.grant_consumed_at == null) {
       decision.grant_id = grantId;
       decision.next_action = "retry_with_grant";
@@ -36586,9 +36591,18 @@ function renderWalletStatus(result) {
   if (!isWalletStatusResult(result)) {
     return { ok: false, text: walletStatusFailureText(result) };
   }
+  const agentName = typeof result.agent_name === "string" && result.agent_name.trim() ? result.agent_name : void 0;
+  const data = {
+    ...agentName ? { agent_name: agentName } : {},
+    today: { token_cost_usd: result.today.token_cost_usd, spend_usd: result.today.spend_usd },
+    month: { token_cost_usd: result.month.token_cost_usd, spend_usd: result.month.spend_usd },
+    pending_approvals: result.pending_approvals
+  };
   return {
     ok: true,
+    data,
     text: [
+      ...agentName ? [`Agent: ${JSON.stringify(agentName)}`] : [],
       `Today - tokens: ${fmtUsd(result.today.token_cost_usd)} | spend: ${fmtUsd(result.today.spend_usd)}`,
       `Month - tokens: ${fmtUsd(result.month.token_cost_usd)} | spend: ${fmtUsd(result.month.spend_usd)}`,
       result.pending_approvals > 0 ? `Attention: ${result.pending_approvals} pending approval(s)` : "No pending approvals"
@@ -36976,7 +36990,8 @@ function createSanctionMcpServer(opts) {
           content: [{
             type: "text",
             text: status.text
-          }]
+          }],
+          structuredContent: { ...status.data }
         };
       }
     );

@@ -1,6 +1,7 @@
 import { fmtUsd } from "./format"
 
 export type WalletStatusResult = {
+  agent_name?: string
   today: {
     token_cost_usd: number
     spend_usd: number
@@ -13,7 +14,7 @@ export type WalletStatusResult = {
 }
 
 type WalletStatusRender =
-  | { ok: true; text: string }
+  | { ok: true; text: string; data: WalletStatusResult }
   | { ok: false; text: string }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -54,9 +55,20 @@ export function renderWalletStatus(result: unknown): WalletStatusRender {
     return { ok: false, text: walletStatusFailureText(result) }
   }
 
+  // Keep only the caller display label and budget summary in model context.
+  const agentName = typeof result.agent_name === "string" && result.agent_name.trim()
+    ? result.agent_name : undefined
+  const data: WalletStatusResult = {
+    ...(agentName ? { agent_name: agentName } : {}),
+    today: { token_cost_usd: result.today.token_cost_usd, spend_usd: result.today.spend_usd },
+    month: { token_cost_usd: result.month.token_cost_usd, spend_usd: result.month.spend_usd },
+    pending_approvals: result.pending_approvals,
+  }
   return {
     ok: true,
+    data,
     text: [
+      ...(agentName ? [`Agent: ${JSON.stringify(agentName)}`] : []),
       `Today - tokens: ${fmtUsd(result.today.token_cost_usd)} | spend: ${fmtUsd(result.today.spend_usd)}`,
       `Month - tokens: ${fmtUsd(result.month.token_cost_usd)} | spend: ${fmtUsd(result.month.spend_usd)}`,
       result.pending_approvals > 0 ? `Attention: ${result.pending_approvals} pending approval(s)` : "No pending approvals",

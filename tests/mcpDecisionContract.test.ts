@@ -217,6 +217,37 @@ describe("MCP decisions consumed by a host", () => {
     expect(JSON.stringify(response)).not.toContain("unusable-grant")
   })
 
+  it.each([
+    ["active", "expired"], ["consumed", "consumed"], ["revoked", "revoked"],
+  ])("reports effective expiry while preserving %s precedence", async (stored, effective) => {
+    const response = await call({ authorized: true, status: "approved", request_id: "req_test",
+      grant_id: "expired-grant", grant_status: stored, grant_expires_at: "2000-01-01T00:00:00Z" }, poll)
+    expect(response.isError).toBe(false)
+    expect(response.structuredContent).toMatchObject({ authorized: false, status: "approved",
+      next_action: "stop", grant_status: effective })
+    const blocks = response.content as Array<{ type: string; text: string }>
+    expect(JSON.parse(blocks[1].text)).toEqual(response.structuredContent)
+    expect(blocks[0].text).toContain(`grant ${effective}`)
+    expect(JSON.stringify(response)).not.toContain("expired-grant")
+  })
+
+  it("expires at the exact boundary without overwriting consumed evidence", async () => {
+    const now = new Date("2026-10-06T12:00:00Z")
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now.getTime())
+    try {
+      for (const consumedAt of [null, "2026-10-06T11:59:00Z"]) {
+        const response = await call({ authorized: true, status: "approved", request_id: "req_test",
+          grant_id: "unusable", grant_status: "active", grant_expires_at: now.toISOString(),
+          grant_consumed_at: consumedAt }, poll)
+        expect(response.structuredContent).toMatchObject({ authorized: false, next_action: "stop",
+          grant_status: consumedAt ? "active" : "expired", grant_consumed_at: consumedAt })
+        expect(response.structuredContent).not.toHaveProperty("grant_id")
+      }
+    } finally {
+      clock.mockRestore()
+    }
+  })
+
   it("rejects a poll response attributed to a different request", async () => {
     const response = await call({ authorized: true, status: "approved", request_id: "req_other", grant_id: "gr_other", grant_status: "active", grant_expires_at: "2099-01-01T00:00:00Z" }, poll)
     expect(response.isError).toBe(true)

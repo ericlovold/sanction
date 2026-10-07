@@ -88,9 +88,15 @@ export function renderDecisionResult(
   } else if (polling && status === "approved") {
     const grantId = string(result.grant_id)
     const expiry = result.grant_expires_at
-    const validExpiry = expiry === null || (typeof expiry === "string"
+    const now = Date.now()
+    const parsedExpiry = typeof expiry === "string"
       && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(expiry)
-      && Number.isFinite(Date.parse(expiry)) && Date.parse(expiry) > Date.now())
+      ? Date.parse(expiry) : NaN
+    if (decision.grant_status === "active" && result.grant_consumed_at == null
+        && Number.isFinite(parsedExpiry) && parsedExpiry <= now) {
+      decision.grant_status = "expired"
+    }
+    const validExpiry = expiry === null || (Number.isFinite(parsedExpiry) && parsedExpiry > now)
     if (result.grant_status === "active" && grantId && validExpiry && result.grant_consumed_at == null) {
       decision.grant_id = grantId
       decision.next_action = "retry_with_grant"

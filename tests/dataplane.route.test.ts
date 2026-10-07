@@ -781,18 +781,21 @@ describe("wallets/stats — membership required (owner or in-wallet agent)", () 
     const body = await res.json()
     expect(body.today).toMatchObject({ token_cost_usd: 1.5, spend_usd: 20 })
     expect(body.pending_approvals).toBe(2)
+    expect(body).not.toHaveProperty("agent_name")
   })
 
   it("serves an in-wallet agent via its API key", async () => {
     dbMock.wallet.findUnique.mockResolvedValue(null) // no mgmt key presented
     const res = await getStats(req("GET", `/api/v1/wallets/stats?wallet_id=${WID}`, { headers: agentH }))
     expect(res.status).toBe(200)
+    expect((await res.json()).agent_name).toBe(AGENT.name)
   })
 
   it("derives the wallet from the agent key when wallet_id is omitted", async () => {
     const res = await getStats(req("GET", "/api/v1/wallets/stats", { headers: agentH }))
     expect(res.status).toBe(200)
     const body = await res.json()
+    expect(body.agent_name).toBe(AGENT.name)
     // Scoped to the key's own wallet — same read the explicit wallet_id form gets.
     expect(body.today).toMatchObject({ token_cost_usd: 1.5, spend_usd: 20 })
     expect(body.scope).toBe("wallet")
