@@ -13,12 +13,31 @@ describe("MCP wallet status guard", () => {
 
     expect(renderWalletStatus(VALID_STATS)).toEqual({
       ok: true,
+      data: VALID_STATS,
       text: [
         "Today - tokens: $1.23 | spend: $12.30",
         "Month - tokens: $4.50 | spend: $67.00",
         "Attention: 2 pending approval(s)",
       ].join("\n"),
     })
+  })
+
+  it("exposes only the optional authenticated display label and budget summary", () => {
+    const rendered = renderWalletStatus({ ...VALID_STATS, agent_name: "Test agent\\nlabel",
+      agent_id: "private-id", apiKeyHash: "private-hash", recent_auth: [{ agent: "someone else" }],
+      today: { ...VALID_STATS.today, private: "hidden" } })
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error("Expected valid stats")
+    expect(rendered.data).toEqual({ ...VALID_STATS, agent_name: "Test agent\\nlabel" })
+    expect(rendered.text).toContain('Agent: "Test agent')
+    expect(JSON.stringify(rendered)).not.toMatch(/private-id|private-hash|someone else|hidden/)
+  })
+
+  it.each([null, 42, {}, "", "   "])("omits malformed optional display labels: %j", agent_name => {
+    const rendered = renderWalletStatus({ ...VALID_STATS, agent_name })
+    expect(rendered.ok).toBe(true)
+    expect(rendered.text).not.toContain("Agent:")
+    if (rendered.ok) expect(rendered.data).not.toHaveProperty("agent_name")
   })
 
   it("reports no pending approvals when the wallet is healthy with zero pending items", () => {

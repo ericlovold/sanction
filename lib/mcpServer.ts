@@ -411,6 +411,7 @@ server.registerTool(
         type: "text" as const,
         text: status.text,
       }],
+      structuredContent: { ...status.data },
     }
   }
 )

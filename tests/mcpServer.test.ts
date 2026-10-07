@@ -419,6 +419,9 @@ describe("createSanctionMcpServer — tool handlers", () => {
         today: { token_cost_usd: 0.1, spend_usd: 1 },
         month: { token_cost_usd: 0.2, spend_usd: 2 },
         pending_approvals: 0,
+        agent_name: "Synthetic agent",
+        apiKeyHash: "private-hash",
+        recent_auth: [{ agent: "other agent" }],
       }),
     )
     const status = (await client.callTool({ name: "sanction_wallet_status", arguments: {} })) as {
@@ -427,6 +430,9 @@ describe("createSanctionMcpServer — tool handlers", () => {
     }
     expect(status.isError).toBeFalsy()
     expect(status.content[0].text).toMatch(/spend|token|pending/i)
+    expect(status.content[0].text).toContain('Agent: "Synthetic agent"')
+    expect(status).toMatchObject({ structuredContent: { agent_name: "Synthetic agent" } })
+    expect(JSON.stringify(status)).not.toMatch(/private-hash|other agent/)
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }))
     const statusErr = (await client.callTool({ name: "sanction_wallet_status", arguments: {} })) as {

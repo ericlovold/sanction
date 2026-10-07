@@ -8,6 +8,7 @@ import { decisionsThisMonth } from "@/lib/decisionMeter"
 
 export async function GET(req: NextRequest) {
   let walletId = req.nextUrl.searchParams.get("wallet_id")
+  let agentName: string | undefined
   let ownerWallet: Awaited<ReturnType<typeof authenticateOwner>>["wallet"] = null
 
   if (walletId) {
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
       if (!agent || agent.walletId !== walletId) {
         return NextResponse.json({ error: "Unauthorized: management key or wallet agent key required" }, { status: 401 })
       }
+      agentName = agent.name
     }
   } else {
     // No wallet_id: an agent key already names its wallet — derive it, so MCP
@@ -33,6 +35,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "wallet_id required (or authenticate with an agent key to use its wallet)" }, { status: 400 })
     }
     walletId = agent.walletId
+    agentName = agent.name
   }
 
   const dayStart = new Date()
@@ -76,6 +79,7 @@ export async function GET(req: NextRequest) {
   const monthPace = monthlyPace(monthSpendUsd, monthCapUsd, now)
 
   return NextResponse.json({
+    ...(agentName !== undefined ? { agent_name: agentName } : {}),
     today: {
       token_cost_usd: tokenDay._sum.costUsd ?? 0,
       tokens_in: tokenDay._sum.tokensIn ?? 0,
