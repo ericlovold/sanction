@@ -65,7 +65,7 @@ describe("MCP decisions consumed by a host", () => {
     expect(JSON.stringify(response.content)).not.toContain("until it returns")
   })
 
-  it.each([...actions, poll])("$name replaces legacy polling hints with bounded review guidance", async tool => {
+  it.each(actions)("$name replaces legacy polling hints with bounded review guidance", async tool => {
     for (const status of ["pending", "escalated"]) {
       const response = await call({ authorized: false, status, request_id: "req_test",
         code: "TOOL_ESCALATION_REQUIRED", reason: "Agent requested human approval",
@@ -78,6 +78,28 @@ describe("MCP decisions consumed by a host", () => {
       expect(hint).toContain("once with request_id: req_test")
       expect(hint).toContain("Do not retry or automatically request another approval")
       expect((response.content as Array<{ text: string }>)[0].text).toContain(hint)
+      expect(JSON.stringify(response)).not.toMatch(/auto-approve threshold|Poll request_id/)
+      expect(response.structuredContent).not.toHaveProperty("grant_id")
+    }
+  })
+
+  it("does not tell a pending check to check again", async () => {
+    for (const status of ["pending", "escalated"]) {
+      const response = await call({ authorized: false, status, request_id: "req_test",
+        code: "TOOL_ESCALATION_REQUIRED", reason: "Agent requested human approval",
+        remediation: "Over the auto-approve threshold. Poll request_id for status." }, poll)
+      expect(response.isError).toBe(false)
+      expect(response.structuredContent).toMatchObject({ authorized: false, status, next_action: "wait",
+        request_id: "req_test", code: "TOOL_ESCALATION_REQUIRED", reason: "Agent requested human approval" })
+      const hint = (response.structuredContent as Record<string, unknown>).remediation as string
+      expect(hint).toContain("Still awaiting the owner's decision")
+      expect(hint).toContain("Do not proceed")
+      expect(hint).toContain("Do not check again automatically or request another approval")
+      expect(hint).toContain("request_id: req_test")
+      expect(hint).toContain("Check again only after they say they have decided")
+      expect(hint).not.toMatch(/call sanction_check_authorization|once with request_id/)
+      expect((response.content as Array<{ text: string }>)[0].text).toContain(hint)
+      expect(JSON.parse((response.content as Array<{ text: string }>)[1].text)).toEqual(response.structuredContent)
       expect(JSON.stringify(response)).not.toMatch(/auto-approve threshold|Poll request_id/)
       expect(response.structuredContent).not.toHaveProperty("grant_id")
     }

@@ -87,9 +87,13 @@ export function renderDecisionResult(
     decision.next_action = "wait"
     // REST hints may describe spend thresholds or repeated polling. MCP hosts
     // need one action instruction regardless of which authorization produced it.
-    decision.remediation = decision.request_id
-      ? `Pause and wait for human review, then call sanction_check_authorization once with request_id: ${decision.request_id}. Do not retry or automatically request another approval.`
-      : "Pause and notify the owner because no request_id was returned. Do not retry or automatically request another approval."
+    // A check that is itself still pending must not reissue the check instruction,
+    // or a host that obeys every response literally will poll forever.
+    decision.remediation = polling
+      ? `Still awaiting the owner's decision. Do not proceed. Do not check again automatically or request another approval. Tell the owner this request is awaiting approval (request_id: ${decision.request_id}). Check again only after they say they have decided.`
+      : decision.request_id
+        ? `Pause and wait for human review, then call sanction_check_authorization once with request_id: ${decision.request_id}. Do not retry or automatically request another approval.`
+        : "Pause and notify the owner because no request_id was returned. Do not retry or automatically request another approval."
     text = `${status.toUpperCase()} — ${sentence(decision.reason ?? "Still awaiting the owner's approval")}. Do not ${opts.verb ?? "proceed"}. ${decision.remediation}`
   } else if (polling && status === "approved") {
     const grantId = string(result.grant_id)
