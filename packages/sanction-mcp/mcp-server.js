@@ -36510,6 +36510,7 @@ function renderDecisionResult(payload, opts) {
     decision.code ??= hasError ? "SANCTION_ERROR" : "SANCTION_INVALID_RESPONSE";
     decision.reason ??= string4(result.error) ?? "Sanction returned a malformed or contradictory decision.";
     if (polling) decision.request_id = opts.requestId;
+    decision.remediation = "Stop and notify the owner. Do not retry automatically.";
     text = `${decision.code} \u2014 ${decision.reason}. Do not ${opts.verb ?? "proceed"}; stop and notify the owner. Do not retry automatically.`;
   } else if (!polling && result.authorized === true) {
     decision.authorized = true;
@@ -36519,7 +36520,8 @@ function renderDecisionResult(payload, opts) {
     text = `${opts.success ?? "Authorized"}${requestId ? ` (${requestId})` : ""}${decision.grant_status === "consumed" ? " \xB7 grant consumed" : ""}`;
   } else if (status === "escalated" || status === "pending") {
     decision.next_action = "wait";
-    text = `${status.toUpperCase()} \u2014 ${sentence(decision.reason ?? "Still awaiting the owner's approval")}. Do not ${opts.verb ?? "proceed"}. Pause and wait for human review${decision.request_id ? `, then call sanction_check_authorization once with request_id: ${decision.request_id}` : "; notify the owner because no request_id was returned"}.`;
+    decision.remediation = decision.request_id ? `Pause and wait for human review, then call sanction_check_authorization once with request_id: ${decision.request_id}. Do not retry or automatically request another approval.` : "Pause and notify the owner because no request_id was returned. Do not retry or automatically request another approval.";
+    text = `${status.toUpperCase()} \u2014 ${sentence(decision.reason ?? "Still awaiting the owner's approval")}. Do not ${opts.verb ?? "proceed"}. ${decision.remediation}`;
   } else if (polling && status === "approved") {
     const grantId = string4(result.grant_id);
     const expiry = result.grant_expires_at;
@@ -37001,7 +37003,7 @@ function createSanctionMcpServer(opts) {
       "sanction_check_authorization",
       {
         title: "Check and settle authorization",
-        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Poll an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, pause and wait for human review, then check once; do not poll indefinitely. This check always returns authorized:false. Only next_action:retry_with_grant exposes a usable active grant: retry the ORIGINAL authorize call with identical fields plus that grant_id; execute only after that call returns authorized:true. Consumed, expired, revoked, or missing grants mean stop. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
+        description: "Returns a structured decision and readable text. isError:false means the check succeeded, not permission; use authorized and next_action. Check an authorization request that returned 'escalated', to see whether the wallet owner has approved it yet. Pass the request_id from the escalated authorize/provision/tool response. While pending, pause and wait for human review, then check once; do not poll indefinitely. This check always returns authorized:false. Only next_action:retry_with_grant exposes a usable active grant: retry the ORIGINAL authorize call with identical fields plus that grant_id; execute only after that call returns authorized:true. Consumed, expired, revoked, or missing grants mean stop. If denied, do not proceed. Polling can settle an expired approval under the wallet timeout policy and mint a grant; it is not read-only.",
         inputSchema: {
           request_id: external_exports.string().describe("The request_id from an escalated authorize/provision/tool response")
         },

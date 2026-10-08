@@ -65,6 +65,38 @@ describe("MCP decisions consumed by a host", () => {
     expect(JSON.stringify(response.content)).not.toContain("until it returns")
   })
 
+  it.each([...actions, poll])("$name replaces legacy polling hints with bounded review guidance", async tool => {
+    for (const status of ["pending", "escalated"]) {
+      const response = await call({ authorized: false, status, request_id: "req_test",
+        code: "TOOL_ESCALATION_REQUIRED", reason: "Agent requested human approval",
+        remediation: "Over the auto-approve threshold. Poll request_id for status." }, tool)
+      expect(response.isError).toBe(false)
+      expect(response.structuredContent).toMatchObject({ authorized: false, next_action: "wait",
+        code: "TOOL_ESCALATION_REQUIRED", reason: "Agent requested human approval" })
+      const hint = (response.structuredContent as Record<string, unknown>).remediation as string
+      expect(hint).toContain("wait for human review")
+      expect(hint).toContain("once with request_id: req_test")
+      expect(hint).toContain("Do not retry or automatically request another approval")
+      expect((response.content as Array<{ text: string }>)[0].text).toContain(hint)
+      expect(JSON.stringify(response)).not.toMatch(/auto-approve threshold|Poll request_id/)
+      expect(response.structuredContent).not.toHaveProperty("grant_id")
+    }
+  })
+
+  it("does not invent a check target when a pending authorization omits its request ID", async () => {
+    const response = await call({ authorized: false, status: "escalated", remediation: "Poll for status." })
+    expect(response.structuredContent).toMatchObject({ authorized: false, next_action: "wait" })
+    expect((response.structuredContent as Record<string, unknown>).remediation).toContain("notify the owner because no request_id")
+    expect(JSON.stringify(response)).not.toContain("sanction_check_authorization")
+  })
+
+  it("does not retain wait guidance from a contradictory check response", async () => {
+    const response = await call({ authorized: true, status: "pending", remediation: "Poll for status." }, poll)
+    expect(response.isError).toBe(true)
+    expect(response.structuredContent).toMatchObject({ authorized: false, next_action: "stop",
+      remediation: "Stop and notify the owner. Do not retry automatically." })
+  })
+
   it.each(actions)("$name returns an explicit terminal denial", async tool => {
     const response = await call({ authorized: false, status: "denied", code: "POLICY_DENIED", reason: "Blocked", request_id: "req_test" }, tool)
     expect(response.isError).toBe(false)
