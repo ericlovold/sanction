@@ -14,18 +14,18 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://getsanction.com"),
   title: "Sanction — One-off human approvals for AI agent actions",
   description:
-    "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
+    "Review a deployment, approve an expense, or check a message before your AI acts. One-off approvals across your AI tools. Free for individuals.",
   openGraph: {
-    title: "Let your agent ask before it acts.",
-    description: "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
+    title: "Human oversight. Autonomous agents.",
+    description: "Review a deployment, approve an expense, or check a message before your AI acts. One-off approvals across your AI tools. Free for individuals.",
     url: "https://getsanction.com",
     siteName: "Sanction",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Let your agent ask before it acts.",
-    description: "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
+    title: "Human oversight. Autonomous agents.",
+    description: "Review a deployment, approve an expense, or check a message before your AI acts. One-off approvals across your AI tools. Free for individuals.",
   },
   appleWebApp: {
     capable: true,
