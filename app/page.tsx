@@ -5,14 +5,11 @@ import { brandFontVars } from "./brand-fonts"
 import { OperatorsHourRibbon } from "@/components/operators-hour-ribbon"
 import { formatSessionDate, nextOperatorsHour } from "@/lib/operatorsHour"
 
-// Regenerate hourly so the ribbon's server-rendered session date never trails
-// the schedule by more than an hour; the page stays static between regenerations.
 export const revalidate = 3600
 
 export const metadata: Metadata = {
-  title: "Sanction — One-off human approvals for AI agent actions",
-  description:
-    "Your agent proposes an exact action. An authorized person approves or rejects it. The agent redeems an expiring, one-use grant for that identical action before it proceeds. Free for individuals.",
+  title: "Sanction — Human oversight. Autonomous agents.",
+  description: "Review the deployment, expense, or message before your AI agent proceeds. One action, one human decision. Start with a safe approval request. Free for individuals.",
 }
 
 const structuredData = {
@@ -20,475 +17,132 @@ const structuredData = {
   "@type": "SoftwareApplication",
   name: "Sanction",
   url: "https://getsanction.com",
-  applicationCategory: "DeveloperApplication",
+  applicationCategory: "BusinessApplication",
   operatingSystem: "Web, API",
-  description:
-    "One-off human approvals for AI agent actions. An agent requests an exact action, an authorized person approves or rejects it, and the agent redeems an expiring, one-use grant for that identical action. Budgets, an MCP broker, a model gateway, and x402 authorization are also available.",
+  description: "Human approvals for AI agent actions, with budgets, scoped access, and an attributable decision record.",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 }
 
-function MonoLabel({ children, color, mt, mb }: { children: React.ReactNode; color?: string; mt?: number; mb?: number }) {
-  return (
-    <div className="sn-mono" style={{ color, marginTop: mt, marginBottom: mb }}>
-      {children}
-    </div>
-  )
+const humanUses = [
+  ["01", "Before it goes live", "Your coding agent is ready to deploy. Review the proposed release and destination before authorizing that step.", "Deployments"],
+  ["02", "Before it spends", "An agent needs more API credits or a paid tool. Review the amount and purpose before approving the expense.", "Purchases & expenses"],
+  ["03", "Before it speaks for you", "The draft is ready. Review the exact message and recipients before your agent sends or publishes it.", "Outbound messages"],
+  ["04", "Before access outlives the work", "Give a contractor’s agent its own scoped seat, budget, and expiry date. Keep access tied to the assignment.", "Contractor access"],
+  ["05", "When the team uses different AI tools", "Bring agents from different providers under shared approval rules, with separate agent identities and a shared decision history.", "Cross-provider teams"],
+]
+
+const agentUses = [
+  ["Pause at a budget boundary", "Escalate an expense above the review threshold. Hard budget limits still deny it; a human approval does not raise them."],
+  ["Request a new capability", "Ask before acquiring a skill, plugin, or integration. Authorization does not install it."],
+  ["Resume the reviewed action", "Redeem a one-use grant for the identical request. Changed arguments require a new decision."],
+  ["Keep provider keys out of the agent", "Route supported calls through the broker or model gateway, which adds vaulted credentials on the server."],
+  ["Collaborate under its own identity", "Give each agent its own key, scope, and budget so authorization stays attributable across tools."],
+]
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <p className="sn-mono sn-home-label">{children}</p>
 }
 
-const wrap: React.CSSProperties = { maxWidth: 1120, margin: "0 auto", padding: "0 32px" }
-
-// The one-off approval loop, in the order an agent experiences it. Copy follows
-// docs/CONNECT.md and the request-approval skill; it describes Sanction's own
-// behavior only.
-const LOOP: [string, string, string][] = [
-  [
-    "1",
-    "The agent asks for the exact action",
-    "It calls sanction_authorize_tool with the tool, server, and full arguments it intends to use, plus require_approval and a short reason. No policy edit is needed. Existing hard denials still apply.",
-  ],
-  [
-    "2",
-    "An authorized person decides",
-    "The request waits in the wallet's approval inbox, showing the exact arguments. If Slack is configured for the wallet, the decision can happen there. The agent pauses; it does not poll in a loop.",
-  ],
-  [
-    "3",
-    "The agent redeems a one-use grant",
-    "After one check, the agent repeats the identical request with the grant. Only authorized: true permits the action, once. Changed arguments and reused or expired grants are refused, and the agent stops.",
-  ],
-]
-
-const WORKFLOWS: [string, string, string][] = [
-  [
-    "01",
-    "Govern routed MCP tools",
-    "Put the hosted broker in front of an MCP server. Block destructive tools, escalate sensitive ones, and return a machine-readable refusal before the upstream receives the call.",
-  ],
-  [
-    "02",
-    "Cap AI spend by team",
-    "Change the model gateway base URL. Wallet-tree budgets enforce agent, team, and organization caps without instrumenting every call.",
-  ],
-  [
-    "03",
-    "Authorize x402 before the wallet signs",
-    "Send the payment challenge to Sanction first. It prices the worst case, applies policy, and withholds a denied demand before the wallet can sign it.",
-  ],
-]
-
-const STEPS: [string, string, string][] = [
-  [
-    "1",
-    "Connect one enforcement point",
-    "Use the LLM gateway, the hosted MCP broker, or the pre-sign quote endpoint. Your provider, tools, and payment rail stay yours. Enforcement applies to traffic routed through them.",
-  ],
-  [
-    "2",
-    "Set the policy",
-    "Define agent and team budgets, allowed or blocked tools, escalation bands, and the hard line that cannot be crossed.",
-  ],
-  [
-    "3",
-    "Get a deterministic decision",
-    "Approved proceeds. Escalated pauses for a human and a one-use grant. Denied stops the provider call, tool call, or wallet action.",
-  ],
-  [
-    "4",
-    "Export the evidence",
-    "Every decision is attributable and exportable in a signed, hash-chained record for engineering, finance, and audit.",
-  ],
-]
-
-const WONT: string[] = [
-  "Connecting Sanction does not intercept your host's other tools. A cooperative connection works when the agent consults Sanction and honors its answer; the broker enforces only the upstream calls routed through it.",
-  "A decision record proves the authorization decision, not that an external action ran or obeyed it. Outcome logging records business outcomes, not execution receipts, and an unknown result stays unknown.",
-  "A yes in chat does not override organizational policy or a hard denial. Asking for approval cannot unlock a blocked action.",
-  "Sanction does not settle payments. It authorizes the spend; any rail settles it. In the broker, a denied x402 challenge is withheld before your wallet sees payment instructions.",
-]
-
-// Static, labeled walkthrough of the synthetic request in docs/CONNECT.md.
-// Illustrative only: nothing here calls Sanction or executes an action.
-const EXAMPLE_LINES: [string, string][] = [
-  ["→", "sanction_authorize_tool  tool: sanction.demo.approval"],
-  ["", "arguments: {\"synthetic\":true,\"execute\":false}"],
-  ["", "require_approval: true"],
-  ["←", "status: escalated · next_action: wait"],
-  ["·", "you review and approve in the approval inbox"],
-  ["→", "sanction_check_authorization  (once)"],
-  ["←", "next_action: retry_with_grant"],
-  ["→", "sanction_authorize_tool  identical input + grant_id"],
-  ["←", "authorized: true · next_action: proceed"],
-]
-
-// Hero object: an approval request and the one-use grant it produces. Reuses
-// the wallet-card / mandate-card brand language. Labeled illustrative and uses
-// the synthetic demo tool, so it never reads as a live tenant record.
 function ApprovalVisual() {
   return (
-    <figure className="sn-wallet-stage" style={{ margin: 0 }} aria-label="Illustrative approval request and one-use grant for a synthetic action">
-      <div className="sn-wallet-orbit" aria-hidden="true" />
-      <div className="sn-wallet-card">
-        <div className="sn-wallet-card-top">
-          <img src="/brand/sanction-mark.svg" alt="" />
-          <span>APPROVAL REQUEST</span>
-          <span className="sn-wallet-live"><i /> WAITING</span>
-        </div>
-        <div className="sn-wallet-agent" style={{ fontSize: 17, wordBreak: "break-word" }}>sanction.demo.approval</div>
-        <div className="sn-wallet-rule" />
-        <div className="sn-wallet-stats" style={{ gridTemplateColumns: "1fr" }}>
-          <div>
-            <span>EXACT ARGUMENTS</span>
-            <strong style={{ fontSize: 13.5, wordBreak: "break-word" }}>{"{ \"synthetic\": true, \"execute\": false }"}</strong>
-          </div>
-          <div>
-            <span>REASON</span>
-            <strong style={{ fontSize: 13, fontFamily: "var(--font-sans, inherit)", fontWeight: 400, color: "#c9cbbf" }}>Tests the approval flow only. Executes nothing.</strong>
-          </div>
-        </div>
-        <div className="sn-wallet-foot">
-          <span>require_approval: true</span>
-          <span>MCP</span>
-        </div>
+    <figure className="sn-review-example" aria-label="Illustrative deployment approval request. No live action.">
+      <div className="sn-review-top"><span>YOUR APPROVAL INBOX</span><span className="sn-review-status">Waiting for review</span></div>
+      <div className="sn-review-body">
+        <p className="sn-review-from">From your coding agent</p>
+        <h2>Ready to deploy.<br />May I proceed?</h2>
+        <p>The update is ready for your review. This request covers one deployment to production.</p>
+        <dl className="sn-review-details">
+          <div><dt>Action</dt><dd>Deploy the website update</dd></div>
+          <div><dt>Destination</dt><dd>Production website</dd></div>
+          <div><dt>Release</dt><dd>Reviewed revision a1b2c3d</dd></div>
+          <div><dt>Permission</dt><dd>This exact action, once</dd></div>
+        </dl>
+        <div className="sn-review-choices" aria-label="Illustrative decision choices, not interactive controls"><span>Approve once</span><span>Reject</span></div>
+        <p className="sn-review-note">You review. The agent waits.</p>
       </div>
-      <div className="sn-mandate-card">
-        <div className="sn-mandate-top"><span>GRANT</span><b>ONE USE</b></div>
-        <div className="sn-mandate-title">after approval</div>
-        <div className="sn-mandate-meta">
-          <span style={{ color: "var(--text-secondary)" }}>bound to</span><strong>tool · server · args</strong>
-          <span style={{ color: "var(--text-secondary)" }}>uses</span><strong>1</strong>
-          <span style={{ color: "var(--text-secondary)" }}>expires</span><strong>yes</strong>
-        </div>
-        <div className="sn-mandate-proof"><i /> CHANGED ARGUMENTS ARE REFUSED</div>
-      </div>
-      <figcaption className="sn-wallet-caption sn-mono" style={{ color: "var(--text-secondary)" }}>Illustrative · synthetic action</figcaption>
+      <figcaption>Illustrative example · no deployment or approval occurs here.</figcaption>
     </figure>
-  )
-}
-
-const WALLET_FLOW: [string, string, string][] = [
-  ["01", "Discover", "A counterparty finds the issuer and verification surface."],
-  ["02", "Present", "The agent carries a signed, scoped, time-bound mandate."],
-  ["03", "Verify", "The counterparty checks budget, scope, freeze, and revocation."],
-  ["04", "Prove", "Each authorization becomes attributable evidence."],
-]
-
-function WalletFlow() {
-  return (
-    <div className="sn-flow" aria-label="Agent wallet lifecycle">
-      {WALLET_FLOW.map(([n, title, body], index) => (
-        <div className="sn-flow-step" key={title}>
-          <div className="sn-flow-node">
-            <span>{n}</span>
-            {index < WALLET_FLOW.length - 1 && <i aria-hidden="true" />}
-          </div>
-          <h3>{title}</h3>
-          <p>{body}</p>
-        </div>
-      ))}
-    </div>
   )
 }
 
 export default function Landing() {
   return (
-    <main className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh" }}>
+    <main className={`sanction sn-home ${brandFontVars}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
-
-      {/* Announcement ribbon: the monthly live session, for visitors not yet ready for a wallet */}
       <OperatorsHourRibbon serverDate={formatSessionDate(nextOperatorsHour())} />
-
-      {/* Nav */}
-      <nav style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(251,250,246,.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-2)" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 32, height: 64 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600, fontSize: 17, letterSpacing: "-0.02em" }}>
-            <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 25 }} />
-            <span className="sn-lockup-tag" aria-hidden="true"><span>Agent authorization</span></span>
-          </Link>
-          <div className="sn-nav-links" style={{ display: "flex", gap: 24, fontSize: 14, marginLeft: 16, whiteSpace: "nowrap" }}>
-            <a className="sanction-link" href="#how">How it works</a>
-            <Link className="sanction-link" href="/platform">Platform</Link>
-            <Link className="sanction-link" href="/slack">Slack</Link>
-            <Link className="sanction-link" href="/docs">Docs</Link>
+      <nav className="sn-home-nav" aria-label="Main navigation">
+        <div className="sn-home-wrap sn-home-nav-inner">
+          <Link href="/" aria-label="Sanction home"><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="130" height="25" /></Link>
+          <div className="sn-home-nav-links">
+            <a href="#use-cases">For your team</a><a href="#how">How it works</a><Link href="/platform">Platform</Link><Link href="/docs">Docs</Link>
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-            <Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link>
-            <Link className="sn-btn sn-btn-primary sn-btn-s" href="/start">Start free</Link>
-          </div>
+          <div className="sn-home-nav-actions"><Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link><Link className="sn-btn sn-btn-primary sn-btn-s" href="/docs/connect">Try one approval</Link></div>
         </div>
       </nav>
 
-      {/* Hero */}
       <header className="sn-home-hero">
-        <div className="sn-home-hero-grid" style={wrap}>
+        <div className="sn-home-wrap sn-home-hero-grid">
           <div>
-            <MonoLabel mb={20}>One-off human approvals for AI agents</MonoLabel>
-            <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
-              Let your agent ask before it acts.
-            </h1>
-            <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "52ch", margin: "24px 0 32px" }}>
-              Your agent proposes an exact action. An authorized person approves or rejects it. If
-              approved, the agent redeems an expiring, one-use grant for that identical action
-              before it proceeds, from the AI tools you already use.
-            </p>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link>
-              <Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start">Start free</Link>
-            </div>
-            <p style={{ margin: "16px 0 0", fontSize: 13.5, color: "var(--text-secondary)" }}>
-              Free for individuals. No card. The first request is synthetic and executes nothing.
-            </p>
+            <Label>A human decision at the moment it matters</Label>
+            <h1 className="sn-hero-h1">Human oversight.<br />Autonomous agents.</h1>
+            <p className="sn-home-lead">Give your agents room to work and a clear point to bring you in. Review the deployment, the purchase, or the message to a customer before that step proceeds.</p>
+            <div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link><a className="sn-btn sn-btn-secondary sn-btn-l" href="#how">See how it works</a></div>
+            <p className="sn-home-small">Free for individuals. No card. Your first request executes nothing.</p>
           </div>
           <ApprovalVisual />
         </div>
       </header>
 
-      {/* The approval loop */}
-      <section id="how" style={{ ...wrap, padding: "96px 32px 104px" }}>
-        <div style={{ maxWidth: 640, marginBottom: 48 }}>
-          <MonoLabel mb={16}>How one approval works</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Exact request. Human decision. One-use grant.
-          </h2>
-          <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "56ch", margin: "20px 0 0" }}>
-            If you&apos;re not sure, Sanction it. The agent asks before a step it should not take
-            alone, waits for a person, and continues only with a grant for exactly what was reviewed.
-          </p>
+      <div className="sn-home-principles"><div className="sn-home-wrap"><span>Your AI tools</span><span>Your approval rules</span><span>Your decision</span></div></div>
+
+      <section id="use-cases" className="sn-home-section sn-home-wrap">
+        <div className="sn-home-section-heading"><Label>For the people responsible</Label><h2>Keep the work moving.<br />Keep a say in what happens.</h2><p>Choose the moments that need a person. Connect the relevant workflow so the agent asks before taking that step.</p></div>
+        <div className="sn-human-grid">
+          {humanUses.map(([number, title, body, category]) => <article className="sn-human-card" key={number}><div className="sn-home-card-label"><span>{category}</span><span>{number}</span></div><h3>{title}</h3><p>{body}</p></article>)}
         </div>
-        <ol className="sn-cards" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {LOOP.map(([n, t, d]) => (
-            <li key={n} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 20 }}>
-              <MonoLabel color="var(--pine-7)">Step {n}</MonoLabel>
-              <h3 style={{ margin: "10px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{d}</p>
-            </li>
-          ))}
-        </ol>
+        <p className="sn-home-small">These workflows require a connected agent or integration. Sanction does not automatically intercept your AI host’s other tools.</p>
       </section>
 
-      {/* Synthetic example + connection paths */}
-      <section id="try" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ ...wrap, padding: "96px 32px 104px" }}>
-          <div className="sn-mcp-panel">
-            <div>
-              <MonoLabel mb={16}>Try it safely</MonoLabel>
-              <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-                Your first request executes nothing.
-              </h2>
-              <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "52ch", margin: "20px 0 24px" }}>
-                The connection guide walks a synthetic request through the whole loop: ask, review,
-                check once, redeem once. On a denial, an expired or reused grant, or an unclear
-                result, the agent stops and reports. It does not retry with altered arguments or
-                ask again on its own.
-              </p>
-              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                <Link className="sn-btn sn-btn-primary sn-btn-m" href="/docs/connect">Open the connection guide →</Link>
-                <Link className="sanction-link" href="/docs/mcp-oauth" style={{ fontSize: 14 }}>Decision contract details</Link>
-              </div>
-            </div>
-            <figure className="sn-mcp-code" data-theme="dark" style={{ margin: 0 }} aria-label="Illustrative synthetic approval sequence">
-              <div className="sn-mcp-window"><i /><i /><i /><span>Illustrative · synthetic</span></div>
-              {EXAMPLE_LINES.map(([mark, line], i) => (
-                <code key={i} style={{ whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.7, padding: "3px 0" }}><b>{mark || "\u00a0"}</b>{line}</code>
-              ))}
-              <code className="sn-code-result">SYNTHETIC · NOTHING EXECUTED</code>
-            </figure>
-          </div>
-
-          <div style={{ maxWidth: 640, margin: "88px 0 32px" }}>
-            <MonoLabel mb={16}>Choose a connection</MonoLabel>
-            <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
-              Two MCP profiles, one decision engine.
-            </h2>
-          </div>
-          <div className="sn-pair">
-            <div className="sn-card" style={{ padding: 28 }}>
-              <MonoLabel color="var(--pine-7)">Approvals profile · recommended for AI hosts</MonoLabel>
-              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)" }}>Approvals over OAuth</h3>
-              <p style={{ margin: "0 0 14px", fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>
-                Eight tools for authorization requests, decision checks, wallet status, and
-                usage and outcome logging. No execution-token issuance or credential retrieval.
-                Hosts connect with OAuth; API-key access is also supported.
-              </p>
-              <code style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 13, overflowWrap: "anywhere", color: "var(--text-body)" }}>https://getsanction.com/mcp/approvals</code>
-              <p style={{ margin: "14px 0 0", fontSize: 14 }}>
-                <Link className="sanction-link" href="/docs/connect">Setup steps and dated test status per host →</Link>
-              </p>
-            </div>
-            <div className="sn-card" style={{ padding: 28 }}>
-              <MonoLabel color="var(--pine-7)">Full wallet profile · for developers</MonoLabel>
-              <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)" }}>Wallet over API key</h3>
-              <p style={{ margin: "0 0 14px", fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>
-                Ten tools: the approvals set plus scoped execution tokens and credential retrieval
-                from the encrypted vault. Uses an agent API key, over remote MCP or the stdio package.
-              </p>
-              <code style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 13, overflowWrap: "anywhere", color: "var(--text-body)" }}>https://getsanction.com/mcp · npx sanction-mcp</code>
-              <p style={{ margin: "14px 0 0", fontSize: 14 }}>
-                <Link className="sanction-link" href="/docs/agent-wallet">Read the wallet architecture →</Link>
-              </p>
-            </div>
-          </div>
-          <p style={{ margin: "20px 0 0", fontSize: 13.5, color: "var(--text-secondary)", maxWidth: "70ch" }}>
-            MCP URLs are protocol endpoints for AI hosts, not pages to open in a browser. A custom
-            connection is not a directory listing; the connection guide records each host&apos;s
-            evidence separately.
-          </p>
+      <section id="how" className="sn-home-how">
+        <div className="sn-home-wrap sn-home-section">
+          <div className="sn-home-section-heading"><Label>One request. One decision.</Label><h2>A clear pause.<br />A specific yes or no.</h2><p>Approve the action in front of you without giving the agent blanket permission for whatever comes next.</p></div>
+          <ol className="sn-home-steps">
+            <li><span>01</span><h3>The agent brings the details</h3><p>What it wants to do, where, and with which inputs. A reason gives you context; the exact request defines what you approve.</p></li>
+            <li><span>02</span><h3>You review and decide</h3><p>Approve or reject in the approval inbox, or in Slack when configured. Organizational rules still apply; approval cannot bypass a hard denial.</p></li>
+            <li><span>03</span><h3>It resumes that exact action</h3><p>The agent redeems an expiring, one-use permission before proceeding. A changed request, expired permission, or rejection means stop.</p></li>
+          </ol>
+          <figure className="sn-story-strip" aria-label="Illustrative production change approval sequence">
+            <figcaption>One production change, from request to permission</figcaption>
+            <ol>
+              <li><span>01 · Proposed</span><strong>Deploy this revision</strong><p>The release and destination are specified.</p></li>
+              <li><span>02 · Waiting</span><strong>Pause for review</strong><p>The agent requests a human decision.</p></li>
+              <li><span>03 · Reviewed</span><strong>You decide</strong><p>Review the exact action and approve or reject it.</p></li>
+              <li><span>04 · If approved</span><strong>One-use permission</strong><p>Redeem before expiry. A different action needs a new decision.</p></li>
+            </ol>
+            <p>Illustrative workflow. Approval records permission; it does not prove the deployment ran.</p>
+          </figure>
+          <div className="sn-home-next"><p><strong>Start with a harmless request.</strong> The connection guide walks you through a synthetic approval that executes nothing.</p><Link className="sn-btn sn-btn-primary sn-btn-m" href="/docs/connect">Try one approval →</Link></div>
         </div>
       </section>
 
-      {/* Workflows */}
-      <section id="workflows" style={{ borderTop: "1px solid var(--line-2)" }}>
-        <div style={{ ...wrap, padding: "96px 32px 112px" }}>
-          <div style={{ maxWidth: 620, marginBottom: 48 }}>
-            <MonoLabel mb={16}>Beyond one-off approvals</MonoLabel>
-            <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-              Budgets, a broker, and x402 when you need them.
-            </h2>
-            <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "54ch", margin: "20px 0 0" }}>
-              One decision engine sits in front of three irreversible actions. Sanction authorizes
-              the spend; any rail settles it.
-            </p>
-          </div>
-          <div className="sn-cards">
-            {WORKFLOWS.map(([n, t, d]) => (
-              <div key={n} className="sn-card" style={{ padding: 28 }}>
-                <MonoLabel color="var(--pine-7)">Workflow {n}</MonoLabel>
-                <h3 style={{ margin: "12px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-                <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{d}</p>
-              </div>
-            ))}
-          </div>
+      <section id="agents" className="sn-home-agents" data-theme="dark">
+        <div className="sn-home-wrap sn-home-section sn-home-agent-grid">
+          <div className="sn-home-section-heading"><Label>For agents working autonomously</Label><h2>More independence.<br />Clear limits.</h2><p>Give an agent a way to ask for what it needs, respect a refusal, and continue with permission tied to its own identity.</p><Link className="sn-btn sn-btn-onDark sn-btn-m" href="/docs/agent-wallet">Explore the agent wallet →</Link></div>
+          <div className="sn-home-agent-list">{agentUses.map(([title, body], index) => <article key={title}><span aria-hidden="true">0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></article>)}</div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="policy" style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ ...wrap, padding: "112px 32px" }}>
-        <div style={{ maxWidth: 620, marginBottom: 48 }}>
-          <MonoLabel mb={16}>When you want policy</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Put policy in the path, not beside it.
-          </h2>
-        </div>
-        <div className="sn-pair">
-          {STEPS.map(([n, t, d]) => (
-            <div key={n} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 20 }}>
-              <MonoLabel color="var(--pine-7)">{n}</MonoLabel>
-              <h3 style={{ margin: "10px 0 8px", font: "var(--text-h3)" }}>{t}</h3>
-              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{d}</p>
-            </div>
-          ))}
-        </div>
+      <section className="sn-home-section sn-home-wrap">
+        <div className="sn-home-section-heading"><Label>Fits the way you work</Label><h2>Your providers stay yours.</h2><p>Start with a cooperative approval connection. Add enforcement in the paths you control as your workflow grows.</p></div>
+        <div className="sn-home-integrations">
+          <article><h3>Connect an AI host</h3><p>Use the approvals connection to request and check decisions. The agent must consult Sanction and honor the response.</p><Link href="/docs/connect">Connection guide & host test status →</Link></article>
+          <article><h3>Govern the execution path</h3><p>Route tool calls through the MCP broker, check actions in your application integration, or route model usage through the budget gateway. Enforcement covers those connected paths.</p><Link href="/platform">Explore the platform →</Link></article>
+          <article><h3>Keep a decision record</h3><p>See which agent requested an action and how it was authorized. The record evidences the decision; it does not prove an external action ran.</p><Link href="/docs">Read the documentation →</Link></article>
         </div>
       </section>
 
-      {/* The platform in depth */}
-      <section
-        id="agent-wallet"
-        className="sn-wallet-section"
-        data-theme="dark"
-        style={{ borderTop: "1px solid rgba(242,241,234,.08)" }}
-      >
-        <div style={{ ...wrap, padding: "104px 32px 112px" }}>
-          <div className="sn-wallet-intro">
-            <div>
-              <MonoLabel color="#43D5A1" mb={16}>The control plane</MonoLabel>
-              <h2>Policy travels with the agent.</h2>
-            </div>
-            <div>
-              <p>
-                Identity says who the agent is. Payment rails move money. Sanction carries the
-                missing authority: what the agent may spend or invoke, under whose policy, within
-                what budget, and with what proof.
-              </p>
-              <div className="sn-inline-links">
-                <Link href="/docs/agent-wallet">Read the architecture →</Link>
-                <a href="/.well-known/wallet-card.json">Inspect the Wallet Card ↗</a>
-              </div>
-            </div>
-          </div>
-          <WalletFlow />
-          <div className="sn-mcp-panel">
-            <div className="sn-mcp-code">
-              <div className="sn-mcp-window"><i /><i /><i /><span>sanction-mcp</span></div>
-              <code><b>$</b> npx sanction-mcp</code>
-              <code><em>✓</em> wallet connected <span>ops_agent_07</span></code>
-              <code><em>✓</em> 10 tools · full wallet profile</code>
-              <code><b>→</b> sanction_authorize_tool</code>
-              <code className="sn-code-result">ILLUSTRATIVE · request dec_8f31</code>
-            </div>
-            <div className="sn-mcp-copy">
-              <MonoLabel color="#43D5A1" mb={14}>Governed MCP</MonoLabel>
-              <h3>Put policy in front of every tools/call.</h3>
-              <p>
-                Register an upstream once, then point the MCP host at Sanction&apos;s broker. Every
-                tool call is authorized before a byte reaches the upstream, and the upstream
-                credential stays in the vault.
-              </p>
-              <div className="sn-tool-grid">
-                <span>SPEND</span><span>TOOLS</span><span>CAPABILITIES</span><span>CREDENTIALS</span><span>OUTCOMES</span><span>APPROVALS</span>
-              </div>
-              <p className="sn-honesty">Brokered traffic is enforced. Calls sent directly to the upstream bypass Sanction and are not governed.</p>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <Link className="sn-btn sn-btn-primary sn-btn-m" href="/start">Create a wallet →</Link>
-                <a className="sn-btn sn-btn-onDark sn-btn-m" href="https://www.npmjs.com/package/sanction-mcp">Install the MCP server ↗</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Product boundary */}
-      <section style={{ ...wrap, padding: "112px 32px" }}>
-        <div style={{ maxWidth: 620, marginBottom: 40 }}>
-          <MonoLabel mb={16}>The product boundary</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            What Sanction does not do.
-          </h2>
-        </div>
-        <div className="sn-pair">
-          {WONT.map((t) => (
-            <div key={t} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 16 }}>
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "var(--text-secondary)" }}>{t}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Closing CTA */}
-      <section style={{ borderTop: "1px solid var(--line-2)", background: "var(--surface-sunken)" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", padding: "88px 32px", textAlign: "center" }}>
-          <MonoLabel mb={16}>Start with one approval</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>
-            If you&apos;re not sure, Sanction it.
-          </h2>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 28 }}>
-            <Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link>
-            <Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start">Start free</Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer style={{ borderTop: "1px solid var(--line-2)" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 24, padding: 32, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--text-body)" }}>
-            <img src="/brand/sanction-wordmark-green.svg" alt="Sanction" style={{ height: 18 }} />
-          </span>
-          <span>One-off human approvals for AI agent actions.</span>
-          <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <Link className="sanction-link" href="/docs/connect">Connect</Link>
-            <Link className="sanction-link" href="/platform">Platform</Link>
-            <Link className="sanction-link" href="/slack">Slack</Link>
-            <Link className="sanction-link" href="/about">About</Link>
-            <Link className="sanction-link" href="/roadmap">Roadmap</Link>
-            <Link className="sanction-link" href="/changelog">Changelog</Link>
-            <a className="sanction-link" href="/api/openapi.json">API</a>
-            <a className="sanction-link" href="https://www.npmjs.com/package/sanction-mcp">MCP</a>
-            <Link className="sanction-link" href="/support">Support</Link>
-            <Link className="sanction-link" href="/privacy">Privacy</Link>
-          </span>
-        </div>
-      </footer>
+      <section className="sn-home-closing"><div className="sn-home-wrap"><Label>Start with one approval</Label><h2>If you’re not sure, Sanction it.</h2><p>One safe request. A human decision. A clear next step.</p><div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link><Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start">Create a free account</Link></div></div></section>
+      <footer className="sn-home-footer sn-home-wrap"><div><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="104" height="20" /><p>Authorize. Protect. Govern.</p></div><nav aria-label="Footer navigation"><Link href="/platform">Platform</Link><Link href="/docs/connect">Connect</Link><Link href="/slack">Slack</Link><Link href="/about">About</Link><Link href="/roadmap">Roadmap</Link><Link href="/changelog">Changelog</Link><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></nav></footer>
     </main>
   )
 }

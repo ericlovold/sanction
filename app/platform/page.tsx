@@ -12,9 +12,9 @@ import { brandFontVars } from "../brand-fonts"
 const CALENDLY_URL = process.env.NEXT_PUBLIC_CALENDLY_URL || "https://calendly.com/ericlovold/30min"
 
 export const metadata: Metadata = {
-  title: "Sanction Platform — Authorization for autonomous AI agents",
+  title: "Sanction Platform — Human approval for AI actions",
   description:
-    "The wallet an AI agent carries. One key governs what it may spend, invoke, and provision. Sanction authorizes the spend; any rail settles it — and every decision is on the record.",
+    "Review an AI agent’s proposed action before it proceeds. Start with one human approval, then add budgets, policies, and a record of decisions.",
 }
 
 // The hero shows a LIVE pending escalation from the demo wallet, so the page
@@ -214,7 +214,7 @@ export default async function Landing() {
             <a className="sanction-link" href="#rails">Settlement</a>
             <a className="sanction-link" href="#security">Security</a>
             <a className="sanction-link" href="#pricing">Pricing</a>
-            <Link className="sanction-link" href="/">Services</Link>
+            <Link className="sanction-link" href="/">Home</Link>
             <Link className="sanction-link" href="/docs">Docs</Link>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
@@ -227,21 +227,23 @@ export default async function Landing() {
       {/* Hero */}
       <header className="sn-hero sn-pad" style={{ ...wrap, padding: "96px 32px 112px" }}>
         <div>
-          <MonoLabel mb={20}>Authorize · Protect · Govern</MonoLabel>
+          <MonoLabel mb={20} color="var(--ochre-7)">Your judgment. Before the action.</MonoLabel>
           <h1 className="sn-hero-h1" style={{ margin: 0, font: "var(--text-display)", letterSpacing: "var(--tracking-display)" }}>
-            Autonomy for your agents. Authority for your team.
+            Let your AI work. Keep the decisions that matter.
           </h1>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "48ch", margin: "24px 0 32px" }}>
-            Track connected agents, set budgets, and review requests that need your sign-off. Sanction records authorization decisions and provides signed audit exports. Agents must ask before acting, or route supported traffic through Sanction for enforcement.
+            A message to a client. A purchase. A change to a shared system. When an agent asks for permission, review the exact action and decide. Start with one approval; add budgets and policies as your team needs them.
           </p>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
             <TrackCTA className="sn-btn sn-btn-primary sn-btn-l" href="/start" location="hero" target="start">Start free</TrackCTA>
             <TrackCTA className="sn-btn sn-btn-secondary sn-btn-l" href={CALENDLY_URL} location="hero" target="talk">Talk to us →</TrackCTA>
           </div>
           <p style={{ marginTop: 24, fontSize: 15, color: "var(--text-secondary)" }}>
             Need one human decision? <TrackCTA className="sanction-link" href="/docs/connect" location="hero" target="first-approval">Connect your AI tool and ask for approval →</TrackCTA>
           </p>
-          <MonoLabel mt={28} color="var(--text-faint)">Agent wallet · MCP · REST · Any rail</MonoLabel>
+          <p style={{ marginTop: 24, fontSize: 13, lineHeight: 1.6, color: "var(--text-muted)", maxWidth: "52ch" }}>
+            Connected agents must ask Sanction and honor its answer. Enforcement applies to supported traffic routed through Sanction.
+          </p>
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
           {escalation ? (
@@ -255,12 +257,12 @@ export default async function Landing() {
       {/* Who opens Sanction — the seat above the stack (not another gateway) */}
       <section style={{ ...wrap, padding: "96px 32px 112px" }}>
         <div style={{ maxWidth: 620, marginBottom: 48 }}>
-          <MonoLabel mb={16}>The seat above the stack</MonoLabel>
+          <MonoLabel mb={16}>For the people responsible</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>
-            Your gateway routes the calls. Sanction is where you answer for them.
+            Know what was allowed. And who said yes.
           </h2>
           <p style={{ font: "var(--text-body-l)", color: "var(--text-secondary)", maxWidth: "58ch", margin: "20px 0 0" }}>
-            Connect supported integrations to report usage and request authorization. Route model calls through the Sanction gateway or tool calls through the MCP broker for enforcement on that path. Calls that bypass Sanction are outside its control.
+            Keep approval requests, connected usage, and budget limits in one place. Give the people responsible for the work a decision record they can review.
           </p>
         </div>
         <div className="sn-cards">
@@ -298,13 +300,13 @@ export default async function Landing() {
       {/* Decision engine */}
       <section id="how" style={{ ...wrap, padding: "0 32px 112px" }}>
         <div style={{ maxWidth: 560, marginBottom: 48 }}>
-          <MonoLabel mb={16}>The decision engine</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Every call comes back one of three ways.</h2>
+          <MonoLabel mb={16}>One request. A clear next step.</MonoLabel>
+          <h2 style={{ margin: 0, font: "var(--text-h1)", letterSpacing: "var(--tracking-heading)" }}>Proceed, ask a person, or stop.</h2>
         </div>
         <div className="sn-cards">
           {[
             ["approved", "Under the threshold, allowed category. The agent proceeds; the spend is logged."],
-            ["escalated", "Over your line. The request pauses and waits for a human — approval mints a one-use grant."],
+            ["escalated", "Needs your judgment. A one-off request or policy threshold asks a human to decide; approval creates a one-use grant."],
             ["denied", "Blocked category or over the hard cap. The caller must stop; a cooperative decision does not itself block an external payment."],
           ].map(([d, txt]) => (
             <div key={d} style={{ borderTop: "1px solid var(--line-1)", paddingTop: 20 }}>
@@ -420,34 +422,22 @@ export default async function Landing() {
       <section id="pricing" style={{ ...wrap, padding: "0 32px 112px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto 48px", textAlign: "center" }}>
           <MonoLabel mb={16}>Pricing</MonoLabel>
-          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>The meter is the decision.</h2>
+          <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Start as an individual. Govern as a team.</h2>
           <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 0" }}>
-            Free for individuals. Metered for teams. An agreement for the enterprise.
+            Free for individuals. An agreement for your organization.
           </p>
         </div>
-        <div className="sn-cards" style={{ maxWidth: 1020, margin: "0 auto" }}>
+        <div className="grid gap-6 md:grid-cols-2" style={{ maxWidth: 800, margin: "0 auto" }}>
           <div className="sn-card" style={{ padding: 32 }}>
             <MonoLabel>Individual</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Free</div>
             <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>No card. Personal, production, and client work.</div>
             <Link className="sn-btn sn-btn-secondary sn-btn-m" href="/start" style={{ width: "100%" }}>Start free</Link>
           </div>
-          <div className="sn-card" style={{ padding: 32, border: "1px solid var(--pine-8)" }}>
-            <MonoLabel color="var(--pine-7)">Pro · Early access</MonoLabel>
-            <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>
-              $20<span style={{ fontSize: 16, fontWeight: 500, color: "var(--text-muted)" }}>/mo</span>
-            </div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 10 }}>For teams. 5,000 decisions included, then $5 per 1,000.</div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 10 }}>
-              Metered in decisions — the one unit of what Sanction does. Approvals, denials, escalations count once; replays never do.
-            </div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>Pay by card — or your agent pays via x402/USDC (pilot).</div>
-            <a className="sn-btn sn-btn-primary sn-btn-m" href="#stay-in-the-loop" style={{ width: "100%" }}>Join the Pro early access</a>
-          </div>
           <div className="sn-card" style={{ padding: 32 }}>
             <MonoLabel>Enterprise</MonoLabel>
             <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-0.02em", margin: "14px 0 4px" }}>Agreement</div>
-            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 12 }}>SSO, policy administration, audit export, SLA, deployment control.</div>
+            <div style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 12 }}>Talk with us about your organization’s governance, support, and deployment requirements.</div>
             <Link className="sanction-link" href="/docs/commercial-license" style={{ fontSize: 13, display: "block", marginBottom: 20 }}>Commercial license guide →</Link>
             <a className="sn-btn sn-btn-secondary sn-btn-m" href={CALENDLY_URL} target={CALENDLY_URL.startsWith("http") ? "_blank" : undefined} rel="noopener" style={{ width: "100%" }}>Talk to us</a>
           </div>
@@ -460,7 +450,7 @@ export default async function Landing() {
           <MonoLabel mb={16}>Stay in the loop</MonoLabel>
           <h2 style={{ margin: 0, font: "var(--text-h2)", letterSpacing: "var(--tracking-heading)" }}>Not ready to wire up an agent?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-secondary)", margin: "12px 0 28px" }}>
-            Get launch updates and early access as we ship — Pro early access included. One email when it matters — no spam.
+            Get product updates and new integration announcements. One email when it matters.
           </p>
           <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
             <MarketingLeadCapture source="landing" />
@@ -476,7 +466,7 @@ export default async function Landing() {
           </span>
           <span>Authorize · Protect · Govern</span>
           <span style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <Link className="sanction-link" href="/">Services</Link>
+            <Link className="sanction-link" href="/">Home</Link>
             <Link className="sanction-link" href="/why">Why Sanction</Link>
             <Link className="sanction-link" href="/architecture">Architecture</Link>
             <Link className="sanction-link" href="/roadmap">Roadmap</Link>

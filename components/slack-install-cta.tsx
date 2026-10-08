@@ -9,7 +9,7 @@ export function SlackInstallCta() {
       href="/api/slack/oauth/start"
       onClick={() => track(FUNNEL.slackInstallStarted, { location: "slack-page" })}
       className="inline-flex rounded-md px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-      style={{ background: "var(--pine-7)" }}
+      style={{ background: "var(--pine-7)", color: "#fff" }}
     >
       Add to Slack
     </a>

@@ -20,10 +20,10 @@ export default function SlackPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-20">
-        <p className="sn-mono text-xs" style={{ color: "var(--pine-7)" }}>SANCTION FOR SLACK</p>
-        <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">Keep the approval loop where your team works.</h1>
+        <p className="sn-mono text-xs" style={{ color: "var(--ochre-7)" }}>SANCTION FOR SLACK</p>
+        <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">An agent needs a decision. Your team is already here.</h1>
         <p className="mt-5 max-w-2xl text-lg leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-          When an agent crosses a policy boundary, Sanction posts the decision to a channel you choose. An admin can approve or deny it there; Sanction records the actor and mints the same one-use grant the dashboard would.
+          Review a proposed action in Slack, approve or deny it, and keep a record of who decided. Sanction sends approval requests to your chosen channel when a connected agent asks for a human decision or its policy requires one.
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-4">
           <SlackInstallCta />
@@ -34,11 +34,11 @@ export default function SlackPage() {
 
         <section className="mt-20 grid gap-5 md:grid-cols-3">
           {[
-            ["1. Connect", "An admin picks the workspace and channel. Sanction stores the bot token encrypted under the wallet's key. Then press Send a test escalation: the first card lands in under a minute."],
-            ["2. Decide", "Escalations arrive with Approve, Deny, and Review in Sanction. Anyone in the channel can decide — the channel is the approver group, so pick a private one."],
-            ["3. Continue safely", "Approve mints a single-use, expiring grant the agent redeems on retry; Deny stops it. Every outcome records who decided and where."],
+            ["1. Connect", "An admin chooses the workspace and channel, then sends a test escalation to check the connection. Sanction stores the bot token encrypted."],
+            ["2. Decide", "Requests arrive with Approve, Deny, and Review in Sanction. Anyone in the chosen channel can decide, so use a private channel for your approvers."],
+            ["3. Continue safely", "Approval gives the agent a single-use, expiring grant to redeem. A denial tells it to stop. Sanction records the decision and the Slack actor."],
           ].map(([title, body]) => (
-            <article key={title} className="rounded-lg border p-5" style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)" }}>
+            <article key={title} className="rounded-lg border p-5" style={{ borderColor: "var(--paper-3)", borderTop: "2px solid var(--ochre-6)", background: "var(--surface-card)" }}>
               <h2 className="font-semibold">{title}</h2>
               <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{body}</p>
             </article>
@@ -46,8 +46,9 @@ export default function SlackPage() {
         </section>
 
         <p className="mt-12 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          Slack is the human approval surface. Developers install Sanction through MCP, the SDK, or the REST API; the same policy and decision record applies across every surface.
+          Slack is where people decide. The agent must be connected to Sanction and honor the answer; adding Slack does not intercept its tools.
         </p>
+        <Link href="/docs/connect" className="sanction-link mt-4 inline-block text-sm">Connect an agent and try one approval →</Link>
         <nav aria-label="Slack app resources" className="mt-6 flex flex-wrap gap-5 text-sm">
           <Link href="/privacy" className="sanction-link">Privacy policy</Link>
           <Link href="/support" className="sanction-link">Support</Link>
