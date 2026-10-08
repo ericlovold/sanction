@@ -75,6 +75,7 @@ export function renderDecisionResult(
     decision.reason ??= string(result.error) ?? "Sanction returned a malformed or contradictory decision."
     // An untrusted/mismatched response cannot identify the polled request.
     if (polling) decision.request_id = opts.requestId
+    decision.remediation = "Stop and notify the owner. Do not retry automatically."
     text = `${decision.code} — ${decision.reason}. Do not ${opts.verb ?? "proceed"}; stop and notify the owner. Do not retry automatically.`
   } else if (!polling && result.authorized === true) {
     decision.authorized = true
@@ -84,7 +85,12 @@ export function renderDecisionResult(
     text = `${opts.success ?? "Authorized"}${requestId ? ` (${requestId})` : ""}${decision.grant_status === "consumed" ? " · grant consumed" : ""}`
   } else if (status === "escalated" || status === "pending") {
     decision.next_action = "wait"
-    text = `${status.toUpperCase()} — ${sentence(decision.reason ?? "Still awaiting the owner's approval")}. Do not ${opts.verb ?? "proceed"}. Pause and wait for human review${decision.request_id ? `, then call sanction_check_authorization once with request_id: ${decision.request_id}` : "; notify the owner because no request_id was returned"}.`
+    // REST hints may describe spend thresholds or repeated polling. MCP hosts
+    // need one action instruction regardless of which authorization produced it.
+    decision.remediation = decision.request_id
+      ? `Pause and wait for human review, then call sanction_check_authorization once with request_id: ${decision.request_id}. Do not retry or automatically request another approval.`
+      : "Pause and notify the owner because no request_id was returned. Do not retry or automatically request another approval."
+    text = `${status.toUpperCase()} — ${sentence(decision.reason ?? "Still awaiting the owner's approval")}. Do not ${opts.verb ?? "proceed"}. ${decision.remediation}`
   } else if (polling && status === "approved") {
     const grantId = string(result.grant_id)
     const expiry = result.grant_expires_at

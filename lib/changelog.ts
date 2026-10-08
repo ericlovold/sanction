@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-07",
+    title: "Give pending approvals consistent wait guidance",
+    tags: ["mcp", "approvals"],
+    body: "Pending MCP decisions now give the same bounded instruction in readable text and structured remediation: wait for human review, then check once. Generic spend-threshold and repeated-polling hints no longer leak into tool approvals. Missing request IDs direct the host to notify the owner; malformed responses give stop guidance. Policy decisions and grant semantics are unchanged. The stdio bundle is rebuilt; npm publication remains a separate step.",
+  },
+  {
     date: "2026-10-02",
     title: "Prepare MCP 0.10.0 for one-off approvals",
     tags: ["mcp", "release"],
