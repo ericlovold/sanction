@@ -95,6 +95,16 @@ export default function Landing() {
 
       <div className="sn-home-principles"><div className="sn-home-wrap"><span>Your AI tools</span><span>Your approval rules</span><span>Your decision</span></div></div>
 
+      <section className="sn-home-section sn-home-wrap" aria-labelledby="oversight-title">
+        <div className="sn-home-section-heading"><Label>Before you give an agent more responsibility</Label><h2 id="oversight-title">Decide what it can do.<br />Know when you need a say.</h2><p>Your team may work across different AI providers. Give each agent its own limits and bring the decisions into one shared history.</p></div>
+        <div className="sn-home-integrations sn-oversight-grid">
+          <article><h3>Access: what does it need?</h3><p>Give each agent its own identity and scoped access. Use governed integrations to add credentials without handing the agent your provider keys.</p><Link href="/use-cases#case-04">Scope access to the work →</Link></article>
+          <article><h3>Actions: what may it change?</h3><p>Define which tools, capabilities, and expenses are allowed. Route actions through an enforcing integration when the limit must be applied before execution.</p><Link href="/use-cases#case-07">Set boundaries for new capabilities →</Link></article>
+          <article><h3>Approval: what needs your review?</h3><p>Review the exact recipient, message, deployment, or expense. Approve that request once, without changing the standing rules.</p><Link href="/use-cases#case-03">Review a message before it leaves →</Link></article>
+          <article><h3>Oversight: how do you stay in control?</h3><p>Inspect requests and decisions, track budgets, and revoke access. A decision record shows what was authorized; it does not prove an external action ran.</p><Link href="/use-cases#case-05">Keep a shared decision history →</Link></article>
+        </div>
+      </section>
+
       <section id="use-cases" className="sn-home-section sn-home-wrap">
         <div className="sn-home-section-heading"><Label>For the people responsible</Label><h2>Keep the work moving.<br />Keep a say in what happens.</h2><p>Choose the moments that need a person. Connect the relevant workflow so the agent asks before taking that step.</p></div>
         <div className="sn-human-grid">
