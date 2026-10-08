@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-08",
+    title: "Stop pending authorization checks from reissuing themselves",
+    tags: ["mcp", "approvals"],
+    body: "When sanction_check_authorization is still pending or escalated, structured remediation and readable text now say the request is awaiting the owner's decision: do not proceed, do not check again automatically, and check again only after the owner says they have decided. The four authorize tools still say wait, then check once. The check-tool description treats timeout settlement as a possible side effect of a single check and keeps the not-read-only warning. Authorization semantics are unchanged. The stdio bundle is rebuilt; npm publication remains a separate step.",
+  },
+  {
     date: "2026-10-07",
     title: "Give pending approvals consistent wait guidance",
     tags: ["mcp", "approvals"],
