@@ -50,9 +50,9 @@ validation and acceptance remain unverified.
 ## Submission blockers
 
 - Verify the publisher identity and listing name in the portal.
-- Supply a verified public terms-of-service URL. Source routes exist for
-  `/privacy` and `/support`; no terms route was found during package preparation.
-  The manifest deliberately omits `termsOfServiceURL`.
+- Review and deploy the proposed `/terms` page, then verify public access at
+  `https://getsanction.com/terms` before using it for submission. Deployment and
+  public availability remain pending.
 - Complete OAuth connection, domain verification, and a current tool scan;
   review tool annotations and justifications.
 - Run the candidate cases below with a dedicated review account and sample data,
@@ -64,6 +64,50 @@ validation and acceptance remain unverified.
 The listing has no screenshots because this package has no custom UI. The logo
 is copied from the repository's Cursor plugin. The included license is an exact
 copy of the repository's FSL-1.1-MIT license; this package is not newly MIT-licensed.
+
+## Reviewer access setup — pending
+
+Prepare a dedicated review wallet isolated from customer and internal wallets,
+with synthetic data only. Do not reuse the local harness fixtures. Keep vault
+credentials, funded payment instruments, outbound integrations, and real agent
+workloads out of this wallet. Configure only the synthetic policies needed for
+the cases below; restore the baseline between cases.
+
+Use the existing management-key sign-in: open `/login`, expand “Have a management
+key”, and enter the review wallet's `sk_` key. This key grants owner access, so
+isolation is essential. Store the key and exact sign-in steps only in the secure
+reviewer-access fields in the portal, never in this package or the recording.
+
+Before submission, verify in a fresh browser session that the reviewer can sign
+in, connect the plugin through OAuth to the intended review wallet, inspect its
+pending approvals, and approve or reject a synthetic request without assistance.
+Record the tested date and any access expiry privately; keep access valid for
+the review period and revoke it when review ends. This setup is a recommendation,
+not evidence that a review wallet or working connection already exists.
+
+## Recording shot list — pending
+
+Record a real host run after reviewer access is verified. Hide credentials,
+OAuth tokens, and unrelated browser or account data throughout.
+
+1. Show the host, candidate version, installation, OAuth consent, and completed
+   connection to the isolated review wallet. Pause capture during secret entry.
+2. Show positive cases 1–3: a synthetic request, its pending approval, one pending
+   resume, the owner's approval, and an approved resume with exact-input grant
+   redemption. Keep the request ID visible across the sequence.
+3. Show positive cases 4–5: explicit review in observe mode and a separate human
+   rejection. Show the host pausing or stopping as specified.
+4. Show the three negative invocation cases saved in the portal: prompts where
+   the plugin should not trigger. The grant/policy cases below are additional
+   authorization safety tests, not substitutes for those invocation cases.
+   Record them separately if included; execute no target action.
+5. Show the corresponding approval/audit records. Save actual outcomes and video
+   timestamps for the five positive and three portal negative cases, including
+   failures; verify the walkthrough
+   link is accessible to reviewers before entering it in the portal.
+
+The recording must show observed behavior. Expected outcomes below are not a
+substitute for a completed run.
 
 ## Local backend evidence
 

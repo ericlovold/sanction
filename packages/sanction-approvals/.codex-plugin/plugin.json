@@ -27,6 +27,7 @@
       "Request approval for a synthetic action; execute nothing."
     ],
     "composerIcon": "./assets/logo.svg",
-    "logo": "./assets/logo.svg"
+    "logo": "./assets/logo.svg",
+    "termsOfServiceURL": "https://getsanction.com/terms"
   }
 }
