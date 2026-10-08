@@ -119,3 +119,51 @@ demo fleet, read-only by design. This is the "help them from my side" view.
   budget-denial expectations (they're real budgets).
 - Pending escalations from pulse self-clean: every persona's policy times
   out escalations to deny, so yesterday's staging never piles up.
+
+
+## Exact-recipient approval demo — candidate, not recorded evidence
+
+Prepared 2026-10-08. This demonstration authorizes synthetic inputs only. It
+never sends mail. Use a dedicated test wallet and the same authenticated agent
+throughout. Configure policy to permit review of `sanction.demo.email` without
+other hard denials. Do not connect a real email-sending tool for this demo.
+Authorization requests create records and may send configured approval alerts.
+
+1. Ask the host to call `sanction_authorize_tool` once with this exact input,
+   report the request ID, then wait without polling or executing anything:
+
+   ```json
+   {
+     "tool": "sanction.demo.email",
+     "arguments": {
+       "execute": false,
+       "to": "reviewer@example.invalid",
+       "subject": "Synthetic approval demonstration",
+       "body": "This is a test proposal. No email will be sent."
+     },
+     "require_approval": true,
+     "approval_reason": "Review the exact recipient and message; test only, no email will be sent."
+   }
+   ```
+
+2. Show the pending request and expand its exact arguments. The authorized
+   wallet owner approves it. Keep credentials and grant values off the recording.
+3. Ask the host to call `sanction_check_authorization` once for that request ID.
+   Expected: approval with an active grant, but no authorization to execute from
+   the check alone. If it is pending, expired, or denied, stop this take.
+4. With that unconsumed grant, call `sanction_authorize_tool` once using the
+   original fields plus `grant_id`, changing **only** `arguments.to` to
+   `different-recipient@example.invalid`. Expected: `authorized: false`,
+   `next_action: stop`, and a binding-mismatch denial. Do not retry, execute,
+   or automatically create a new request. A successful redemption here is a
+   failure of the test: stop and preserve the evidence.
+5. Show the denial and its audit linkage where returned. Record the actual
+   status, code, request references, host, date, and build; redact grant values.
+   End with: permission covered one proposed recipient and message. Connecting
+   the approvals MCP is cooperative; enforced sending requires the real send
+   path to pass through the broker or an equivalent controlled executor.
+
+Use a separate fresh request if demonstrating successful exact-input redemption.
+Never redeem first and then use that consumed grant for the changed-recipient
+case: that would test replay rejection, not argument binding. The two flows
+must be recorded separately, and neither invokes a target action.

@@ -74,7 +74,7 @@ export default function Landing() {
         <div className="sn-home-wrap sn-home-nav-inner">
           <Link href="/" aria-label="Sanction home"><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="130" height="25" /></Link>
           <div className="sn-home-nav-links">
-            <a href="#use-cases">For your team</a><a href="#how">How it works</a><Link href="/platform">Platform</Link><Link href="/docs">Docs</Link>
+            <Link href="/use-cases">Use cases</Link><a href="#how">How it works</a><Link href="/platform">Platform</Link><Link href="/docs">Docs</Link>
           </div>
           <div className="sn-home-nav-actions"><Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link><Link className="sn-btn sn-btn-primary sn-btn-s" href="/docs/connect">Try one approval</Link></div>
         </div>
@@ -95,11 +95,22 @@ export default function Landing() {
 
       <div className="sn-home-principles"><div className="sn-home-wrap"><span>Your AI tools</span><span>Your approval rules</span><span>Your decision</span></div></div>
 
+      <section className="sn-home-section sn-home-wrap" aria-labelledby="oversight-title">
+        <div className="sn-home-section-heading"><Label>Before you give an agent more responsibility</Label><h2 id="oversight-title">Decide what it can do.<br />Know when you need a say.</h2><p>Your team may work across different AI providers. Give each agent its own limits and bring the decisions into one shared history.</p></div>
+        <div className="sn-home-integrations sn-oversight-grid">
+          <article><h3>Access: what does it need?</h3><p>Give each agent its own identity and scoped access. Use governed integrations to add credentials without handing the agent your provider keys.</p><Link href="/use-cases#case-04">Scope access to the work →</Link></article>
+          <article><h3>Actions: what may it change?</h3><p>Define which tools, capabilities, and expenses are allowed. Route actions through an enforcing integration when the limit must be applied before execution.</p><Link href="/use-cases#case-07">Set boundaries for new capabilities →</Link></article>
+          <article><h3>Approval: what needs your review?</h3><p>Review the exact recipient, message, deployment, or expense. Approve that request once, without changing the standing rules.</p><Link href="/use-cases#case-03">Review a message before it leaves →</Link></article>
+          <article><h3>Oversight: how do you stay in control?</h3><p>Inspect requests and decisions, track budgets, and revoke access. A decision record shows what was authorized; it does not prove an external action ran.</p><Link href="/use-cases#case-05">Keep a shared decision history →</Link></article>
+        </div>
+      </section>
+
       <section id="use-cases" className="sn-home-section sn-home-wrap">
         <div className="sn-home-section-heading"><Label>For the people responsible</Label><h2>Keep the work moving.<br />Keep a say in what happens.</h2><p>Choose the moments that need a person. Connect the relevant workflow so the agent asks before taking that step.</p></div>
         <div className="sn-human-grid">
-          {humanUses.map(([number, title, body, category]) => <article className="sn-human-card" key={number}><div className="sn-home-card-label"><span>{category}</span><span>{number}</span></div><h3>{title}</h3><p>{body}</p></article>)}
+          {humanUses.map(([number, title, body, category]) => <article className="sn-human-card" key={number}><div className="sn-home-card-label"><span>{category}</span><span>{number}</span></div><h3>{title}</h3><p>{body}</p><Link className="sanction-link" href={`/use-cases#case-${number}`}>Explore this use case →</Link></article>)}
         </div>
+        <p className="mt-6"><Link className="sn-btn sn-btn-secondary sn-btn-m" href="/use-cases">Explore all ten use cases →</Link></p>
         <p className="sn-home-small">These workflows require a connected agent or integration. Sanction does not automatically intercept your AI host’s other tools.</p>
       </section>
 
@@ -142,7 +153,7 @@ export default function Landing() {
       </section>
 
       <section className="sn-home-closing"><div className="sn-home-wrap"><Label>Start with one approval</Label><h2>If you’re not sure, Sanction it.</h2><p>One safe request. A human decision. A clear next step.</p><div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link><Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start">Create a free account</Link></div></div></section>
-      <footer className="sn-home-footer sn-home-wrap"><div><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="104" height="20" /><p>Authorize. Protect. Govern.</p></div><nav aria-label="Footer navigation"><Link href="/platform">Platform</Link><Link href="/docs/connect">Connect</Link><Link href="/slack">Slack</Link><Link href="/about">About</Link><Link href="/roadmap">Roadmap</Link><Link href="/changelog">Changelog</Link><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></nav></footer>
+      <footer className="sn-home-footer sn-home-wrap"><div><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="104" height="20" /><p>Authorize. Protect. Govern.</p></div><nav aria-label="Footer navigation"><Link href="/use-cases">Use cases</Link><Link href="/platform">Platform</Link><Link href="/docs/connect">Connect</Link><Link href="/slack">Slack</Link><Link href="/about">About</Link><Link href="/roadmap">Roadmap</Link><Link href="/changelog">Changelog</Link><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></nav></footer>
     </main>
   )
 }
