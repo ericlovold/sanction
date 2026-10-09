@@ -33,6 +33,28 @@ import { sendBudgetThresholdEmail } from "../lib/email"
 import { withTenant } from "../lib/rls"
 import { rateLimit, ipFromHeaders, clientIp } from "../lib/rateLimit"
 
+describe("Slack exact-request review handoff", () => {
+  it.each([
+    ["approval.created", { action_type: "tool.invoke" }],
+    ["escalation.created", { action: "invoke", tool: "fixture.echo" }],
+  ])("keeps %s details behind the admin review link in both delivery formats", async (event, shape) => {
+    const { slackPayload } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    const { slackInteractivePayload } = await vi.importActual<typeof import("../lib/slack")>("../lib/slack")
+    const url = "https://getsanction.com/dashboard/approvals?review=request-test"
+    const data = { ...shape, approve_url: url, arguments: { body: "PRIVATE ARGUMENT" }, resource: { requestBinding: { encryptedValue: "SEALED BINDING" } } }
+    const payloads = [slackPayload(event, data), slackInteractivePayload(event, data, "Test request", "action-token")]
+    for (const raw of payloads) {
+      const payload = JSON.parse(raw)
+      const review = payload.blocks.find((block: { type: string }) => block.type === "actions").elements.find((element: { url?: string }) => element.url)
+      expect(review).toMatchObject({ text: { type: "plain_text", text: "Review request in Sanction" }, url })
+      expect(payload.blocks.at(-1)).toMatchObject({ type: "context", elements: [{ type: "plain_text", text: expect.stringContaining("wallet admin") }] })
+      expect(raw).toContain("Full tool arguments are not shown")
+      expect(raw).not.toMatch(/PRIVATE ARGUMENT|SEALED BINDING/)
+    }
+    expect(decryptMock).not.toHaveBeenCalled()
+  })
+})
+
 const COMMON = { walletId: "wallet_1", ownerEmail: "owner@example.com", agentName: "tenet", agentId: "agent_1" }
 
 beforeEach(() => {
