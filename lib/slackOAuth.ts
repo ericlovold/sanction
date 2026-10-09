@@ -114,10 +114,25 @@ export function parseSlackOAuthAccess(json: unknown): SlackOAuthAccess | null {
   }
 }
 
-export async function exchangeSlackCode(code: string, redirectUri: string): Promise<SlackOAuthAccess | null> {
+const SLACK_EXCHANGE_ERRORS = [
+  "invalid_client_id", "bad_client_secret", "invalid_code", "code_already_used",
+  "bad_redirect_uri", "invalid_scope", "invalid_request", "access_denied",
+] as const
+
+type SlackExchangeError = typeof SLACK_EXCHANGE_ERRORS[number]
+  | "missing_config" | "http_error" | "invalid_response" | "slack_rejected"
+  | "missing_bot_token" | "missing_team" | "missing_channel" | "timeout" | "network_error"
+
+export type SlackExchangeResult =
+  | { ok: true; access: SlackOAuthAccess }
+  | { ok: false; error: SlackExchangeError }
+
+// Only fixed codes cross the callback boundary. Never reflect Slack response
+// bodies, exception messages, tokens, or authorization codes into URLs or logs.
+export async function exchangeSlackCode(code: string, redirectUri: string): Promise<SlackExchangeResult> {
   const clientId = slackClientId()
   const clientSecret = slackClientSecret()
-  if (!clientId || !clientSecret) return null
+  if (!clientId || !clientSecret) return { ok: false, error: "missing_config" }
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 8000)
   try {
@@ -132,10 +147,29 @@ export async function exchangeSlackCode(code: string, redirectUri: string): Prom
       }).toString(),
       signal: ctrl.signal,
     })
-    if (!res.ok) return null
-    return parseSlackOAuthAccess(await res.json())
+    if (!res.ok) return { ok: false, error: "http_error" }
+    let json: unknown
+    try { json = await res.json() } catch {
+      return { ok: false, error: ctrl.signal.aborted ? "timeout" : "invalid_response" }
+    }
+    if (!json || typeof json !== "object" || Array.isArray(json)) {
+      return { ok: false, error: "invalid_response" }
+    }
+    const body = json as Record<string, unknown>
+    if (body.ok === false) {
+      const error = SLACK_EXCHANGE_ERRORS.find(value => value === body.error) ?? "slack_rejected"
+      return { ok: false, error }
+    }
+    if (body.ok !== true) return { ok: false, error: "invalid_response" }
+    if (typeof body.access_token !== "string" || !body.access_token.startsWith("xoxb-")) {
+      return { ok: false, error: "missing_bot_token" }
+    }
+    const team = body.team as Record<string, unknown> | undefined
+    if (!team || typeof team.id !== "string" || !team.id) return { ok: false, error: "missing_team" }
+    const access = parseSlackOAuthAccess(json)
+    return access ? { ok: true, access } : { ok: false, error: "missing_channel" }
   } catch {
-    return null
+    return { ok: false, error: ctrl.signal.aborted ? "timeout" : "network_error" }
   } finally {
     clearTimeout(timer)
   }

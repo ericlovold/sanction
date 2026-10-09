@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
   const state = stateParam ? await verifySlackOAuthState(stateParam) : null
   if (!state || state.walletId !== member.wallet.id || !code) return approvals(origin, "invalid")
 
-  const access = await exchangeSlackCode(code, slackRedirectUri(origin))
-  if (!access) return approvals(origin, "failed")
+  const result = await exchangeSlackCode(code, slackRedirectUri(origin))
+  if (!result.ok) return approvals(origin, `oauth_${result.error}`)
 
-  const { channelId, token } = await upsertSlackInstall(member.wallet.id, access)
+  const { channelId, token } = await upsertSlackInstall(member.wallet.id, result.access)
   await postSlackChat(channelId, slackPayload("ping", {}), token)
   return approvals(origin, "connected")
 }

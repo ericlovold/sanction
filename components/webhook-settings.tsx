@@ -27,8 +27,26 @@ const SLACK_STATUS: Record<string, { ok: boolean; text: string }> = {
   denied: { ok: false, text: "Slack install was cancelled." },
   forbidden: { ok: false, text: "Admin role required to connect Slack." },
   invalid: { ok: false, text: "Slack install expired. Try Add to Slack again." },
-  failed: { ok: false, text: "Slack did not return a bot token. Check the app's OAuth scopes." },
+  failed: { ok: false, text: "Slack installation failed before it could finish." },
   missing_channel: { ok: false, text: "Slack did not return a channel. Reinstall and pick a channel." },
+  oauth_missing_config: { ok: false, text: "Slack OAuth client ID or secret is missing from the server configuration." },
+  oauth_invalid_client_id: { ok: false, text: "Slack rejected the configured client ID (invalid_client_id)." },
+  oauth_bad_client_secret: { ok: false, text: "Slack rejected the configured client secret (bad_client_secret)." },
+  oauth_invalid_code: { ok: false, text: "Slack rejected the authorization code (invalid_code). Start a fresh Add to Slack flow." },
+  oauth_code_already_used: { ok: false, text: "Slack reports this authorization code was already used. Start a fresh Add to Slack flow." },
+  oauth_bad_redirect_uri: { ok: false, text: "Slack rejected the callback URL (bad_redirect_uri). Check the registered redirect URL." },
+  oauth_invalid_scope: { ok: false, text: "Slack rejected the requested scopes (invalid_scope). Check the app configuration." },
+  oauth_invalid_request: { ok: false, text: "Slack rejected the token exchange request (invalid_request)." },
+  oauth_access_denied: { ok: false, text: "Slack denied the token exchange (access_denied)." },
+  oauth_http_error: { ok: false, text: "Slack returned an HTTP error during the token exchange." },
+  oauth_invalid_response: { ok: false, text: "Slack returned an unreadable or unexpected token exchange response." },
+  oauth_slack_rejected: { ok: false, text: "Slack rejected the token exchange with an unrecognized error. No response details were exposed." },
+  oauth_missing_bot_token: { ok: false, text: "Slack reported success but returned no supported bot token. Check the bot configuration." },
+  oauth_missing_team: { ok: false, text: "Slack reported success but returned no workspace ID." },
+  oauth_missing_channel: { ok: false, text: "Slack reported success but returned no supported channel ID. Reinstall and select a channel." },
+  oauth_timeout: { ok: false, text: "The Slack token exchange timed out. Start a fresh Add to Slack flow." },
+  oauth_network_error: { ok: false, text: "Sanction could not reach Slack to exchange the authorization code." },
+
 }
 
 export function WebhookSettings({
