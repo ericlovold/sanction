@@ -8,6 +8,15 @@ const SLACK_ACTION_TTL_SECONDS = 2 * 60 * 60
 const SLACK_ACTION_PURPOSE = "slack-approval-action"
 const REVIEW_URL = "https://getsanction.com/dashboard/approvals"
 
+// Describes the existing admin-only dashboard read; never include the binding here.
+export function slackApprovalReview(data: Record<string, unknown>) {
+  const tool = data.action_type === "tool.invoke" || (data.action === "invoke" && typeof data.tool === "string")
+  return {
+    label: tool ? "Review request in Sanction" : "Review in Sanction",
+    context: tool ? [{ type: "context", elements: [{ type: "plain_text", text: "Full tool arguments are not shown in this card. A wallet admin can open Sanction and select Review exact request before approving." }] }] : [],
+  }
+}
+
 export function slackSigningSecret(): string | undefined {
   const secret = process.env.SANCTION_SLACK_SIGNING_SECRET
   return secret && secret.length > 0 ? secret : undefined
@@ -143,6 +152,7 @@ export async function verifySlackActionToken(token: string): Promise<SlackAction
 export function slackInteractivePayload(event: string, data: Record<string, unknown>, text: string, actionToken?: string): string {
   const blocks: unknown[] = [{ type: "section", text: { type: "mrkdwn", text } }]
   if (event === "approval.created" || event === "escalation.created") {
+    const review = slackApprovalReview(data)
     const reviewUrl = typeof data.approve_url === "string" ? data.approve_url : REVIEW_URL
     const elements: unknown[] = []
     if (actionToken) {
@@ -165,10 +175,11 @@ export function slackInteractivePayload(event: string, data: Record<string, unkn
     }
     elements.push({
       type: "button",
-      text: { type: "plain_text", text: "Review in Sanction" },
+      text: { type: "plain_text", text: review.label },
       url: reviewUrl || REVIEW_URL,
     })
     blocks.push({ type: "actions", elements })
+    blocks.push(...review.context)
   }
   return JSON.stringify({ text: text.replace(/\*/g, ""), blocks })
 }

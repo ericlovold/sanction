@@ -24,6 +24,12 @@ agent are needed to exercise the approval flow. The app does not read channel
 messages. The Slack interaction records an authorization decision; the agent
 performs any subsequent action through its configured integration.
 
+Tool-approval cards link to **Review request in Sanction** and explain that full
+arguments are not shown in the channel. A signed-in wallet admin opens the linked
+request and selects **Review exact request** to decrypt it. Slack membership alone
+does not grant access to that view. The existing Slack Approve/Deny buttons remain
+available; review is guidance, not a new enforced prerequisite.
+
 | Listing field | Value |
 | --- | --- |
 | Landing / install page | https://getsanction.com/slack |

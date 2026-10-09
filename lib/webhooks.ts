@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "crypto"
 import { decryptCredentialEnvelope } from "./credentialCrypto"
 import { db } from "./db"
 import { withTenant } from "./rls"
-import { issueSlackActionToken, postSlackChat, isSlackArchiveUrl, slackInteractivePayload } from "./slack"
+import { issueSlackActionToken, postSlackChat, isSlackArchiveUrl, slackInteractivePayload, slackApprovalReview } from "./slack"
 import { slackOAuthLabel } from "./slackOAuth"
 
 // Owner-registered webhooks notified on events. Each delivery is signed with
@@ -159,13 +159,15 @@ export function slackPayload(event: string, data: Record<string, unknown>): stri
   const text = slackText(event, data)
   const blocks: unknown[] = [{ type: "section", text: { type: "mrkdwn", text } }]
   if (event === "approval.created" || event === "escalation.created") {
+    const review = slackApprovalReview(data)
     blocks.push({
       type: "actions",
       elements: [
         // Deep-link the button to the specific decision when the event carries it.
-        { type: "button", style: "primary", text: { type: "plain_text", text: "Review in Sanction" }, url: typeof data.approve_url === "string" ? data.approve_url : APPROVE_URL },
+        { type: "button", style: "primary", text: { type: "plain_text", text: review.label }, url: typeof data.approve_url === "string" ? data.approve_url : APPROVE_URL },
       ],
     })
+    blocks.push(...review.context)
   }
   return JSON.stringify({ text: text.replace(/\*/g, ""), blocks })
 }
