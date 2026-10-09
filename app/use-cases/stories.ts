@@ -3,7 +3,7 @@ export const stories = [
     "n": "01",
     "track": "people",
     "title": "Approve a production change",
-    "story": "An engineer asks a coding agent to run a migration on the billing database. The agent doesn't just run it. It sends Sanction the exact command, the target, and why, and waits. The designated owner reads that exact proposal and approves it. The agent gets a one-use grant for that command and nothing else.",
+    "story": "An engineer asks a coding agent to run a migration on the billing database. The agent doesn't just run it. It sends Sanction the exact command, the target, and why, and waits. The wallet owner or an admin reads that exact proposal in the dashboard and approves it. The agent gets a one-use grant for that command and nothing else.",
     "strip": [
       {
         "i": "agent",
@@ -30,7 +30,7 @@ export const stories = [
     ],
     "note": "A retry with a different --target is refused and needs a new decision.",
     "reviewed": "The tool, the server, and the full arguments: the actual command, not a summary of it.",
-    "coop": "sanction_authorize_tool with require_approval, then sanction_check_authorization, then redeem with the grant_id. The agent honors proceed.",
+    "coop": "sanction_authorize_tool with require_approval: true, then check after review and redeem with the grant_id. An unanswered explicit approval request times out to denial.",
     "enf": "Put the deploy or infrastructure MCP server behind Sanction's broker. The call is forwarded only with an allowed decision.",
     "boundary": "Sanction governs calls routed through it. Approval authorizes the proposed operation; it does not establish that a deployment is safe or execute the deployment."
   },
@@ -63,11 +63,11 @@ export const stories = [
         "tone": "ok"
       }
     ],
-    "note": "Illustrative amounts. Hard limits still deny, even with a person available.",
+    "note": "Illustrative amounts, with timeout-deny configured. Hard limits still deny, even with a person available.",
     "reviewed": "The amount, what it pays for, and the reason. The standing daily budget isn't changed.",
     "coop": "sanction_authorize with the amount. Policy escalates above the review threshold, and the agent waits for the decision.",
     "enf": "The LLM gateway meters supported calls and returns 402 on new calls once recorded daily usage reaches the budget. In-flight usage can cross the budget. External purchases need a caller that honors the decision.",
-    "boundary": "Approval does not raise a hard budget limit or make a payment. An external purchase still needs a caller that honors the decision."
+    "boundary": "Ordinary policy escalations can be configured to approve on timeout; that is a policy decision, not human approval. Neither path raises a hard budget limit or makes a payment."
   },
   {
     "n": "03",
@@ -87,9 +87,9 @@ export const stories = [
         "tone": "esc"
       },
       {
-        "i": "slack",
-        "t": "Human reviews",
-        "s": "dashboard|or Slack"
+        "i": "person",
+        "t": "Admin reviews",
+        "s": "exact arguments|in dashboard"
       },
       {
         "i": "ticket",
@@ -98,11 +98,11 @@ export const stories = [
         "tone": "ok"
       }
     ],
-    "note": "Slack is optional. The dashboard approval inbox is the baseline.",
+    "note": "Full tool arguments are reviewed in the dashboard by the wallet owner or an admin. Optional Slack cards link there.",
     "reviewed": "Recipient, subject, body, and attachments, exactly as the send tool will receive them.",
-    "coop": "The send tool's arguments go into sanction_authorize_tool. The agent sends only after proceed, using the matching grant_id.",
+    "coop": "The send tool's arguments go into sanction_authorize_tool with require_approval: true. The agent sends only after proceed, using the matching grant_id.",
     "enf": "Route the email or social MCP server through the broker so the send is forwarded only with an allowed decision.",
-    "boundary": "Only a person with authority over the wallet can approve. A channel membership alone does not grant approval authority."
+    "boundary": "Dashboard approval requires the wallet owner or an admin. With Slack configured, people able to use the approval buttons in that channel can decide; viewing full arguments still requires dashboard admin access."
   },
   {
     "n": "04",
@@ -142,7 +142,7 @@ export const stories = [
     "n": "05",
     "track": "people",
     "title": "Coordinate work across AI providers",
-    "story": "A team researches in one assistant, builds in another, and reviews in Slack. Each agent connects to the same Sanction wallet under its own identity. Whichever tool asks, decisions land in one shared history, and the team can see what was requested, who decided, and what was redeemed.",
+    "story": "A team researches in one assistant, builds in another, and decides approval requests in Slack. Each agent connects to the same Sanction wallet under its own identity. Whichever tool asks, decisions land in one shared history, and the team can see what was requested, who decided, and what was redeemed.",
     "strip": [
       {
         "i": "agent",
@@ -177,7 +177,7 @@ export const stories = [
     "n": "06",
     "track": "agents",
     "title": "Stop at the edge of a budget",
-    "story": "An agent does routine paid work inside its allowance without interrupting anyone. When one expense crosses the review threshold, it escalates that expense and waits. When an action would break a hard limit, it gets a denial, and asking a human doesn't change that.",
+    "story": "An agent does routine paid work inside its allowance without interrupting anyone. With timeout-deny configured, an expense above the review threshold waits for a person or is denied when time runs out. When an action would break a hard limit, it gets a denial, and asking a human doesn't change that.",
     "strip": [
       {
         "i": "agent",
@@ -276,7 +276,7 @@ export const stories = [
     ],
     "note": "If redemption fails, the agent stops and reports. It doesn't re-request automatically.",
     "reviewed": "The paused action, exactly as it will run.",
-    "coop": "sanction_authorize_tool → sanction_check_authorization → retry_with_grant → proceed. This is the synthetic first request in the connection guide.",
+    "coop": "sanction_authorize_tool with require_approval: true → check after review → retry_with_grant → proceed. Without a human decision, the request times out to denial.",
     "enf": "The same loop through the broker: the forward happens only with the redeemed grant.",
     "boundary": "A grant authorizes one matching request. An outcome log records what the caller reports; it is not independent proof that the action ran."
   },
@@ -319,7 +319,7 @@ export const stories = [
     "n": "10",
     "track": "agents",
     "title": "Collaborate without passing around blanket authority",
-    "story": "A research agent hands work to a purchasing or deployment agent. Each one acts under its own identity and its own limits. The handoff passes the work, not permission. The receiving agent asks Sanction for what it intends to do. If a parent agent deliberately delegates, it mints a short-lived, scoped mandate instead of sharing its key.",
+    "story": "A research agent hands work to a purchasing or deployment agent. Each one acts under its own identity and its own limits. The handoff passes the work, not permission. The receiving agent asks Sanction for what it intends to do.",
     "strip": [
       {
         "i": "agent",
@@ -346,7 +346,7 @@ export const stories = [
     "note": "A handoff does not transfer an approval. Each agent remains accountable for its own request.",
     "reviewed": "The receiving agent's proposed action, under the receiving agent's own policy.",
     "coop": "Each agent connects with its own identity and asks before acting. An approval granted to one agent can't be redeemed by another.",
-    "enf": "A parent can issue a short-lived mandate with a credential scope and a spend cap. The mandate is verified by Sanction on the consuming path; enforcement depends on that path checking it. Agents keep separate keys.",
-    "boundary": "Approvals are bound to an agent and cannot be transferred to another. A scoped mandate is a separate delegation mechanism, not a transferable approval."
+    "enf": "The receiving agent calls through the broker under its own identity. Sanction checks that agent's policy before forwarding the call. Agents keep separate keys.",
+    "boundary": "Approvals are bound to an agent and cannot be transferred to another."
   }
 ] as const
