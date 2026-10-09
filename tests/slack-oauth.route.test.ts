@@ -125,8 +125,21 @@ describe("GET /api/slack/oauth/callback", () => {
     ) as never
     const state = await issueSlackOAuthState("wallet_1")
     const res = await slackOAuthCallback(callbackReq({ state, code: "x" }))
-    expect(res.headers.get("location")).toContain("slack=failed")
+    expect(res.headers.get("location")).toContain("slack=oauth_missing_channel")
     expect(upsertMock).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["bad_client_secret", "oauth_bad_client_secret"],
+    ["private-secret&token=xoxb-secret", "oauth_slack_rejected"],
+  ])("redirects with only a bounded diagnostic", async (error, expected) => {
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ ok: false, error }))) as never
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "private-code" }))
+    expect(res.headers.get("location")).toBe(`https://getsanction.com/dashboard/approvals?slack=${expected}`)
+    expect(res.headers.get("cache-control")).toBe("no-store")
+    expect(upsertMock).not.toHaveBeenCalled()
+    expect(encryptMock).not.toHaveBeenCalled()
   })
 
   it("stores the encrypted bot token and pings the channel", async () => {
