@@ -32,7 +32,7 @@ export async function rotateKeyAction(_prev: RotateState, form: FormData): Promi
   const key = generateApiKey()
   // Ownership is part of the write: an agent moved out of this wallet since the
   // check above matches nothing, and the new key is never shown.
-  const rotated = await db.$transaction(async (tx) => {
+  const rotated = await withTenant(owned.wallet.id, async (tx) => {
     const res = await tx.agent.updateMany({
       where: { id: agentId, walletId: owned.wallet.id },
       data: {
@@ -85,7 +85,7 @@ export async function setAgentActiveAction(form: FormData): Promise<void> {
   const active = String(form.get("active") ?? "") === "true"
   const owned = await ownedAgent(agentId)
   if (!owned) return
-  await db.$transaction(async (tx) => {
+  await withTenant(owned.wallet.id, async (tx) => {
     const res = await tx.agent.updateMany({ where: { id: agentId, walletId: owned.wallet.id }, data: { isActive: active } })
     if (res.count !== 1) return
     if (!active) await revokeActiveExecutionTokens({ agentId }, tx)

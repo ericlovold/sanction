@@ -31,6 +31,10 @@ import { moveAgentToPoolAction } from "../app/dashboard/pools/actions"
 import { POST as batchCreate } from "../app/api/v1/agents/batch/route"
 import { PROVIDERS } from "../lib/providers"
 import { withTenant } from "../lib/rls"
+import { POST as issueExec } from "../app/api/v1/exec/route"
+import { POST as inject } from "../app/api/v1/credentials/inject/route"
+import { POST as revokeExec } from "../app/api/v1/exec/revoke/route"
+import { POST as rotateKey } from "../app/api/v1/agents/rotate/route"
 
 describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => {
   let admin: PrismaClient
@@ -41,6 +45,8 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
   let otherAgentId = ""
   let otherCredId = ""
   const mgmt = generateApiKey()
+  const executionKey = generateApiKey()
+  let executionAgentId = ""
 
   beforeAll(async () => {
     // Owner connection for seeding; sanction_app is provisioned by the global setup.
@@ -56,6 +62,10 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
     child = (await admin.wallet.create({ data: { name: "C", ownerEmail: `c-${ts}@e.com`, parentId: parent } })).id
     const k = generateApiKey()
     agentId = (await admin.agent.create({ data: { walletId: parent, name: "mover", apiKeyHash: k.hash, apiKeyPrefix: k.prefix } })).id
+    executionAgentId = (await admin.agent.create({ data: { walletId: parent, name: "execution", apiKeyHash: executionKey.hash, apiKeyPrefix: executionKey.prefix } })).id
+    await admin.credentialVault.create({
+      data: { walletId: parent, label: "execution-secret", type: "api_key", encryptedValue: encryptCredential("execution-value", parent, "execution-secret") },
+    })
     await admin.agentClearance.create({ data: { walletId: parent, agentId, level: 3 } })
     other = (await admin.wallet.create({ data: { name: "O", ownerEmail: `o-${ts}@e.com` } })).id
     const ok = generateApiKey()
@@ -72,6 +82,8 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
   afterAll(async () => {
     if (parent) {
       const ids = [parent, child, other].filter(Boolean)
+      await admin.credentialInjection.deleteMany({ where: { executionToken: { walletId: { in: ids } } } })
+      await admin.executionToken.deleteMany({ where: { walletId: { in: ids } } })
       await admin.agentClearance.deleteMany({ where: { walletId: { in: ids } } })
       await admin.credentialVault.deleteMany({ where: { walletId: { in: ids } } })
       await admin.agent.deleteMany({ where: { walletId: { in: ids } } })
@@ -137,5 +149,52 @@ describe.skipIf(!run)("SEC-3: tenant-table writes go through withTenant", () => 
     )
     expect(count).toBe(0)
     expect((await admin.agentClearance.findUnique({ where: { agentId: otherAgentId } }))?.level).toBe(4)
+  })
+
+  it("issues, injects, audits and revokes an execution token under the restricted role", async () => {
+    const issued = await issueExec(new NextRequest("https://test.local/api/v1/exec", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": executionKey.raw },
+      body: JSON.stringify({ scope: ["execution-secret"], budget_usd: 10 }),
+    }))
+    expect(issued.status).toBe(200)
+    const { jwt, jti } = await issued.json()
+    expect((await admin.executionToken.findUnique({ where: { id: jti } }))?.walletId).toBe(parent)
+    const injectRequest = () => new NextRequest("https://test.local/api/v1/credentials/inject", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ credential_label: "execution-secret" }),
+    })
+    const injected = await inject(injectRequest())
+    expect(injected.status).toBe(200)
+    expect((await injected.json()).value).toBe("execution-value")
+    expect(await admin.credentialInjection.count({ where: { executionTokenId: jti } })).toBe(1)
+
+    const revoked = await revokeExec(new NextRequest("https://test.local/api/v1/exec/revoke", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-mgmt-key": mgmt.raw },
+      body: JSON.stringify({ wallet_id: parent, jti }),
+    }))
+    expect(revoked.status).toBe(200)
+    expect((await admin.executionToken.findUnique({ where: { id: jti } }))?.status).toBe("revoked")
+    expect((await inject(injectRequest())).status).toBe(401)
+    expect(await admin.credentialInjection.count({ where: { executionTokenId: jti } })).toBe(1)
+  })
+
+  it("key rotation actually revokes existing execution tokens in its transaction", async () => {
+    const issued = await issueExec(new NextRequest("https://test.local/api/v1/exec", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": executionKey.raw },
+      body: JSON.stringify({ scope: ["execution-secret"], budget_usd: 10 }),
+    }))
+    expect(issued.status).toBe(200)
+    const { jti } = await issued.json()
+    const rotated = await rotateKey(new NextRequest("https://test.local/api/v1/agents/rotate", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-mgmt-key": mgmt.raw },
+      body: JSON.stringify({ wallet_id: parent, agent_id: executionAgentId }),
+    }))
+    expect(rotated.status).toBe(200)
+    expect((await admin.executionToken.findUnique({ where: { id: jti } }))?.status).toBe("revoked")
   })
 })

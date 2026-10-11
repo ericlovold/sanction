@@ -188,6 +188,8 @@ export async function sweepPreClaimAccess(walletId: string) {
 }
 
 export async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletId: string) {
+  // Scope before either ExecutionToken or SlackInstall is accessed.
+  await scopeTenant(tx, walletId)
   // Set-based so rows can't slip between a read and per-row writes. The new
   // hash contains ':' so it can never equal a sha256 hex digest (hashApiKey).
   const agentsRotated = await tx.$executeRaw`
@@ -203,8 +205,6 @@ export async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletI
     data: { status: "revoked", tokenHash: null, tokenExpiresAt: null },
   })
   const webhooks = await tx.webhook.deleteMany({ where: { walletId } })
-  // SlackInstall is FORCE RLS — scope this transaction to the tenant first.
-  await scopeTenant(tx, walletId)
   const slack = await tx.slackInstall.updateMany({
     where: { walletId, revokedAt: null },
     data: { revokedAt: new Date() },

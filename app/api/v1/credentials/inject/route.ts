@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Check execution token is still active and not expired
-  const execToken = await db.executionToken.findUnique({ where: { id: claims.jti } })
+  const execToken = await withTenant(claims.wallet, (tx) =>
+    tx.executionToken.findUnique({ where: { id: claims.jti } }),
+  )
   if (!execToken || execToken.status !== "active" || execToken.expiresAt < new Date()) {
     return NextResponse.json({ error: "Execution token expired or revoked" }, { status: 401 })
   }
@@ -113,9 +115,9 @@ export async function POST(req: NextRequest) {
 
   // Permitted — honor the obligations: audit_log (record the access; raw value
   // never logged) and no_store (set on the response below).
-  await db.credentialInjection.create({
+  await withTenant(claims.wallet, (tx) => tx.credentialInjection.create({
     data: { executionTokenId: execToken.id, credentialId: credential.id },
-  })
+  }))
 
   const value = await decryptCredentialEnvelope(credential)
 

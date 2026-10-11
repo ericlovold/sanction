@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { authenticateOwner } from "@/lib/ownerAuth"
 
 const schema = z.object({
@@ -25,10 +25,10 @@ export async function POST(req: NextRequest) {
 
   // updateMany scopes the write to this wallet — an owner can never revoke
   // another tenant's token by guessing a jti.
-  const result = await db.executionToken.updateMany({
+  const result = await withTenant(owner.wallet.id, (tx) => tx.executionToken.updateMany({
     where: { id: jti, walletId: wallet_id, status: "active" },
     data: { status: "revoked", revokedAt: new Date() },
-  })
+  }))
 
   if (result.count === 0) {
     return NextResponse.json(

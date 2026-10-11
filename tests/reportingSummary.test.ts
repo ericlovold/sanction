@@ -7,6 +7,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // seats, and the totals fold.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
     agent: { findMany: vi.fn() },
     authorizationRequest: { aggregate: vi.fn(), groupBy: vi.fn() },
     tokenLog: { aggregate: vi.fn(), groupBy: vi.fn() },
@@ -22,6 +24,7 @@ const RANGE = { start: new Date("2026-07-01T00:00:00Z"), end: new Date("2026-07-
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.agent.findMany.mockResolvedValue([{ id: "agent_1", name: "tenet" }])
   dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 120 } })
   dbMock.authorizationRequest.groupBy.mockResolvedValue([{ status: "approved", _count: { _all: 8 } }])
@@ -39,6 +42,8 @@ describe("buildPeriodSummary", () => {
     expect(s.totals.tokens_in).toBe(1000)
     expect(s.totals.tokens_out).toBe(500)
     expect(s.totals.secret_accesses).toBe(2)
+    expect(dbMock.$executeRaw.mock.calls[0][1]).toBe("wallet_1")
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(dbMock.credentialInjection.count.mock.invocationCallOrder[0])
     expect(s.totals.decisions.approved).toBe(8)
     expect(s.by_agent).toBeUndefined() // not requested
   })
@@ -72,4 +77,13 @@ describe("buildPeriodSummary", () => {
     const busy = s.by_agent?.find((a) => a.agent_id === "agent_1")
     expect(busy).toMatchObject({ spend_usd: 50, approved: 3, token_cost_usd: 2 })
   })
+})
+
+it("scopes secret-access aggregation to the supplied authorized subtree", async () => {
+  dbMock.agent.findMany.mockResolvedValue([])
+  await buildPeriodSummary(["wallet_1", "wallet_child"], RANGE)
+  expect(dbMock.$executeRaw.mock.calls[0][1]).toBe("wallet_1,wallet_child")
+  expect(dbMock.credentialInjection.count).toHaveBeenCalledWith(expect.objectContaining({
+    where: expect.objectContaining({ executionToken: { walletId: { in: ["wallet_1", "wallet_child"] } } }),
+  }))
 })

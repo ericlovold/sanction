@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { decisionCode, REMEDIATION, type DecisionCode } from "@/lib/decisions"
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
   if (grant_id) {
     const now = new Date()
     try {
-      const grantResult = await db.$transaction(async (tx) => {
+      const grantResult = await withTenant(agent.walletId, async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
         return consumeProvisionGrant(tx, {
           grantId: grant_id,
@@ -255,7 +256,9 @@ export async function POST(req: NextRequest) {
 
     let exec: SpendContext["exec"]
     if (execTokenId) {
-      const et = await db.executionToken.findUnique({ where: { id: execTokenId } })
+      const et = await withTenant(agent.walletId, (tx) =>
+        tx.executionToken.findUnique({ where: { id: execTokenId } }),
+      )
       const valid = !!et && et.status === "active" && et.expiresAt >= new Date()
       exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
     }
@@ -283,7 +286,7 @@ export async function POST(req: NextRequest) {
     let spendCrossing: { prevCents: number; nextCents: number } | null = null
     let poolCrossings: CascadeCrossing[] = []
 
-    const result = await db.$transaction(async (tx) => {
+    const result = await withTenant(agent.walletId, async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
 
       // `note` persists only for the CPO throttle (spend-route parity): the

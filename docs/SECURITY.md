@@ -63,8 +63,8 @@ missing server secret is a 503, never an open door.
 
 ## Tenant isolation [SEC-3]
 
-Vault, Slack install, and roster tables are under **Postgres row-level
-security**. Every read or write runs inside a transaction that sets the tenant,
+Vault, Slack install, roster, execution-token, and credential-injection tables
+are under **Postgres row-level security**. Every read or write runs inside a transaction that sets the tenant,
 so a forgotten `where` clause returns nothing rather than another tenant's rows.
 The application role must have neither SUPERUSER nor BYPASSRLS, or RLS is
 bypassed; the server checks both at startup in production and logs an error.
@@ -94,12 +94,20 @@ set, the CLI falls back to `DATABASE_URL` and migrations fail as `sanction_app`.
 
 Rollout:
 
-1. Create the role and grants above on the production branch.
+1. Apply the versioned migrations and tenant-scoped runtime changes first.
+   Inspect `pg_policies` and `pg_class.relrowsecurity` on the target database;
+   resolve any policies absent from migrations before switching roles. The
+   execution RLS migration reconciles legacy `app.current_wallet` policies to
+   the application's `app.wallet_ids` setting. Leave unrelated legacy tables
+   protected until their ownership is established. Create the role and grants
+   above on the production branch.
 2. Set `DATABASE_URL` to `sanction_app` (pooler host) for **Preview** only;
    deploy a preview and run `bash scripts/smoke.sh` against it (vault
-   store/inject, clearance, Slack approvals).
+   store/inject, clearance, execution issuance/revocation). Separately verify
+   Slack install reads and approval delivery; the smoke script does not test Slack.
 3. Check preview logs for the `SECURITY: DB role has ...` error — there
-   should be none.
+   should be none. Also query the role flags directly and verify an unscoped
+   protected-table read returns no rows; absence of a log message is not proof.
 4. Repeat for **Production**. Rollback is reverting `DATABASE_URL`.
 
 Verify from the app's connection:

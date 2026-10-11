@@ -6,7 +6,7 @@ import { hashApiKey } from "../lib/apiKey"
 // stamp/clear frozenAt+frozenReason, and freeze announces subtree scope.
 
 const { dbMock } = vi.hoisted(() => ({
-  dbMock: { wallet: { findUnique: vi.fn(), update: vi.fn() }, executionToken: { updateMany: vi.fn() }, $transaction: vi.fn() },
+  dbMock: { wallet: { findUnique: vi.fn(), update: vi.fn() }, executionToken: { updateMany: vi.fn() }, $transaction: vi.fn(), $executeRaw: vi.fn() },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 
@@ -60,6 +60,8 @@ describe("POST /v1/wallets/freeze", () => {
     expect(write.where).toEqual({ id: WID })
     expect(write.data.frozenAt).toBeInstanceOf(Date)
     expect(write.data.frozenReason).toBe("incident")
+    expect(dbMock.$executeRaw.mock.calls[0][1]).toBe(WID)
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(dbMock.executionToken.updateMany.mock.invocationCallOrder[0])
   })
 
   it("reason is optional and stored as null", async () => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { authenticateAgent } from "@/lib/auth"
 import { dayRangeUtc } from "@/lib/reporting"
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: inDay }, _sum: { amountUsd: true } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: { agentId: { in: agentIds }, createdAt: inDay }, _count: { _all: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: inDay }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.credentialInjection.count({ where: { executionToken: { walletId: { in: walletIds } }, injectedAt: inDay } }),
+    withTenant(walletIds, (tx) => tx.credentialInjection.count({ where: { executionToken: { walletId: { in: walletIds } }, injectedAt: inDay } })),
     db.tokenLog.groupBy({ by: ["taskLabel"], where: { agentId: { in: agentIds }, createdAt: inDay }, _sum: { costUsd: true }, orderBy: { _sum: { costUsd: "desc" } }, take: 5 }),
   ])
 

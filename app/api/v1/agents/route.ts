@@ -133,7 +133,7 @@ export async function PATCH(req: NextRequest) {
 
   // Ownership is part of the write: an agent moved out of this wallet since the
   // check above matches nothing.
-  const updated = await db.$transaction(async (tx) => {
+  const updated = await withTenant(wallet_id, async (tx) => {
     const res = await tx.agent.updateMany({ where: { id: agent_id, walletId: wallet_id }, data })
     if (res.count !== 1) return null
     if (overrides.active === false) await revokeActiveExecutionTokens({ agentId: agent_id }, tx)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createHash, timingSafeEqual } from "crypto"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { deliverEvent } from "@/lib/webhooks"
 import { dayRangeUtc } from "@/lib/reporting"
 
@@ -32,7 +33,7 @@ async function walletDigest(walletId: string, start: Date, end: Date, prevStart:
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: inRange }, _sum: { amountUsd: true } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: { agentId: { in: agentIds }, createdAt: inRange }, _count: { _all: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: inRange }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.credentialInjection.count({ where: { executionToken: { walletId }, injectedAt: inRange } }),
+    withTenant(walletId, (tx) => tx.credentialInjection.count({ where: { executionToken: { walletId }, injectedAt: inRange } })),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: prevRange }, _sum: { amountUsd: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: prevRange }, _sum: { costUsd: true } }),
     db.authorizationRequest.groupBy({ by: ["agentId"], where: { agentId: { in: agentIds }, status: "approved", createdAt: inRange }, _sum: { amountUsd: true } }),

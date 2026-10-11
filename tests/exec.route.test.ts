@@ -20,8 +20,9 @@ const { dbMock } = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 // RLS isolation is proven in rls.db.test.ts; here withTenant hands back the mock.
-vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock) }))
+vi.mock("@/lib/rls", () => ({ withTenant: (_w: unknown, fn: (tx: unknown) => unknown) => fn(dbMock), scopeTenant: vi.fn() }))
 
+import { scopeTenant } from "../lib/rls"
 import { POST as issueExec } from "../app/api/v1/exec/route"
 
 const KEY = "pxy_testagentkey"
@@ -90,6 +91,7 @@ describe("exec — a kill switch between authentication and issuance", () => {
     const sql = (dbMock.$queryRaw.mock.calls[0][0] as TemplateStringsArray).join("?")
     expect(sql).toMatch(/FROM "Agent" WHERE "id" = \? FOR UPDATE/)
     expect(dbMock.$transaction).toHaveBeenCalledTimes(1)
+    expect(scopeTenant).toHaveBeenCalledWith(dbMock, WID)
   })
 })
 

@@ -5,6 +5,8 @@ import { NextRequest } from "next/server"
 // the membership gate, date validation/default, and the aggregated shape.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
     agent: { findMany: vi.fn() },
     authorizationRequest: { aggregate: vi.fn(), groupBy: vi.fn() },
     tokenLog: { aggregate: vi.fn(), groupBy: vi.fn() },
@@ -29,6 +31,7 @@ function req(qs: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   authMock.authenticateOwner.mockResolvedValue({ wallet: { id: WID } })
   authMock.authenticateAgent.mockResolvedValue({ agent: null })
   dbMock.agent.findMany.mockResolvedValue([{ id: "agent_1" }])
@@ -91,6 +94,8 @@ describe("GET /reporting/daily-summary — rollup", () => {
       { task_label: "(untagged)", cost_usd: 0.35 },
     ])
     expect(res.headers.get("cache-control")).toBe("no-store")
+    expect(dbMock.$executeRaw.mock.calls[0][1]).toBe(WID)
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(dbMock.credentialInjection.count.mock.invocationCallOrder[0])
   })
 
   it("400 on a malformed date", async () => {

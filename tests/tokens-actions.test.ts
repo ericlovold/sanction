@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 // behind requireSessionRole("admin") instead of the bare getSessionWallet —
 // a viewer resolves to the same null as no session, same denial.
 const { dbMock, sessionMock, revalidateMock } = vi.hoisted(() => ({
-  dbMock: { executionToken: { findUnique: vi.fn(), update: vi.fn() } },
+  dbMock: { executionToken: { updateMany: vi.fn() }, $transaction: vi.fn(), $executeRaw: vi.fn() },
   sessionMock: { requireSessionRole: vi.fn() },
   revalidateMock: vi.fn(),
 }))
@@ -22,22 +22,27 @@ function form(fields: Record<string, string>) {
   return f
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
+})
 
 describe("revokeExecutionTokenAction — role floor", () => {
   it("denies without touching the db when the role floor isn't met", async () => {
     sessionMock.requireSessionRole.mockResolvedValue(null)
     await revokeExecutionTokenAction(form({ id: "tok_1" }))
-    expect(dbMock.executionToken.findUnique).not.toHaveBeenCalled()
+    expect(dbMock.executionToken.updateMany).not.toHaveBeenCalled()
+    expect(dbMock.$transaction).not.toHaveBeenCalled()
   })
 
   it("requires admin-or-higher and revokes an active token once granted", async () => {
     sessionMock.requireSessionRole.mockResolvedValue(WALLET)
-    dbMock.executionToken.findUnique.mockResolvedValue({ id: "tok_1", walletId: "wallet_1", status: "active" })
     await revokeExecutionTokenAction(form({ id: "tok_1" }))
     expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
-    expect(dbMock.executionToken.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "tok_1" }, data: expect.objectContaining({ status: "revoked" }) }),
+    expect(dbMock.$executeRaw.mock.calls[0][1]).toBe(WALLET.id)
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(dbMock.executionToken.updateMany.mock.invocationCallOrder[0])
+    expect(dbMock.executionToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "tok_1", walletId: WALLET.id, status: "active" }, data: expect.objectContaining({ status: "revoked" }) }),
     )
   })
 })
