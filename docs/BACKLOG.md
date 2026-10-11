@@ -17,7 +17,7 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-10-03 — Today’s docket: discuss and refresh website/content around one-off human approvals and the current connector feature set. Lead with the user problem and a concrete approval flow; distinguish available connections from accepted marketplace listings and cooperative requests from enforced broker routing. (founder request; after Claude readiness)
+- [x] 2026-10-03 — Today’s docket: discuss and refresh website/content around one-off human approvals and the current connector feature set. Lead with the user problem and a concrete approval flow; distinguish available connections from accepted marketplace listings and cooperative requests from enforced broker routing. (founder request; after Claude readiness). Closed 2026-10-11: #361/#365/#368 shipped the oversight positioning, full use-case stories and accurate approval boundaries. Activation remains gated on connector completion.
 
 - [ ] 2026-08-22 — GTM launch arc (Eric: "timing is everything"): platform
       positioning goes stablecoin-era (irreversibility argument, rail-aware,

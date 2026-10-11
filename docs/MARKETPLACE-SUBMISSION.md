@@ -1,6 +1,6 @@
 # MCP distribution submission checklist
 
-Working checklist, updated 2026-10-06. Start with the [connection guide](CONNECT.md) ([public version](https://getsanction.com/docs/connect)). Connection tests, package checks and marketplace acceptance are separate milestones.
+Working checklist, reconciled 2026-10-11. See the [Sunday progress review](PROGRESS-2026-10-11.md) for evidence dates, roadmap and GTM gates. Start with the [connection guide](CONNECT.md) ([public version](https://getsanction.com/docs/connect)). Connection tests, package checks and marketplace acceptance are separate milestones.
 
 ## What we are distributing
 
@@ -22,7 +22,7 @@ This is a reduced tool surface, **not a restricted credential**. The supplied ag
 
 ## Submission board
 
-Observations are dated below; connector status updated 2026-10-06 (America/Chicago). Checked boxes mean observed evidence,
+Observations are dated below; connector status reconciled 2026-10-11 (America/Chicago); portal observations retain their original dates. Checked boxes mean observed evidence,
 not assumed acceptance. **Engineering** prepares artifacts and fixes; **Eric**
 owns accounts, identity, legal approval and submission; **Together** runs host tests.
 Portal identity, eligibility and review status must be checked in the actual account.
@@ -31,12 +31,12 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | --- | --- | --- | --- |
 | MCP Registry / npm | `packages/sanction-mcp/` | 0.10.0 published; hosted `/mcp` entry verified | Complete; monitor releases separately from directories |
 | Claude | Remote connector | [Community listing](https://claude.ai/directory/sanction-approvals) renders all eight tools, observed 2026-10-06 | Fresh installation and recorded host lifecycle remain unverified |
-| ChatGPT + Codex | `packages/sanction-approvals/` ZIP | 0.1.0 draft needs attention; MCP configured and authorized, domain verified, skill checks pass (2026-10-06) | Public terms URL, reviewer credentials, video, tool review and host evidence |
+| ChatGPT + Codex | `packages/sanction-approvals/` ZIP | 0.1.0 draft needs attention; MCP configured and authorized, domain verified, skill checks pass (2026-10-06) | Terms live and source manifest updated; verify uploaded artifact, reviewer access, video, tool review and separate ChatGPT/Codex host evidence |
 | Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Marketplace rejected per publisher email; [community submission](https://cursor.directory/plugins/sanction) scanning, unpublished and hidden (2026-10-06) | Community security scan and authenticated host test; no public listing established |
-| Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-06 | Catalog review and authenticated host tests; publication pending |
+| Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-11 | Catalog review and authenticated host tests; publication pending |
 | Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible; read-only wallet smoke passed; approval lifecycle and public catalog route unverified |
 | Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
-| Slack | Slack app submission | Portal says not distributed; submission disabled. [Review packet / landing-page PR #347](https://github.com/ericlovold/sanction/pull/347) prepared | Audit legacy token delivery before public-distribution attestation, then external-workspace proof and usage eligibility |
+| Slack | Slack app submission | October 6 portal state: not distributed, submission disabled. #358/#367/#369 merged; October 10 session records live broker approval/redeem and denial proof | Recheck distribution/usage eligibility; complete external-workspace install and uninstall evidence; no marketplace acceptance claimed |
 
 Connector completion precedes activation and go-to-market work; listing presence alone does not complete the host tests.
 
@@ -45,7 +45,7 @@ Connector completion precedes activation and go-to-market work; listing presence
 - [x] **Engineering:** Publish MCP 0.10.0 to npm and the official Registry. [Successful workflow](https://github.com/ericlovold/sanction/actions/runs/37089864969).
 - [x] **Engineering:** Complete the production canary across all three personas. [Passing run](https://github.com/ericlovold/sanction/actions/runs/37089772489).
 - [x] **Engineering:** Verify public `/privacy` and `/support` return HTTP 200.
-- [ ] **Eric + Engineering:** Approve and publish terms; `/terms` returned 404 on 2026-10-06. Add the URL to relevant listing manifests.
+- [x] **Engineering:** `/terms` returns HTTP 200 on 2026-10-11; #364 added it and `interface.termsOfServiceURL` to the OpenAI source manifest. The uploaded portal artifact and final legal attestations still require account verification.
 - [ ] **Together:** Prepare a dedicated reviewer identity, sample data and host-specific login instructions. Do not weaken production authentication for review.
 - [ ] **Engineering:** Assemble logo, concise one-off approval description, setup/disconnection guide, annotation rationale and versioned release notes.
 - [ ] **Together:** Record the actual host, version, date, input, sanitized result and outcome for every case. No credentials in recordings, packages or public reports.
@@ -93,9 +93,9 @@ is not execution evidence. Reviewer credentials and the video URL are blank.
 The authorize/provision tools show a generic further-review notice; the portal
 shows no specific schema fault to repair.
 
-The required `interface.termsOfServiceURL` is absent. `/terms` returns 404 and
-no approved alternative was found. Publish approved terms before adding the URL;
-do not package a broken link as a completed gate.
+October 11 update: #364 added `interface.termsOfServiceURL` to the source manifest;
+`/terms` now returns HTTP 200. This closes the missing public URL/source field,
+not proof that the latest ZIP is uploaded or the portal has passed review.
 
 - [x] **Eric + Engineering:** Create the draft, upload the package, authorize MCP and verify the domain (2026-10-06).
 - [x] **Engineering:** Rebuild the ZIP from current `packages/sanction-approvals/`, including its MCP configuration and skill. Exclude secrets; do not upload an older archive missing `supportURL`.
@@ -148,7 +148,7 @@ chosen packaging path. [Plugin requirements](https://cursor.com/docs/reference/p
 
 Submitted [xAI catalog PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156)
 on 2026-10-03. The official route is a catalog pull request; consumer Grok and
-Grok Bot remain separate distribution questions. On 2026-10-06, PR #1156 is
+Grok Bot remain separate distribution questions. On 2026-10-11, PR #1156 is
 open, its security checks pass, and it has no reviews; publication remains pending.
 
 - [x] **Engineering:** Publish the standalone MIT package and pin source commit `f0e079be6715b99b8a7d0dc4644ed1fd0543644e`.
@@ -210,17 +210,16 @@ Consumer Grok, Grok Build, xAI API and Bot are not interchangeable evidence.
 Portal: select the app in [Slack app management](https://api.slack.com/apps), then
 Review and Submit.
 
-On 2026-10-06, a source audit confirmed the legacy shared-token path and
-missing uninstall/revocation handlers remain in main. [Fix PR #358](https://github.com/ericlovold/sanction/pull/358) is open;
-it is not merged or deployed.
+October 11 reconciliation: #358 removed shared platform-token delivery; #367
+clarified the admin-only exact-request review link; #369 added safe OAuth exchange
+diagnostics. All are merged into current main. The October 10 operator session
+recorded a Slack-approved broker retry reaching the synthetic fixture once and a
+separate denial stopping without another fixture invocation. These are bounded
+live proofs, not an external-workspace adoption or uninstall certificate.
 
-On 2026-10-03, submission was disabled until public distribution is enabled.
-The code still has a platform-wide `SANCTION_SLACK_BOT_TOKEN` fallback alongside
-per-install OAuth delivery. Resolve its workspace-routing implications before
-attesting that workspace-specific configuration has been removed.
-[PR #347](https://github.com/ericlovold/sanction/pull/347) prepares public support
-and privacy links plus the [reviewer packet](https://github.com/ericlovold/sanction/blob/4ddc411ec917b8ed193e8ff9cd6b6db30699b97b/docs/SLACK-SUBMISSION.md); it does not
-enable distribution or establish adoption eligibility.
+The last recorded portal state (October 6) was not distributed with submission
+disabled. Recheck that state and Slack's own usage counters before submission.
+The [review packet](SLACK-SUBMISSION.md) is preparation, not marketplace acceptance.
 
 - [ ] **Eric:** Verify eligibility: at least ten active workspace installations maintained throughout review, and ten weekly active users. Active workspaces must have used the app within 28 days; sandbox installs do not count. Confirm live account counters before applying.
 - [ ] **Together:** Prove public OAuth installation in an external workspace, correct owner/workspace routing, approval and rejection, and uninstall behavior.
