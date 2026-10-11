@@ -6,6 +6,8 @@ import { NextRequest } from "next/server"
 // and the rollup rides deliverEvent so Slack/machine routing is inherited.
 const { dbMock, deliverMock } = vi.hoisted(() => ({
   dbMock: {
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
     webhook: { findMany: vi.fn() },
     agent: { findMany: vi.fn() },
     authorizationRequest: { aggregate: vi.fn(), groupBy: vi.fn() },
@@ -27,6 +29,7 @@ function req(auth?: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   process.env.CRON_SECRET = "cs_test"
   dbMock.webhook.findMany.mockResolvedValue([{ walletId: "w1" }])
   dbMock.agent.findMany.mockResolvedValue([{ id: "a1", name: "tenet" }])
@@ -72,6 +75,8 @@ describe("GET /api/cron/digests — rollup + delivery", () => {
     const res = await digests(req("Bearer cs_test"))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ wallets: 1, delivered: 1, failed: 0 })
+    expect(dbMock.$executeRaw.mock.calls[0][1]).toBe("w1")
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(dbMock.credentialInjection.count.mock.invocationCallOrder[0])
 
     expect(deliverMock).toHaveBeenCalledTimes(1)
     const [walletId, event, data] = deliverMock.mock.calls[0] as unknown as [string, string, Record<string, unknown>]

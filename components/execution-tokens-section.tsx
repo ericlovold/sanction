@@ -1,4 +1,4 @@
-import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { revokeExecutionTokenAction } from "@/app/dashboard/tokens/actions"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
@@ -9,12 +9,12 @@ import { fmtUsd } from "@/lib/format"
 // /dashboard/tokens — that URL still lands here via redirect.
 export async function ExecutionTokensSection({ rootWalletId, editable }: { rootWalletId: string; editable: boolean }) {
   const { ids: walletIds } = await subtreeWalletIds(rootWalletId)
-  const tokens = await db.executionToken.findMany({
+  const tokens = await withTenant(walletIds, (tx) => tx.executionToken.findMany({
     where: { walletId: { in: walletIds } },
     orderBy: { issuedAt: "desc" },
     take: 50,
     include: { agent: { select: { name: true, wallet: { select: { name: true } } } } },
-  })
+  }))
   const multiPool = walletIds.length > 1
   const now = new Date()
 

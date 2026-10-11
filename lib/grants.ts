@@ -61,7 +61,9 @@ export type ProvisionGrantRequest = {
   description?: string
 }
 
-// Must run inside the caller's transaction: a parent-cap failure after the
+// Must run inside the caller's transaction. When execTokenId is set, scope it
+// to the authenticated agent's input.walletId with withTenant/scopeTenant:
+// execution tokens are RLS-protected. A parent-cap failure after the
 // guarded consume update relies on rollback to leave the grant active.
 export async function consumeSpendGrant(
   client: GrantClient,

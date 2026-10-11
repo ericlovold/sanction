@@ -2,17 +2,17 @@
  * SEC-3: Postgres Row-Level Security (RLS) tenant scoping.
  *
  * `withTenant(walletId, fn)` opens a transaction, sets the transaction-local
- * `app.wallet_id` GUC that the RLS policies key on, then runs `fn` against the
+ * `app.wallet_ids` GUC that the RLS policies key on, then runs `fn` against the
  * scoped transaction client. Any query `fn` makes against an RLS-protected table
- * (currently CredentialVault and SlackInstall) can ONLY see or write rows for
+ * (CredentialVault, AgentClearance, SlackInstall, ExecutionToken, and
+ * CredentialInjection) can ONLY see or write rows for
  * `walletId`, even if the query forgets its `where` clause. This is the
  * DB-level backstop beneath the app-layer `walletId` filtering.
  *
  * IMPORTANT — the app's DB role MUST have neither SUPERUSER nor BYPASSRLS for
  * RLS to take effect (Neon's default owner has BYPASSRLS — see docs/SECURITY.md).
  * Postgres bypasses RLS for those roles, and for a table's owner unless the table
- * is set to FORCE ROW LEVEL SECURITY (the migration does set FORCE, so a
- * non-superuser owner — e.g. Neon's default role — is correctly subject). Never
+ * is set to FORCE ROW LEVEL SECURITY (the migrations set FORCE; this does not override BYPASSRLS). Never
  * run the app as a superuser; tests verify isolation against a non-superuser role.
  */
 

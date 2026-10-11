@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const owner = await authenticateOwner(req, wallet_id)
   if (!owner.wallet) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-  const wallet = await db.$transaction(async (tx) => {
+  const wallet = await withTenant(wallet_id, async (tx) => {
     const frozen = await tx.wallet.update({
       where: { id: wallet_id },
       data: { frozenAt: new Date(), frozenReason: reason ?? null },

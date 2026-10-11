@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { generateApiKey } from "@/lib/apiKey"
 import { authenticateOwner } from "@/lib/ownerAuth"
 import { revokeActiveExecutionTokens } from "@/lib/executionTokens"
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   const { raw, hash, prefix } = generateApiKey()
   // Ownership is part of the write: an agent moved out of this wallet since the
   // check above matches nothing, and the new key is never handed out.
-  const updated = await db.$transaction(async (tx) => {
+  const updated = await withTenant(wallet_id, async (tx) => {
     const rotated = await tx.agent.updateMany({
       where: { id: agent_id, walletId: wallet_id },
       data: { apiKeyHash: hash, apiKeyPrefix: prefix, ...(holder !== undefined ? { holder } : {}) },

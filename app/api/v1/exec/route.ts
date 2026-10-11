@@ -5,7 +5,7 @@ import { authenticateAgent } from "@/lib/auth"
 import { hashApiKey } from "@/lib/apiKey"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { issueExecutionJWT } from "@/lib/jwt"
-import { withTenant } from "@/lib/rls"
+import { scopeTenant, withTenant } from "@/lib/rls"
 import { isReservedVaultLabel } from "@/lib/providers"
 
 const schema = z.object({
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
   // committed after authenticateAgent can never leave a freshly minted token.
   const presentedHash = hashApiKey(req.headers.get("x-api-key") ?? "")
   const issued = await db.$transaction(async (tx) => {
+    await scopeTenant(tx, agent.walletId)
     const [row] = await tx.$queryRaw<
       Array<{ apiKeyHash: string; isActive: boolean; expiresAt: Date | null; walletId: string }>
     >`SELECT "apiKeyHash", "isActive", "expiresAt", "walletId" FROM "Agent" WHERE "id" = ${agent.id} FOR UPDATE`

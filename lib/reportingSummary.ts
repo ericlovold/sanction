@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 
 // Period reporting (REPORT-1) as a pure lib function, so both the header-authed
 // REST route (/api/v1/reporting/summary) and the cookie-authed dashboard page
@@ -60,7 +61,7 @@ export async function buildPeriodSummary(
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: inRange }, _sum: { amountUsd: true } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: { agentId: { in: agentIds }, createdAt: inRange }, _count: { _all: true } }),
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: inRange }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.credentialInjection.count({ where: { executionToken: { walletId: walletWhere }, injectedAt: inRange } }),
+    withTenant(walletId, (tx) => tx.credentialInjection.count({ where: { executionToken: { walletId: walletWhere }, injectedAt: inRange } })),
     // Day buckets via date_trunc — one round-trip per table, not per day.
     agentIds.length > 0
       ? db.$queryRaw<Array<{ day: Date; spend: number | null; approved: bigint; denied: bigint; escalated: bigint }>>`

@@ -8,6 +8,8 @@ import { hashApiKey } from "../lib/apiKey"
 // key for wallet A must never move wallet B's state.
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(),
     agent: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     wallet: { findUnique: vi.fn(), findMany: vi.fn() },
     executionToken: { updateMany: vi.fn() },
@@ -53,6 +55,7 @@ const mgmtH = { "x-mgmt-key": SK }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.wallet.findUnique.mockResolvedValue(OWNER_WALLET)
   dbMock.agent.findUnique.mockResolvedValue(null)
 })
@@ -113,6 +116,8 @@ describe("exec/revoke — owner kills a live execution token", () => {
     const res = await revokeExec(req("POST", "/api/v1/exec/revoke", { headers: mgmtH, body: { wallet_id: WID, jti: "jti1" } }))
     expect(res.status).toBe(200)
     expect((await res.json()).status).toBe("revoked")
+    expect(dbMock.$executeRaw.mock.calls[0][1]).toBe(WID)
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(dbMock.executionToken.updateMany.mock.invocationCallOrder[0])
     // the guarded write carries the wallet scope — jti guessing across tenants gets nothing
     expect(dbMock.executionToken.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "jti1", walletId: WID, status: "active" } }),

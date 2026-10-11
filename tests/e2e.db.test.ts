@@ -73,11 +73,11 @@ describe.skipIf(!run)("e2e: data plane end-to-end (real DB)", () => {
 
   afterAll(async () => {
     if (walletId) {
-      await db.credentialInjection.deleteMany({ where: { executionToken: { walletId } } })
-      await db.executionToken.deleteMany({ where: { walletId } })
       await db.authorizationRequest.deleteMany({ where: { agent: { walletId } } })
       // FORCE RLS tables: unscoped deletes match nothing for the app role.
       await withTenant(walletId, async (tx) => {
+        await tx.credentialInjection.deleteMany({ where: { executionToken: { walletId } } })
+        await tx.executionToken.deleteMany({ where: { walletId } })
         await tx.credentialVault.deleteMany({ where: { walletId } })
         await tx.agentClearance.deleteMany({ where: { walletId } })
       })

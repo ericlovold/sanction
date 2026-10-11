@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { db } from "@/lib/db"
+import { withTenant } from "@/lib/rls"
 import { requireSessionRole } from "@/lib/session"
 
 export async function revokeExecutionTokenAction(form: FormData): Promise<void> {
@@ -9,11 +9,9 @@ export async function revokeExecutionTokenAction(form: FormData): Promise<void> 
   if (!wallet) return
   const id = String(form.get("id") ?? "")
   if (!id) return
-  const token = await db.executionToken.findUnique({ where: { id } })
-  if (!token || token.walletId !== wallet.id || token.status !== "active") return
-  await db.executionToken.update({
-    where: { id },
+  await withTenant(wallet.id, (tx) => tx.executionToken.updateMany({
+    where: { id, walletId: wallet.id, status: "active" },
     data: { status: "revoked", revokedAt: new Date() },
-  })
+  }))
   revalidatePath("/dashboard/tokens")
 }
