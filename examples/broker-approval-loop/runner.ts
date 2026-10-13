@@ -80,6 +80,12 @@ export async function runSyntheticApproval(
         : "Completed without an approval retry. This is not proof of the approval path; check the existing escalation policy.")
       code = outcome.retried ? 0 : 1
     } else {
+      if (outcome.status === "stopped") {
+        // Only fixed local reason codes reach logs; never emit remote result text.
+        const reason = ["timeout", "poll_limit", "poll_failed", "terminal_authorization"].includes(outcome.reason)
+          ? outcome.reason : "other_stop"
+        deps.log(`Stop reason: ${reason}`)
+      }
       deps.log(outcome.status === "unknown"
         ? "Outcome unknown. Reconcile the audit trail manually before another invocation."
         : "Stopped without completion. Inspect the approval and audit trail before another invocation.")

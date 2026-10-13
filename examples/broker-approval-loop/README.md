@@ -97,8 +97,8 @@ invocation count. Keep the bearer header out of screenshots and recordings.
 | Host pauses | A matching Slack card arrives; fixture count is unchanged. |
 | Owner approves in Slack | Card matches the test agent/tool and approval reference; it reflects the decision. The expected arguments come from the fixed runner call. |
 | Host resumes | Runner reports completion after approval; same fixture run's count rises by exactly one. |
-| Separate denial run | Deny its matching card; runner stops and count is unchanged. |
-| Separate timeout run | Leave pending; runner stops within its bound and count is unchanged. Resolve the outstanding request afterward. |
+| Separate denial run | Deny its matching card; runner exits nonzero with `Stop reason: terminal_authorization`; verify the matching decision is denied and count is unchanged. |
+| Separate timeout run | Leave pending; require a nonzero exit with `Stop reason: timeout` or `Stop reason: poll_limit` within five minutes and an unchanged count. A generic stop, denial, or `poll_failed` is not timeout evidence. Resolve the outstanding request afterward. |
 
 A successful tool response alone does not prove Slack was the approval source.
 Current Slack cards summarize the action but do not display its exact arguments.
