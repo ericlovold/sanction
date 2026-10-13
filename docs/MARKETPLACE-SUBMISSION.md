@@ -102,7 +102,7 @@ not proof that the latest ZIP is uploaded or the portal has passed review.
 - [ ] **Engineering:** Supply HTTPS website/support/privacy/terms URLs; validate listing fields, assets and tool annotations with justifications.
 - [ ] **Eric + Engineering:** Resolve remaining listing and tool-review findings; obtain a successful review outcome.
 - [ ] **Together:** Run exactly five positive and three negative cases with the review account; provide an accessible video and release notes.
-- [ ] **Eric:** Enter reviewer credentials privately in the portal. Review access must work without interactive MFA, email/SMS codes, magic links or private-network access.
+- [ ] **Eric:** Configure reviewer access privately using the authentication method offered by the portal. The October 12 portal offers magic-link/email-code access with an assigned reviewer email. Provision that identity in an isolated synthetic wallet and verify email delivery, sign-in and MCP consent before submission; do not require access to a private network.
 - [ ] **Together:** Verify installation and approval resumption separately in ChatGPT and Codex; a local MCP config is not a ChatGPT listing.
 - [ ] **Eric:** Submit attestations and draft; after approval, explicitly publish.
 - [ ] **Together:** Confirm the public listing and fresh install; record URLs and submission/version identifiers.
