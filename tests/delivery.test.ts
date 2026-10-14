@@ -34,6 +34,22 @@ import { withTenant } from "../lib/rls"
 import { rateLimit, ipFromHeaders, clientIp } from "../lib/rateLimit"
 
 describe("Slack exact-request review handoff", () => {
+  it.each(["approval.created", "escalation.created"])("keeps %s non-tool reviews generic in both delivery formats", async (event) => {
+    const { slackPayload } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    const { slackInteractivePayload } = await vi.importActual<typeof import("../lib/slack")>("../lib/slack")
+    const url = "https://getsanction.com/dashboard/approvals?review=spend-request-test"
+    const data = { action_type: "spend", amount_usd: 60, merchant: "Vendor", approve_url: url }
+    const payloads = [slackPayload(event, data), slackInteractivePayload(event, data, "Test spend request", "action-token")]
+    for (const raw of payloads) {
+      const payload = JSON.parse(raw)
+      const review = payload.blocks.find((block: { type: string }) => block.type === "actions").elements.find((element: { url?: string }) => element.url)
+      expect(review).toMatchObject({ text: { type: "plain_text", text: "Review in Sanction" }, url })
+      expect(payload.blocks.filter((block: { type: string }) => block.type === "context")).toEqual([])
+      expect(raw).not.toMatch(/Full tool arguments|wallet admin|Review exact request/)
+    }
+    expect(decryptMock).not.toHaveBeenCalled()
+  })
+
   it.each([
     ["approval.created", { action_type: "tool.invoke" }],
     ["escalation.created", { action: "invoke", tool: "fixture.echo" }],
