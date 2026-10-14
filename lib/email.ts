@@ -207,3 +207,11 @@ export async function sendEscalationEmail(to: string, e: Escalation): Promise<vo
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 }
+
+// Identity links must never use the development logger: their URL is a credential.
+export async function sendIdentitySignInEmail(to: string, link: string): Promise<void> {
+  if (!RESEND_API_KEY) throw new Error("Identity email delivery is not configured")
+  const text = `Open this link, then select Confirm sign in. It expires in 15 minutes.\n\n${link}\n\nIf you did not request this, ignore this email.`
+  const escaped = link.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  await send({ to, subject: "Confirm your Sanction sign-in", text, html: `<p>Confirm your Sanction sign-in. This link expires in 15 minutes.</p><p><a href="${escaped}">Continue to sign in</a></p><p>If you did not request this, ignore this email.</p>` })
+}

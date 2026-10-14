@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
+import { PrivacyAnalytics } from "@/components/privacy-analytics"
 import "./globals.css"
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
-        <Analytics />
+        <PrivacyAnalytics />
       </body>
     </html>
   )

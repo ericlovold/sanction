@@ -5,7 +5,7 @@ Rollout checkpoint (2026-09-30): enabled on getsanction.com after the migration.
 ## User flow
 
 1. Add Sanction's `/mcp/approvals` URL in a host that supports OAuth authorization code with S256 PKCE and dynamic client registration.
-2. Sign in with a verified Google, GitHub or configured Apple account. Management-key login does not establish the human OAuth identity.
+2. Sign in with a verified Google, GitHub or configured Apple account, or request an email sign-in link for an existing account. Management-key login does not establish the human OAuth identity.
 3. Select an active agent in the wallet you administer and confirm access. The host receives an OAuth token, never the agent key.
 4. Manage or disconnect hosts at `/connect/mcp`. Disconnection rejects subsequent requests immediately; already admitted work and completed decisions are not rolled back.
 
@@ -20,6 +20,26 @@ Set a stable `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`, configure the existing 
 Discovery is forwarded to Better Auth at `/.well-known/oauth-authorization-server/api/auth`, `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/mcp/approvals`. The API auth handler serves authorization, token, registration and JWKS endpoints under `/api/auth`. Unauthenticated OAuth MCP requests receive the provider's discovery challenge.
 
 The custom-connector smoke is not directory acceptance. Marketplace submission still needs review of remaining tool output, including grants, and the publisher's submission requirements.
+
+## Verified email sign-in
+
+Email sign-in requires `RESEND_API_KEY` and the existing `BETTER_AUTH_URL` and
+`BETTER_AUTH_SECRET`. It uses the configured email sender. It does not create
+accounts or grant wallet membership. Unknown addresses receive the same generic
+confirmation as existing accounts.
+
+Links expire after 15 minutes and can be consumed once. Opening a link displays
+a confirmation page; only pressing **Confirm sign-in** verifies the email and
+creates the session. The signed link binds the OAuth return destination. Direct
+public Better Auth magic-link endpoints are disabled, and verification pages
+exclude analytics and referrer data. Existing owner/admin checks still gate
+wallet access and MCP consent. Legacy management-key recovery is unchanged.
+
+For directory review, provision a dedicated unverified identity linked to an
+isolated synthetic wallet before requesting a link. Do not assign the reviewer
+to an existing production wallet, mark the email verified manually, or include
+vault credentials. Confirm the complete email-delivery and consent flow after
+deployment before claiming reviewer access is ready.
 
 ## Ask for one approval
 

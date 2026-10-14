@@ -2,10 +2,11 @@ import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
 import { nextCookies } from "better-auth/next-js"
 import { db } from "@/lib/db"
+import { identityEmailPlugin } from "./identityEmailLogin"
 import { mcpOAuthEnabled, mcpOAuthPlugins } from "./mcpOAuthProvider"
 
 // Better Auth = the human identity layer for the console (Google, GitHub,
-// Apple). It owns the User/Session/Account/Verification tables in our Neon
+// Apple, or verified email links). It owns the User/Session/Account/Verification tables in our Neon
 // DB — this is the "permanent user database." It does NOT touch the agent/mgmt
 // API auth (x-api-key / x-mgmt-key); those stay key-based. The wallet a signed-in
 // user controls is resolved in lib/session.ts (claims a wallet by email on first
@@ -24,8 +25,9 @@ const appleEnabled = !!process.env.APPLE_CLIENT_ID
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
+  // Email links are issued/consumed only by our POST server actions.
   // OAuth access tokens come only from the provider's authorization flow.
-  ...(mcpOAuthEnabled() ? { disabledPaths: ["/token"] } : {}),
+  disabledPaths: ["/sign-in/magic-link", "/magic-link/verify", ...(mcpOAuthEnabled() ? ["/token"] : [])],
   database: prismaAdapter(db, { provider: "postgresql" }),
   socialProviders: {
     google: {
@@ -49,5 +51,5 @@ export const auth = betterAuth({
   // appleid.apple.com — it must be a trusted origin or the callback is rejected.
   ...(appleEnabled ? { trustedOrigins: ["https://appleid.apple.com"] } : {}),
   // nextCookies must be last — it flushes Set-Cookie from server actions.
-  plugins: [...mcpOAuthPlugins(), nextCookies()],
+  plugins: [...mcpOAuthPlugins(), identityEmailPlugin(), nextCookies()],
 })
