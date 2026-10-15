@@ -35,7 +35,7 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Marketplace rejected per publisher email; [community submission](https://cursor.directory/plugins/sanction) scanning, unpublished and hidden (2026-10-06) | Community security scan and authenticated host test; no public listing established |
 | Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-11 | Catalog review and authenticated host tests; publication pending |
 | Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible; read-only wallet smoke passed; approval lifecycle and public catalog route unverified |
-| Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
+| Grok Bot | Custom remote `/mcp/approvals` connector | No Bot lifecycle evidence as of 2026-10-15. Spike plan: [SANCTION-S1-GROK-BOT-CONNECTOR.md](SANCTION-S1-GROK-BOT-CONNECTOR.md). Consumer Grok OAuth (2026-10-06) and Grok Build [PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) are different hosts | Run SANCTION-S1 (OAuth connect, eight tools, one escalation, bounded wait, grant redeem once, replay stop, deny). Marketplace/publisher listing remains a later gate |
 | Slack | Slack app submission | October 14 portal: public distribution enabled; submission draft unlocked; 1 active workspace and 0 active users over 28 days; listing text and scope reasons prepared. Earlier broker approval/redeem and denial proof remains separate | Deploy installation-generation and revoked-token fixes; complete external-workspace lifecycle, usage eligibility, reviewer access and assets. See [readiness checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026); no submission claimed |
 
 Connector completion precedes activation and go-to-market work; listing presence alone does not complete the host tests.
@@ -192,15 +192,21 @@ invoked. Approval lifecycle tests remain pending.
 [official custom MCP guide](https://docs.x.ai/grok/connectors) documents connection,
 not a public publisher application procedure.
 
-### Grok Bot — verify its own marketplace path
+### Grok Bot — custom `/mcp/approvals` connector first; marketplace later
 
-- [ ] **Eric:** Confirm the supported publisher route and whether the intended Sanction package can appear in Bot's Marketplace. No automatic Cursor-to-Bot public listing is established here.
+Next sprint is **SANCTION-S1**: a Grok Bot user connects hosted `/mcp/approvals` as a connector and completes one real escalated approval (request, dashboard decision, single check, grant redeemed or stopped) with no hand-edited config. Plan: [SANCTION-S1-GROK-BOT-CONNECTOR.md](SANCTION-S1-GROK-BOT-CONNECTOR.md). That file is a spike plan, not a claim that Grok Bot works.
+
+Official Bot docs still describe Connect-apps plugins; a custom MCP URL path must be observed on the live app. Do not cite consumer Grok or Grok Build as Bot proof.
+
+- [ ] **Together:** Run SANCTION-S1 against `https://getsanction.com/mcp/approvals` (OAuth connect, eight-tool list, one `require_approval` escalation, bounded wait/check-once, dashboard approve → redeem once, replay `GRANT_ALREADY_USED`, deny path). Record the evidence packet. Do not hand-edit host config.
+- [ ] **Eric:** Confirm the supported publisher route and whether the intended Sanction package can appear in Bot's Marketplace. No automatic Cursor-to-Bot public listing is established here. Do this after SANCTION-S1, not instead of it.
 - [ ] **Together:** In the supported Marketplace flow, add the connector, authenticate, attach it with `@`, and test the approval lifecycle.
 - [ ] **Eric / team admin:** Check Cursor's Plugins & MCPs / Team Marketplace policy for allowed servers. Bot inherits that connector policy; it has no independent team connector list.
 - [ ] **Together:** Use a dedicated test identity and record the shared-account boundary. A user's Bots share their computer and permitted connectors; Bot names do not isolate credentials.
 - [ ] **Together:** Verify fresh installation from any eventual listing and save the result.
 
-**Done:** Verified Bot installation plus a confirmed publisher/listing route.
+**Done for SANCTION-S1:** observed Bot OAuth plus the approval lifecycle packet in the spike plan. A dated OAuth failure closes discovery; it does not complete the sprint outcome.
+**Done for distribution:** a separately confirmed publisher/listing route and fresh install.
 Consumer Grok, Grok Build, xAI API and Bot are not interchangeable evidence.
 [Bot connection flow](https://docs.x.ai/grok-bot/computer-and-apps),
 [team connector policy](https://docs.x.ai/grok-bot/teams-and-enterprises).
