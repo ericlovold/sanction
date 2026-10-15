@@ -24,6 +24,8 @@ const initial: WebhookActionState = { ok: false, message: "" }
 
 const SLACK_STATUS: Record<string, { ok: boolean; text: string }> = {
   connected: { ok: true, text: "Slack connected. Escalations will land in the channel you picked." },
+  confirmation_failed: { ok: false, text: "Slack was installed, but the confirmation message could not be delivered. Check the channel and try a test escalation." },
+  token_unavailable: { ok: false, text: "Slack rejected the token used for this confirmation. Check the current connection before reconnecting." },
   denied: { ok: false, text: "Slack install was cancelled." },
   forbidden: { ok: false, text: "Admin role required to connect Slack." },
   invalid: { ok: false, text: "Slack install expired. Try Add to Slack again." },

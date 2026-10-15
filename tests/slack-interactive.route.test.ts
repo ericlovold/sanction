@@ -1,3 +1,4 @@
+import { SignJWT } from "jose"
 import { createHmac } from "crypto"
 import { NextRequest } from "next/server"
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest"
@@ -24,9 +25,10 @@ vi.mock("@/lib/approvals", () => ({
 }))
 
 import { POST as slackInteractive } from "../app/api/slack/interactive/route"
-import { issueSlackActionToken, SLACK_APPROVE_ACTION, SLACK_DENY_ACTION } from "../lib/slack"
+import { issueSlackActionToken, slackInstallGeneration, SLACK_APPROVE_ACTION, SLACK_DENY_ACTION } from "../lib/slack"
 
 const SECRET = "slack-signing-secret"
+const INSTALL = { id: "si_1", teamId: "T123", channelId: "C123", installedAt: new Date("2026-10-14T12:00:00.000Z"), botTokenEnc: "enc-original" }
 
 function signedRequest(payload: unknown, opts?: { timestamp?: string; secret?: string; signature?: string }) {
   const raw = new URLSearchParams({ payload: JSON.stringify(payload) }).toString()
@@ -54,7 +56,7 @@ async function approvalPayload(actionId: string, approvalId = "appr_1", opts?: {
     team: { id: teamId },
     channel: { id: channelId },
     user: { username: "eric" },
-    actions: [{ action_id: actionId, value: await issueSlackActionToken({ walletId: "wallet_1", approvalId, teamId: "T123", channelId: "C123" }) }],
+    actions: [{ action_id: actionId, value: await issueSlackActionToken({ walletId: "wallet_1", approvalId, teamId: "T123", channelId: "C123", ...slackInstallGeneration(INSTALL) }) }],
   }
 }
 
@@ -64,7 +66,7 @@ beforeEach(() => {
   vi.stubEnv("SANCTION_SIGNING_SECRET", "sanction-signing-secret")
   rateLimitMock.mockResolvedValue({ ok: true, limit: 60 })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => await fn(dbMock))
-  dbMock.slackInstall.findFirst.mockResolvedValue({ id: "si_1" })
+  dbMock.slackInstall.findFirst.mockResolvedValue(INSTALL)
 })
 
 afterEach(() => {
@@ -72,6 +74,54 @@ afterEach(() => {
 })
 
 describe("POST /api/slack/interactive", () => {
+  it("rejects pre-generation tokens before accessing installations or approvals", async () => {
+    const payload = await approvalPayload(SLACK_APPROVE_ACTION)
+    payload.actions[0].value = await new SignJWT({ purpose: "slack-approval-action", walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123" })
+      .setProtectedHeader({ alg: "HS256" }).setIssuer("sanction").setExpirationTime("2h")
+      .sign(new TextEncoder().encode("sanction-signing-secret"))
+    const res = await slackInteractive(signedRequest(payload))
+    expect((await res.json()).text).toContain("no longer valid")
+    expect(dbMock.slackInstall.findFirst).not.toHaveBeenCalled()
+    expect(resolveMock).not.toHaveBeenCalled()
+  })
+
+  it.each([SLACK_APPROVE_ACTION, SLACK_DENY_ACTION])("keeps an old %s button invalid through disconnect and same-channel reinstall, even within one millisecond", async (actionId) => {
+    let current: typeof INSTALL | null = INSTALL
+    dbMock.slackInstall.findFirst.mockImplementation(async ({ where }) =>
+      current && current.id === where.id && current.installedAt.getTime() === where.installedAt.getTime()
+        && current.teamId === where.teamId && current.channelId === where.channelId && where.walletId === "wallet_1"
+        && where.revokedAt === null ? current : null)
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
+    resolveMock.mockResolvedValue({ ok: true, status: 200 })
+    const oldPayload = await approvalPayload(actionId)
+    expect((await (await slackInteractive(signedRequest(oldPayload))).json()).replace_original).toBe(true)
+    resolveMock.mockClear()
+    current = null
+    await slackInteractive(signedRequest(oldPayload))
+    expect(resolveMock).not.toHaveBeenCalled()
+    current = { ...INSTALL, botTokenEnc: "enc-reinstalled" }
+    await slackInteractive(signedRequest(oldPayload))
+    expect(resolveMock).not.toHaveBeenCalled()
+    const freshPayload = await approvalPayload(actionId)
+    freshPayload.actions[0].value = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123", ...slackInstallGeneration(current) })
+    expect((await (await slackInteractive(signedRequest(freshPayload))).json()).replace_original).toBe(true)
+    expect(resolveMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("rejects a replaced installation timestamp even when its ciphertext is unchanged", async () => {
+    const reinstalled = { ...INSTALL, installedAt: new Date(INSTALL.installedAt.getTime() + 1) }
+    dbMock.slackInstall.findFirst.mockImplementation(async ({ where }) =>
+      where.installedAt.getTime() === reinstalled.installedAt.getTime() ? reinstalled : null)
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
+    resolveMock.mockResolvedValue({ ok: true, status: 200 })
+    const payload = await approvalPayload(SLACK_APPROVE_ACTION)
+    await slackInteractive(signedRequest(payload))
+    expect(resolveMock).not.toHaveBeenCalled()
+    payload.actions[0].value = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123", ...slackInstallGeneration(reinstalled) })
+    await slackInteractive(signedRequest(payload))
+    expect(resolveMock).toHaveBeenCalledTimes(1)
+  })
+
   it("fails closed when the signing secret is unset", async () => {
     vi.stubEnv("SANCTION_SLACK_SIGNING_SECRET", "")
     const res = await slackInteractive(signedRequest({ type: "block_actions" }))

@@ -6,6 +6,7 @@ import { getSessionMember } from "@/lib/session"
 import { postSlackChat } from "@/lib/slack"
 import {
   exchangeSlackCode,
+  reconcileSlackDelivery,
   slackRedirectUri,
   upsertSlackInstall,
   verifySlackOAuthState,
@@ -50,7 +51,9 @@ export async function GET(req: NextRequest) {
   const result = await exchangeSlackCode(code, slackRedirectUri(origin))
   if (!result.ok) return approvals(origin, `oauth_${result.error}`)
 
-  const { channelId, token } = await upsertSlackInstall(member.wallet.id, result.access)
-  await postSlackChat(channelId, slackPayload("ping", {}), token)
+  const { channelId, token, install } = await upsertSlackInstall(member.wallet.id, result.access)
+  const delivery = await postSlackChat(channelId, slackPayload("ping", {}), token)
+  const revoked = await reconcileSlackDelivery(member.wallet.id, install, delivery)
+  if (!delivery.ok) return approvals(origin, revoked ? "token_unavailable" : "confirmation_failed")
   return approvals(origin, "connected")
 }

@@ -10,6 +10,7 @@ import {
   slackDecisionFromPayload,
   slackReplacementMessage,
   slackSigningSecret,
+  slackInstallGeneration,
   verifySlackActionToken,
   verifySlackSignature,
 } from "@/lib/slack"
@@ -59,15 +60,17 @@ export async function POST(req: NextRequest) {
   const install = await withTenant(binding.walletId, (tx) =>
     tx.slackInstall.findFirst({
       where: {
+        id: binding.installId,
+        installedAt: new Date(binding.installedAt),
         walletId: binding.walletId,
         teamId: binding.teamId,
         channelId: binding.channelId,
         revokedAt: null,
       },
-      select: { id: true },
+      select: { id: true, teamId: true, channelId: true, installedAt: true, botTokenEnc: true },
     }),
   )
-  if (!install) {
+  if (!install || slackInstallGeneration(install).tokenVersion !== binding.tokenVersion) {
     return slackAck({ response_type: "ephemeral", text: "This Slack channel is not authorized for that wallet." })
   }
 

@@ -5,6 +5,35 @@ of submission, eligibility, or acceptance. Track the broader distribution effort
 in [MARKETPLACE-SUBMISSION.md](MARKETPLACE-SUBMISSION.md). Slackbot MCP requires
 separate configuration and review.
 
+## Readiness checkpoint — October 14, 2026
+
+The production Slack portal was inspected directly. Public distribution is off;
+**Prepare & Submit** says distribution must be enabled and disables **Get Started**.
+The hard-coded-information declaration remains unchecked. The configured OAuth
+callback and interactivity URL match the HTTPS URLs below. Bot scopes are exactly
+`chat:write` and `incoming-webhook`; no user scopes are configured. Only the owner
+is listed as an app collaborator. Marketplace eligibility counters were not
+available in the locked submission flow; the Basic Information "authed users"
+count is not an active-workspace or weekly-active-user count.
+
+Short and long app descriptions were saved, including channel-based approval
+authority and the distinction between permission and execution. Icon upload is
+still pending. The landing, privacy, support and terms URLs returned HTTP 200.
+This is availability evidence, not a completed installation or visual review.
+
+Lifecycle corrections prepared in source bind buttons to the exact installation
+generation, so reconnecting cannot revive an old card. Confirmed token-revocation,
+expiry or inactive-account delivery errors mark only that installation generation
+revoked. Transient failures do not revoke a connection. These changes require
+merge, deployment and live verification before the corresponding checks below
+can be marked complete. Existing cards without a generation will stop working;
+pending requests remain reviewable in the authorized Sanction dashboard.
+
+**Still required:** enable distribution, test a separately administered workspace,
+verify real usage eligibility, provide a dedicated reviewer login, finish listing
+assets/security answers, and pass Slack's automated checks. No submission or
+external-workspace lifecycle pass is claimed by this checkpoint.
+
 ## Listing copy
 
 **Name:** Sanction
@@ -109,11 +138,26 @@ workspace before submission, then record the evidence below.
 6. Disconnect the workspace from Sanction's Approvals page. Send another test
    escalation and verify delivery to the disconnected channel stops; an old
    decision button must no longer authorize a pending request.
-7. Reconnect, then uninstall the app through Slack's app management. Verify Slack
-   delivery stops and record the resulting Sanction UI state. Dashboard
-   disconnect currently marks the local install revoked; it does not call Slack's
-   token-revocation API. No Slack uninstall-event handler is implemented. Do not
-   claim automatic uninstall reconciliation or remote token revocation.
+7. Reconnect to the same channel. An old, still-pending card must remain invalid;
+   a newly sent request must work. Do not use an already-decided request to prove
+   reconnect invalidation: its terminal status would mask the bug.
+8. Uninstall the app through Slack's app management, then attempt one synthetic
+   notification. Verify delivery stops and record the Sanction UI state. The
+   delivery path marks the installation revoked only if Slack explicitly returns
+   `token_revoked`, `token_expired` or `account_inactive`. `invalid_auth`, channel
+   failures and transport errors do not establish revocation. There is no uninstall
+   event handler; an unused installation can remain locally active until a
+   conclusive delivery response or dashboard disconnect. Dashboard disconnect is
+   local and does not call Slack's token-revocation API. Record the actual result,
+   including any unrecognized uninstall error, rather than assuming reconciliation.
+9. Reinstall through the Sanction landing page and send a fresh synthetic request.
+   Confirm delivery and decisions resume while old cards stay unusable. A delayed
+   error from an older installation must not revoke its replacement.
+
+For each check, retain the date, deployed commit, host/workspace type, synthetic
+request reference, expected result and observed result privately. Keep credentials
+and real customer requests out of screenshots. The earlier development-workspace
+broker approval and denial evidence does not replace this external-workspace run.
 
 ## Evidence and submission record
 

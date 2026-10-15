@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose"
 import { encryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { withTenant } from "@/lib/rls"
+import type { SlackChatResult, SlackInstallIdentity } from "@/lib/slack"
 
 const SLACK_OAUTH_PURPOSE = "slack-oauth"
 const SLACK_OAUTH_TTL_SECONDS = 600
@@ -178,10 +179,10 @@ export async function exchangeSlackCode(code: string, redirectUri: string): Prom
 export async function upsertSlackInstall(
   walletId: string,
   access: SlackOAuthAccess,
-): Promise<{ channelId: string; token: string }> {
+): Promise<{ channelId: string; token: string; install: SlackInstallIdentity }> {
   const label = slackOAuthLabel(access.teamId)
   const { blob, keyId } = await encryptCredentialEnvelope(access.accessToken, walletId, label)
-  await withTenant(walletId, (tx) =>
+  const install = await withTenant(walletId, (tx) =>
     tx.slackInstall.upsert({
       where: { walletId_teamId: { walletId, teamId: access.teamId } },
       create: {
@@ -207,5 +208,22 @@ export async function upsertSlackInstall(
       },
     }),
   )
-  return { channelId: access.channelId, token: access.accessToken }
+  return { channelId: access.channelId, token: access.accessToken, install }
+}
+
+/** A failed old delivery must never revoke a concurrently replaced installation. */
+export async function reconcileSlackDelivery(walletId: string, install: SlackInstallIdentity, result: SlackChatResult): Promise<boolean> {
+  if (result.ok || !["token_revoked", "token_expired", "account_inactive"].includes(result.error)) return false
+  const revoked = await withTenant(walletId, (tx) => tx.slackInstall.updateMany({
+    where: {
+      id: install.id,
+      walletId,
+      teamId: install.teamId,
+      installedAt: install.installedAt,
+      botTokenEnc: install.botTokenEnc,
+      revokedAt: null,
+    },
+    data: { revokedAt: new Date() },
+  }))
+  return revoked.count > 0
 }

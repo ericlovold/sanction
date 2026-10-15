@@ -36,7 +36,7 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-11 | Catalog review and authenticated host tests; publication pending |
 | Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible; read-only wallet smoke passed; approval lifecycle and public catalog route unverified |
 | Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
-| Slack | Slack app submission | October 6 portal state: not distributed, submission disabled. #358/#367/#369 merged; October 10 session records live broker approval/redeem and denial proof | Recheck distribution/usage eligibility; complete external-workspace install and uninstall evidence; no marketplace acceptance claimed |
+| Slack | Slack app submission | October 14 portal: public distribution off, Get Started disabled; callback, interactivity URL and two bot scopes verified; descriptions saved. Earlier broker approval/redeem and denial proof remains separate | Deploy installation-generation and revoked-token fixes; enable distribution; complete external-workspace lifecycle, usage eligibility, reviewer access and assets. See [readiness checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026); no submission claimed |
 
 Connector completion precedes activation and go-to-market work; listing presence alone does not complete the host tests.
 
