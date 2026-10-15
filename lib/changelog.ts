@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-14",
+    title: "Keep old Slack approval buttons invalid after reconnect",
+    tags: ["slack", "approvals", "security"],
+    body: "Slack buttons now bind to the installation generation as well as the wallet, channel and approval. Reconnecting the same channel cannot revive an older button; existing cards without this binding must be reviewed in Sanction. Explicit token-revocation, expiry and inactive-account delivery responses retire only the matching installation, so a delayed error cannot disable a replacement. Transient delivery errors do not revoke access, and failed confirmation messages no longer report setup success. This is delivery-time reconciliation, not an uninstall-event handler. External-workspace verification and Marketplace submission remain pending.",
+  },
+  {
     date: "2026-10-08",
     title: "Stop pending authorization checks from reissuing themselves",
     tags: ["mcp", "approvals"],

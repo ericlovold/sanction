@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto"
+import { createHash, createHmac, timingSafeEqual } from "crypto"
 import { SignJWT, jwtVerify } from "jose"
 
 export const SLACK_APPROVE_ACTION = "sanction_approve"
@@ -115,14 +115,35 @@ function signingKey() {
   return new TextEncoder().encode(secret)
 }
 
+export type SlackInstallIdentity = {
+  id: string
+  teamId: string
+  channelId: string
+  installedAt: Date
+  botTokenEnc: string
+}
+
+// Every OAuth exchange re-encrypts with a random IV. Including the ciphertext
+// fingerprint distinguishes reinstallations even within the same millisecond.
+export function slackInstallGeneration(install: SlackInstallIdentity) {
+  return {
+    installId: install.id,
+    installedAt: install.installedAt.toISOString(),
+    tokenVersion: createHash("sha256").update(install.botTokenEnc).digest("hex"),
+  }
+}
+
 export type SlackActionBinding = {
+  installId: string
+  installedAt: string
+  tokenVersion: string
   walletId: string
   approvalId: string
   teamId: string
   channelId: string
 }
 
-/** Bind a Slack button to one wallet, installation channel, and approval. */
+/** Bind a Slack button to one wallet, installation generation/channel, and approval. */
 export async function issueSlackActionToken(binding: SlackActionBinding): Promise<string> {
   return new SignJWT({ purpose: SLACK_ACTION_PURPOSE, ...binding })
     .setProtectedHeader({ alg: "HS256" })
@@ -136,9 +157,17 @@ export async function verifySlackActionToken(token: string): Promise<SlackAction
   try {
     const { payload } = await jwtVerify(token, signingKey(), { issuer: "sanction", algorithms: ["HS256"] })
     if (payload.purpose !== SLACK_ACTION_PURPOSE) return null
-    const values = [payload.walletId, payload.approvalId, payload.teamId, payload.channelId]
+    const values = [payload.walletId, payload.approvalId, payload.teamId, payload.channelId, payload.installId]
     if (!values.every((value) => typeof value === "string" && value.length > 0)) return null
+    if (typeof payload.installedAt !== "string"
+      || !Number.isFinite(Date.parse(payload.installedAt))
+      || new Date(payload.installedAt).toISOString() !== payload.installedAt
+      || typeof payload.tokenVersion !== "string"
+      || !/^[a-f0-9]{64}$/.test(payload.tokenVersion)) return null
     return {
+      installId: payload.installId as string,
+      installedAt: payload.installedAt,
+      tokenVersion: payload.tokenVersion,
       walletId: payload.walletId as string,
       approvalId: payload.approvalId as string,
       teamId: payload.teamId as string,
@@ -196,13 +225,17 @@ export function slackReplacementMessage(decision: "approve" | "reject", actor: s
   }
 }
 
-export async function postSlackChat(channel: string, body: string, token: string): Promise<void> {
-  if (!token) return
+export type SlackChatResult =
+  | { ok: true }
+  | { ok: false; error: "token_revoked" | "token_expired" | "account_inactive" | "missing_token" | "http_error" | "invalid_response" | "slack_rejected" | "timeout" | "network_error" }
+
+export async function postSlackChat(channel: string, body: string, token: string): Promise<SlackChatResult> {
+  if (!token) return { ok: false, error: "missing_token" }
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 5000)
   try {
     const parsed = JSON.parse(body) as { text?: string; blocks?: unknown }
-    await fetch("https://slack.com/api/chat.postMessage", {
+    const res = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
       headers: {
         authorization: `Bearer ${token}`,
@@ -217,8 +250,24 @@ export async function postSlackChat(channel: string, body: string, token: string
       }),
       signal: ctrl.signal,
     })
+    // HTTP failures (including 429/5xx) are never evidence of token revocation.
+    if (!res.ok) return { ok: false, error: "http_error" }
+    let json: unknown
+    try { json = await res.json() } catch {
+      return { ok: false, error: ctrl.signal.aborted ? "timeout" : "invalid_response" }
+    }
+    if (!json || typeof json !== "object" || Array.isArray(json)) return { ok: false, error: "invalid_response" }
+    const result = json as Record<string, unknown>
+    if (result.ok === true) return { ok: true }
+    if (result.ok !== false) return { ok: false, error: "invalid_response" }
+    if (result.error === "token_revoked" || result.error === "token_expired" || result.error === "account_inactive") {
+      return { ok: false, error: result.error }
+    }
+    // invalid_auth can also mean an IP restriction; it is not proof of revocation.
+    // Never reflect arbitrary Slack response text or tokens into logs/callers.
+    return { ok: false, error: "slack_rejected" }
   } catch {
-    // best-effort — never throw into the caller's request
+    return { ok: false, error: ctrl.signal.aborted ? "timeout" : "network_error" }
   } finally {
     clearTimeout(timer)
   }

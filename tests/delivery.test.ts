@@ -9,7 +9,7 @@ const { dbMock, decryptMock } = vi.hoisted(() => ({
   dbMock: {
     wallet: { findUnique: vi.fn() },
     webhook: { findMany: vi.fn() },
-    slackInstall: { findMany: vi.fn() },
+    slackInstall: { findMany: vi.fn(), updateMany: vi.fn() },
     rateLimit: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
@@ -218,7 +218,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     decryptMock.mockResolvedValue("xoxb-install")
     dbMock.slackInstall.findMany.mockResolvedValue([
       {
-        teamId: "T123",
+        id: "si_1", installedAt: new Date("2026-10-14T12:00:00.000Z"), teamId: "T123",
         channelId: "C0123456789",
         botTokenEnc: "enc",
         keyId: "key_1",
@@ -257,7 +257,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     decryptMock.mockResolvedValue("xoxb-install")
     const DEFAULT_EVENTS = ["approval.created", "approval.resolved", "escalation.created", "escalation.resolved", "budget.threshold"]
     dbMock.slackInstall.findMany.mockResolvedValue([
-      { teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: DEFAULT_EVENTS },
+      { id: "si_1", installedAt: new Date("2026-10-14T12:00:00.000Z"), teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: DEFAULT_EVENTS },
     ])
     dbMock.webhook.findMany.mockResolvedValue([])
     const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
@@ -276,7 +276,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
 
     // A wildcard subscription covers the approval.* twin too — still one card.
     dbMock.slackInstall.findMany.mockResolvedValue([
-      { teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: ["*"] },
+      { id: "si_1", installedAt: new Date("2026-10-14T12:00:00.000Z"), teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: ["*"] },
     ])
     await deliverEvent("wallet_1", "approval.created", { approval_id: "appr_2", agent: "tenet" })
     await deliverEvent("wallet_1", "escalation.created", { approval_id: "appr_2", agent: "tenet" })
@@ -287,7 +287,7 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
     vi.stubEnv("SANCTION_SIGNING_SECRET", "test-signing-secret")
     decryptMock.mockResolvedValue("xoxb-install")
     dbMock.slackInstall.findMany.mockResolvedValue([
-      { teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: ["escalation.created"] },
+      { id: "si_1", installedAt: new Date("2026-10-14T12:00:00.000Z"), teamId: "T123", channelId: "C0123456789", botTokenEnc: "enc", keyId: "key_1", events: ["escalation.created"] },
     ])
     dbMock.webhook.findMany.mockResolvedValue([])
     const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
@@ -406,5 +406,63 @@ describe("rateLimit — fixed window", () => {
     expect(ipFromHeaders(new Headers({ "x-real-ip": "8.8.8.8" }))).toBe("8.8.8.8")
     expect(ipFromHeaders(new Headers())).toBe("unknown")
     expect(clientIp(new Request("https://x.test", { headers: { "x-forwarded-for": "7.7.7.7" } }))).toBe("7.7.7.7")
+  })
+})
+
+
+describe("Slack delivery lifecycle reconciliation", () => {
+  const install = { id: "si_1", installedAt: new Date("2026-10-14T12:00:00.000Z"), teamId: "T123", channelId: "C123", botTokenEnc: "old-ciphertext", keyId: "key_1", events: ["*"] }
+  afterEach(() => vi.unstubAllGlobals())
+
+  beforeEach(() => {
+    dbMock.webhook.findMany.mockResolvedValue([])
+    dbMock.slackInstall.findMany.mockResolvedValue([install])
+    dbMock.slackInstall.updateMany.mockResolvedValue({ count: 1 })
+    decryptMock.mockResolvedValue("xoxb-old")
+  })
+
+  it.each(["token_revoked", "token_expired", "account_inactive"])("revokes only the owned generation on %s", async (error) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    await deliverEvent("wallet_1", "budget.threshold", {})
+    expect(dbMock.slackInstall.updateMany).toHaveBeenCalledWith({
+      where: { id: install.id, walletId: "wallet_1", teamId: install.teamId, installedAt: install.installedAt, botTokenEnc: install.botTokenEnc, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    })
+  })
+
+  it.each(["invalid_auth", "not_in_channel", "channel_not_found", "ratelimited", "internal_error"])("keeps the install active after %s", async (error) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    await deliverEvent("wallet_1", "budget.threshold", {})
+    expect(dbMock.slackInstall.updateMany).not.toHaveBeenCalled()
+  })
+
+  it("does not revoke on transport/HTTP failure", async () => {
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    for (const status of [429, 500, 503]) {
+      vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error: "token_revoked" }, { status })))
+      await deliverEvent("wallet_1", "budget.threshold", {})
+    }
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline") }))
+    await deliverEvent("wallet_1", "budget.threshold", {})
+    expect(dbMock.slackInstall.updateMany).not.toHaveBeenCalled()
+  })
+
+  it("cannot revoke a same-millisecond replacement when an old request finishes late", async () => {
+    let current = { ...install, revokedAt: null as Date | null }
+    dbMock.slackInstall.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where.botTokenEnc !== current.botTokenEnc || where.installedAt.getTime() !== current.installedAt.getTime()) return { count: 0 }
+      current.revokedAt = data.revokedAt
+      return { count: 1 }
+    })
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      current = { ...current, botTokenEnc: "replacement-ciphertext" }
+      return Response.json({ ok: false, error: "token_revoked" })
+    }))
+    const { deliverEvent } = await vi.importActual<typeof import("../lib/webhooks")>("../lib/webhooks")
+    await deliverEvent("wallet_1", "budget.threshold", {})
+    expect(dbMock.slackInstall.updateMany).toHaveBeenCalledTimes(1)
+    expect(current.revokedAt).toBeNull()
   })
 })

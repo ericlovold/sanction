@@ -2,8 +2,8 @@ import { createHmac, randomBytes } from "crypto"
 import { decryptCredentialEnvelope } from "./credentialCrypto"
 import { db } from "./db"
 import { withTenant } from "./rls"
-import { issueSlackActionToken, postSlackChat, isSlackArchiveUrl, slackInteractivePayload, slackApprovalReview } from "./slack"
-import { slackOAuthLabel } from "./slackOAuth"
+import { issueSlackActionToken, postSlackChat, isSlackArchiveUrl, slackInteractivePayload, slackApprovalReview, slackInstallGeneration, type SlackInstallIdentity } from "./slack"
+import { slackOAuthLabel, reconcileSlackDelivery } from "./slackOAuth"
 
 // Owner-registered webhooks notified on events. Each delivery is signed with
 // HMAC-SHA256 over the exact request body so the receiver can verify it's us.
@@ -201,10 +201,7 @@ async function deliverSlackInstalls(
   walletId: string,
   event: string,
   data: Record<string, unknown>,
-  installs: Array<{
-    teamId: string
-    channelId: string
-    botTokenEnc: string
+  installs: Array<SlackInstallIdentity & {
     keyId: string | null
     events: string[]
   }>,
@@ -219,7 +216,7 @@ async function deliverSlackInstalls(
       .map(async (row) => {
         const approvalId = typeof data.approval_id === "string" ? data.approval_id : undefined
         const actionToken = approvalId && (event === "approval.created" || event === "escalation.created")
-          ? await issueSlackActionToken({ walletId, approvalId, teamId: row.teamId, channelId: row.channelId })
+          ? await issueSlackActionToken({ walletId, approvalId, teamId: row.teamId, channelId: row.channelId, ...slackInstallGeneration(row) })
           : undefined
         const payload = slackInteractivePayload(event, data, slackText(event, data), actionToken)
         const token = await decryptCredentialEnvelope({
@@ -228,7 +225,8 @@ async function deliverSlackInstalls(
           label: slackOAuthLabel(row.teamId),
           keyId: row.keyId,
         })
-        await postSlackChat(row.channelId, payload, token)
+        const result = await postSlackChat(row.channelId, payload, token)
+        await reconcileSlackDelivery(walletId, row, result)
       }),
   )
 }

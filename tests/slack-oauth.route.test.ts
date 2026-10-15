@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { sessionMock, rateLimitMock, encryptMock, upsertMock } = vi.hoisted(() => ({
+const { sessionMock, rateLimitMock, encryptMock, upsertMock, updateManyMock } = vi.hoisted(() => ({
   sessionMock: { getSessionMember: vi.fn() },
   rateLimitMock: vi.fn(),
   encryptMock: vi.fn(async () => ({ blob: "enc-blob", keyId: "key_1" })),
-  upsertMock: vi.fn(async () => ({ id: "si_1" })),
+  upsertMock: vi.fn(async () => ({ id: "si_1", teamId: "T123", channelId: "C0123456789", installedAt: new Date("2026-10-14T12:00:00.000Z"), botTokenEnc: "enc-blob" })),
+  updateManyMock: vi.fn(async () => ({ count: 1 })),
 }))
 
 vi.mock("@/lib/session", () => sessionMock)
@@ -15,8 +16,8 @@ vi.mock("@/lib/rateLimit", async (orig) => {
 })
 vi.mock("@/lib/credentialCrypto", () => ({ encryptCredentialEnvelope: encryptMock }))
 vi.mock("@/lib/rls", () => ({
-  withTenant: vi.fn(async (_wallet: string, fn: (tx: { slackInstall: { upsert: typeof upsertMock } }) => unknown) =>
-    fn({ slackInstall: { upsert: upsertMock } }),
+  withTenant: vi.fn(async (_wallet: string, fn: (tx: { slackInstall: { upsert: typeof upsertMock; updateMany: typeof updateManyMock } }) => unknown) =>
+    fn({ slackInstall: { upsert: upsertMock, updateMany: updateManyMock } }),
   ),
 }))
 vi.mock("@/lib/db", () => ({ db: {} }))
@@ -41,6 +42,7 @@ function callbackReq(params: Record<string, string>) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  updateManyMock.mockResolvedValue({ count: 1 })
   vi.stubEnv("SANCTION_SIGNING_SECRET", SECRET)
   vi.stubEnv("SANCTION_SLACK_CLIENT_ID", "client.123")
   vi.stubEnv("SANCTION_SLACK_CLIENT_SECRET", "client.secret")
@@ -93,6 +95,40 @@ describe("GET /api/slack/oauth/start", () => {
 })
 
 describe("GET /api/slack/oauth/callback", () => {
+  it.each(["token_revoked", "token_expired", "account_inactive"])("reconciles %s from the install confirmation and reports failure", async (error) => {
+    global.fetch = vi.fn(async (url: string | URL) => String(url).includes("oauth.v2.access")
+      ? Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } })
+      : Response.json({ ok: false, error })) as never
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain("slack=token_unavailable")
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "si_1", walletId: "wallet_1", teamId: "T123", installedAt: new Date("2026-10-14T12:00:00.000Z"), botTokenEnc: "enc-blob", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    })
+  })
+
+  it("reports failed confirmation without revoking on a transient error", async () => {
+    global.fetch = vi.fn(async (url: string | URL) => String(url).includes("oauth.v2.access")
+      ? Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } })
+      : Response.json({ ok: false, error: "token_revoked" }, { status: 503 })) as never
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain("slack=confirmation_failed")
+    expect(updateManyMock).not.toHaveBeenCalled()
+  })
+
+  it("does not report a replacement install as revoked after a stale confirmation failure", async () => {
+    updateManyMock.mockResolvedValue({ count: 0 })
+    global.fetch = vi.fn(async (url: string | URL) => String(url).includes("oauth.v2.access")
+      ? Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } })
+      : Response.json({ ok: false, error: "token_revoked" })) as never
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain("slack=confirmation_failed")
+    expect(updateManyMock).toHaveBeenCalledTimes(1)
+  })
+
   const realFetch = global.fetch
 
   afterEach(() => {
@@ -165,6 +201,7 @@ describe("GET /api/slack/oauth/callback", () => {
     expect(upsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ channelId: "C0123456789", botTokenEnc: "enc-blob" }),
+        update: expect.objectContaining({ channelId: "C0123456789", botTokenEnc: "enc-blob", revokedAt: null, installedAt: expect.any(Date) }),
       }),
     )
     const calls = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>

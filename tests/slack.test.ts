@@ -1,15 +1,20 @@
 import { createHmac } from "crypto"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   parseSlackInteractiveBody,
   isSlackArchiveUrl,
   slackDecisionFromPayload,
   slackInteractivePayload,
   issueSlackActionToken,
+  slackInstallGeneration,
+  verifySlackActionToken,
+  postSlackChat,
   SLACK_APPROVE_ACTION,
   SLACK_DENY_ACTION,
   verifySlackSignature,
 } from "../lib/slack"
+
+const INSTALL = { id: "si_1", teamId: "T123", channelId: "C123", installedAt: new Date("2026-10-14T12:00:00.000Z"), botTokenEnc: "enc" }
 
 const SECRET = "slack-signing-secret"
 const TS = "1710000000"
@@ -78,7 +83,7 @@ describe("isSlackArchiveUrl", () => {
 describe("slack interactive payload", () => {
   it("parses approve/deny and its Slack workspace context", async () => {
     process.env.SANCTION_SIGNING_SECRET = "test-signing-secret"
-    const actionToken = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123" })
+    const actionToken = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123", ...slackInstallGeneration(INSTALL) })
     const raw = new URLSearchParams({
       payload: JSON.stringify({
         type: "block_actions",
@@ -120,5 +125,58 @@ describe("slack interactive payload", () => {
     const payload = JSON.parse(slackInteractivePayload("approval.created", {}, "needs approval"))
     expect(payload.blocks[1].elements).toHaveLength(1)
     expect(payload.blocks[1].elements[0].url).toContain("/dashboard/approvals")
+  })
+})
+
+
+describe("Slack installation generation", () => {
+  it.each(["invalid", "2026-99-99T00:00:00.000Z", "2026-10-14", "2026-10-14T12:00:00Z"])("rejects malformed/noncanonical timestamp %s", async (installedAt) => {
+    process.env.SANCTION_SIGNING_SECRET = "test-signing-secret"
+    const token = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123", ...slackInstallGeneration(INSTALL), installedAt })
+    expect(await verifySlackActionToken(token)).toBeNull()
+  })
+})
+
+describe("postSlackChat bounded delivery outcomes", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+
+  it.each(["token_revoked", "token_expired", "account_inactive"] as const)("recognizes definite %s failures", async (error) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error })
+  })
+
+  it.each(["invalid_auth", "not_in_channel", "channel_not_found", "is_archived", "ratelimited", "internal_error", "private-token-value"])("does not classify %s as revoked", async (error) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error: "slack_rejected" })
+  })
+
+  it.each([429, 500, 503])("does not trust token errors in HTTP %s responses", async (status) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error: "token_revoked" }, { status })))
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error: "http_error" })
+  })
+
+  it("bounds network and malformed-response failures", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("private-token-value") }))
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error: "network_error" })
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("not json")))
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error: "invalid_response" })
+  })
+
+  it("bounds a timeout without treating it as revocation", async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new Error("aborted")))
+    })))
+    const pending = postSlackChat("C123", '{"text":"test"}', "xoxb-test")
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(await pending).toEqual({ ok: false, error: "timeout" })
+  })
+
+  it("recognizes success and rejects missing tokens without sending", async () => {
+    const fetch = vi.fn(async () => Response.json({ ok: true }))
+    vi.stubGlobal("fetch", fetch)
+    expect(await postSlackChat("C123", '{"text":"test"}', "")).toEqual({ ok: false, error: "missing_token" })
+    expect(fetch).not.toHaveBeenCalled()
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: true })
   })
 })
