@@ -7,19 +7,23 @@ separate configuration and review.
 
 ## Readiness checkpoint — October 14, 2026
 
-The production Slack portal was inspected directly. Public distribution is off;
-**Prepare & Submit** says distribution must be enabled and disables **Get Started**.
-The hard-coded-information declaration remains unchecked. The configured OAuth
-callback and interactivity URL match the HTTPS URLs below. Bot scopes are exactly
-`chat:write` and `incoming-webhook`; no user scopes are configured. Only the owner
-is listed as an app collaborator. Marketplace eligibility counters were not
-available in the locked submission flow; the Basic Information "authed users"
-count is not an active-workspace or weekly-active-user count.
+Public distribution was enabled with publisher approval. **Get Started** now
+opens the submission draft. Slack reports **1 active workspace and 0 users active
+within the past 28 days**, with counts updated every 24 hours. This is not the
+separate weekly-active-user metric or evidence of Marketplace eligibility.
 
-Short and long app descriptions were saved, including channel-based approval
-authority and the distinction between permission and execution. Icon upload is
-still pending. The landing, privacy, support and terms URLs returned HTTP 200.
-This is availability evidence, not a completed installation or visual review.
+The configured OAuth callback and interactivity URL match the HTTPS URLs below.
+Bot scopes are exactly `chat:write` and `incoming-webhook`; no user scopes are
+configured. Both scope justifications were saved. Only the owner is listed as an
+app collaborator.
+
+Short and long descriptions, installation/privacy/support links, support email,
+Security & Compliance category, English (U.S.) and Free pricing were entered in
+the draft. The icon and listing screenshots remain required. The landing,
+privacy, support and terms URLs returned HTTP 200; this is availability evidence,
+not a completed installation or visual review. Privacy-policy facts and the
+security contact were entered; the remaining company security attestations are
+unanswered. Testing information and automated checks remain gated.
 
 Lifecycle corrections prepared in source bind buttons to the exact installation
 generation, so reconnecting cannot revive an old card. Confirmed token-revocation,
@@ -29,10 +33,16 @@ merge, deployment and live verification before the corresponding checks below
 can be marked complete. Existing cards without a generation will stop working;
 pending requests remain reviewable in the authorized Sanction dashboard.
 
-**Still required:** enable distribution, test a separately administered workspace,
+**Still required:** test a non-development workspace,
 verify real usage eligibility, provide a dedicated reviewer login, finish listing
 assets/security answers, and pass Slack's automated checks. No submission or
 external-workspace lifecycle pass is claimed by this checkpoint.
+
+The publisher authorized synthetic checks in the development workspace. That
+permission does not supply the separate-workspace test or real-user adoption.
+Rejected stale-button clicks currently return an error without a dedicated audit
+event; resolution records are unchanged. Structured rejected-click telemetry is a
+separate follow-up, not evidence that a decision occurred.
 
 ## Listing copy
 
@@ -86,7 +96,7 @@ checks, not evidence of a successful production installation or a security audit
 
 ## Publisher prerequisites
 
-- [ ] In [Slack app management](https://api.slack.com/apps), select the production
+- [x] In [Slack app management](https://api.slack.com/apps), select the production
   app and enable public distribution; verify the registered OAuth callback is
   `https://getsanction.com/api/slack/oauth/callback` and Interactivity Request URL
   is `https://getsanction.com/api/slack/interactive`.

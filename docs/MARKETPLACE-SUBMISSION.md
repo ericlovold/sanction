@@ -36,7 +36,7 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-11 | Catalog review and authenticated host tests; publication pending |
 | Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible; read-only wallet smoke passed; approval lifecycle and public catalog route unverified |
 | Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
-| Slack | Slack app submission | October 14 portal: public distribution off, Get Started disabled; callback, interactivity URL and two bot scopes verified; descriptions saved. Earlier broker approval/redeem and denial proof remains separate | Deploy installation-generation and revoked-token fixes; enable distribution; complete external-workspace lifecycle, usage eligibility, reviewer access and assets. See [readiness checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026); no submission claimed |
+| Slack | Slack app submission | October 14 portal: public distribution enabled; submission draft unlocked; 1 active workspace and 0 active users over 28 days; listing text and scope reasons prepared. Earlier broker approval/redeem and denial proof remains separate | Deploy installation-generation and revoked-token fixes; complete external-workspace lifecycle, usage eligibility, reviewer access and assets. See [readiness checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026); no submission claimed |
 
 Connector completion precedes activation and go-to-market work; listing presence alone does not complete the host tests.
 
@@ -217,8 +217,10 @@ recorded a Slack-approved broker retry reaching the synthetic fixture once and a
 separate denial stopping without another fixture invocation. These are bounded
 live proofs, not an external-workspace adoption or uninstall certificate.
 
-The last recorded portal state (October 6) was not distributed with submission
-disabled. Recheck that state and Slack's own usage counters before submission.
+The [October 14 checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026)
+records enabled public distribution and an unlocked submission draft. Slack shows
+1 active workspace and 0 users active in the past 28 days; usage eligibility and
+the remaining listing requirements are not complete.
 The [review packet](SLACK-SUBMISSION.md) is preparation, not marketplace acceptance.
 
 - [ ] **Eric:** Verify eligibility: at least ten active workspace installations maintained throughout review, and ten weekly active users. Active workspaces must have used the app within 28 days; sandbox installs do not count. Confirm live account counters before applying.
