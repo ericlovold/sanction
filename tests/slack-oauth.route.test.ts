@@ -87,7 +87,7 @@ describe("GET /api/slack/oauth/start", () => {
     expect(res.status).toBe(307)
     const loc = new URL(res.headers.get("location")!)
     expect(loc.origin + loc.pathname).toBe("https://slack.com/oauth/v2/authorize")
-    expect(loc.searchParams.get("scope")).toBe("chat:write,incoming-webhook")
+    expect(loc.searchParams.get("scope")).toBe("chat:write,incoming-webhook,channels:join")
     const state = loc.searchParams.get("state")!
     const { verifySlackOAuthState } = await import("../lib/slackOAuth")
     expect(await verifySlackOAuthState(state)).toEqual({ walletId: "wallet_1" })
@@ -106,6 +106,63 @@ describe("GET /api/slack/oauth/callback", () => {
       where: { id: "si_1", walletId: "wallet_1", teamId: "T123", installedAt: new Date("2026-10-14T12:00:00.000Z"), botTokenEnc: "enc-blob", revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     })
+  })
+
+  it.each([{ ok: true }, { ok: false, error: "not_in_channel" }, { ok: false, error: "token_revoked" }])("joins and retries confirmation only once %#", async (retry) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } }))
+      .mockResolvedValueOnce(Response.json({ ok: false, error: "not_in_channel" }))
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValueOnce(Response.json(retry))
+    global.fetch = fetchMock
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain(`slack=${retry.ok ? "connected" : retry.error === "token_revoked" ? "token_unavailable" : "not_in_channel"}`)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://slack.com/api/oauth.v2.access", "https://slack.com/api/chat.postMessage",
+      "https://slack.com/api/conversations.join", "https://slack.com/api/chat.postMessage",
+    ])
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ body: JSON.stringify({ channel: "C0123456789" }), headers: { authorization: "Bearer xoxb-install" } })
+  })
+
+  it.each(["method_not_supported_for_channel_type", "missing_scope", "token_revoked"])("does not retry confirmation when join returns %s", async (error) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } }))
+      .mockResolvedValueOnce(Response.json({ ok: false, error: "not_in_channel" }))
+      .mockResolvedValueOnce(Response.json({ ok: false, error }))
+    global.fetch = fetchMock
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain(`slack=${error === "token_revoked" ? "token_unavailable" : "not_in_channel"}`)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    if (error === "token_revoked") expect(updateManyMock).toHaveBeenCalledTimes(1)
+    else expect(updateManyMock).not.toHaveBeenCalled()
+  })
+
+  it.each(["invalid_auth", "channel_not_found", "internal_error"])("never joins or retries after %s", async (error) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } }))
+      .mockResolvedValueOnce(Response.json({ ok: false, error }))
+    global.fetch = fetchMock
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain("slack=confirmation_failed")
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(updateManyMock).not.toHaveBeenCalled()
+  })
+
+  it.each(["http", "network"])("does not retry an ambiguous %s confirmation failure", async (kind) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } }))
+    if (kind === "http") fetchMock.mockResolvedValueOnce(Response.json({ ok: false, error: "not_in_channel" }, { status: 503 }))
+    else fetchMock.mockRejectedValueOnce(new Error("connection lost"))
+    global.fetch = fetchMock
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain("slack=confirmation_failed")
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(updateManyMock).not.toHaveBeenCalled()
   })
 
   it("reports missing channel membership without revoking the installation", async () => {

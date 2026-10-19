@@ -105,7 +105,10 @@ async function resolveWalletForUser(
   if (byEmail) return null
 
   try {
-    const wallet = await db.wallet.create({
+    const key = generateApiKey()
+    // Nested writes commit together: a default-agent failure must not leave
+    // a wallet that a later sign-in mistakes for completed provisioning.
+    return await db.wallet.create({
       data: {
         name: user.name?.trim() || `${user.email.split("@")[0]}'s workspace`,
         ownerEmail: user.email,
@@ -113,14 +116,11 @@ async function resolveWalletForUser(
         ownerEmailVerifiedAt: user.emailVerified === true ? new Date() : null,
         userId: user.id,
         policy: { create: {} },
+        agents: { create: { name: "default-agent", apiKeyHash: key.hash, apiKeyPrefix: key.prefix } },
       },
     })
-    const key = generateApiKey()
-    await db.agent.create({
-      data: { walletId: wallet.id, name: "default-agent", apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
-    })
-    return wallet
   } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "P2002") throw error
     // Race: a concurrent render won the unique ownerEmail. Re-read its result,
     // but only if that render provisioned it for this user.
     const raced = await db.wallet.findUnique({ where: { ownerEmail: user.email } })

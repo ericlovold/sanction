@@ -99,6 +99,7 @@ The publisher must confirm the portal's pricing selection and legal declarations
 | Bot scope | Why this app requests it |
 | --- | --- |
 | `chat:write` | Send approval cards, decision notifications, budget alerts, and the installation confirmation to the selected channel. |
+| `channels:join` | Join only the channel selected by the installer when the confirmation reports missing membership. Slack permits public-channel joining; private channels require an invitation. No channel messages are read. |
 | `incoming-webhook` | Let the installing admin select a channel during OAuth and return that channel's identifier. The app stores the selection and sends messages using its encrypted bot token. |
 
 The requested scopes are defined in `lib/slackOAuth.ts`. OAuth state is signed,
@@ -145,7 +146,7 @@ workspace before submission, then record the evidence below.
 1. Open the landing page, read the privacy/support pages without signing in, and
    select **Add to Slack**. Sign in using the dedicated Sanction admin account.
    Confirm installation resumes; select the reviewer's workspace and a private
-   test channel. Authorize the two scopes above.
+   test channel. Authorize the three scopes above.
 2. Confirm return to **Dashboard → Approvals**, the connected workspace/channel,
    and the confirmation message in Slack. Verify no other wallet's requests
    appear in that channel.
@@ -180,8 +181,9 @@ workspace before submission, then record the evidence below.
    channel → **Agents & apps → Add an app → Sanction**. Use **Add to Slack** again
    with the same channel, verify the confirmation, then send a fresh request.
    Record whether manual membership recovery was needed. `not_in_channel` keeps
-   the installation active; the app does not request automatic channel-join
-   permission.
+   the installation active. The callback now attempts one public-channel join
+   and one confirmation retry after an explicit membership failure. Private
+   channels and unsuccessful joins keep the manual invitation path.
 
 For each check, retain the date, deployed commit, host/workspace type, synthetic
 request reference, expected result and observed result privately. Keep credentials
@@ -208,3 +210,11 @@ broker approval and denial evidence does not replace this external-workspace run
 - [Distribution and submission entrypoint](https://docs.slack.dev/slack-marketplace/distributing-your-app-in-the-slack-marketplace/)
 - [Listing, scope, support, and security requirements](https://docs.slack.dev/slack-marketplace/slack-marketplace-app-guidelines-and-requirements/)
 - [Reviewer access and external-workspace testing](https://docs.slack.dev/slack-marketplace/slack-marketplace-review-guide/)
+
+### Public-channel recovery scope change
+
+The October 18 source update requests `channels:join` in addition to the two
+scopes recorded in the earlier portal snapshot. The bot scope and its
+submission justification were saved in Slack app configuration on October 18.
+Reconnect existing installations to obtain consent. Automatic recovery remains unverified in
+production until the updated callback is deployed and exercised.

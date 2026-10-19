@@ -11,6 +11,7 @@ import {
   slackInstallGeneration,
   verifySlackActionToken,
   postSlackChat,
+  joinSlackChannel,
   SLACK_APPROVE_ACTION,
   SLACK_DENY_ACTION,
   verifySlackSignature,
@@ -254,5 +255,57 @@ describe("Slack interaction feedback", () => {
     await vi.advanceTimersByTimeAsync(5000)
     await pending
     expect(console.warn).toHaveBeenCalledWith("Slack interaction feedback", { kind: "decided", outcome: "timeout" })
+  })
+})
+
+describe("joinSlackChannel", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+
+  it.each([{ ok: true }, { ok: true, warning: "already_in_channel" }])("accepts successful join %#", async (response) => {
+    const fetchMock = vi.fn(async () => Response.json(response))
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledWith("https://slack.com/api/conversations.join", expect.objectContaining({
+      redirect: "error", body: JSON.stringify({ channel: "C123" }),
+      headers: expect.objectContaining({ authorization: "Bearer xoxb-test" }),
+    }))
+  })
+
+  it.each(["token_revoked", "token_expired", "account_inactive"] as const)("preserves %s", async (error) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: false, error })
+  })
+
+  it.each(["method_not_supported_for_channel_type", "missing_scope", "private-secret", "invalid_auth"])("bounds %s", async (error) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: false, error: "slack_rejected" })
+  })
+
+  it.each([null, [], {}, { ok: "true" }])("rejects malformed JSON %#", async (body) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(body)))
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: false, error: "invalid_response" })
+  })
+
+  it("bounds malformed bodies, HTTP failures, network failures and missing token", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("bad json")))
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: false, error: "invalid_response" })
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error: "token_revoked" }, { status: 503 })))
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: false, error: "http_error" })
+    const fetchMock = vi.fn(async () => { throw new Error("private-secret") })
+    vi.stubGlobal("fetch", fetchMock)
+    expect(await joinSlackChannel("C123", "xoxb-test")).toEqual({ ok: false, error: "network_error" })
+    fetchMock.mockClear()
+    expect(await joinSlackChannel("C123", "")).toEqual({ ok: false, error: "missing_token" })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("aborts a stalled join after five seconds", async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal("fetch", vi.fn((_url, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal!.addEventListener("abort", () => reject(new Error("aborted")))
+    })))
+    const pending = joinSlackChannel("C123", "xoxb-test")
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(await pending).toEqual({ ok: false, error: "timeout" })
   })
 })

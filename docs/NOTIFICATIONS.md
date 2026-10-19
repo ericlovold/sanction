@@ -26,7 +26,11 @@ without restoring app membership after an uninstall. Open that channel in Slack 
 **Agents & apps → Add an app → Sanction**, then use **Add to Slack** again and
 select the same channel to retry the confirmation. Send a fresh test escalation
 after confirmation succeeds. Missing membership does not revoke the installation;
-Sanction does not request permission to join channels automatically.
+On an explicit `not_in_channel` confirmation failure, Sanction attempts to join
+only the selected channel and retries confirmation once after a successful join.
+The `channels:join` scope permits public-channel joining; private channels still
+require an invitation. Existing installations must reconnect and consent to the
+new scope before automatic joining can work. Other delivery failures are not retried.
 
 **Who can decide:** anyone in that channel. The channel is the approver group,
 so connect a private channel for approvals. The actor is recorded as
@@ -40,7 +44,7 @@ if the signing secret is unset. Disconnect on the same page revokes the install.
 <details>
 <summary>Self-hosting: the Slack app you need</summary>
 
-Create a Slack app with scopes `chat:write` and `incoming-webhook`. Enable
+Create a Slack app with scopes `chat:write`, `incoming-webhook`, and `channels:join`. Enable
 **Interactivity** with Request URL `https://<your-host>/api/slack/interactive`
 and set the OAuth Redirect URL to `https://<your-host>/api/slack/oauth/callback`.
 Set `SANCTION_SLACK_SIGNING_SECRET`, `SANCTION_SLACK_CLIENT_ID`, and
