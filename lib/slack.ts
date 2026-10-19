@@ -64,6 +64,49 @@ export function parseSlackInteractiveBody(raw: string): unknown {
   }
 }
 
+/** Only Slack response webhooks may receive interaction feedback. */
+export function slackResponseUrl(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null
+  const raw = (payload as Record<string, unknown>).response_url
+  if (typeof raw !== "string" || !/^https:\/\/hooks\.slack\.com\/(actions|services)\//.test(raw)) return null
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== "https:" || url.hostname !== "hooks.slack.com"
+      || url.port || url.username || url.password || url.search || url.hash
+      || !/^\/(actions|services)\/.+/.test(url.pathname)) return null
+    return url.href
+  } catch {
+    return null
+  }
+}
+
+/** Best effort only: feedback delivery must never retry an approval decision. */
+export async function postSlackInteractionFeedback(responseUrl: string | null, body: Record<string, unknown>): Promise<void> {
+  const kind = body.response_type === "ephemeral" ? "rejected" : "decided"
+  const url = slackResponseUrl({ response_url: responseUrl })
+  if (!url) {
+    console.warn("Slack interaction feedback", { kind, outcome: "invalid_response_url" })
+    return
+  }
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 5000)
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify(body),
+      redirect: "error",
+      signal: ctrl.signal,
+    })
+    if (!res.ok) console.warn("Slack interaction feedback", { kind, outcome: "http_error" })
+    else console.info("Slack interaction feedback", { kind, outcome: "delivered" })
+  } catch {
+    console.warn("Slack interaction feedback", { kind, outcome: ctrl.signal.aborted ? "timeout" : "network_error" })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export type SlackDecision = {
   decision: "approve" | "reject"
   actionToken: string

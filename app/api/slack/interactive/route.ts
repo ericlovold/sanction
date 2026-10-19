@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import { track } from "@vercel/analytics/server"
 import { resolveApproval } from "@/lib/approvals"
 import { FUNNEL } from "@/lib/funnel"
@@ -7,6 +7,8 @@ import { clientIp, rateLimit } from "@/lib/rateLimit"
 import { withTenant } from "@/lib/rls"
 import {
   parseSlackInteractiveBody,
+  postSlackInteractionFeedback,
+  slackResponseUrl,
   slackDecisionFromPayload,
   slackReplacementMessage,
   slackSigningSecret,
@@ -17,8 +19,9 @@ import {
 
 const NO_STORE = { "Cache-Control": "no-store" } as const
 
-function slackAck(body: Record<string, unknown>, status = 200) {
-  return NextResponse.json(body, { status, headers: NO_STORE })
+function slackAck(responseUrl?: string | null, body?: Record<string, unknown>) {
+  if (body) after(() => postSlackInteractionFeedback(responseUrl ?? null, body))
+  return new NextResponse(null, { status: 200, headers: NO_STORE })
 }
 
 export async function POST(req: NextRequest) {
@@ -49,12 +52,13 @@ export async function POST(req: NextRequest) {
   const parsed = parseSlackInteractiveBody(rawBody)
   const action = slackDecisionFromPayload(parsed)
   if (!action) {
-    return slackAck({ text: "Ignored" })
+    return slackAck()
   }
 
+  const responseUrl = slackResponseUrl(parsed)
   const binding = await verifySlackActionToken(action.actionToken)
   if (!binding || binding.teamId !== action.teamId || binding.channelId !== action.channelId) {
-    return slackAck({ response_type: "ephemeral", text: "This Slack action is no longer valid." })
+    return slackAck(responseUrl, { response_type: "ephemeral", replace_original: false, text: "This Slack action is no longer valid." })
   }
 
   const install = await withTenant(binding.walletId, (tx) =>
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
     }),
   )
   if (!install || slackInstallGeneration(install).tokenVersion !== binding.tokenVersion) {
-    return slackAck({ response_type: "ephemeral", text: "This Slack channel is not authorized for that wallet." })
+    return slackAck(responseUrl, { response_type: "ephemeral", replace_original: false, text: "This approval card is no longer authorized. Disconnecting or reconnecting Slack can invalidate older cards. Review the request in the Sanction dashboard." })
   }
 
   const approval = await db.pendingApproval.findFirst({
@@ -85,8 +89,8 @@ export async function POST(req: NextRequest) {
     select: { id: true, walletId: true },
   })
   if (!approval) {
-    return slackAck({
-      response_type: "ephemeral",
+    return slackAck(responseUrl, {
+      response_type: "ephemeral", replace_original: false,
       text: "That approval is no longer pending.",
     })
   }
@@ -99,8 +103,8 @@ export async function POST(req: NextRequest) {
     action.actor,
   )
   if (!result.ok) {
-    return slackAck({
-      response_type: "ephemeral",
+    return slackAck(responseUrl, {
+      response_type: "ephemeral", replace_original: false,
       text: result.error,
     })
   }
@@ -108,5 +112,5 @@ export async function POST(req: NextRequest) {
   // Funnel: the click is the moment Slack proved itself. Best-effort, never
   // on the critical path of the ack (Slack allows 3s).
   track(FUNNEL.slackApprovalClicked, { decision: action.decision }).catch(() => {})
-  return slackAck(slackReplacementMessage(action.decision, action.actor))
+  return slackAck(responseUrl, slackReplacementMessage(action.decision, action.actor))
 }

@@ -2,6 +2,8 @@ import { createHmac } from "crypto"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   parseSlackInteractiveBody,
+  slackResponseUrl,
+  postSlackInteractionFeedback,
   isSlackArchiveUrl,
   slackDecisionFromPayload,
   slackInteractivePayload,
@@ -178,5 +180,74 @@ describe("postSlackChat bounded delivery outcomes", () => {
     expect(await postSlackChat("C123", '{"text":"test"}', "")).toEqual({ ok: false, error: "missing_token" })
     expect(fetch).not.toHaveBeenCalled()
     expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: true })
+  })
+})
+
+
+describe("Slack interaction feedback", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it.each([
+    null, {}, { response_url: 1 },
+    ...[
+      "http://hooks.slack.com/actions/test",
+      "https://hooks.slack.com.evil.test/actions/test",
+      "https://hooks.slack.com@evil.test/actions/test",
+      "https://user@hooks.slack.com/actions/test",
+      "https://hooks.slack.com:443/actions/test",
+      "https://hooks.slack.com:8443/actions/test",
+      "https://hooks.slack.com/archives/test",
+      "https://hooks.slack.com/actions/../archives/test",
+      "https://hooks.slack.com/actions/",
+      "https://hooks.slack.com/actions/test?token=secret",
+      "https://hooks.slack.com/actions/test#secret",
+      "https://127.0.0.1/actions/test",
+      "not a URL",
+    ].map((response_url) => ({ response_url })),
+  ])("rejects unsafe response endpoints: %j", async (payload) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    const fetch = vi.fn()
+    vi.stubGlobal("fetch", fetch)
+    const url = slackResponseUrl(payload)
+    expect(url).toBeNull()
+    await postSlackInteractionFeedback(url, { text: "test" })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(["actions", "services"])("posts feedback to Slack %s endpoints with redirects disabled", async (path) => {
+    vi.spyOn(console, "info").mockImplementation(() => {})
+    const fetch = vi.fn(async () => new Response("ok"))
+    vi.stubGlobal("fetch", fetch)
+    const url = `https://hooks.slack.com/${path}/T123/test/secret`
+    const body = { response_type: "ephemeral", replace_original: false, text: "Rejected" }
+    expect(slackResponseUrl({ response_url: url })).toBe(url)
+    await postSlackInteractionFeedback(url, body)
+    expect(fetch).toHaveBeenCalledWith(url, expect.objectContaining({
+      method: "POST", body: JSON.stringify(body), redirect: "error", signal: expect.any(AbortSignal),
+    }))
+    expect(console.info).toHaveBeenCalledWith("Slack interaction feedback", { kind: "rejected", outcome: "delivered" })
+  })
+
+  it.each([302, 429, 500])("sanitizes HTTP %s failure diagnostics", async (status) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("secret", { status })))
+    await postSlackInteractionFeedback("https://hooks.slack.com/actions/secret", { replace_original: true })
+    expect(console.warn).toHaveBeenCalledWith("Slack interaction feedback", { kind: "decided", outcome: "http_error" })
+  })
+
+  it("bounds feedback delivery to five seconds", async () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, "warn").mockImplementation(() => {})
+    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new Error("secret URL")))
+    })))
+    const pending = postSlackInteractionFeedback("https://hooks.slack.com/actions/secret", { replace_original: true })
+    await vi.advanceTimersByTimeAsync(5000)
+    await pending
+    expect(console.warn).toHaveBeenCalledWith("Slack interaction feedback", { kind: "decided", outcome: "timeout" })
   })
 })
