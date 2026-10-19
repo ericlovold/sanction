@@ -180,7 +180,7 @@ describe("resolveWalletForUser — claim-by-email", () => {
     dbMock.wallet.findUnique.mockResolvedValue(SQUATTED)
     dbMock.walletMember.findFirst.mockResolvedValue(null)
     // Even if a create were attempted it would collide on ownerEmail.
-    dbMock.wallet.create.mockRejectedValue(new Error("Unique constraint failed on ownerEmail"))
+    dbMock.wallet.create.mockRejectedValue(Object.assign(new Error("Unique constraint failed on ownerEmail"), { code: "P2002" }))
 
     // getSessionWallet returns the resolver's pick unfiltered — the stricter probe.
     expect(await getSessionWallet()).toBeNull()
@@ -207,7 +207,7 @@ describe("resolveWalletForUser — claim-by-email", () => {
       .mockResolvedValueOnce(null) // no wallet at lookup time
       .mockResolvedValueOnce(SQUATTED) // a squat landed before our create
     dbMock.walletMember.findFirst.mockResolvedValue(null)
-    dbMock.wallet.create.mockRejectedValue(new Error("Unique constraint failed on ownerEmail"))
+    dbMock.wallet.create.mockRejectedValue(Object.assign(new Error("Unique constraint failed on ownerEmail"), { code: "P2002" }))
 
     // getSessionWallet returns the resolver's pick unfiltered — the stricter probe.
     expect(await getSessionWallet()).toBeNull()
@@ -239,9 +239,8 @@ describe("resolveWalletForUser — claim-by-email", () => {
       .mockResolvedValueOnce({ count: 1 }) // claim tx
       .mockRejectedValueOnce(new Error("connection reset")) // sweep
 
-    // getSessionMember swallows resolver errors and falls through to the (absent)
-    // key cookie — so no session, not the claimed wallet.
-    expect(await getSessionMember()).toBeNull()
+    // A failed claim stays closed and surfaces an availability error, not demo.
+    await expect(getSessionMember()).rejects.toThrow("temporarily unavailable")
   })
 
   it("an already-linked wallet is returned untouched — no re-claim, no rotation", async () => {
@@ -264,13 +263,17 @@ describe("resolveWalletForUser — claim-by-email", () => {
     dbMock.wallet.findUnique.mockResolvedValue(null)
     dbMock.walletMember.findFirst.mockResolvedValue(null)
     dbMock.wallet.create.mockResolvedValue(fresh)
-    dbMock.agent.create.mockResolvedValue({})
 
     const result = await getSessionMember()
     expect(result?.wallet.id).toBe("wallet_new")
     expect(result?.role).toBe("owner")
     // Provisioned from a provider-verified email → ownerEmail is proven.
     expect(dbMock.wallet.create.mock.calls[0][0].data.ownerEmailVerifiedAt).toBeInstanceOf(Date)
+    expect(dbMock.wallet.create.mock.calls[0][0].data).toMatchObject({
+      policy: { create: {} },
+      agents: { create: { name: "default-agent", apiKeyHash: expect.any(String), apiKeyPrefix: expect.any(String) } },
+    })
+    expect(dbMock.agent.create).not.toHaveBeenCalled()
   })
 
   it("an unverified user's provisioned wallet leaves ownerEmail unverified", async () => {
@@ -280,9 +283,46 @@ describe("resolveWalletForUser — claim-by-email", () => {
     dbMock.wallet.findUnique.mockResolvedValue(null)
     dbMock.walletMember.findFirst.mockResolvedValue(null)
     dbMock.wallet.create.mockResolvedValue(fresh)
-    dbMock.agent.create.mockResolvedValue({})
 
     expect((await getSessionMember())?.wallet.id).toBe("wallet_new")
     expect(dbMock.wallet.create.mock.calls[0][0].data.ownerEmailVerifiedAt ?? null).toBeNull()
   })
+
+  it("a default-agent provisioning failure is not recovered by returning a wallet", async () => {
+    const fresh = { id: "wallet_new", ownerEmail: VICTIM.email, userId: VICTIM.id }
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: true } })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.walletMember.findFirst.mockResolvedValue(null)
+    // Even if a later lookup could find a wallet, non-uniqueness failures
+    // must not be treated as a successful competing provision.
+    dbMock.wallet.findUnique.mockResolvedValueOnce(null).mockResolvedValue(fresh)
+    dbMock.wallet.create.mockRejectedValue(Object.assign(new Error("agent insert failed"), { code: "P2003" }))
+
+    await expect(getSessionMember()).rejects.toThrow("temporarily unavailable")
+    expect(dbMock.wallet.findUnique).toHaveBeenCalledTimes(1)
+    expect(dbMock.agent.create).not.toHaveBeenCalled()
+  })
+
+  it("a uniqueness race returns only the wallet provisioned for the same user", async () => {
+    const fresh = { id: "wallet_new", ownerEmail: VICTIM.email, userId: VICTIM.id }
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: true } })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.walletMember.findFirst.mockResolvedValue(null)
+    dbMock.wallet.findUnique.mockResolvedValueOnce(null).mockResolvedValue(fresh)
+    dbMock.wallet.create.mockRejectedValue(Object.assign(new Error("unique constraint"), { code: "P2002" }))
+
+    expect((await getSessionMember())?.wallet).toBe(fresh)
+    expect(dbMock.wallet.findUnique).toHaveBeenCalledTimes(2)
+  })
+
+  it("a uniqueness error with no competing wallet stays unavailable", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: { ...VICTIM, emailVerified: true } })
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.walletMember.findFirst.mockResolvedValue(null)
+    dbMock.wallet.findUnique.mockResolvedValue(null)
+    dbMock.wallet.create.mockRejectedValue(Object.assign(new Error("unique constraint"), { code: "P2002" }))
+
+    await expect(getSessionMember()).rejects.toThrow("temporarily unavailable")
+  })
+
 })

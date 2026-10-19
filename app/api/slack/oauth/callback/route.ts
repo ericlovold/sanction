@@ -3,7 +3,7 @@ import { publicOrigin } from "@/lib/authzen"
 import { clientIp, rateLimit } from "@/lib/rateLimit"
 import { hasRole } from "@/lib/roles"
 import { getSessionMember } from "@/lib/session"
-import { postSlackChat } from "@/lib/slack"
+import { joinSlackChannel, postSlackChat } from "@/lib/slack"
 import {
   exchangeSlackCode,
   reconcileSlackDelivery,
@@ -52,8 +52,18 @@ export async function GET(req: NextRequest) {
   if (!result.ok) return approvals(origin, `oauth_${result.error}`)
 
   const { channelId, token, install } = await upsertSlackInstall(member.wallet.id, result.access)
-  const delivery = await postSlackChat(channelId, slackPayload("ping", {}), token)
+  let delivery = await postSlackChat(channelId, slackPayload("ping", {}), token)
+  if (!delivery.ok && delivery.error === "not_in_channel") {
+    const joined = await joinSlackChannel(channelId, token)
+    if (!joined.ok) {
+      const revoked = await reconcileSlackDelivery(member.wallet.id, install, joined)
+      return approvals(origin, revoked ? "token_unavailable" : "not_in_channel")
+    }
+    // Only an explicit membership rejection is safe to retry, once after joining.
+    delivery = await postSlackChat(channelId, slackPayload("ping", {}), token)
+  }
   const revoked = await reconcileSlackDelivery(member.wallet.id, install, delivery)
+  if (!delivery.ok && delivery.error === "not_in_channel") return approvals(origin, "not_in_channel")
   if (!delivery.ok) return approvals(origin, revoked ? "token_unavailable" : "confirmation_failed")
   return approvals(origin, "connected")
 }

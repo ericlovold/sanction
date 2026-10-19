@@ -270,7 +270,7 @@ export function slackReplacementMessage(decision: "approve" | "reject", actor: s
 
 export type SlackChatResult =
   | { ok: true }
-  | { ok: false; error: "token_revoked" | "token_expired" | "account_inactive" | "missing_token" | "http_error" | "invalid_response" | "slack_rejected" | "timeout" | "network_error" }
+  | { ok: false; error: "token_revoked" | "token_expired" | "account_inactive" | "not_in_channel" | "missing_token" | "http_error" | "invalid_response" | "slack_rejected" | "timeout" | "network_error" }
 
 export async function postSlackChat(channel: string, body: string, token: string): Promise<SlackChatResult> {
   if (!token) return { ok: false, error: "missing_token" }
@@ -306,8 +306,43 @@ export async function postSlackChat(channel: string, body: string, token: string
     if (result.error === "token_revoked" || result.error === "token_expired" || result.error === "account_inactive") {
       return { ok: false, error: result.error }
     }
+    if (result.error === "not_in_channel") return { ok: false, error: "not_in_channel" }
     // invalid_auth can also mean an IP restriction; it is not proof of revocation.
     // Never reflect arbitrary Slack response text or tokens into logs/callers.
+    return { ok: false, error: "slack_rejected" }
+  } catch {
+    return { ok: false, error: ctrl.signal.aborted ? "timeout" : "network_error" }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Slack enforces channels:join's public-channel boundary; channel IDs do not encode privacy. */
+export async function joinSlackChannel(channel: string, token: string): Promise<SlackChatResult> {
+  if (!token) return { ok: false, error: "missing_token" }
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 5000)
+  try {
+    const res = await fetch("https://slack.com/api/conversations.join", {
+      method: "POST",
+      redirect: "error",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ channel }),
+      signal: ctrl.signal,
+    })
+    if (!res.ok) return { ok: false, error: "http_error" }
+    let json: unknown
+    try { json = await res.json() } catch {
+      return { ok: false, error: ctrl.signal.aborted ? "timeout" : "invalid_response" }
+    }
+    if (!json || typeof json !== "object" || Array.isArray(json)) return { ok: false, error: "invalid_response" }
+    const result = json as Record<string, unknown>
+    // An already-joined channel is reported as ok:true with an already_in_channel warning.
+    if (result.ok === true) return { ok: true }
+    if (result.ok !== false) return { ok: false, error: "invalid_response" }
+    if (result.error === "token_revoked" || result.error === "token_expired" || result.error === "account_inactive") {
+      return { ok: false, error: result.error }
+    }
     return { ok: false, error: "slack_rejected" }
   } catch {
     return { ok: false, error: ctrl.signal.aborted ? "timeout" : "network_error" }

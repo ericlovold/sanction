@@ -105,7 +105,10 @@ async function resolveWalletForUser(
   if (byEmail) return null
 
   try {
-    const wallet = await db.wallet.create({
+    const key = generateApiKey()
+    // Nested writes commit together: a default-agent failure must not leave
+    // a wallet that a later sign-in mistakes for completed provisioning.
+    return await db.wallet.create({
       data: {
         name: user.name?.trim() || `${user.email.split("@")[0]}'s workspace`,
         ownerEmail: user.email,
@@ -113,17 +116,15 @@ async function resolveWalletForUser(
         ownerEmailVerifiedAt: user.emailVerified === true ? new Date() : null,
         userId: user.id,
         policy: { create: {} },
+        agents: { create: { name: "default-agent", apiKeyHash: key.hash, apiKeyPrefix: key.prefix } },
       },
     })
-    const key = generateApiKey()
-    await db.agent.create({
-      data: { walletId: wallet.id, name: "default-agent", apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
-    })
-    return wallet
-  } catch {
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "P2002") throw error
     // Race: a concurrent render won the unique ownerEmail. Re-read its result,
     // but only if that render provisioned it for this user.
     const raced = await db.wallet.findUnique({ where: { ownerEmail: user.email } })
+    if (!raced) throw error
     return raced?.userId === user.id ? raced : null
   }
 }
@@ -221,18 +222,24 @@ export async function revokePreClaimAccess(tx: Prisma.TransactionClient, walletI
 export async function getSessionWallet() {
   // Social session first. Guarded so a not-yet-configured Better Auth (missing
   // env on a fresh deploy) can never break the legacy key / magic-link login.
+  let socialFailed = false
   try {
     const session = await auth.api.getSession({ headers: await headers() })
     if (session?.user) {
       const preferred = (await cookies()).get(ACTIVE_WALLET_COOKIE)?.value ?? null
-      return resolveWalletForUser(session.user, preferred)
+      return await resolveWalletForUser(session.user, preferred)
     }
   } catch {
-    // fall through to the management-key path
+    socialFailed = true
+    log.error("social session resolution unavailable")
   }
 
   const raw = (await cookies()).get(SESSION_COOKIE)?.value
-  if (raw) return db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
+  if (raw) {
+    const wallet = await db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
+    if (wallet) return wallet
+  }
+  if (socialFailed) throw new Error("Sign-in is temporarily unavailable. Please try again.")
   return null
 }
 
@@ -249,6 +256,7 @@ export type SessionActor = { type: "key" } | { type: "user"; userId: string; ema
 export async function getSessionMember(): Promise<
   { wallet: NonNullable<Awaited<ReturnType<typeof getSessionWallet>>>; role: WalletRole; actor: SessionActor } | null
 > {
+  let socialFailed = false
   try {
     const session = await auth.api.getSession({ headers: await headers() })
     if (session?.user) {
@@ -273,7 +281,8 @@ export async function getSessionMember(): Promise<
       return { wallet, role: membership.role as WalletRole, actor }
     }
   } catch {
-    // fall through to the management-key path
+    socialFailed = true
+    log.error("social session resolution unavailable")
   }
 
   const raw = (await cookies()).get(SESSION_COOKIE)?.value
@@ -281,6 +290,7 @@ export async function getSessionMember(): Promise<
     const wallet = await db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
     if (wallet) return { wallet, role: "owner", actor: { type: "key" } }
   }
+  if (socialFailed) throw new Error("Sign-in is temporarily unavailable. Please try again.")
   return null
 }
 
@@ -309,6 +319,7 @@ export async function requireSessionRole(min: WalletRole) {
  * and validates switchWalletAction; anything not in this list is unreachable.
  */
 export async function listSessionWallets(): Promise<Array<{ id: string; name: string; role: WalletRole }>> {
+  let socialFailed = false
   try {
     const session = await auth.api.getSession({ headers: await headers() })
     if (session?.user) {
@@ -332,7 +343,8 @@ export async function listSessionWallets(): Promise<Array<{ id: string; name: st
       return out
     }
   } catch {
-    // fall through to the management-key path
+    socialFailed = true
+    log.error("social session resolution unavailable")
   }
 
   const raw = (await cookies()).get(SESSION_COOKIE)?.value
@@ -340,6 +352,7 @@ export async function listSessionWallets(): Promise<Array<{ id: string; name: st
     const wallet = await db.wallet.findUnique({ where: { mgmtKeyHash: hashApiKey(raw) } })
     if (wallet) return [{ id: wallet.id, name: wallet.name, role: "owner" }]
   }
+  if (socialFailed) throw new Error("Sign-in is temporarily unavailable. Please try again.")
   return []
 }
 

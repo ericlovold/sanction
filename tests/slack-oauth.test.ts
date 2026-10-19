@@ -80,7 +80,7 @@ describe("authorize URL", () => {
     const url = new URL(slackAuthorizeUrl("https://getsanction.com", "state-token"))
     expect(url.origin + url.pathname).toBe("https://slack.com/oauth/v2/authorize")
     expect(url.searchParams.get("client_id")).toBe("client.123")
-    expect(url.searchParams.get("scope")).toBe("chat:write,incoming-webhook")
+    expect(url.searchParams.get("scope")).toBe("chat:write,incoming-webhook,channels:join")
     expect(url.searchParams.get("redirect_uri")).toBe("https://getsanction.com/api/slack/oauth/callback")
     expect(url.searchParams.get("state")).toBe("state-token")
   })

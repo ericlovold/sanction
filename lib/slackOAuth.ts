@@ -5,7 +5,7 @@ import type { SlackChatResult, SlackInstallIdentity } from "@/lib/slack"
 
 const SLACK_OAUTH_PURPOSE = "slack-oauth"
 const SLACK_OAUTH_TTL_SECONDS = 600
-const SLACK_SCOPES = "chat:write,incoming-webhook"
+const SLACK_SCOPES = "chat:write,incoming-webhook,channels:join"
 const SLACK_INSTALL_EVENTS = [
   "approval.created",
   "approval.resolved",
