@@ -3,7 +3,7 @@ import { createHmac } from "crypto"
 import { NextRequest } from "next/server"
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest"
 
-const { dbMock, rateLimitMock, resolveMock } = vi.hoisted(() => ({
+const { dbMock, rateLimitMock, resolveMock, afterMock, fetchMock } = vi.hoisted(() => ({
   dbMock: {
     pendingApproval: { findFirst: vi.fn() },
     slackInstall: { findFirst: vi.fn() },
@@ -12,8 +12,13 @@ const { dbMock, rateLimitMock, resolveMock } = vi.hoisted(() => ({
   },
   rateLimitMock: vi.fn(),
   resolveMock: vi.fn(),
+  afterMock: vi.fn(),
+  fetchMock: vi.fn(),
 }))
 
+vi.mock("next/server", async (orig) => ({
+  ...await orig<typeof import("next/server")>(), after: afterMock,
+}))
 vi.mock("@vercel/analytics/server", () => ({ track: vi.fn(async () => {}) }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/rateLimit", async (orig) => {
@@ -53,6 +58,7 @@ async function approvalPayload(actionId: string, approvalId = "appr_1", opts?: {
   const channelId = opts?.channelId ?? "C123"
   return {
     type: "block_actions",
+    response_url: "https://hooks.slack.com/actions/T123/test/secret",
     team: { id: teamId },
     channel: { id: channelId },
     user: { username: "eric" },
@@ -61,7 +67,11 @@ async function approvalPayload(actionId: string, approvalId = "appr_1", opts?: {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
+  vi.stubGlobal("fetch", fetchMock)
+  fetchMock.mockResolvedValue(new Response("ok"))
+  vi.spyOn(console, "warn").mockImplementation(() => {})
+  vi.spyOn(console, "info").mockImplementation(() => {})
   vi.stubEnv("SANCTION_SLACK_SIGNING_SECRET", SECRET)
   vi.stubEnv("SANCTION_SIGNING_SECRET", "sanction-signing-secret")
   rateLimitMock.mockResolvedValue({ ok: true, limit: 60 })
@@ -71,7 +81,18 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
+
+async function delivered(res: Response) {
+  expect(res.status).toBe(200)
+  expect(await res.text()).toBe("")
+  const callback = afterMock.mock.calls.at(-1)?.[0]
+  expect(callback).toBeTypeOf("function")
+  await callback()
+  return JSON.parse(fetchMock.mock.calls.at(-1)![1].body)
+}
 
 describe("POST /api/slack/interactive", () => {
   it("rejects pre-generation tokens before accessing installations or approvals", async () => {
@@ -80,7 +101,7 @@ describe("POST /api/slack/interactive", () => {
       .setProtectedHeader({ alg: "HS256" }).setIssuer("sanction").setExpirationTime("2h")
       .sign(new TextEncoder().encode("sanction-signing-secret"))
     const res = await slackInteractive(signedRequest(payload))
-    expect((await res.json()).text).toContain("no longer valid")
+    expect((await delivered(res)).text).toContain("no longer valid")
     expect(dbMock.slackInstall.findFirst).not.toHaveBeenCalled()
     expect(resolveMock).not.toHaveBeenCalled()
   })
@@ -94,7 +115,7 @@ describe("POST /api/slack/interactive", () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
     resolveMock.mockResolvedValue({ ok: true, status: 200 })
     const oldPayload = await approvalPayload(actionId)
-    expect((await (await slackInteractive(signedRequest(oldPayload))).json()).replace_original).toBe(true)
+    expect((await delivered(await slackInteractive(signedRequest(oldPayload)))).replace_original).toBe(true)
     resolveMock.mockClear()
     current = null
     await slackInteractive(signedRequest(oldPayload))
@@ -104,7 +125,7 @@ describe("POST /api/slack/interactive", () => {
     expect(resolveMock).not.toHaveBeenCalled()
     const freshPayload = await approvalPayload(actionId)
     freshPayload.actions[0].value = await issueSlackActionToken({ walletId: "wallet_1", approvalId: "appr_1", teamId: "T123", channelId: "C123", ...slackInstallGeneration(current) })
-    expect((await (await slackInteractive(signedRequest(freshPayload))).json()).replace_original).toBe(true)
+    expect((await delivered(await slackInteractive(signedRequest(freshPayload)))).replace_original).toBe(true)
     expect(resolveMock).toHaveBeenCalledTimes(1)
   })
 
@@ -129,8 +150,10 @@ describe("POST /api/slack/interactive", () => {
   })
 
   it("401s a bad signature without resolving", async () => {
-    const res = await slackInteractive(signedRequest({ type: "block_actions" }, { signature: "v0=" + "ab".repeat(32) }))
+    const res = await slackInteractive(signedRequest(await approvalPayload(SLACK_APPROVE_ACTION), { signature: "v0=" + "ab".repeat(32) }))
     expect(res.status).toBe(401)
+    expect(afterMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
     expect(resolveMock).not.toHaveBeenCalled()
   })
 
@@ -149,7 +172,7 @@ describe("POST /api/slack/interactive", () => {
     )
     expect(res.status).toBe(200)
     expect(resolveMock).toHaveBeenCalledWith("wallet_1", "appr_1", "approve", undefined, "slack:eric")
-    const body = await res.json()
+    const body = await delivered(res)
     expect(body.replace_original).toBe(true)
     expect(body.blocks[0].text.text).toContain("Approved")
   })
@@ -157,9 +180,10 @@ describe("POST /api/slack/interactive", () => {
   it("denies through the same resolver", async () => {
     dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
     resolveMock.mockResolvedValue({ ok: true, status: 200 })
-    await slackInteractive(
+    const res = await slackInteractive(
       signedRequest({ ...(await approvalPayload(SLACK_DENY_ACTION)), user: { id: "U123" } }),
     )
+    expect((await delivered(res)).text).toContain("Denied")
     expect(resolveMock).toHaveBeenCalledWith("wallet_1", "appr_1", "reject", undefined, "slack:U123")
   })
 
@@ -169,8 +193,9 @@ describe("POST /api/slack/interactive", () => {
       signedRequest(await approvalPayload(SLACK_APPROVE_ACTION, "missing")),
     )
     expect(resolveMock).not.toHaveBeenCalled()
-    const body = await res.json()
+    const body = await delivered(res)
     expect(body.response_type).toBe("ephemeral")
+    expect(body.replace_original).toBe(false)
   })
 
   it("returns the resolver error when the approval is already settled", async () => {
@@ -179,8 +204,9 @@ describe("POST /api/slack/interactive", () => {
     const res = await slackInteractive(
       signedRequest(await approvalPayload(SLACK_APPROVE_ACTION)),
     )
-    const body = await res.json()
+    const body = await delivered(res)
     expect(body.response_type).toBe("ephemeral")
+    expect(body.replace_original).toBe(false)
     expect(body.text).toContain("already approved")
   })
 
@@ -189,7 +215,7 @@ describe("POST /api/slack/interactive", () => {
     expect(res.status).toBe(200)
     expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
     expect(resolveMock).not.toHaveBeenCalled()
-    expect((await res.json()).text).toContain("no longer valid")
+    expect((await delivered(res)).text).toContain("no longer valid")
   })
 
   it("refuses a workspace/channel with no active install before reading approvals", async () => {
@@ -197,6 +223,18 @@ describe("POST /api/slack/interactive", () => {
     const res = await slackInteractive(signedRequest(await approvalPayload(SLACK_APPROVE_ACTION)))
     expect(dbMock.pendingApproval.findFirst).not.toHaveBeenCalled()
     expect(resolveMock).not.toHaveBeenCalled()
-    expect((await res.json()).text).toContain("not authorized")
+    expect((await delivered(res)).text).toContain("no longer authorized")
   })
+  it("acknowledges before delivery and never retries a decision after delivery failure", async () => {
+    dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "appr_1", walletId: "wallet_1" })
+    resolveMock.mockResolvedValue({ ok: true, status: 200 })
+    fetchMock.mockRejectedValue(new Error("secret response URL"))
+    const res = await slackInteractive(signedRequest(await approvalPayload(SLACK_APPROVE_ACTION)))
+    expect(await res.text()).toBe("")
+    expect(fetchMock).not.toHaveBeenCalled()
+    await afterMock.mock.calls[0][0]()
+    expect(resolveMock).toHaveBeenCalledTimes(1)
+    expect(console.warn).toHaveBeenCalledWith("Slack interaction feedback", { kind: "decided", outcome: "network_error" })
+  })
+
 })
