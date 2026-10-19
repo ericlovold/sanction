@@ -108,6 +108,16 @@ describe("GET /api/slack/oauth/callback", () => {
     })
   })
 
+  it("reports missing channel membership without revoking the installation", async () => {
+    global.fetch = vi.fn(async (url: string | URL) => String(url).includes("oauth.v2.access")
+      ? Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } })
+      : Response.json({ ok: false, error: "not_in_channel" })) as never
+    const state = await issueSlackOAuthState("wallet_1")
+    const res = await slackOAuthCallback(callbackReq({ state, code: "oauth-code" }))
+    expect(res.headers.get("location")).toContain("slack=not_in_channel")
+    expect(updateManyMock).not.toHaveBeenCalled()
+  })
+
   it("reports failed confirmation without revoking on a transient error", async () => {
     global.fetch = vi.fn(async (url: string | URL) => String(url).includes("oauth.v2.access")
       ? Response.json({ ok: true, access_token: "xoxb-install", team: { id: "T123" }, incoming_webhook: { channel_id: "C0123456789" } })

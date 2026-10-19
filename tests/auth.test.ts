@@ -13,7 +13,10 @@ const { dbMock, cookieStore } = vi.hoisted(() => ({
   cookieStore: { get: vi.fn() },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
-vi.mock("next/headers", () => ({ cookies: async () => cookieStore }))
+vi.mock("next/headers", () => ({ cookies: async () => cookieStore, headers: async () => new Headers() }))
+// These legacy-session tests have no social session, rather than a broken
+// auth provider (which must now surface as unavailable instead of anonymous).
+vi.mock("@/lib/auth-config", () => ({ auth: { api: { getSession: vi.fn().mockResolvedValue(null) } } }))
 
 import { authenticateOwner } from "../lib/ownerAuth"
 import { authenticateAgent } from "../lib/auth"

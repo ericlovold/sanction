@@ -239,9 +239,8 @@ describe("resolveWalletForUser — claim-by-email", () => {
       .mockResolvedValueOnce({ count: 1 }) // claim tx
       .mockRejectedValueOnce(new Error("connection reset")) // sweep
 
-    // getSessionMember swallows resolver errors and falls through to the (absent)
-    // key cookie — so no session, not the claimed wallet.
-    expect(await getSessionMember()).toBeNull()
+    // A failed claim stays closed and surfaces an availability error, not demo.
+    await expect(getSessionMember()).rejects.toThrow("temporarily unavailable")
   })
 
   it("an already-linked wallet is returned untouched — no re-claim, no rotation", async () => {

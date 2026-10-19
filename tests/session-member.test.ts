@@ -18,7 +18,7 @@ vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore, headers: async () => new Headers() }))
 vi.mock("@/lib/auth-config", () => ({ auth: { api: { getSession: sessionMock.getSession } } }))
 
-import { getSessionMember } from "../lib/session"
+import { getSessionMember, getSessionWallet, getViewWallet, listSessionWallets } from "../lib/session"
 
 const SK = "sk_ownertestkey"
 const WALLET = { id: "wallet_1", name: "Meridian", ownerEmail: "cto@meridian.com", userId: "user_owner" }
@@ -123,5 +123,55 @@ describe("getSessionMember — active-wallet preference", () => {
     const result = await getSessionMember()
     expect(result?.wallet.id).toBe("wallet_1")
     expect(result?.role).toBe("owner")
+  })
+})
+
+
+describe("session availability", () => {
+  it.each(Object.entries({ getSessionWallet, getSessionMember, listSessionWallets, getViewWallet }))("does not interpret an auth failure as anonymous (%s)", async (_name, resolve) => {
+    sessionMock.getSession.mockRejectedValue(new Error("database unavailable"))
+    cookieStore.get.mockReturnValue(undefined)
+    await expect(resolve()).rejects.toThrow("temporarily unavailable")
+    expect(dbMock.wallet.findUnique).not.toHaveBeenCalled()
+  })
+
+  it.each(Object.entries({ getSessionWallet, getSessionMember, listSessionWallets }))("preserves a valid legacy session during social auth failure (%s)", async (_name, resolve) => {
+    sessionMock.getSession.mockRejectedValue(new Error("auth unavailable"))
+    cookieStore.get.mockImplementation((name: string) => name === "sanction_session" ? { value: SK } : undefined)
+    dbMock.wallet.findUnique.mockResolvedValue(WALLET)
+    await expect(resolve()).resolves.toBeTruthy()
+    expect(dbMock.wallet.findUnique).toHaveBeenCalledWith({ where: { mgmtKeyHash: hashApiKey(SK) } })
+  })
+
+  it("rejects rather than showing demo when the legacy fallback is invalid", async () => {
+    sessionMock.getSession.mockRejectedValue(new Error("auth unavailable"))
+    cookieStore.get.mockReturnValue({ value: "invalid" })
+    dbMock.wallet.findUnique.mockResolvedValue(null)
+    await expect(getViewWallet()).rejects.toThrow("temporarily unavailable")
+  })
+
+  it("keeps public demo available for a genuinely absent session", async () => {
+    vi.stubEnv("SANCTION_WALLET_ID", "demo")
+    try {
+      sessionMock.getSession.mockResolvedValue(null)
+      cookieStore.get.mockReturnValue(undefined)
+      dbMock.wallet.findUnique.mockResolvedValue({ id: "demo", name: "Demo" })
+      await expect(getViewWallet()).resolves.toMatchObject({ id: "demo", isSession: false, role: "viewer" })
+    } finally { vi.unstubAllEnvs() }
+  })
+
+  it("surfaces a provisioning failure when no competing wallet was created", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: USER })
+    dbMock.wallet.findUnique.mockResolvedValue(null)
+    dbMock.wallet.findFirst.mockResolvedValue(null)
+    dbMock.walletMember.findFirst.mockResolvedValue(null)
+    dbMock.wallet.create.mockRejectedValue(new Error("connection reset"))
+    await expect(getViewWallet()).rejects.toThrow("temporarily unavailable")
+  })
+
+  it("does not turn wallet database failure into demo", async () => {
+    sessionMock.getSession.mockResolvedValue({ user: USER })
+    dbMock.wallet.findUnique.mockRejectedValue(new Error("database unavailable"))
+    await expect(getViewWallet()).rejects.toThrow("temporarily unavailable")
   })
 })

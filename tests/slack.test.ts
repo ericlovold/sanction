@@ -147,9 +147,14 @@ describe("postSlackChat bounded delivery outcomes", () => {
     expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error })
   })
 
-  it.each(["invalid_auth", "not_in_channel", "channel_not_found", "is_archived", "ratelimited", "internal_error", "private-token-value"])("does not classify %s as revoked", async (error) => {
+  it.each(["invalid_auth", "channel_not_found", "is_archived", "ratelimited", "internal_error", "private-token-value"])("does not classify %s as revoked", async (error) => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error })))
     expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error: "slack_rejected" })
+  })
+
+  it("preserves missing channel membership as an actionable outcome", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false, error: "not_in_channel" })))
+    expect(await postSlackChat("C123", '{"text":"test"}', "xoxb-test")).toEqual({ ok: false, error: "not_in_channel" })
   })
 
   it.each([429, 500, 503])("does not trust token errors in HTTP %s responses", async (status) => {

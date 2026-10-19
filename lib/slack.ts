@@ -270,7 +270,7 @@ export function slackReplacementMessage(decision: "approve" | "reject", actor: s
 
 export type SlackChatResult =
   | { ok: true }
-  | { ok: false; error: "token_revoked" | "token_expired" | "account_inactive" | "missing_token" | "http_error" | "invalid_response" | "slack_rejected" | "timeout" | "network_error" }
+  | { ok: false; error: "token_revoked" | "token_expired" | "account_inactive" | "not_in_channel" | "missing_token" | "http_error" | "invalid_response" | "slack_rejected" | "timeout" | "network_error" }
 
 export async function postSlackChat(channel: string, body: string, token: string): Promise<SlackChatResult> {
   if (!token) return { ok: false, error: "missing_token" }
@@ -306,6 +306,7 @@ export async function postSlackChat(channel: string, body: string, token: string
     if (result.error === "token_revoked" || result.error === "token_expired" || result.error === "account_inactive") {
       return { ok: false, error: result.error }
     }
+    if (result.error === "not_in_channel") return { ok: false, error: "not_in_channel" }
     // invalid_auth can also mean an IP restriction; it is not proof of revocation.
     // Never reflect arbitrary Slack response text or tokens into logs/callers.
     return { ok: false, error: "slack_rejected" }

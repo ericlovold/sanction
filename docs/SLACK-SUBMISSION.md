@@ -44,6 +44,19 @@ Rejected stale-button clicks currently return an error without a dedicated audit
 event; resolution records are unchanged. Structured rejected-click telemetry is a
 separate follow-up, not evidence that a decision occurred.
 
+## Development-workspace evidence — October 18, 2026
+
+Live checks rejected a stale pending card and reconciled the Slack uninstall on
+subsequent delivery. Reinstallation saved the channel but delivery resumed only
+after manually adding Sanction to that channel. A fresh approval and exact-request
+grant redemption then passed without executing the target action. Cleanup left
+**Pending 0**. This development-workspace run does not satisfy the separate
+external-workspace lifecycle check.
+
+Live listing validation still requires an app icon and 1600×1000 screenshots.
+The app has not been submitted. Membership recovery guidance is prepared in
+source; its deployment and live warning remain to be verified.
+
 ## Listing copy
 
 **Name:** Sanction
@@ -162,7 +175,13 @@ workspace before submission, then record the evidence below.
    including any unrecognized uninstall error, rather than assuming reconciliation.
 9. Reinstall through the Sanction landing page and send a fresh synthetic request.
    Confirm delivery and decisions resume while old cards stay unusable. A delayed
-   error from an older installation must not revoke its replacement.
+   error from an older installation must not revoke its replacement. If the
+   confirmation reports that Sanction is not in the channel, open the selected
+   channel → **Agents & apps → Add an app → Sanction**. Use **Add to Slack** again
+   with the same channel, verify the confirmation, then send a fresh request.
+   Record whether manual membership recovery was needed. `not_in_channel` keeps
+   the installation active; the app does not request automatic channel-join
+   permission.
 
 For each check, retain the date, deployed commit, host/workspace type, synthetic
 request reference, expected result and observed result privately. Keep credentials

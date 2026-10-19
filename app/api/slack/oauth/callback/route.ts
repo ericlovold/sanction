@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
   const { channelId, token, install } = await upsertSlackInstall(member.wallet.id, result.access)
   const delivery = await postSlackChat(channelId, slackPayload("ping", {}), token)
   const revoked = await reconcileSlackDelivery(member.wallet.id, install, delivery)
+  if (!delivery.ok && delivery.error === "not_in_channel") return approvals(origin, "not_in_channel")
   if (!delivery.ok) return approvals(origin, revoked ? "token_unavailable" : "confirmation_failed")
   return approvals(origin, "connected")
 }

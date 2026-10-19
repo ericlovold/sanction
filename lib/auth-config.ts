@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth"
 import { prismaAdapter } from "better-auth/adapters/prisma"
 import { nextCookies } from "better-auth/next-js"
 import { db } from "@/lib/db"
+import { lazyAuth } from "./lazyAuth"
 import { identityEmailPlugin } from "./identityEmailLogin"
 import { mcpOAuthEnabled, mcpOAuthPlugins } from "./mcpOAuthProvider"
 
@@ -23,7 +24,7 @@ import { mcpOAuthEnabled, mcpOAuthPlugins } from "./mcpOAuthProvider"
 // re-mint and rotate the Vercel env before it expires).
 const appleEnabled = !!process.env.APPLE_CLIENT_ID
 
-export const auth = betterAuth({
+export const auth = lazyAuth(() => betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   // Email links are issued/consumed only by our POST server actions.
   // OAuth access tokens come only from the provider's authorization flow.
@@ -52,4 +53,4 @@ export const auth = betterAuth({
   ...(appleEnabled ? { trustedOrigins: ["https://appleid.apple.com"] } : {}),
   // nextCookies must be last — it flushes Set-Cookie from server actions.
   plugins: [...mcpOAuthPlugins(), identityEmailPlugin(), nextCookies()],
-})
+}))

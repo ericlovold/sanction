@@ -21,6 +21,13 @@ same path as the dashboard and mints the same one-use grant.
    your agents, labeled as a test, and the card lands in the channel within
    seconds. Approve it there; the grant shows on the Approvals page.
 
+**If Sanction is not in the channel:** installation can save the selected channel
+without restoring app membership after an uninstall. Open that channel in Slack →
+**Agents & apps → Add an app → Sanction**, then use **Add to Slack** again and
+select the same channel to retry the confirmation. Send a fresh test escalation
+after confirmation succeeds. Missing membership does not revoke the installation;
+Sanction does not request permission to join channels automatically.
+
 **Who can decide:** anyone in that channel. The channel is the approver group,
 so connect a private channel for approvals. The actor is recorded as
 `slack:<username>` on the decision.
