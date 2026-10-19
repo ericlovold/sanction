@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, createHash } from "node:crypto"
 import { serializeSignedCookie } from "better-call"
 import { createLocalJWKSet, decodeProtectedHeader, jwtVerify } from "jose"
+import { NextRequest } from "next/server"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 // Real provider, adapter and signing keys; only the session is a synthetic
@@ -14,6 +15,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
   let auth: typeof import("../lib/auth-config")["auth"]
   let db: typeof import("../lib/db")["db"]
   let context: typeof import("../lib/mcpOAuthContext")["mcpOAuthConsentContext"]
+  let handleOAuth: typeof import("../lib/mcpOAuthRemote")["handleOAuthMcpRequest"]
   let cookie: string
   let walletId: string
   let agentIds: string[]
@@ -76,6 +78,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
     ;({ db } = await import("../lib/db"))
     ;({ auth } = await import("../lib/auth-config"))
     ;({ mcpOAuthConsentContext: context } = await import("../lib/mcpOAuthContext"))
+    ;({ handleOAuthMcpRequest: handleOAuth } = await import("../lib/mcpOAuthRemote"))
     await auth.$context
     await db.user.create({ data: { id: userId, name: "OAuth integration fixture", email: `${userId}@example.test`, emailVerified: true } })
     const wallet = await db.wallet.create({ data: { name: "OAuth test", ownerEmail: `${userId}@example.test`, userId } })
@@ -183,8 +186,26 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
   it("rejects a wrong PKCE verifier", async () => {
     const flow = await consent()
     const response = await exchange(flow.code, randomBytes(32).toString("base64url"))
-    expect(response.status).toBe(401)
-    expect((await response.json()).error).toBeTruthy()
+    // 1.7.10 (#11724): PKCE mismatch is RFC 6749/7636 invalid_grant at 400.
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ error: "invalid_grant" })
+  })
+
+  it("challenges missing and invalid bearer tokens with 401 and WWW-Authenticate", async () => {
+    const payload = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} })
+    const headers = { accept: "application/json, text/event-stream", "content-type": "application/json" }
+    const missing = await handleOAuth(new NextRequest(resource, { method: "POST", headers, body: payload }))
+    expect(missing.status).toBe(401)
+    expect(missing.headers.get("www-authenticate")).toContain(
+      `resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp/approvals"`,
+    )
+    const invalid = await handleOAuth(new NextRequest(resource, {
+      method: "POST",
+      headers: { ...headers, authorization: "Bearer not-a-real-token" },
+      body: payload,
+    }))
+    expect(invalid.status).toBe(401)
+    expect(invalid.headers.get("www-authenticate")).toContain("resource_metadata=")
   })
 
   it("pins refresh to its original selection and refuses revoked connections", async () => {
