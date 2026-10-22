@@ -53,9 +53,6 @@ export default function StartPage() {
           </div>
         </>} />
 
-        <p className="mt-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-          Already have an account? <Link href="/login" className="sanction-link">Sign in</Link>
-        </p>
       </main>
     </div>
   )

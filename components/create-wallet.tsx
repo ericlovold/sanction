@@ -151,6 +151,9 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
       </button>
       <p className="text-center text-[11px]" style={{ color: "var(--text-muted)" }}>Free for individuals. No card required. Save your access keys on the next screen.</p>
     </form>
+        <p className="mt-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          Already have an account? <Link href="/login" className="sanction-link">Sign in</Link>
+        </p>
     </>
   )
 }
