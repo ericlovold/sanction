@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { CreateWallet } from "@/components/create-wallet"
-import { McpInstall } from "@/components/mcp-install"
+import { ApprovalPreview } from "@/components/approval-preview"
 import { SocialSignIn } from "@/components/social-signin"
 import "../brand.css"
 import { brandFontVars } from "../brand-fonts"
@@ -23,53 +23,39 @@ export default function StartPage() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-md px-6 py-14">
+      <main className="mx-auto max-w-xl px-6 py-10">
         <p className="sn-mono mb-4" style={{ color: "var(--ochre-7)" }}>A human decision, before the action</p>
         <h1 className="text-3xl font-semibold tracking-tight">Start with one approval.</h1>
         <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Create an account, connect your AI tool, and ask it to bring a proposed action
-          to you for review. Free for individuals. No card.
+          See what your agent wants to do. Approve it or stop it.
+          Try the preview, then connect your own tool. Free for individuals. No card.
         </p>
 
-        <p className="mt-4 text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          Your account includes a wallet for your rules and decision history.
-          You can request a one-off approval without writing a policy first.
-        </p>
+        <CreateWallet intro={<>
+          <a href="#create-account" className="sanction-link mt-3 inline-block text-sm">Ready to connect? Create your workspace →</a>
+          <div className="mt-7"><ApprovalPreview /></div>
 
-        <div className="mt-8">
-          <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
-        </div>
-
-        <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-          <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
-          or with email
-          <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
-        </div>
-
-        <CreateWallet />
-
-        <div className="my-10 flex items-center gap-3 text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-          <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
-          then connect your agent
-          <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
-        </div>
-
-        <div className="mb-8 rounded-lg border-l-2 p-5" style={{ borderColor: "var(--ochre-6)", background: "var(--ochre-tint)" }}>
-          <h2 className="text-lg font-semibold tracking-tight">Try a harmless approval request</h2>
-          <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            The connection guide walks you through setup and a test that executes nothing.
+          <div id="create-account" className="mt-10 scroll-mt-6" aria-labelledby="create-heading">
+          <h2 id="create-heading" className="text-xl font-semibold">Make it yours.</h2>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Create your workspace, connect an AI tool, and review your first request.
           </p>
-          <Link href="/docs/connect" className="sanction-link mt-3 inline-block text-sm">Connect your AI tool →</Link>
-        </div>
+          <div className="mt-8">
+            <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
+          </div>
 
-        <h2 className="text-lg font-semibold tracking-tight">Building with an agent key?</h2>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Use the developer setup below with your agent key and wallet ID. Your agent must
-          ask Sanction and honor its answer; connecting does not intercept its other tools.
+          <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+            <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
+            or with email
+            <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
+          </div>
+
+          </div>
+        </>} />
+
+        <p className="mt-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          Already have an account? <Link href="/login" className="sanction-link">Sign in</Link>
         </p>
-        <div className="mt-5">
-          <McpInstall />
-        </div>
       </main>
     </div>
   )

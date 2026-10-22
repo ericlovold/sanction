@@ -1,10 +1,8 @@
 "use client"
 
-import { useActionState, useEffect, useRef, useState } from "react"
-import { track } from "@vercel/analytics"
+import { useActionState, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { createWalletAction, type CreateState } from "@/app/start/actions"
-import { TestDecision } from "@/components/test-decision"
 import { ConnectApp } from "@/components/connect-app"
 import { Disclosure } from "@/components/disclosure"
 
@@ -43,17 +41,8 @@ function Field({ label, value, hint }: { label: string; value: string; hint?: st
   )
 }
 
-export function CreateWallet() {
+export function CreateWallet({ intro }: { intro?: ReactNode }) {
   const [state, formAction, pending] = useActionState(createWalletAction, initial)
-  const tracked = useRef(false)
-
-  useEffect(() => {
-    if (state.ok && !tracked.current) {
-      tracked.current = true
-      track("wallet_created")
-    }
-  }, [state.ok])
-
   if (state.ok) {
     const mcp = JSON.stringify(
       { mcpServers: { sanction: { command: "npx", args: ["sanction-mcp"], env: { SANCTION_API_KEY: state.agentKey, SANCTION_WALLET_ID: state.walletId } } } },
@@ -67,15 +56,25 @@ export function CreateWallet() {
     return (
       <div className="space-y-5">
         <div className="rounded-md border px-4 py-3 text-sm" style={{ borderColor: "var(--status-escalated)", background: "var(--status-escalated-bg)", color: "var(--text-body)" }}>
-          Save these now — the keys are shown once and never again.
+          Your workspace is ready. Save these keys before leaving this page — they are shown only once.
         </div>
         <Field label="Agent key (x-api-key — for authorize, tokens)" value={state.agentKey} />
         <Field label="Management key (x-mgmt-key — gates policy, agents, approvals)" value={state.managementKey} hint="most sensitive" />
         <Field label="Wallet ID" value={state.walletId} />
 
-        {/* The aha: run a real decision in-browser — no setup, no agent needed */}
-        <TestDecision agentKey={state.agentKey} variant="light" />
+        <div className="rounded-lg border-l-2 p-5" style={{ borderColor: "var(--ochre-6)", background: "var(--ochre-tint)" }}>
+          <h2 className="text-lg font-semibold">Next: connect your AI tool.</h2>
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Choose your tool and send a harmless test request. You review the exact action
+            in Sanction before deciding. No purchase is needed.
+          </p>
+          <Link href="/docs/connect" className="sn-btn sn-btn-primary sn-btn-m mt-4">Connect my tool →</Link>
+          <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
+            Your agent must ask Sanction and honor the answer. Connecting does not intercept its other tools.
+          </p>
+        </div>
 
+        <h2 className="pt-2 text-sm font-semibold">Building your own integration?</h2>
         <Disclosure summary="Connect your app — drop-in SDK snippet" variant="light">
           <ConnectApp agentKey={state.agentKey} variant="light" />
         </Disclosure>
@@ -110,7 +109,6 @@ export function CreateWallet() {
           <Link href="/" className="sanction-link text-sm">Back to home</Link>
         </div>
         <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-          The roster lists the next clicks — a test decision, then Slack or MCP, then the coding-agent pack.
           You&apos;re signed in on this device. To return later, go to <span className="font-mono">/login</span> and paste your management key.
         </p>
       </div>
@@ -118,7 +116,9 @@ export function CreateWallet() {
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <>
+    {intro}
+    <form id="create-workspace-form" action={formAction} className="space-y-4">
       <label className="block">
         <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Workspace name</span>
         <input
@@ -147,9 +147,10 @@ export function CreateWallet() {
         disabled={pending}
         className="sn-btn sn-btn-primary sn-btn-m w-full disabled:opacity-50"
       >
-        {pending ? "Creating…" : "Create wallet — free"}
+        {pending ? "Creating…" : "Create my workspace"}
       </button>
-      <p className="text-center text-[11px]" style={{ color: "var(--text-muted)" }}>No card required. You&apos;ll get an agent key and a management key.</p>
+      <p className="text-center text-[11px]" style={{ color: "var(--text-muted)" }}>Free for individuals. No card required. Save your access keys on the next screen.</p>
     </form>
+    </>
   )
 }

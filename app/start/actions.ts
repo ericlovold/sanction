@@ -59,9 +59,8 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
     data: { walletId: wallet.id, name: agentName, apiKeyHash: key.hash, apiKeyPrefix: key.prefix },
   })
 
-  // Server-side twin of the client `track("wallet_created")` — immune to ad
-  // blockers and script failures, so the signup count in Vercel Analytics
-  // stays trustworthy even when the browser event doesn't fire.
+  // Emit signup once from the server so browser blockers and rerenders cannot
+  // suppress or duplicate this event.
   void track("wallet_created", { source: "web", channel: acq?.source ?? "direct" }).catch(() => {})
 
   // Log them in immediately so the dashboard is one click away.
