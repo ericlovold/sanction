@@ -4,7 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { resolve } from "node:path"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { createSanctionMcpServer, type SanctionMcpApiCall } from "../lib/mcpServer"
+import { createSanctionMcpServer, MCP_DECISION_INSTRUCTIONS, type SanctionMcpApiCall } from "../lib/mcpServer"
 import discovery from "../public/.well-known/mcp.json"
 import registry from "../packages/sanction-mcp/server.json"
 import mcpPackage from "../packages/sanction-mcp/package.json"
@@ -180,6 +180,50 @@ describe("createSanctionMcpServer — tool handlers", () => {
       expect((await bundled.listTools()).tools).toEqual(tools)
     } finally {
       await bundled.close()
+      await client.close()
+      await server.close()
+    }
+  })
+
+  it("advertises titles, annotations, and decision instructions on the approvals profile", async () => {
+    const server = createSanctionMcpServer({
+      apiKey: "pxy_test",
+      apiUrl: "https://sanction.test/api/v1",
+      walletId: "wal_test",
+      toolProfile: "approvals",
+    })
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const client = new Client({ name: "approvals-metadata", version: "0.0.0" })
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+    try {
+      expect(client.getInstructions()).toBe(MCP_DECISION_INSTRUCTIONS)
+      const { tools } = await client.listTools()
+      expect(tools.map(tool => tool.name).sort()).toEqual([
+        "sanction_authorize", "sanction_authorize_capability", "sanction_authorize_provision",
+        "sanction_authorize_tool", "sanction_check_authorization",
+        "sanction_log_tokens", "sanction_log_outcome", "sanction_wallet_status",
+      ].sort())
+      const expected = {
+        sanction_authorize: [false, true, false, true],
+        sanction_authorize_provision: [false, true, false, true],
+        sanction_authorize_tool: [false, true, false, true],
+        sanction_authorize_capability: [false, true, false, true],
+        sanction_log_tokens: [false, true, false, true],
+        sanction_log_outcome: [false, true, false, false],
+        sanction_wallet_status: [true, false, true, false],
+        sanction_check_authorization: [false, true, false, false],
+      }
+      expect(Object.fromEntries(tools.map(tool => [tool.name, [
+        tool.annotations?.readOnlyHint, tool.annotations?.destructiveHint,
+        tool.annotations?.idempotentHint, tool.annotations?.openWorldHint,
+      ]]))).toEqual(expected)
+      for (const tool of tools) {
+        expect(tool.title).toEqual(expect.any(String))
+        expect(tool.annotations?.title).toBe(tool.title)
+      }
+      expect(tools.find(tool => tool.name === "sanction_request_execution")).toBeUndefined()
+      expect(tools.find(tool => tool.name === "sanction_inject_credential")).toBeUndefined()
+    } finally {
       await client.close()
       await server.close()
     }

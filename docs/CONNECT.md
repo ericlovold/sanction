@@ -52,12 +52,13 @@ manifest lists both profiles.
 
 ### Host setup and evidence
 
-| Host | Setup | Sanction evidence as of October 2, 2026 |
+| Host | Setup | Sanction evidence as of October 22, 2026 |
 | --- | --- | --- |
 | Claude | Customize → Connectors → Add custom connector. Enter the URL above, choose automatic registration when offered, and complete Sanction consent. | Production synthetic request, approval, exact redemption and consumed-grant refusal observed October 1. No external action executed. |
 | Cursor | Add the OAuth configuration below to your MCP settings and authenticate. | Configuration follows Cursor documentation; Sanction lifecycle test pending. |
 | Codex | Add the HTTP server using the commands below, then sign in. | Configuration follows Codex documentation; Sanction lifecycle test pending. |
-| Grok | [Connectors](https://grok.com/connectors) → New Connector → Custom. Enter the URL above and complete the offered authentication. | Grok documents custom MCP; Sanction authentication and lifecycle test pending. |
+| Grok (consumer) | [Connectors](https://grok.com/connectors) → New Connector → Custom. Enter the URL above and complete the offered authentication. | Custom `/mcp/approvals` OAuth completed October 6: consent identified Grok, eight tools enabled, one `sanction_wallet_status` read. Approval lifecycle still pending. Not a directory listing. |
+| Grok Bot | In chat, ask the Bot to add `https://getsanction.com/mcp/approvals`. Complete Sanction OAuth. Official Bot docs still describe catalog plugins, not a custom MCP form. | Unauthenticated `/mcp/approvals` challenges with `WWW-Authenticate` resource metadata (production, October 22). A Bot session reached OAuth sign-in with no custom headers. Consent completion, tool list, and approval lifecycle are unverified. Not a Connect-apps listing. |
 | ChatGPT | A remote MCP plugin is the distribution path. Sanction's package and review evidence are being prepared. | No verified public listing or completed ChatGPT lifecycle test. A local Codex connection does not install a ChatGPT web plugin. |
 
 ### Cursor
@@ -93,8 +94,9 @@ Local Codex clients share MCP configuration; ChatGPT web does not read it.
 ### Grok Bot, xAI API, and Slack
 
 Grok consumer, Grok Bot, and the xAI API are separate connection paths. The
-[Grok Bot guide](/docs/grok-bot) describes its marketplace and shared-account
-boundaries; consumer custom-MCP support does not prove a Grok Bot listing.
+[Grok Bot guide](/docs/grok-bot) describes the in-chat custom URL, OAuth-only
+auth (no safe header field), and shared-account boundaries. Consumer custom-MCP
+support does not prove a Grok Bot listing or a completed Bot approval lifecycle.
 
 Slack is where a person can receive and decide a request. [Configure Sanction
 for Slack](/slack) separately; adding MCP to an AI host does not install the Slack
@@ -106,7 +108,7 @@ Official host references: [Claude](https://support.claude.com/en/articles/111751
 [Grok](https://docs.x.ai/grok/connectors),
 [ChatGPT plugin submission](https://developers.openai.com/plugins/deploy/submission).
 Host menus and account availability can change; these instructions were checked
-October 2, 2026.
+October 22, 2026. Official Grok Bot docs were re-checked the same day.
 
 ## 2. Check the connection
 

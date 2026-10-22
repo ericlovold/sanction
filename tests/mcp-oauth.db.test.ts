@@ -119,6 +119,32 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
     vi.unstubAllGlobals()
   })
 
+  it("accepts Grok Bot / Cursor MCP DCR redirect URIs", async () => {
+    const response = await auth.handler(new Request(`${origin}/api/auth/oauth2/register`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: `Grok Bot ${userId}`,
+        redirect_uris: [
+          "cursor://anysphere.cursor-mcp/oauth/callback",
+          "https://www.cursor.com/agents/mcp/oauth/callback",
+          "http://localhost:8787/callback",
+        ],
+        token_endpoint_auth_method: "none",
+        application_type: "native",
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+      }),
+    }))
+    const client = await response.json() as { client_id?: string; redirect_uris?: string[] }
+    expect(response.status, JSON.stringify(client)).toBe(201)
+    expect(client.redirect_uris).toEqual([
+      "cursor://anysphere.cursor-mcp/oauth/callback",
+      "https://www.cursor.com/agents/mcp/oauth/callback",
+      "http://localhost:8787/callback",
+    ])
+    if (client.client_id) await db.oauthClient.deleteMany({ where: { clientId: client.client_id } })
+  })
+
   it("publishes bound metadata and refuses generic session JWT issuance", async () => {
     const metadata = await auth.handler(new Request(`${origin}/.well-known/oauth-protected-resource/mcp/approvals`))
     expect(metadata.status).toBe(200)

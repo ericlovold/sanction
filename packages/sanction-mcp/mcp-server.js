@@ -36663,7 +36663,7 @@ function renderDecisionResult(payload, opts) {
   }
   return {
     content: [
-      { type: "text", text },
+      { type: "text", text: `authorized=${decision.authorized} next_action=${decision.next_action}. ${text}` },
       { type: "text", text: JSON.stringify(decision) }
     ],
     structuredContent: { ...decision },
@@ -36781,6 +36781,7 @@ var APPROVAL_MCP_TOOLS = [
   "sanction_check_authorization"
 ];
 var MCP_SERVER_VERSION = "0.10.0";
+var MCP_DECISION_INSTRUCTIONS = "Sanction returns a decision, not permission. isError:false means the call succeeded, not that the action is allowed. Read authorized and next_action from the first result text (authorized=... next_action=...) or the JSON block. next_action=proceed: do only that authorized action. next_action=wait: pause; after the owner says they decided, call sanction_check_authorization once; if still waiting, tell the owner and do not check again. next_action=retry_with_grant: retry the identical original request plus grant_id; execute only if that call returns authorized=true. next_action=stop: do not retry or open another request. Connecting this server does not intercept other tools.";
 var traceOf = (extra) => extractTraceContext(extra?._meta);
 var logReceiptSchema = external_exports.object({
   id: external_exports.string().refine((value) => value.trim().length > 0),
@@ -36855,7 +36856,7 @@ function createSanctionMcpServer(opts) {
     name: "sanction",
     version: MCP_SERVER_VERSION,
     description: profile === "approvals" ? "Sanction \u2014 approvals and budgets for AI agent actions; no execution-token issuance or vault retrieval (not sanctions/AML screening)" : "Sanction \u2014 the wallet an AI agent carries: spend, tool, capability, and credential authorization (not sanctions/AML screening)"
-  });
+  }, { instructions: MCP_DECISION_INSTRUCTIONS });
   if (includesTool("sanction_authorize")) {
     server2.registerTool(
       "sanction_authorize",

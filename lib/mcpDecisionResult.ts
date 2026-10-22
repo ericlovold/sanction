@@ -129,9 +129,11 @@ export function renderDecisionResult(
   }
   // Some hosts expose only content to the model. Serialize the same allowlisted
   // decision, never the raw API payload, so both representations agree.
+  // Chat hosts that drop structuredContent and the JSON block still need
+  // authorized/next_action as labeled tokens in the first text.
   return {
     content: [
-      { type: "text" as const, text },
+      { type: "text" as const, text: `authorized=${decision.authorized} next_action=${decision.next_action}. ${text}` },
       { type: "text" as const, text: JSON.stringify(decision) },
     ],
     structuredContent: { ...decision },
