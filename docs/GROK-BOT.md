@@ -34,10 +34,10 @@ plugin → Add → authenticate if requested → attach it in chat with `@`. Tha
 page does not document an arbitrary custom MCP form. See [Grok’s computer and
 apps guide](https://docs.x.ai/grok-bot/computer-and-apps) (checked 2026-10-22).
 
-Cursor staff have documented an in-chat custom connector: tell the Bot to add
-the public HTTPS URL, for example “Add this MCP server:
-`https://getsanction.com/mcp/approvals`”. The Bot confirms the details. Localhost
-and stdio servers are not reachable from the Bot’s cloud computer.
+Grok Bot can add a remote MCP server as a connector; it discovers Sanction's
+OAuth sign-in on its own. Add the public HTTPS URL
+`https://getsanction.com/mcp/approvals`. Localhost and stdio servers are not
+reachable from the Bot’s cloud computer.
 
 Grok Bot authenticates custom MCP over OAuth. There is no safe owner UI for
 custom secret headers. Do not paste a `pxy_…` agent key into chat, saved skills,
