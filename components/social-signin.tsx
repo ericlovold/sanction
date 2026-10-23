@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { authClient } from "@/lib/auth-client"
 
 // Google + GitHub sign-in. Kicks off the OAuth redirect; on return the callback
@@ -39,14 +39,23 @@ type Provider = "google" | "github" | "apple"
 // env) so the button only renders on deploys with Apple credentials configured.
 export function SocialSignIn({ callbackURL = "/dashboard", apple = false }: { callbackURL?: string; apple?: boolean }) {
   const [loading, setLoading] = useState<Provider | null>(null)
+  const [error, setError] = useState("")
+  const redirectPending = useRef(false)
 
   async function go(provider: Provider) {
+    if (redirectPending.current) return
+    redirectPending.current = true
+    setError("")
     setLoading(provider)
     try {
-      await authClient.signIn.social({ provider, callbackURL })
+      const result = await authClient.signIn.social({ provider, callbackURL })
+      if (!result.error) return
     } catch {
-      setLoading(null)
+      // Network failures and returned SDK errors share the same recovery path.
     }
+    redirectPending.current = false
+    setLoading(null)
+    setError("Could not start sign-in. Try again or choose another sign-in method.")
   }
 
   const base =
@@ -69,6 +78,7 @@ export function SocialSignIn({ callbackURL = "/dashboard", apple = false }: { ca
           {loading === "apple" ? "Redirecting…" : "Continue with Apple"}
         </button>
       )}
+      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
     </div>
   )
 }
