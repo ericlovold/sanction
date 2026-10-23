@@ -35,6 +35,24 @@ async function call(result: unknown, tool: { name: string; arguments: Record<str
 const poll = { name: "sanction_check_authorization", arguments: { request_id: "req_test" } }
 
 describe("MCP decisions consumed by a host", () => {
+  it("puts authorized and next_action on the first text block a chat host can read", async () => {
+    const waiting = await call({ authorized: false, status: "escalated", request_id: "req_test" })
+    expect((waiting.content as Array<{ text: string }>)[0].text)
+      .toMatch(/^authorized=false next_action=wait\./)
+    const granted = await call({
+      authorized: true, status: "approved", request_id: "req_test", grant_id: "gr_test",
+      grant_status: "active", grant_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    }, poll)
+    expect((granted.content as Array<{ text: string }>)[0].text)
+      .toMatch(/^authorized=false next_action=retry_with_grant\./)
+    const allowed = await call({ authorized: true, status: "approved" })
+    expect((allowed.content as Array<{ text: string }>)[0].text)
+      .toMatch(/^authorized=true next_action=proceed\./)
+    const denied = await call({ authorized: false, status: "denied", code: "POLICY_DENIED" })
+    expect((denied.content as Array<{ text: string }>)[0].text)
+      .toMatch(/^authorized=false next_action=stop\./)
+  })
+
   it("preserves approval and consumption timestamps without turning a check into permission", async () => {
     const decided = "2026-10-03T12:00:00.000Z"
     const consumed = "2026-10-03T12:01:00.000Z"
