@@ -10,9 +10,10 @@ intercept the host's other tools.
 
 ## 1. Choose your host
 
-Create your [Sanction account](/start) and an active agent first. OAuth connections
-must use a verified social sign-in and a wallet you own or administer. Choose a
-dedicated test agent when connecting; never paste an agent key into chat.
+Create your [Sanction account](/start) first. OAuth connections require a verified
+account and a wallet you own or administer. Select an active agent or create a
+dedicated test agent on Sanction's consent screen, then connect it. Never paste
+an agent key into chat.
 
 Use this **Streamable HTTP** URL for approval-focused OAuth connections:
 

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { DOCS, readDoc } from "@/lib/docs"
 import { Markdown } from "@/components/markdown"
 import { DocsHeader } from "@/components/docs-header"
+import { ConnectionGuide } from "@/components/connection-guide"
 
 export function generateStaticParams() {
   return Object.keys(DOCS).map((slug) => ({ slug }))
@@ -27,7 +28,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug: stri
       <main className="max-w-3xl mx-auto px-6 py-12">
         <Link href="/docs" className="text-sm text-muted-foreground hover:text-foreground">← All docs</Link>
         <article className="mt-6">
-          <Markdown source={doc.md} />
+          {slug === "connect" ? <ConnectionGuide source={doc.md} /> : <Markdown source={doc.md} />}
         </article>
         <div className="mt-12 border-t border-border pt-6">
           <Link href="/start" className="inline-block rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
