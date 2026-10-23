@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState, type ReactNode } from "react"
+import { useActionState, useId, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { createWalletAction, type CreateState } from "@/app/start/actions"
 import { ConnectApp } from "@/components/connect-app"
@@ -8,35 +8,66 @@ import { Disclosure } from "@/components/disclosure"
 
 const initial: CreateState = { ok: false, error: "" }
 
-function Copy({ value }: { value: string }) {
-  const [done, setDone] = useState(false)
+function Copy({ value, label }: { value: string; label: string }) {
+  const [status, setStatus] = useState<"idle" | "pending" | "copied" | "failed">("idle")
+  const copying = useRef(false)
+
+  async function copy() {
+    if (copying.current) return
+    copying.current = true
+    setStatus("pending")
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable")
+      await navigator.clipboard.writeText(value)
+      setStatus("copied")
+    } catch {
+      setStatus("failed")
+    } finally {
+      copying.current = false
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(value)
-        setDone(true)
-        setTimeout(() => setDone(false), 1200)
-      }}
-      className="sanction-link shrink-0 rounded border px-2 py-1 text-[11px] transition-colors"
-      style={{ borderColor: "var(--paper-3)" }}
-    >
-      {done ? "copied" : "copy"}
-    </button>
+    <div className="min-w-0 text-right">
+      <button
+        type="button"
+        onClick={copy}
+        disabled={status === "pending"}
+        aria-label={`Copy ${label}`}
+        className="sanction-link shrink-0 rounded border px-2 py-1 text-[11px] transition-colors disabled:opacity-50"
+        style={{ borderColor: "var(--paper-3)" }}
+      >
+        {status === "pending" ? "copying…" : status === "copied" ? "copied" : "copy"}
+      </button>
+      <span role="status" aria-live="polite" aria-atomic="true" className={status === "failed" ? "mt-1 block text-xs" : "sr-only"}>
+        {status === "copied" ? `${label} copied.` : status === "failed" ? "Copy failed. Select the text and copy it manually." : ""}
+      </span>
+    </div>
   )
 }
 
 function Field({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  const id = useId()
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{label}</span>
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        <label htmlFor={id} className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{label}</label>
         {hint && <span className="text-[10px]" style={{ color: "var(--status-escalated)" }}>{hint}</span>}
       </div>
-      <div className="mt-1 flex items-center gap-2 rounded-md border px-2.5 py-1.5" style={{ borderColor: "var(--paper-3)", background: "var(--paper-1)" }}>
-        <code className="min-w-0 flex-1 truncate font-mono text-xs" style={{ color: "var(--text-body)" }}>{value}</code>
-        <Copy value={value} />
+      <div className="mt-1 rounded-md border px-2.5 py-1.5" style={{ borderColor: "var(--paper-3)", background: "var(--paper-1)" }}>
+        <input
+          id={id}
+          value={value}
+          readOnly
+          spellCheck={false}
+          autoComplete="off"
+          onFocus={(event) => event.currentTarget.select()}
+          className="block w-full min-w-0 bg-transparent font-mono text-base sm:text-xs"
+          style={{ color: "var(--text-body)" }}
+        />
+        <Copy value={value} label={label} />
       </div>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>Select the field to copy the full value manually.</p>
     </div>
   )
 }
@@ -82,7 +113,7 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
         <Disclosure summary="Prefer raw HTTP? Copy the curl" variant="light">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>authorize — one call</span>
-            <Copy value={tryCurl} />
+            <Copy value={tryCurl} label="curl command" />
           </div>
           <pre className="mt-1 overflow-x-auto rounded-md border p-3 text-[11px] leading-relaxed" style={{ borderColor: "var(--paper-3)", background: "var(--paper-1)", color: "var(--text-body)" }}>
             <code>{tryCurl}</code>
@@ -92,7 +123,7 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
         <Disclosure summary="Use it from an MCP host (Claude Desktop, agent runtimes)" variant="light">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>MCP config</span>
-            <Copy value={mcp} />
+            <Copy value={mcp} label="MCP configuration" />
           </div>
           <pre className="mt-1 overflow-x-auto rounded-md border p-3 text-[11px] leading-relaxed" style={{ borderColor: "var(--paper-3)", background: "var(--paper-1)", color: "var(--text-body)" }}>
             <code>{mcp}</code>
