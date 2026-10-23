@@ -6,20 +6,41 @@ import { createAgentAction, type CreateAgentState } from "@/app/dashboard/action
 
 const initial: CreateAgentState = { ok: false, error: "" }
 
-function Copy({ value }: { value: string }) {
-  const [done, setDone] = useState(false)
+function Copy({ value, disabled, start, finish }: {
+  value: string
+  disabled: boolean
+  start: () => boolean
+  finish: () => void
+}) {
+  const [status, setStatus] = useState<"idle" | "pending" | "copied" | "failed">("idle")
+  async function copy() {
+    if (disabled || !start()) return
+    setStatus("pending")
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable")
+      await navigator.clipboard.writeText(value)
+      setStatus("copied")
+    } catch {
+      setStatus("failed")
+    } finally {
+      finish()
+    }
+  }
   return (
-    <button
-      type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(value)
-        setDone(true)
-        setTimeout(() => setDone(false), 1200)
-      }}
-      className="shrink-0 border border-[var(--roster-rule)] px-2 py-1 text-[11px] text-[var(--roster-fog)] hover:text-[var(--roster-signal)]"
-    >
-      {done ? "copied" : "copy"}
-    </button>
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={copy}
+        disabled={disabled}
+        aria-label="Copy agent key"
+        className="shrink-0 border border-[var(--roster-rule)] px-2 py-1 text-[11px] text-[var(--roster-fog)] hover:text-[var(--roster-signal)] disabled:opacity-50"
+      >
+        {status === "pending" ? "copying…" : status === "copied" ? "copied" : "copy"}
+      </button>
+      <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-[var(--roster-fog)]">
+        {status === "pending" ? "Copying agent key…" : status === "copied" ? "Agent key copied." : status === "failed" ? "Copy failed. Select the key and copy it manually." : ""}
+      </p>
+    </div>
   )
 }
 
@@ -27,6 +48,8 @@ export function RosterAddAgent({ walletId }: { walletId: string }) {
   const [open, setOpen] = useState(false)
   const [state, formAction, pending] = useActionState(createAgentAction, initial)
   const tracked = useRef<string | null>(null)
+  const copyLock = useRef(false)
+  const [copyPending, setCopyPending] = useState(false)
 
   useEffect(() => {
     if (state.ok && state.agentKey && tracked.current !== state.agentKey) {
@@ -57,13 +80,36 @@ export function RosterAddAgent({ walletId }: { walletId: string }) {
           <p className="text-sm text-[var(--roster-signal)]">
             {state.agentName} created — copy the key now. It is shown once.
           </p>
-          <div className="flex items-center gap-2 border border-[var(--roster-rule)] px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs">{state.agentKey}</code>
-            <Copy value={state.agentKey} />
+          <div className="space-y-2 border border-[var(--roster-rule)] px-2.5 py-1.5">
+            <input
+              aria-label="Agent key"
+              value={state.agentKey}
+              readOnly
+              spellCheck={false}
+              autoComplete="off"
+              onFocus={(event) => event.currentTarget.select()}
+              className="block w-full min-w-0 bg-transparent font-mono text-base sm:text-xs"
+            />
+            <p className="text-xs text-[var(--roster-fog)]">Select the field to copy the full key manually.</p>
+            <Copy
+              key={state.agentKey}
+              value={state.agentKey}
+              disabled={copyPending || pending}
+              start={() => {
+                if (copyLock.current) return false
+                copyLock.current = true
+                setCopyPending(true)
+                return true
+              }}
+              finish={() => {
+                copyLock.current = false
+                setCopyPending(false)
+              }}
+            />
           </div>
         </div>
       )}
-      <form action={formAction} className="flex flex-col gap-2 sm:flex-row">
+      <form action={formAction} onSubmit={(event) => { if (copyLock.current) event.preventDefault() }} className="flex flex-col gap-2 sm:flex-row">
         <input type="hidden" name="wallet_id" value={walletId} />
         <input
           name="name"
@@ -75,7 +121,7 @@ export function RosterAddAgent({ walletId }: { walletId: string }) {
         />
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || copyPending}
           className="shrink-0 bg-[var(--roster-brass)] px-4 py-2 text-sm font-semibold text-[var(--roster-ink)] disabled:opacity-50"
         >
           {pending ? "Creating…" : state.ok ? "Create another" : "Create"}
