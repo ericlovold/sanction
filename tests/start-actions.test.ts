@@ -86,11 +86,11 @@ describe("signup tracking", () => {
     expect(mocks.setSession).not.toHaveBeenCalled()
   })
 
-  it("does not track duplicate signups", async () => {
+  it("identifies duplicate signups without creating a wallet, agent, or session", async () => {
     mocks.findWallet.mockResolvedValue({ id: "existing-wallet" })
 
     expect(await createWalletAction(initialState, signupForm())).toEqual({
-      ok: false, error: "A wallet already exists for that email.",
+      ok: false, error: "A wallet already exists for that email.", code: "WORKSPACE_EXISTS",
     })
     expect(mocks.track).not.toHaveBeenCalled()
     expect(mocks.createWallet).not.toHaveBeenCalled()

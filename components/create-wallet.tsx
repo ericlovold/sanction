@@ -191,7 +191,21 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
           style={{ borderColor: "var(--paper-3)", background: "var(--surface-card)", color: "var(--text-body)" }}
         />
       </label>
-      {!state.ok && state.error && <p className="text-sm text-red-400">{state.error}</p>}
+      <div aria-live="polite" aria-atomic="true">
+        {state.error && (
+          <div className="space-y-2 text-sm">
+            <p className="text-red-400">{state.error}</p>
+            {state.code === "WORKSPACE_EXISTS" && (
+              <>
+                <p style={{ color: "var(--text-secondary)" }}>
+                  Sign in to your existing workspace with an email link, Google, GitHub, or your management key.
+                </p>
+                <Link href="/login" className="sanction-link inline-block">Sign in to my workspace →</Link>
+              </>
+            )}
+          </div>
+        )}
+      </div>
       <button
         type="submit"
         disabled={pending}
