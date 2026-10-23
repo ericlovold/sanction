@@ -1,6 +1,6 @@
 import { parseCapabilityRules } from "./capability"
 
-// First-hour continuity: the three clicks after /start. Pure over wallet
+// Optional setup continuity after /start. Pure over wallet
 // signals so the roster checklist and Approvals empty state cannot drift,
 // and so we can unit-test the honesty rules without rendering the console.
 //
@@ -18,7 +18,7 @@ export const CODING_AGENT_SHELL_DENY = "shell.exec"
 
 export type FirstHourSignals = {
   hasAgent: boolean
-  /** Any persisted authorization — TestDecision on /start, a live agent, or a test escalation. */
+  /** Any persisted authorization from an agent or a dashboard test escalation. */
   hasDecision: boolean
   hasSlack: boolean
   hasWebhook: boolean
@@ -58,7 +58,7 @@ export function firstHourComplete(signals: FirstHourSignals): boolean {
   return signals.hasDecision && (signals.hasSlack || signals.hasWebhook || signals.hasGatewayUsage) && signals.codingAgentPackApplied
 }
 
-/** Session wallets that have not finished the three clicks. Demo view keeps the tour. */
+/** Session wallets that have not finished these optional steps. Demo view keeps the tour. */
 export function shouldShowFirstHourChecklist(signals: FirstHourSignals, view: { isSession: boolean; isDemo: boolean }): boolean {
   if (!view.isSession || view.isDemo) return false
   return !firstHourComplete(signals)
@@ -74,12 +74,15 @@ export function firstHourSteps(signals: FirstHourSignals): FirstHourStep[] {
       hint: signals.hasDecision
         ? "A real decision is on the record. Open Approvals to decide anything still waiting, or send another test escalation."
         : signals.hasAgent
-          ? "Send a test escalation — a real $30 pause that emails you and lands in Approvals. On /start you can also run a $5 / $40 purchase."
+          ? "Send a dashboard test escalation — a real $30 authorization request that emails you and lands in Approvals. It does not make a purchase. To test from your own AI tool, use the connection guide."
           : "Add an agent on this roster first. The test escalation is raised by one of your agents.",
       done: signals.hasDecision,
       href: signals.hasAgent ? "/dashboard/approvals#test-escalation" : "/dashboard",
       links: signals.hasAgent
-        ? [{ href: "/dashboard/approvals#test-escalation", label: "Send a test escalation" }]
+        ? [
+            { href: "/dashboard/approvals#test-escalation", label: "Send a test escalation" },
+            { href: "/docs/connect", label: "Connect my tool" },
+          ]
         : [],
     },
     {
