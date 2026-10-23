@@ -1,9 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { Markdown } from "@/components/markdown"
+import { connectionHosts, connectionFragment, parseConnectionFragment } from "@/lib/connectionGuideNavigation"
 
-const hosts = ["Claude", "Cursor", "Codex", "Grok (consumer)", "Grok Bot", "ChatGPT"] as const
+function subscribeToFragment(onChange: () => void) {
+  window.addEventListener("hashchange", onChange)
+  return () => window.removeEventListener("hashchange", onChange)
+}
+
+function getFragment() {
+  return window.location.hash
+}
+
+function getServerFragment() {
+  return ""
+}
 
 // Keep setup, limitations, and test prompts tied to the maintained guide.
 function section(source: string, heading: string) {
@@ -40,8 +52,12 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 }
 
 export function ConnectionGuide({ source }: { source: string }) {
-  const [host, setHost] = useState<(typeof hosts)[number] | null>(null)
-  const [step, setStep] = useState(0)
+  const fragment = useSyncExternalStore(subscribeToFragment, getFragment, getServerFragment)
+  const { host: selectedHost, step } = parseConnectionFragment(fragment)
+  const host = selectedHost?.name ?? null
+  function setStep(nextStep: number) {
+    if (selectedHost) window.location.assign(connectionFragment(selectedHost, nextStep))
+  }
   const intro = source.split("\n## ")[0]
   const choose = section(source, "## 1. Choose your host")
   const prerequisite = choose.split("\n\n")[0]
@@ -63,9 +79,9 @@ export function ConnectionGuide({ source }: { source: string }) {
       <fieldset className="mt-8">
         <legend className="font-display text-xl font-semibold">Choose your AI host</legend>
         <div className="mt-4 flex flex-wrap gap-2">
-          {hosts.map((name) => (
-            <button key={name} type="button" aria-pressed={host === name} onClick={() => { setHost(name); setStep(0) }} className={`rounded-md border px-4 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${host === name ? "border-amber-400/60 bg-amber-400/10 text-amber-200" : "border-border text-muted-foreground hover:text-foreground"}`}>
-              {name}
+          {connectionHosts.map((option) => (
+            <button key={option.slug} type="button" aria-pressed={host === option.name} onClick={() => { window.location.assign(connectionFragment(option, 0)) }} className={`rounded-md border px-4 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${host === option.name ? "border-amber-400/60 bg-amber-400/10 text-amber-200" : "border-border text-muted-foreground hover:text-foreground"}`}>
+              {option.name}
             </button>
           ))}
         </div>
@@ -90,7 +106,7 @@ export function ConnectionGuide({ source }: { source: string }) {
                 <div className="my-5">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Server URL</p>
                   <code className="mt-2 block break-all text-sm">{endpoint}</code>
-                  <CopyButton text={endpoint} label="Copy endpoint" />
+                  <CopyButton key={`${host}:${step}`} text={endpoint} label="Copy endpoint" />
                 </div>
               )}
               <p className="mt-5 text-xs uppercase tracking-wider text-muted-foreground">Setup</p>
@@ -109,7 +125,7 @@ export function ConnectionGuide({ source }: { source: string }) {
             <>
               <h2 className="font-display text-xl font-semibold">{step === 1 ? "Check the connection" : "Request your first approval"}</h2>
               <Markdown source={stepSource} />
-              {prompt && <CopyButton key={step} text={prompt} label={step === 1 ? "Copy connection check" : "Copy test request"} />}
+              {prompt && <CopyButton key={`${host}:${step}`} text={prompt} label={step === 1 ? "Copy connection check" : "Copy test request"} />}
               {step === 1 ? (
                 <button type="button" onClick={() => setStep(2)} className="mt-4 text-sm font-medium text-amber-200 underline underline-offset-4">After a successful check: request approval</button>
               ) : (
