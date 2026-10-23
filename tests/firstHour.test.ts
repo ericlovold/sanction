@@ -85,6 +85,9 @@ describe("firstHourSteps", () => {
     expect(steps.every((s) => !s.done)).toBe(true)
     expect(steps[0].href).toBe("/dashboard/approvals#test-escalation")
     expect(steps[0].links[0]?.label).toMatch(/test escalation/i)
+    expect(steps[0].links.map((link) => link.href)).toContain("/docs/connect")
+    expect(steps[0].hint).not.toMatch(/\/start|\$5|\$40/)
+    expect(steps[0].hint).toMatch(/does not make a purchase/)
     expect(steps[1].hint).toMatch(/cooperative/)
     expect(steps[1].hint).toMatch(/broker intercepts/)
     expect(steps[1].links.map((l) => l.href)).toEqual([
