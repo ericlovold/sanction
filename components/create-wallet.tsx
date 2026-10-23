@@ -8,13 +8,17 @@ import { Disclosure } from "@/components/disclosure"
 
 const initial: CreateState = { ok: false, error: "" }
 
-function Copy({ value, label }: { value: string; label: string }) {
+type CopyState = {
+  pending: boolean
+  start: () => boolean
+  finish: () => void
+}
+
+function Copy({ value, label, copyState }: { value: string; label: string; copyState: CopyState }) {
   const [status, setStatus] = useState<"idle" | "pending" | "copied" | "failed">("idle")
-  const copying = useRef(false)
 
   async function copy() {
-    if (copying.current) return
-    copying.current = true
+    if (!copyState.start()) return
     setStatus("pending")
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable")
@@ -23,7 +27,7 @@ function Copy({ value, label }: { value: string; label: string }) {
     } catch {
       setStatus("failed")
     } finally {
-      copying.current = false
+      copyState.finish()
     }
   }
 
@@ -32,7 +36,7 @@ function Copy({ value, label }: { value: string; label: string }) {
       <button
         type="button"
         onClick={copy}
-        disabled={status === "pending"}
+        disabled={copyState.pending}
         aria-label={`Copy ${label}`}
         className="sanction-link shrink-0 rounded border px-2 py-1 text-[11px] transition-colors disabled:opacity-50"
         style={{ borderColor: "var(--paper-3)" }}
@@ -46,7 +50,7 @@ function Copy({ value, label }: { value: string; label: string }) {
   )
 }
 
-function Field({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Field({ label, value, hint, copyState }: { label: string; value: string; hint?: string; copyState: CopyState }) {
   const id = useId()
   return (
     <div>
@@ -65,7 +69,7 @@ function Field({ label, value, hint }: { label: string; value: string; hint?: st
           className="block w-full min-w-0 bg-transparent font-mono text-base sm:text-xs"
           style={{ color: "var(--text-body)" }}
         />
-        <Copy value={value} label={label} />
+        <Copy value={value} label={label} copyState={copyState} />
       </div>
       <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>Select the field to copy the full value manually.</p>
     </div>
@@ -74,6 +78,21 @@ function Field({ label, value, hint }: { label: string; value: string; hint?: st
 
 export function CreateWallet({ intro }: { intro?: ReactNode }) {
   const [state, formAction, pending] = useActionState(createWalletAction, initial)
+  const copyLock = useRef(false)
+  const [copyPending, setCopyPending] = useState(false)
+  const copyState: CopyState = {
+    pending: copyPending,
+    start: () => {
+      if (copyLock.current) return false
+      copyLock.current = true
+      setCopyPending(true)
+      return true
+    },
+    finish: () => {
+      copyLock.current = false
+      setCopyPending(false)
+    },
+  }
   if (state.ok) {
     const mcp = JSON.stringify(
       { mcpServers: { sanction: { command: "npx", args: ["sanction-mcp"], env: { SANCTION_API_KEY: state.agentKey, SANCTION_WALLET_ID: state.walletId } } } },
@@ -89,9 +108,9 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
         <div className="rounded-md border px-4 py-3 text-sm" style={{ borderColor: "var(--status-escalated)", background: "var(--status-escalated-bg)", color: "var(--text-body)" }}>
           Your workspace is ready. Save these keys before leaving this page — they are shown only once.
         </div>
-        <Field label="Agent key (x-api-key — for authorize, tokens)" value={state.agentKey} />
-        <Field label="Management key (x-mgmt-key — gates policy, agents, approvals)" value={state.managementKey} hint="most sensitive" />
-        <Field label="Wallet ID" value={state.walletId} />
+        <Field label="Agent key (x-api-key — for authorize, tokens)" value={state.agentKey} copyState={copyState} />
+        <Field label="Management key (x-mgmt-key — gates policy, agents, approvals)" value={state.managementKey} hint="most sensitive" copyState={copyState} />
+        <Field label="Wallet ID" value={state.walletId} copyState={copyState} />
 
         <div className="rounded-lg border-l-2 p-5" style={{ borderColor: "var(--ochre-6)", background: "var(--ochre-tint)" }}>
           <h2 className="text-lg font-semibold">Next: connect your AI tool.</h2>
@@ -113,7 +132,7 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
         <Disclosure summary="Prefer raw HTTP? Copy the curl" variant="light">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>authorize — one call</span>
-            <Copy value={tryCurl} label="curl command" />
+            <Copy value={tryCurl} label="curl command" copyState={copyState} />
           </div>
           <pre className="mt-1 overflow-x-auto rounded-md border p-3 text-[11px] leading-relaxed" style={{ borderColor: "var(--paper-3)", background: "var(--paper-1)", color: "var(--text-body)" }}>
             <code>{tryCurl}</code>
@@ -123,7 +142,7 @@ export function CreateWallet({ intro }: { intro?: ReactNode }) {
         <Disclosure summary="Use it from an MCP host (Claude Desktop, agent runtimes)" variant="light">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>MCP config</span>
-            <Copy value={mcp} label="MCP configuration" />
+            <Copy value={mcp} label="MCP configuration" copyState={copyState} />
           </div>
           <pre className="mt-1 overflow-x-auto rounded-md border p-3 text-[11px] leading-relaxed" style={{ borderColor: "var(--paper-3)", background: "var(--paper-1)", color: "var(--text-body)" }}>
             <code>{mcp}</code>
