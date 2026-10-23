@@ -15,7 +15,7 @@ const schema = z.object({
 })
 
 export type CreateState =
-  | { ok: false; error: string }
+  | { ok: false; error: string; code?: "WORKSPACE_EXISTS" }
   | { ok: true; walletId: string; managementKey: string; agentKey: string; agentName: string }
 
 // Self-serve signup: create a wallet (with default policy + management key) and a
@@ -31,7 +31,7 @@ export async function createWalletAction(_prev: CreateState, form: FormData): Pr
   const { name, email } = parsed.data
 
   const existing = await db.wallet.findUnique({ where: { ownerEmail: email } })
-  if (existing) return { ok: false, error: "A wallet already exists for that email." }
+  if (existing) return { ok: false, error: "A wallet already exists for that email.", code: "WORKSPACE_EXISTS" }
 
   // First-touch attribution, captured by the proxy into a cookie on the
   // visitor's first request. Analytics-grade; absent for direct visits.
