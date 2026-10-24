@@ -4,7 +4,7 @@ import { useState } from "react"
 import { track } from "@vercel/analytics"
 
 // Authorization-only demo: uses the real /authorize endpoint and records its
-// decision. Approved amounts count against budgets; no purchase is executed.
+// decision. Budget effects depend on enforcement mode; no purchase is executed.
 type Decision = { status: string; amount: number; reason?: string }
 
 const BADGE: Record<string, string> = {
@@ -61,7 +61,7 @@ export function TestDecision({ agentKey, variant = "dark" }: { agentKey: string;
         Ask whether your agent may spend a test amount. No money is spent and nothing is purchased.
       </p>
       <p className={light ? "mt-1 text-xs" : "mt-1 text-xs text-zinc-400"} style={light ? { color: "var(--text-secondary)" } : undefined}>
-        This creates a real authorization record. Approved amounts count against budgets; escalated requests may notify an approver.
+        This creates a real authorization record. In enforce mode, approved amounts count against budgets. In observe mode, tests can still count against parent-wallet limits. Escalated requests may notify an approver.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
