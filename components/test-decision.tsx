@@ -1,11 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { track } from "@vercel/analytics"
 
 // Authorization-only demo: uses the real /authorize endpoint and records its
 // decision. Budget effects depend on enforcement mode; no purchase is executed.
-type Decision = { status: string; amount: number; reason?: string }
+type DecisionStatus = "approved" | "escalated" | "denied"
+type Decision = { status: DecisionStatus | "error"; amount: number; reason?: string }
+
+const RECOVERY = "Could not confirm the authorization outcome. Check the authorization log before another attempt."
+
+function readDecision(value: unknown, response: Response): { status: DecisionStatus; reason?: string } | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null
+  const { status, reason } = value as Record<string, unknown>
+  if (status !== "approved" && status !== "escalated" && status !== "denied") return null
+  if (reason !== undefined && typeof reason !== "string") return null
+  // A policy denial can use a 4xx response. Server failures are never decisions.
+  if (!response.ok && !(status === "denied" && response.status >= 400 && response.status < 500)) return null
+  return { status, reason }
+}
 
 const BADGE: Record<string, string> = {
   approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
@@ -26,28 +39,37 @@ const BADGE_LIGHT: Record<string, React.CSSProperties> = {
 export function TestDecision({ agentKey, variant = "dark" }: { agentKey: string; variant?: "dark" | "light" }) {
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [pending, setPending] = useState<number | null>(null)
+  const inFlight = useRef(false)
   const light = variant === "light"
 
   async function run(amount: number) {
+    if (inFlight.current) return
+    inFlight.current = true
     setPending(amount)
+    let decision: Decision = { status: "error", amount, reason: RECOVERY }
     try {
       const res = await fetch("/api/v1/authorize", {
         method: "POST",
         headers: { "x-api-key": agentKey, "content-type": "application/json" },
         body: JSON.stringify({ action: "purchase", amount_usd: amount, merchant: "OpenAI", category: "software" }),
       })
-      const d = await res.json().catch(() => ({}))
-      const status = d.status ?? "error"
-      track("test_decision", { amount, status })
-      setDecisions((prev) => [...prev, { status, amount, reason: d.reason }])
+      const result = readDecision(await res.json(), res)
+      if (result) decision = { ...result, amount }
     } catch {
-      setDecisions((prev) => [...prev, { status: "error", amount, reason: "Network error" }])
+      // The request may have reached the server; do not automatically retry it.
     } finally {
+      setDecisions((prev) => [...prev, decision])
       setPending(null)
+      inFlight.current = false
+    }
+    try {
+      track("test_decision", { amount, status: decision.status })
+    } catch {
+      // Analytics must not overwrite an authorization outcome.
     }
   }
 
-  const ranSmall = decisions.some((d) => d.amount === 5)
+  const ranSmall = decisions.some((d) => d.amount === 5 && d.status !== "error")
 
   return (
     <div
@@ -91,32 +113,30 @@ export function TestDecision({ agentKey, variant = "dark" }: { agentKey: string;
           </button>
         )}
       </div>
-      {decisions.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          {decisions.map((d, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
-              <span
-                className={
-                  light
-                    ? "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium"
-                    : `shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium ${BADGE[d.status] ?? BADGE.error}`
-                }
-                style={light ? BADGE_LIGHT[d.status] ?? BADGE_LIGHT.error : undefined}
-              >
-                {d.status}
+      <div role="log" aria-label="Authorization test results" aria-live="polite" aria-relevant="additions" className="mt-3 space-y-1.5">
+        {decisions.map((d, i) => (
+          <div key={i} className="flex flex-wrap items-start gap-2 text-sm">
+            <span
+              className={
+                light
+                  ? "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium"
+                  : `shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium ${BADGE[d.status] ?? BADGE.error}`
+              }
+              style={light ? BADGE_LIGHT[d.status] ?? BADGE_LIGHT.error : undefined}
+            >
+              {d.status}
+            </span>
+            <span className={light ? "shrink-0 font-mono text-xs" : "shrink-0 font-mono text-xs text-zinc-400"} style={light ? { color: "var(--text-secondary)" } : undefined}>
+              ${d.amount} authorization test
+            </span>
+            {d.reason && (
+              <span className={light ? "min-w-0 basis-full break-words text-xs" : "min-w-0 basis-full break-words text-xs text-zinc-400"} style={light ? { color: "var(--text-muted)" } : undefined}>
+                {d.reason}
               </span>
-              <span className={light ? "shrink-0 font-mono text-xs" : "shrink-0 font-mono text-xs text-zinc-400"} style={light ? { color: "var(--text-secondary)" } : undefined}>
-                ${d.amount} authorization test
-              </span>
-              {d.reason && (
-                <span className={light ? "truncate text-xs" : "truncate text-xs text-zinc-600"} style={light ? { color: "var(--text-muted)" } : undefined}>
-                  {d.reason}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        ))}
+      </div>
       {ranSmall && (
         <p className={light ? "mt-3 text-xs" : "mt-3 text-xs text-zinc-500"} style={light ? { color: "var(--text-muted)" } : undefined}>
           Your agent&apos;s policy determines whether each request is approved, escalated, or denied. Approval does not execute a purchase.

@@ -128,7 +128,7 @@ export function AgentCreator() {
             </div>
             <Copy key={state.agentKey} value={state.agentKey} label="agent key" {...copyProps} />
           </div>
-          <TestDecision agentKey={state.agentKey} />
+          <TestDecision key={state.agentKey} agentKey={state.agentKey} />
 
           <Disclosure summary="Connect your app — drop-in SDK snippet">
             <ConnectApp agentKey={state.agentKey} />
