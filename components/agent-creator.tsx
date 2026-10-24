@@ -15,20 +15,42 @@ import { Disclosure } from "@/components/disclosure"
 const initial: CreateAgentState = { ok: false, error: "" }
 const initialBatch: CreateBatchAgentState = { ok: false, error: "" }
 
-function Copy({ value }: { value: string }) {
-  const [done, setDone] = useState(false)
+function Copy({ value, label, disabled, start, finish }: {
+  value: string
+  label: string
+  disabled: boolean
+  start: () => boolean
+  finish: () => void
+}) {
+  const [status, setStatus] = useState<"idle" | "pending" | "copied" | "failed">("idle")
+  async function copy() {
+    if (disabled || !start()) return
+    setStatus("pending")
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable")
+      await navigator.clipboard.writeText(value)
+      setStatus("copied")
+    } catch {
+      setStatus("failed")
+    } finally {
+      finish()
+    }
+  }
   return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(value)
-        setDone(true)
-        setTimeout(() => setDone(false), 1200)
-      }}
-      className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-    >
-      {done ? "copied" : "copy"}
-    </button>
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={copy}
+        disabled={disabled}
+        aria-label={`Copy ${label}`}
+        className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+      >
+        {status === "pending" ? "copying…" : status === "copied" ? "copied" : "copy"}
+      </button>
+      <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-muted-foreground">
+        {status === "pending" ? `Copying ${label}…` : status === "copied" ? `${label} copied.` : status === "failed" ? "Copy failed. Select the text and copy it manually." : ""}
+      </p>
+    </div>
   )
 }
 
@@ -37,6 +59,22 @@ export function AgentCreator() {
   const [batchState, batchAction, batchPending] = useActionState(createBatchAgentsAction, initialBatch)
   const tracked = useRef<string | null>(null)
   const [mode, setMode] = useState<"single" | "batch">("single")
+  const copyLock = useRef(false)
+  const [copyPending, setCopyPending] = useState(false)
+  const busy = copyPending || pending || batchPending
+  const copyProps = {
+    disabled: busy,
+    start: () => {
+      if (copyLock.current || pending || batchPending) return false
+      copyLock.current = true
+      setCopyPending(true)
+      return true
+    },
+    finish: () => {
+      copyLock.current = false
+      setCopyPending(false)
+    },
+  }
 
   useEffect(() => {
     if (state.ok && state.agentKey && tracked.current !== state.agentKey) {
@@ -54,14 +92,16 @@ export function AgentCreator() {
       <div className="inline-flex rounded-md border border-border bg-muted p-1 text-xs">
         <button
           type="button"
-          onClick={() => setMode("single")}
+          disabled={busy}
+          onClick={() => { if (!copyLock.current && !pending && !batchPending) setMode("single") }}
           className={`rounded px-2 py-1 transition-colors ${mode === "single" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-muted-foreground"}`}
         >
           Single seat
         </button>
         <button
           type="button"
-          onClick={() => setMode("batch")}
+          disabled={busy}
+          onClick={() => { if (!copyLock.current && !pending && !batchPending) setMode("batch") }}
           className={`rounded px-2 py-1 transition-colors ${mode === "batch" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-muted-foreground"}`}
         >
           Batch seats
@@ -74,8 +114,19 @@ export function AgentCreator() {
             {state.agentName}{" "}created — copy the key now, it&apos;s shown once.
           </p>
           <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{state.agentKey}</code>
-            <Copy value={state.agentKey} />
+            <div className="min-w-0 flex-1">
+              <input
+                aria-label="Agent key"
+                value={state.agentKey}
+                readOnly
+                spellCheck={false}
+                autoComplete="off"
+                onFocus={(event) => event.currentTarget.select()}
+                className="block w-full min-w-0 bg-transparent font-mono text-base sm:text-xs"
+              />
+              <p className="text-xs text-muted-foreground">Select the field to copy the full key manually.</p>
+            </div>
+            <Copy key={state.agentKey} value={state.agentKey} label="agent key" {...copyProps} />
           </div>
           <TestDecision agentKey={state.agentKey} />
 
@@ -87,6 +138,9 @@ export function AgentCreator() {
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">authorize — one call</span>
               <Copy
+                key={state.agentKey}
+                label="curl command"
+                {...copyProps}
                 value={`curl -X POST https://getsanction.com/api/v1/authorize \\\n  -H "x-api-key: ${state.agentKey}" \\\n  -H "content-type: application/json" \\\n  -d '{"action":"purchase","amount_usd":5,"merchant":"OpenAI","category":"software"}'`}
               />
             </div>
@@ -102,7 +156,7 @@ export function AgentCreator() {
 
       {mode === "single" ? (
         <>
-          <form action={formAction} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <form action={formAction} onSubmit={(event) => { if (copyLock.current || pending || batchPending) event.preventDefault() }} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input
               name="name"
               required
@@ -125,7 +179,7 @@ export function AgentCreator() {
             />
             <button
               type="submit"
-              disabled={pending}
+              disabled={busy}
               className="shrink-0 rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
             >
               {pending ? "Creating…" : state.ok ? "Create another" : "Create seat"}
@@ -140,21 +194,30 @@ export function AgentCreator() {
               <p className="text-sm font-semibold text-primary">
                 Created {batchState.seats!.length} seats ({batchState.templateName}) — copy keys now, they are shown once.
               </p>
+              <p className="text-xs text-muted-foreground">Select a field to copy the full key manually.</p>
               <div className="max-h-56 overflow-y-auto rounded border border-border bg-muted">
-                {batchState.seats!.map((seat) => (
+                {batchState.seats!.map((seat, index) => (
                   <div key={seat.id} className="flex items-center gap-2 border-b border-border px-2.5 py-2 last:border-b-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs text-foreground">{seat.name}</p>
-                      <code className="truncate font-mono text-[11px] text-muted-foreground">{seat.agentKey}</code>
+                      <input
+                        aria-label={`Agent key for ${seat.name} (seat ${index + 1})`}
+                        value={seat.agentKey}
+                        readOnly
+                        spellCheck={false}
+                        autoComplete="off"
+                        onFocus={(event) => event.currentTarget.select()}
+                        className="block w-full min-w-0 bg-transparent font-mono text-base text-muted-foreground sm:text-[11px]"
+                      />
                     </div>
-                    <Copy value={seat.agentKey} />
+                    <Copy key={seat.agentKey} value={seat.agentKey} label={`agent key for ${seat.name} (seat ${index + 1})`} {...copyProps} />
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <form action={batchAction} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <form action={batchAction} onSubmit={(event) => { if (copyLock.current || pending || batchPending) event.preventDefault() }} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
               Name prefix
               <input
@@ -208,7 +271,7 @@ export function AgentCreator() {
             <div className="sm:col-span-2 lg:col-span-5">
               <button
                 type="submit"
-                disabled={batchPending}
+                disabled={busy}
                 className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
               >
                 {batchPending ? "Creating seats…" : "Create seat batch"}
