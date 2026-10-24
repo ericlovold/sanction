@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { track } from "@vercel/analytics"
 import { GatewayWatch } from "@/components/gateway-watch"
 
@@ -118,26 +118,52 @@ r = client.models.generate_content(
 print(r.text)`
 }
 
-function Copy({ value, onCopy, light = false }: { value: string; onCopy?: () => void; light?: boolean }) {
-  const [done, setDone] = useState(false)
+function Copy({ value, label, disabled, start, finish, onCopy, light = false }: {
+  value: string
+  label: string
+  disabled: boolean
+  start: () => boolean
+  finish: () => void
+  onCopy?: () => void
+  light?: boolean
+}) {
+  const [status, setStatus] = useState<"idle" | "pending" | "copied" | "failed">("idle")
+  async function copy() {
+    if (disabled || !start()) return
+    setStatus("pending")
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable")
+      await navigator.clipboard.writeText(value)
+      setStatus("copied")
+    } catch {
+      setStatus("failed")
+      return
+    } finally {
+      finish()
+    }
+    // Analytics must never change the outcome of a successful clipboard write.
+    try { onCopy?.() } catch { /* Best-effort analytics. */ }
+  }
   return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(value)
-        onCopy?.()
-        setDone(true)
-        setTimeout(() => setDone(false), 1200)
-      }}
-      className={
-        light
-          ? "sanction-link shrink-0 rounded border px-2 py-1 text-[11px] transition-colors"
-          : "shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100"
-      }
-      style={light ? { borderColor: "var(--paper-3)" } : undefined}
-    >
-      {done ? "copied" : "copy"}
-    </button>
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={copy}
+        disabled={disabled}
+        aria-label={`Copy ${label}`}
+        className={
+          light
+            ? "sanction-link shrink-0 rounded border px-2 py-1 text-[11px] transition-colors disabled:opacity-50"
+            : "shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 transition-colors hover:text-zinc-100 disabled:opacity-50"
+        }
+        style={light ? { borderColor: "var(--paper-3)" } : undefined}
+      >
+        {status === "pending" ? "copying…" : status === "copied" ? "copied" : "copy"}
+      </button>
+      <p role="status" aria-live="polite" aria-atomic="true" className={light ? "text-xs" : "text-xs text-zinc-400"} style={light ? { color: "var(--text-secondary)" } : undefined}>
+        {status === "pending" ? `Copying ${label}…` : status === "copied" ? `${label} copied.` : status === "failed" ? "Copy failed. Select the text and copy it manually." : ""}
+      </p>
+    </div>
   )
 }
 
@@ -145,11 +171,13 @@ function Toggle<T extends string>({
   options,
   value,
   onChange,
+  disabled,
   light = false,
 }: {
   options: readonly T[]
   value: T
   onChange: (v: T) => void
+  disabled: boolean
   light?: boolean
 }) {
   return (
@@ -162,6 +190,7 @@ function Toggle<T extends string>({
           key={o}
           type="button"
           onClick={() => onChange(o)}
+          disabled={disabled}
           className={
             light
               ? `rounded px-2.5 py-1 text-xs font-medium transition-colors ${o === value ? "" : "sanction-link"}`
@@ -190,6 +219,23 @@ export function ConnectApp({
 }) {
   const [lang, setLang] = useState<Lang>("Node")
   const [provider, setProvider] = useState<Provider>("OpenAI")
+  const copyLock = useRef(false)
+  const [copyPending, setCopyPending] = useState(false)
+  const copyProps = {
+    disabled: copyPending,
+    start: () => {
+      if (copyLock.current) return false
+      copyLock.current = true
+      setCopyPending(true)
+      return true
+    },
+    finish: () => {
+      copyLock.current = false
+      setCopyPending(false)
+    },
+  }
+  // Remount feedback when its content or context changes; retain the shared lock.
+  const copyKey = JSON.stringify([provider, lang, agentKey])
   const code = snippet(provider, lang, agentKey)
   const install = INSTALL[provider][lang]
   const light = variant === "light"
@@ -201,24 +247,34 @@ export function ConnectApp({
         Point your existing SDK at Sanction. You keep your provider key — Sanction just meters and caps every call, across providers, on one key.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Toggle options={PROVIDERS} value={provider} onChange={setProvider} light={light} />
-        <Toggle options={LANGS} value={lang} onChange={setLang} light={light} />
+        <Toggle options={PROVIDERS} value={provider} disabled={copyPending} onChange={(value) => { if (!copyLock.current) setProvider(value) }} light={light} />
+        <Toggle options={LANGS} value={lang} disabled={copyPending} onChange={(value) => { if (!copyLock.current) setLang(value) }} light={light} />
       </div>
       <div
         className={light ? "flex items-center gap-2 rounded-md border px-2.5 py-1.5" : "flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5"}
         style={blockStyle}
       >
-        <code className={light ? "min-w-0 flex-1 truncate font-mono text-xs" : "min-w-0 flex-1 truncate font-mono text-xs text-zinc-300"} style={light ? { color: "var(--text-body)" } : undefined}>
-          {install}
-        </code>
-        <Copy value={install} light={light} />
+        <div className="min-w-0 flex-1">
+          <input
+            aria-label="Install command"
+            value={install}
+            readOnly
+            spellCheck={false}
+            autoComplete="off"
+            onFocus={(event) => event.currentTarget.select()}
+            className={light ? "block w-full min-w-0 bg-transparent font-mono text-base sm:text-xs" : "block w-full min-w-0 bg-transparent font-mono text-base text-zinc-300 sm:text-xs"}
+            style={light ? { color: "var(--text-body)" } : undefined}
+          />
+          <p className={light ? "text-xs" : "text-xs text-zinc-400"} style={light ? { color: "var(--text-secondary)" } : undefined}>Select the field to copy the full command manually.</p>
+        </div>
+        <Copy key={copyKey + install} value={install} label="install command" {...copyProps} light={light} />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <span className={light ? "text-[11px] uppercase tracking-wide" : "text-[11px] uppercase tracking-wide text-zinc-500"} style={light ? { color: "var(--text-muted)" } : undefined}>
             {provider} · {lang}
           </span>
-          <Copy value={code} onCopy={() => track("snippet_copied", { provider, lang })} light={light} />
+          <Copy key={copyKey + code} value={code} label="SDK snippet" {...copyProps} onCopy={() => track("snippet_copied", { provider, lang })} light={light} />
         </div>
         <pre
           className={light ? "mt-1 overflow-x-auto rounded-md border p-3 text-[11px] leading-relaxed" : "mt-1 overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-3 text-[11px] leading-relaxed text-zinc-300"}
