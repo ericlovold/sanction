@@ -120,11 +120,11 @@ describe("authorization test result recovery", () => {
     expect(controls().every(button => button.props.disabled === false)).toBe(true)
   })
 
-  it("keeps the real decision when analytics throws", async () => {
+  it.each(["approved", "denied"])("keeps the %s decision when analytics throws", async (status) => {
     fixture.track.mockImplementation(() => { throw new Error("analytics failure") })
-    fixture.fetch.mockResolvedValue(response({ status: "approved" }))
+    fixture.fetch.mockResolvedValue(response({ status }, status === "denied" ? 403 : 200))
     await click(controls()[0])
-    expect(fixture.decisions).toEqual([{ status: "approved", amount: 5, reason: undefined }])
+    expect(fixture.decisions).toEqual([{ status, amount: 5, reason: undefined }])
     expect(controls()).toHaveLength(2)
     expect(controls().every(button => button.props.disabled === false)).toBe(true)
   })
