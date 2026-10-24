@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useSyncExternalStore } from "react"
 
 // Theme: light is the default (the governance console reads as a secure instrument —
 // deep-pine rail, hairline-ruled workpaper). Dark is retained for operators who prefer
@@ -13,20 +13,29 @@ function current(): Theme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light"
 }
 
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+  return () => observer.disconnect()
+}
+
+function serverTheme(): Theme {
+  return "light"
+}
+
 export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
-  const [theme, setTheme] = useState<Theme>(() =>
-    typeof document !== "undefined" ? current() : "light",
-  )
+  // Hydrate the server's markup first, then reflect the pre-paint DOM theme.
+  // Observe the shared root so desktop and mobile controls stay in sync.
+  const theme = useSyncExternalStore(subscribe, current, serverTheme)
 
   function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark"
+    const next: Theme = current() === "dark" ? "light" : "dark"
     document.documentElement.classList.toggle("dark", next === "dark")
     try {
       localStorage.setItem("sanction-theme", next)
     } catch {
       // storage disabled — the toggle still works for this session
     }
-    setTheme(next)
   }
 
   const isDark = theme === "dark"
