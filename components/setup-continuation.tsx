@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { FIRST_APPROVAL_PROMPT } from "@/lib/firstHour"
-import { useState, type ReactNode } from "react"
+import { useState, useTransition, type ReactNode } from "react"
 
 export function SetupContinuation({ proofComplete, hasMcpConnection = false, hasDecision = false, children }: {
   proofComplete: boolean
@@ -10,6 +11,8 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
   hasDecision?: boolean
   children?: ReactNode
 }) {
+  const router = useRouter()
+  const [checking, startChecking] = useTransition()
   const [dismissed, setDismissed] = useState(false)
   const [copyStatus, setCopyStatus] = useState("")
   async function copyPrompt() {
@@ -31,10 +34,16 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
     <p className="text-sm">{!hasMcpConnection ? "Next: connect your AI tool and try a human approval." : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
     {!dismissed && <>
       <div id="connect-tools" className="scroll-mt-28 space-y-3">
-        <ul className="space-y-1 text-sm text-[var(--roster-fog)]" aria-label="Setup progress">
+        <ul className="space-y-1 text-sm text-[var(--roster-fog)]" aria-label="Setup progress" aria-live="polite" aria-busy={checking}>
           <li>{hasMcpConnection ? "Connected via MCP" : "MCP connection not yet detected"}</li>
           <li>{hasDecision ? "First authorization recorded in this wallet" : "First authorization not yet recorded"}</li>
         </ul>
+        <div className="space-y-1">
+          <button type="button" disabled={checking} onClick={() => startChecking(() => router.refresh())} className="text-sm underline disabled:cursor-wait disabled:opacity-60">
+            {checking ? "Checking setup progress…" : "Check setup progress"}
+          </button>
+          <p className="text-xs text-[var(--roster-fog)]">Returned from your AI tool? Check for your saved connection or first authorization. This does not send a new approval request.</p>
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           {!hasMcpConnection ? <Link href="/docs/connect" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Connect your AI tool</Link>
             : !hasDecision ? <button type="button" onClick={copyPrompt} className="rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Copy first approval request</button>

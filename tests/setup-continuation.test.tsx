@@ -1,7 +1,10 @@
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { SetupContinuation } from "../components/setup-continuation"
+
+const refresh = vi.fn()
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }))
 
 describe("dashboard connection handoff", () => {
   it.each([false, true])("keeps connection and inbox outside optional disclosures (proof complete: %s)", (proofComplete) => {
@@ -13,6 +16,15 @@ describe("dashboard connection handoff", () => {
     expect(primary).not.toContain('href="/dashboard/walkthrough"')
     expect(html).toContain('href="/dashboard/walkthrough"')
     expect(html).toContain('href="/dashboard/connect"')
+  })
+
+  it("offers an explicit progress check without refreshing on render", () => {
+    refresh.mockClear()
+    const html = renderToStaticMarkup(createElement(SetupContinuation, { proofComplete: false }))
+    expect(html).toContain("Check setup progress")
+    expect(html).toContain("does not send a new approval request")
+    expect(html).toContain('aria-live="polite"')
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   it("claims completed execution only with recorded proof", () => {
