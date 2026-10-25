@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "./generated/prisma/client"
+import { verifiedDatabaseUrl } from "./databaseUrl"
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
@@ -15,7 +16,7 @@ function createClient() {
         "Unit tests don't need this (`npm run check`); the dev server's API routes do.",
     )
   }
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+  const adapter = new PrismaPg({ connectionString: verifiedDatabaseUrl(process.env.DATABASE_URL!) })
   return new PrismaClient({ adapter })
 }
 
