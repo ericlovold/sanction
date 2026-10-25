@@ -7,8 +7,8 @@ datasource db {
   provider = "postgresql"
 }
 
-// Fixed-window rate-limit counter, keyed by "<bucket>:<ip>". Approximate (good
-// enough to stop mass abuse without Redis); rows reset per window.
+// Shared fixed-window rate-limit counter, keyed by "<bucket>:<ip>".
+// Increments and window resets are atomic in lib/rateLimit.ts.
 model RateLimit {
   key       String   @id
   count     Int      @default(0)
