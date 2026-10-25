@@ -69,6 +69,7 @@ export function ConnectionGuide({ source }: { source: string }) {
   const check = section(source, "## 2. Check the connection")
   const request = section(source, "## 3. Request your first approval")
   const redemption = section(source, "## 4. Check once, then redeem exactly once")
+  const followUpPrompt = promptFrom(redemption)
   const stepSource = step === 1 ? check : request
   const prompt = promptFrom(stepSource)
   const canConnect = host !== null && host !== "ChatGPT"
@@ -131,6 +132,7 @@ export function ConnectionGuide({ source }: { source: string }) {
               ) : (
                 <details className="mt-6 border-t border-border pt-4">
                   <summary className="cursor-pointer font-medium">After your decision: check once, redeem once</summary>
+                  {followUpPrompt && <CopyButton key={`${host}:follow-up`} text={followUpPrompt} label="Copy follow-up prompt" />}
                   <Markdown source={redemption} />
                 </details>
               )}
