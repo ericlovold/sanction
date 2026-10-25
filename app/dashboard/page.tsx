@@ -14,6 +14,7 @@ import {
   shouldShowFirstHourChecklist,
   type FirstHourSignals,
 } from "@/lib/firstHour"
+import { hasActiveMcpConnection } from "@/lib/firstHourConnection"
 import { withTenant } from "@/lib/rls"
 import { OnboardingTour, TourLauncher } from "./onboarding-tour"
 import { FunnelBeacon } from "@/components/funnel-beacon"
@@ -127,7 +128,7 @@ export default async function Dashboard() {
   const isDemo = !view.isSession && process.env.SANCTION_WALLET_ID === view.id
   const canAdd = hasRole(view.role, "admin")
 
-  const [policy, slackCount, webhookCount, decisionCount, tokenCount] = await Promise.all([
+  const [policy, slackCount, webhookCount, decisionCount, tokenCount, hasMcpConnection] = await Promise.all([
     db.policy.findUnique({
       where: { walletId: view.id },
       select: { allowedTools: true, blockedTools: true, capabilityRules: true, enforcementMode: true },
@@ -136,10 +137,12 @@ export default async function Dashboard() {
     db.webhook.count({ where: { walletId: view.id } }),
     db.authorizationRequest.count({ where: { agent: { walletId: view.id } } }),
     db.tokenLog.count({ where: { agent: { walletId: view.id } } }),
+    view.isSession ? hasActiveMcpConnection(view.id) : false,
   ])
 
   const firstHour: FirstHourSignals = {
     hasAgent: roster.agentCount > 0,
+    hasMcpConnection,
     hasDecision: decisionCount > 0,
     hasSlack: slackCount > 0,
     hasWebhook: webhookCount > 0,
@@ -177,7 +180,7 @@ export default async function Dashboard() {
         </div>
 
         {view.isSession && canAdd ? (
-          <SetupContinuation key={view.id} proofComplete={Boolean(brokerProof)}>
+          <SetupContinuation key={view.id} proofComplete={Boolean(brokerProof)} hasMcpConnection={hasMcpConnection} hasDecision={firstHour.hasDecision}>
             {showFirstHour && <FirstHourChecklist signals={firstHour} />}
           </SetupContinuation>
         ) : showFirstHour ? <FirstHourChecklist signals={firstHour} /> : null}

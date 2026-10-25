@@ -1,13 +1,25 @@
 "use client"
 
 import Link from "next/link"
+import { FIRST_APPROVAL_PROMPT } from "@/lib/firstHour"
 import { useState, type ReactNode } from "react"
 
-export function SetupContinuation({ proofComplete, children }: {
+export function SetupContinuation({ proofComplete, hasMcpConnection = false, hasDecision = false, children }: {
   proofComplete: boolean
+  hasMcpConnection?: boolean
+  hasDecision?: boolean
   children?: ReactNode
 }) {
   const [dismissed, setDismissed] = useState(false)
+  const [copyStatus, setCopyStatus] = useState("")
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(FIRST_APPROVAL_PROMPT)
+      setCopyStatus("Copied. Paste this into your connected AI tool.")
+    } catch {
+      setCopyStatus("Could not copy. Select and copy the prompt below.")
+    }
+  }
 
   return <section aria-label="Continue setup" className="rounded border border-[var(--roster-rule)] bg-[var(--roster-paper)] text-[var(--roster-signal)] p-5 space-y-4">
     <div className="flex items-center justify-between gap-4">
@@ -16,19 +28,33 @@ export function SetupContinuation({ proofComplete, children }: {
         {dismissed ? "Resume setup" : "Hide steps"}
       </button>
     </div>
-    <p className="text-sm">Next: connect your AI tool and try a human approval.</p>
+    <p className="text-sm">{!hasMcpConnection ? "Next: connect your AI tool and try a human approval." : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
     {!dismissed && <>
       <div id="connect-tools" className="scroll-mt-28 space-y-3">
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-[var(--roster-fog)]">
-          <li>Connect your AI tool using the guide.</li>
-          <li>Ask it for the guide’s harmless synthetic approval request.</li>
-          <li>Review the request in your approval inbox.</li>
-        </ol>
+        <ul className="space-y-1 text-sm text-[var(--roster-fog)]" aria-label="Setup progress">
+          <li>{hasMcpConnection ? "Connected via MCP" : "MCP connection not yet detected"}</li>
+          <li>{hasDecision ? "First authorization recorded in this wallet" : "First authorization not yet recorded"}</li>
+        </ul>
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/docs/connect" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Connect your AI tool</Link>
-          <Link href="/dashboard/approvals" className="text-sm underline">Open approval inbox</Link>
+          {!hasMcpConnection ? <Link href="/docs/connect" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Connect your AI tool</Link>
+            : !hasDecision ? <button type="button" onClick={copyPrompt} className="rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Copy first approval request</button>
+            : <Link href="/dashboard/approvals" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Open approval inbox</Link>}
+          {!hasDecision && <Link href="/dashboard/approvals" className="text-sm underline">Open approval inbox</Link>}
+          {hasMcpConnection && <Link href="/connect/mcp" className="text-sm underline">Manage connections</Link>}
         </div>
+        {hasMcpConnection && !hasDecision && <div className="space-y-2">
+          <p className="text-sm text-[var(--roster-fog)]">Paste this into your connected AI tool, then review its request in the approval inbox.</p>
+          <p role="status" className="text-sm">{copyStatus}</p>
+          <details>
+            <summary className="cursor-pointer text-sm">View or manually copy the test prompt</summary>
+            <p className="mt-2 select-text break-words rounded border border-[var(--roster-rule)] p-3 text-sm">{FIRST_APPROVAL_PROMPT}</p>
+          </details>
+        </div>}
         <p className="text-sm text-[var(--roster-fog)]">Your AI host must ask Sanction and honor its decision. The connector does not intercept the host’s other tools. The synthetic test executes no external action.</p>
+        <details>
+          <summary className="cursor-pointer text-xs text-[var(--roster-fog)]">What these milestones mean</summary>
+          <p className="mt-2 text-xs text-[var(--roster-fog)]">Connection status reflects registered OAuth access, not host availability. API-key setups may not appear here. Authorization records can come from an agent or a dashboard test; they do not confirm execution.</p>
+        </details>
       </div>
       <details>
         <summary className="cursor-pointer text-sm">{proofComplete ? "Completed: governed tool-call test" : "Optional: try the broker tool-call test"}</summary>
