@@ -15,29 +15,28 @@ export function clientIp(req: Request): string {
 export type RateResult = { ok: boolean; retryAfter?: number; limit: number }
 
 /**
- * Fixed-window limiter. The DB increment is atomic, so concurrent requests are
- * serialized on the row and the post-increment count check is accurate; only the
- * window *reset* can race (harmless — at worst a couple extra requests slip in
- * at a window boundary). Returns ok:false with retryAfter (seconds) when over.
+ * Shared fixed-window limiter. One atomic upsert counts each request, including
+ * concurrent first hits and window resets, without a separate database read.
+ * Returns ok:false with retryAfter (seconds) when over; DB errors propagate.
  */
 export async function rateLimit(bucket: string, ip: string, limit: number, windowSeconds: number): Promise<RateResult> {
   const key = `${bucket}:${ip}`
   const now = new Date()
 
-  const existing = await db.rateLimit.findUnique({ where: { key } })
-  if (!existing || existing.windowEnd <= now) {
-    const windowEnd = new Date(now.getTime() + windowSeconds * 1000)
-    await db.rateLimit.upsert({
-      where: { key },
-      create: { key, count: 1, windowEnd },
-      update: { count: 1, windowEnd },
-    })
-    return { ok: true, limit }
-  }
-
-  const updated = await db.rateLimit.update({ where: { key }, data: { count: { increment: 1 } } })
+  const windowEnd = new Date(now.getTime() + windowSeconds * 1000)
+  const [updated] = await db.$queryRaw<{ count: number; windowEnd: Date }[]>`
+    INSERT INTO "RateLimit" ("key", "count", "windowEnd")
+    VALUES (${key}, 1, ${windowEnd})
+    ON CONFLICT ("key") DO UPDATE SET
+      "count" = CASE WHEN "RateLimit"."windowEnd" <= ${now}
+        THEN 1 ELSE "RateLimit"."count" + 1 END,
+      "windowEnd" = CASE WHEN "RateLimit"."windowEnd" <= ${now}
+        THEN EXCLUDED."windowEnd" ELSE "RateLimit"."windowEnd" END
+    RETURNING "count", "windowEnd"
+  `
+  if (!updated) throw new Error("Rate limit counter was not returned")
   if (updated.count > limit) {
-    return { ok: false, retryAfter: Math.max(1, Math.ceil((existing.windowEnd.getTime() - now.getTime()) / 1000)), limit }
+    return { ok: false, retryAfter: Math.max(1, Math.ceil((updated.windowEnd.getTime() - now.getTime()) / 1000)), limit }
   }
   return { ok: true, limit }
 }

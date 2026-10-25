@@ -10,7 +10,7 @@ const { dbMock, decryptMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn() },
     webhook: { findMany: vi.fn() },
     slackInstall: { findMany: vi.fn(), updateMany: vi.fn() },
-    rateLimit: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
@@ -375,30 +375,27 @@ describe("withTenant — scopes the transaction to the tenant GUC", () => {
 // ── rateLimit — fixed window against the db ─────────────────────────────────
 
 describe("rateLimit — fixed window", () => {
-  it("first request in a window resets the counter and passes", async () => {
-    dbMock.rateLimit.findUnique.mockResolvedValue(null)
-    dbMock.rateLimit.upsert.mockResolvedValue({})
+  it("passes when the atomic counter returns the first request in a window", async () => {
+    dbMock.$queryRaw.mockResolvedValue([{ count: 1, windowEnd: new Date(Date.now() + 60_000) }])
     expect(await rateLimit("signup", "1.2.3.4", 5, 60)).toEqual({ ok: true, limit: 5 })
-    expect(dbMock.rateLimit.upsert).toHaveBeenCalled()
+    expect(dbMock.$queryRaw).toHaveBeenCalledTimes(1)
   })
 
   it("passes under the limit, refuses over it with a retryAfter", async () => {
     const windowEnd = new Date(Date.now() + 30_000)
-    dbMock.rateLimit.findUnique.mockResolvedValue({ key: "signup:1.2.3.4", count: 5, windowEnd })
-    dbMock.rateLimit.update.mockResolvedValue({ count: 5 })
+    dbMock.$queryRaw.mockResolvedValue([{ count: 5, windowEnd }])
     expect((await rateLimit("signup", "1.2.3.4", 5, 60)).ok).toBe(true)
 
-    dbMock.rateLimit.update.mockResolvedValue({ count: 6 })
+    dbMock.$queryRaw.mockResolvedValue([{ count: 6, windowEnd }])
     const over = await rateLimit("signup", "1.2.3.4", 5, 60)
     expect(over.ok).toBe(false)
     expect(over.retryAfter).toBeGreaterThanOrEqual(1)
     expect(over.retryAfter).toBeLessThanOrEqual(30)
   })
 
-  it("an expired window starts fresh instead of refusing", async () => {
-    dbMock.rateLimit.findUnique.mockResolvedValue({ key: "signup:1.2.3.4", count: 99, windowEnd: new Date(Date.now() - 1000) })
-    dbMock.rateLimit.upsert.mockResolvedValue({})
-    expect((await rateLimit("signup", "1.2.3.4", 5, 60)).ok).toBe(true)
+  it("propagates a failed counter write instead of granting an allowance", async () => {
+    dbMock.$queryRaw.mockRejectedValueOnce(new Error("counter write failed"))
+    await expect(rateLimit("signup", "1.2.3.4", 5, 60)).rejects.toThrow("counter write failed")
   })
 
   it("client IP extraction: first XFF hop wins, x-real-ip is the fallback", () => {

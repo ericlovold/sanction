@@ -16,7 +16,7 @@ const { dbMock } = vi.hoisted(() => ({
     pendingApproval: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
     grant: { findMany: vi.fn(async () => []), create: vi.fn(), findFirst: vi.fn() },
     consumedBindingToken: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(async () => ({ count: 0 })) },
-    rateLimit: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
@@ -116,8 +116,7 @@ beforeEach(() => {
   dbMock.agent.update.mockResolvedValue({})
   dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 0 } })
   // Fresh rate-limit window on every call unless a test overrides it.
-  dbMock.rateLimit.findUnique.mockResolvedValue(null)
-  dbMock.rateLimit.upsert.mockResolvedValue({})
+  dbMock.$queryRaw.mockResolvedValue([{ count: 1, windowEnd: new Date(Date.now() + 60_000) }])
   dbMock.consumedBindingToken.create.mockResolvedValue({})
   dbMock.consumedBindingToken.findUnique.mockResolvedValue(null)
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
@@ -180,18 +179,18 @@ describe("empty batch", () => {
 describe("per-agent rate limits", () => {
   it("429s with Retry-After when the window is exhausted", async () => {
     const windowEnd = new Date(Date.now() + 30_000)
-    dbMock.rateLimit.findUnique.mockResolvedValue({ key: `authzen-eval:${AID}`, count: 240, windowEnd })
-    dbMock.rateLimit.update.mockResolvedValue({ count: 241 })
+    dbMock.$queryRaw.mockResolvedValue([{ count: 241, windowEnd }])
     const res = await evaluation(req("/access/v1/evaluation", spendItem(5)))
     expect(res.status).toBe(429)
     expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0)
   })
 
   it("keys the limit to the agent, not the IP", async () => {
-    await evaluation(req("/access/v1/evaluation", spendItem(5)))
-    expect(dbMock.rateLimit.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { key: `authzen-eval:${AID}` } }),
-    )
+    await evaluation(req("/access/v1/evaluation", spendItem(5), { "x-forwarded-for": "192.0.2.1" }))
+    expect(dbMock.$queryRaw).toHaveBeenCalledOnce()
+    const [, ...values] = dbMock.$queryRaw.mock.calls[0]
+    expect(values).toContain(`authzen-eval:${AID}`)
+    expect(values).not.toContain("authzen-eval:192.0.2.1")
   })
 })
 
