@@ -20,6 +20,23 @@ describe("database TLS configuration", () => {
     expect(warning).not.toHaveBeenCalled()
   })
 
+  it.each([
+    "pg://user:p%40ss@db.example/test?sslmode=require&uselibpqcompat=true",
+    "postgres://user:p%40ss@/test?host=db.example&sslmode=require",
+    "postgresql://user:p%40ss@/test?host=db.example&sslmode=verify-ca&uselibpqcompat=true",
+  ])("pins TLS for alternate driver URL forms: %s", (original) => {
+    const warning = vi.spyOn(process, "emitWarning").mockImplementation(() => {})
+    const url = verifiedDatabaseUrl(original)
+    const client = new Client({ connectionString: url })
+    expect(client.host).toBe("db.example")
+    expect(client.user).toBe("user")
+    expect(client.password).toBe("p@ss")
+    expect(client.database).toBe("test")
+    expect(client.ssl).toEqual({})
+    expect(url).toContain("sslmode=verify-full")
+    expect(warning).not.toHaveBeenCalled()
+  })
+
   it("preserves encoded credentials, host, database and unrelated connection options", () => {
     const original = "postgresql://u%40ser:p%2F%23%3F%25@db-pooler.example:5432/my%20db?sslmode=require&channel_binding=require&application_name=hello%20world"
     const normalized = new URL(verifiedDatabaseUrl(original))
