@@ -12,6 +12,7 @@ import { findPack } from "../lib/policyPacks"
 const emptySignals: FirstHourSignals = {
   hasAgent: true,
   hasDecision: false,
+  hasMcpConnection: false,
   hasSlack: false,
   hasWebhook: false,
   hasGatewayUsage: false,
@@ -95,7 +96,7 @@ describe("firstHourSteps", () => {
       "/docs/gateway",
       "/docs/agent-wallet",
     ])
-    expect(steps[2].title).toMatch(/Apply the coding-agent pack/)
+    expect(steps[2].title).toMatch(/Optional: apply the coding-agent pack/)
     expect(steps[2].hint).toMatch(/allow-all/)
     expect(steps[2].hint).not.toMatch(/tool governance is on/i)
     expect(steps[2].links.map((l) => l.href)).toContain("/docs/capability-governance")
@@ -121,6 +122,22 @@ describe("firstHourSteps", () => {
     expect(firstHourSteps(emptySignals)[1].done).toBe(false)
   })
 
+  it("separates a saved MCP connection from the first authorization", () => {
+    const connected = { ...emptySignals, hasMcpConnection: true }
+    const steps = firstHourSteps(connected)
+    expect(steps[1].done).toBe(true)
+    expect(steps[1].title).toBe("Connected via MCP")
+    expect(steps[0].done).toBe(false)
+    expect(firstHourComplete(connected)).toBe(false)
+    expect(firstHourComplete({ ...connected, hasDecision: true })).toBe(true)
+    expect(firstHourComplete({ ...emptySignals, hasDecision: true })).toBe(false)
+  })
+
+  it("does not require a policy pack to finish initial setup", () => {
+    expect(firstHourComplete({ ...emptySignals, hasSlack: true, hasDecision: true })).toBe(true)
+    expect(firstHourSteps(emptySignals)[2].title).toContain("Optional")
+  })
+
   it("marks the pack step done only when the coding-agent posture is present", () => {
     const steps = firstHourSteps({ ...emptySignals, codingAgentPackApplied: true })
     expect(steps[2].done).toBe(true)
@@ -144,6 +161,7 @@ describe("shouldShowFirstHourChecklist", () => {
     const done: FirstHourSignals = {
       hasAgent: true,
       hasDecision: true,
+      hasMcpConnection: false,
       hasSlack: true,
       hasWebhook: false,
       hasGatewayUsage: false,

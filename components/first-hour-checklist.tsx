@@ -10,7 +10,7 @@ export function FirstHourChecklist({ signals }: { signals: FirstHourSignals }) {
       className="border border-[var(--roster-rule)] bg-[var(--roster-paper)] px-5 py-4"
     >
       <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--roster-brass)]">First hour</p>
-      <p className="mt-1 text-sm text-[var(--roster-signal)]">Optional next steps: test delivery, connect notifications, and review policy.</p>
+      <p className="mt-1 text-sm text-[var(--roster-signal)]">Connect a tool and record an authorization. Notifications and policy packs are optional.</p>
       <ol className="mt-4 space-y-3">
         {steps.map((step, i) => (
           <li key={step.id} className="flex gap-3">

@@ -20,6 +20,7 @@ export type FirstHourSignals = {
   hasAgent: boolean
   /** Any persisted authorization from an agent or a dashboard test escalation. */
   hasDecision: boolean
+  hasMcpConnection: boolean
   hasSlack: boolean
   hasWebhook: boolean
   hasGatewayUsage: boolean
@@ -55,7 +56,7 @@ export function looksLikeCodingAgentPack(policy: CodingAgentPolicyShape): boolea
 }
 
 export function firstHourComplete(signals: FirstHourSignals): boolean {
-  return signals.hasDecision && (signals.hasSlack || signals.hasWebhook || signals.hasGatewayUsage) && signals.codingAgentPackApplied
+  return signals.hasDecision && (signals.hasSlack || signals.hasWebhook || signals.hasGatewayUsage || signals.hasMcpConnection)
 }
 
 /** Session wallets that have not finished these optional steps. Demo view keeps the tour. */
@@ -65,12 +66,12 @@ export function shouldShowFirstHourChecklist(signals: FirstHourSignals, view: { 
 }
 
 export function firstHourSteps(signals: FirstHourSignals): FirstHourStep[] {
-  const channelDone = signals.hasSlack || signals.hasWebhook || signals.hasGatewayUsage
+  const channelDone = signals.hasSlack || signals.hasWebhook || signals.hasGatewayUsage || signals.hasMcpConnection
 
   return [
     {
       id: "decision",
-      title: "See a decision",
+      title: signals.hasDecision ? "First authorization recorded" : "Request your first approval",
       hint: signals.hasDecision
         ? "A real decision is on the record. Open Approvals to decide anything still waiting, or send another test escalation."
         : signals.hasAgent
@@ -87,8 +88,10 @@ export function firstHourSteps(signals: FirstHourSignals): FirstHourStep[] {
     },
     {
       id: "channel",
-      title: "Connect Slack, the gateway, or MCP",
-      hint: channelDone
+      title: signals.hasMcpConnection ? "Connected via MCP" : "Connect Slack, the gateway, or MCP",
+      hint: signals.hasMcpConnection
+        ? "An active MCP connection is registered for this wallet. This does not confirm the host is online or that it has requested authorization. The host must ask Sanction and honor its decision."
+        : channelDone
         ? "A channel is connected. Hosted MCP stays cooperative — the host must ask. The broker intercepts tools/call if you front an upstream."
         : "Slack and email deliver the same approval. The LLM gateway meters model calls. Hosted MCP is cooperative — the host must ask; the broker intercepts tools/call.",
       done: channelDone,
@@ -101,7 +104,7 @@ export function firstHourSteps(signals: FirstHourSignals): FirstHourStep[] {
     },
     {
       id: "policy",
-      title: signals.codingAgentPackApplied ? "Coding-agent pack is on" : "Apply the coding-agent pack",
+      title: signals.codingAgentPackApplied ? "Coding-agent pack is on" : "Optional: apply the coding-agent pack",
       hint: signals.codingAgentPackApplied
         ? "New capability asks first. Match the exact tool names to your host before you rely on the allow-list. Applying a pack replaces those fields — it is not a silent merge."
         : "Default policy is spend-only; tool lists are empty (allow-all) and capability is opt-in. Apply Coding agent seat on Policy to escalate new skills, plugins, and MCP adds. Review first — apply overwrites those fields.",
@@ -133,3 +136,6 @@ export function approvalsEmptyCopy(opts: { hasAgent: boolean; editable: boolean 
     hint: "When an agent's request crosses the escalation line it lands here, and the agent waits. Send a test escalation to see the email and this inbox — Slack is optional.",
   }
 }
+
+/** Synthetic authorization only: never execute or automatically retry. */
+export const FIRST_APPROVAL_PROMPT = 'Request one human approval through Sanction for the synthetic tool `sanction.demo.approval`, with arguments {"execute":false,"message":"First Sanction approval"}. Set `require_approval: true` and explain that this tests the approval flow only. Make one request, report its status and request ID, then wait. Do not execute anything, retry, or poll.'
