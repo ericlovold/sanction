@@ -143,6 +143,23 @@ after the schema update in the October 1 smoke. Do not silently omit the flag.
 
 ## 4. Check once, then redeem exactly once
 
+After reviewing the request in Sanction, paste this into the **same AI
+conversation** that created it:
+
+> Check the synthetic `sanction.demo.approval` request from this conversation
+> once using `sanction_check_authorization` and its original request ID. If the
+> original request ID or exact submitted fields are missing or ambiguous, ask
+> me to identify the request and stop; do not guess or create a new request.
+> If the result is approved, has `next_action: retry_with_grant`, and includes
+> an active grant, make exactly one `sanction_authorize_tool` call with the
+> original tool, server (including its omission), arguments, `require_approval`,
+> and `approval_reason` unchanged, plus that `grant_id`. Otherwise report the
+> status and stop, including if pending, denied, expired, or unclear. After
+> redemption, report the status, `authorized`, `next_action`, and request ID,
+> without displaying the grant. Do not execute the synthetic tool or any
+> external action, poll, retry again, or request fresh approval—even if
+> redemption returns `authorized: true` and `next_action: proceed`.
+
 After you decide, ask the host to call `sanction_check_authorization` once with
 the request ID. A denial means stop. Approval alone is not execution permission:
 `next_action: retry_with_grant` means repeat the original authorization with the
