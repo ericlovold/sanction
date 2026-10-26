@@ -76,18 +76,18 @@ export default function Landing() {
           <div className="sn-home-nav-links">
             <Link href="/use-cases">Use cases</Link><a href="#how">How it works</a><Link href="/platform">Platform</Link><Link href="/docs">Docs</Link>
           </div>
-          <div className="sn-home-nav-actions"><Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link><Link className="sn-btn sn-btn-primary sn-btn-s" href="/docs/connect">Try one approval</Link></div>
+          <div className="sn-home-nav-actions"><Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link><Link className="sn-btn sn-btn-primary sn-btn-s" href="/start">Try one approval</Link></div>
         </div>
       </nav>
 
       <header className="sn-home-hero">
         <div className="sn-home-wrap sn-home-hero-grid">
           <div>
-            <Label>A human decision at the moment it matters</Label>
+            <Label>Human in the loop, productized</Label>
             <h1 className="sn-hero-h1">Human oversight.<br />Autonomous agents.</h1>
-            <p className="sn-home-lead">Give your agents room to work and a clear point to bring you in. Review the deployment, the purchase, or the message to a customer before that step proceeds.</p>
-            <div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link><a className="sn-btn sn-btn-secondary sn-btn-l" href="#how">See how it works</a></div>
-            <p className="sn-home-small">Free for individuals. No card. Your first request executes nothing.</p>
+            <p className="sn-home-lead">Your agent has work to do. Some decisions still need you. Review the proposed action in Sanction or Slack when configured, and keep a record of your answer.</p>
+            <div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Try one approval</Link><a className="sn-btn sn-btn-secondary sn-btn-l" href="#how">See how it works</a></div>
+            <p className="sn-home-small">Try the preview without an account. Nothing is sent or spent.</p>
           </div>
           <ApprovalVisual />
         </div>
@@ -132,7 +132,7 @@ export default function Landing() {
             </ol>
             <p>Illustrative workflow. Approval records permission; it does not prove the deployment ran.</p>
           </figure>
-          <div className="sn-home-next"><p><strong>Start with a harmless request.</strong> The connection guide walks you through a synthetic approval that executes nothing.</p><Link className="sn-btn sn-btn-primary sn-btn-m" href="/docs/connect">Try one approval →</Link></div>
+          <div className="sn-home-next"><p><strong>Try the decision first.</strong> Approve or deny a fictional request, then connect your own AI tool.</p><Link className="sn-btn sn-btn-primary sn-btn-m" href="/start">Try one approval →</Link></div>
         </div>
       </section>
 
@@ -152,7 +152,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="sn-home-closing"><div className="sn-home-wrap"><Label>Start with one approval</Label><h2>If you’re not sure, Sanction it.</h2><p>One safe request. A human decision. A clear next step.</p><div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/docs/connect">Try one approval</Link><Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start">Create a free account</Link></div></div></section>
+      <section className="sn-home-closing"><div className="sn-home-wrap"><Label>Start with one approval</Label><h2>If you’re not sure, Sanction it.</h2><p>One safe request. A human decision. A clear next step.</p><div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Try one approval</Link><Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start#create-account">Create a free account</Link></div></div></section>
       <footer className="sn-home-footer sn-home-wrap"><div><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="104" height="20" /><p>Authorize. Protect. Govern.</p></div><nav aria-label="Footer navigation"><Link href="/use-cases">Use cases</Link><Link href="/platform">Platform</Link><Link href="/docs/connect">Connect</Link><Link href="/slack">Slack</Link><Link href="/about">About</Link><Link href="/roadmap">Roadmap</Link><Link href="/changelog">Changelog</Link><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></nav></footer>
     </main>
   )

@@ -56,7 +56,7 @@ export function ApprovalPreview() {
           {decision === null
             ? "In this example, the agent pauses before sending. Review the recipient and message, then approve or deny the proposed action."
             : decision === "approve"
-              ? "Approval would permit this exact action. Your connected agent would still need to execute it through its email tool. Nothing was sent here."
+              ? "After approval, your connected agent must check and redeem the permission before acting. This preview grants no real permission. Nothing was sent."
               : "Denial would keep this action blocked. Your connected agent must honor the denial and stop. Nothing was sent here."}
         </p>
       </div>
@@ -74,6 +74,12 @@ export function ApprovalPreview() {
           </button>
         )}
       </div>
+      {decision !== null && (
+        <div className="mt-5 border-t pt-4" style={{ borderColor: "var(--paper-3)" }}>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>That was a preview. Next, connect your AI tool and try a request in your own workspace.</p>
+          <a href="#create-account" className="sn-btn sn-btn-primary sn-btn-m mt-3">Continue to setup →</a>
+        </div>
+      )}
     </section>
   )
 }

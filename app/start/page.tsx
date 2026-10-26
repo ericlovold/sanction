@@ -19,7 +19,7 @@ export default function StartPage() {
       <header className="border-b" style={{ borderColor: "var(--paper-3)" }}>
         <nav className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
           <Link href="/" className="font-semibold tracking-tight">Sanction</Link>
-          <Link href="/dashboard/spend" className="sanction-link text-sm">See it live →</Link>
+          <Link href="/login" className="sanction-link text-sm">Sign in →</Link>
         </nav>
       </header>
 
@@ -31,27 +31,44 @@ export default function StartPage() {
           Try the preview, then connect your own tool. Free for individuals. No card.
         </p>
 
-        <CreateWallet intro={<>
-          <a href="#create-account" className="sanction-link mt-3 inline-block text-sm">Ready to connect? Create your workspace →</a>
-          <div className="mt-7"><ApprovalPreview /></div>
+        <a href="#create-account" className="sanction-link mt-3 inline-block text-sm">Ready to connect? Skip to setup →</a>
+        <div className="mt-7"><ApprovalPreview /></div>
 
-          <div id="create-account" className="mt-10 scroll-mt-6" aria-labelledby="create-heading">
-          <h2 id="create-heading" className="text-xl font-semibold">Make it yours.</h2>
+        <section id="create-account" className="mt-10 scroll-mt-6" aria-labelledby="create-heading">
+          <h2 id="create-heading" className="text-xl font-semibold">Connect your own AI tool.</h2>
           <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Create your workspace, connect an AI tool, and review your first request.
+            Sign in to create or open your workspace. Then choose your AI tool,
+            send a test request, and review it in your approval inbox.
           </p>
-          <div className="mt-8">
+          <ol className="mt-5 space-y-2 text-sm" aria-label="Setup steps">
+            <li>1. Sign in with a verified account.</li>
+            <li>2. Connect your AI tool using the guided setup.</li>
+            <li>3. Approve or deny a test request. Nothing executes.</li>
+          </ol>
+          <div className="mt-6">
             <SocialSignIn apple={!!process.env.APPLE_CLIENT_ID} />
           </div>
+          <p className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+            Recommended for AI-host connections. You do not need to copy API keys.
+          </p>
+          <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Already have an account? <Link href="/login" className="sanction-link">See all sign-in options →</Link>
+          </p>
+          <p className="mt-5 text-xs" style={{ color: "var(--text-muted)" }}>
+            Your connected agent must ask Sanction and honor the decision.
+            Connecting does not intercept its other tools. Slack review is an optional setup step.
+          </p>
+        </section>
 
-          <div className="my-8 flex items-center gap-3 text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
-            or with email
-            <span className="h-px flex-1" style={{ background: "var(--paper-3)" }} />
-          </div>
-
-          </div>
-        </>} />
+        <details className="mt-8 rounded-lg border p-5" style={{ borderColor: "var(--paper-3)" }}>
+          <summary className="sanction-link cursor-pointer text-sm font-medium">Developer setup: create a workspace with access keys</summary>
+          <p className="my-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+            For API-key integrations. This creates access keys to save securely; it does not
+            verify your email or create an AI-host sign-in. For an OAuth connection,
+            use the verified sign-in options above.
+          </p>
+          <CreateWallet />
+        </details>
 
       </main>
     </div>
