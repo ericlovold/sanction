@@ -29,6 +29,7 @@ export const dynamic = "force-dynamic"
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const params = await searchParams
   const next = safeNext(params.next)
+  const acceptingInvite = next.startsWith("/invite/")
   const budgetReview = next.startsWith("/dashboard/spend?wallet=")
   const reviewing = next.startsWith("/dashboard/approvals?review=")
   return (
@@ -41,8 +42,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </header>
 
       <main className="mx-auto max-w-md px-6 py-14">
-        <h1 className="text-3xl font-semibold tracking-tight">{reviewing ? "Sign in to review this action" : budgetReview ? "Sign in to review this budget" : "Sign in"}</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : budgetReview ? "Use an account or management key with access to the wallet named in the alert. We’ll return you to its budget after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{acceptingInvite ? "Sign in to accept your invite" : reviewing ? "Sign in to review this action" : budgetReview ? "Sign in to review this budget" : "Sign in"}</h1>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{acceptingInvite ? "Use the social account for the email address that received your invite. We’ll return you to the invite after sign-in." : reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : budgetReview ? "Use an account or management key with access to the wallet named in the alert. We’ll return you to its budget after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
 
         <Suspense fallback={null}><SignInRecovery onLoginPage /></Suspense>
 
@@ -50,17 +51,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <SocialSignIn callbackURL={next} apple={!!process.env.APPLE_CLIENT_ID} />
         </div>
 
-        <Divider label="or with email" />
-        <MagicLinkForm next={next} />
+        {!acceptingInvite && <>
+          <Divider label="or with email" />
+          <MagicLinkForm next={next} />
 
-        <details className="mt-8 group">
-          <summary className="sanction-link cursor-pointer list-none text-xs">
-            Have a management key (<code className="font-mono">sk_…</code>)? Sign in with it →
-          </summary>
-          <div className="mt-4">
-            <LoginForm next={next} />
-          </div>
-        </details>
+          <details className="mt-8 group">
+            <summary className="sanction-link cursor-pointer list-none text-xs">
+              Have a management key (<code className="font-mono">sk_…</code>)? Sign in with it →
+            </summary>
+            <div className="mt-4">
+              <LoginForm next={next} />
+            </div>
+          </details>
+        </>}
 
         <p className="mt-8 text-xs" style={{ color: "var(--text-muted)" }}>
           No wallet yet? <Link href="/start" style={{ color: "var(--status-approved)" }}>Create one free →</Link>
