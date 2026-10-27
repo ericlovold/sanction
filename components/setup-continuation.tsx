@@ -11,6 +11,8 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
   hasDecision?: boolean
   children?: ReactNode
 }) {
+  const setupComplete = hasMcpConnection && hasDecision
+  const heading = setupComplete ? "Setup complete" : "Continue setup"
   const router = useRouter()
   const [checking, startChecking] = useTransition()
   const [dismissed, setDismissed] = useState(false)
@@ -24,11 +26,11 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
     }
   }
 
-  return <section aria-label="Continue setup" className="rounded border border-[var(--roster-rule)] bg-[var(--roster-paper)] text-[var(--roster-signal)] p-5 space-y-4">
+  return <section aria-label={heading} className="rounded border border-[var(--roster-rule)] bg-[var(--roster-paper)] text-[var(--roster-signal)] p-5 space-y-4">
     <div className="flex items-center justify-between gap-4">
-      <h2 className="font-medium">Continue setup</h2>
+      <h2 className="font-medium">{heading}</h2>
       <button className="text-xs underline" onClick={() => setDismissed(!dismissed)}>
-        {dismissed ? "Resume setup" : "Hide steps"}
+        {setupComplete ? (dismissed ? "Show details" : "Hide details") : (dismissed ? "Resume setup" : "Hide steps")}
       </button>
     </div>
     <p className="text-sm">{!hasMcpConnection ? "Next: connect your AI tool and try a human approval." : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
