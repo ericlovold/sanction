@@ -60,7 +60,7 @@ describe("social sign-in recovery", () => {
     const retry = click(controls()[1])
     expect(markup()).not.toContain('role="alert"')
     expect(controls().every(button => button.props.disabled === true)).toBe(true)
-    expect(fixture.social).toHaveBeenLastCalledWith({ provider: "github", callbackURL: "/dashboard" })
+    expect(fixture.social).toHaveBeenLastCalledWith({ provider: "github", callbackURL: "/dashboard", errorCallbackURL: "/login?next=%2Fdashboard" })
     resolve({ data: { url: "https://example.test/oauth", redirect: true }, error: null })
     await retry
     expect(markup()).toContain("Redirecting…")
@@ -74,7 +74,7 @@ describe("social sign-in recovery", () => {
     const pending = click(original[0])
     await click(original[1])
     await click(original[2])
-    expect(fixture.social).toHaveBeenCalledExactlyOnceWith({ provider: "google", callbackURL: "/connect/mcp?request=test" })
+    expect(fixture.social).toHaveBeenCalledExactlyOnceWith({ provider: "google", callbackURL: "/connect/mcp?request=test", errorCallbackURL: "/login?next=%2Fconnect%2Fmcp%3Frequest%3Dtest" })
     expect(controls({ apple: true }).every(button => button.props.disabled === true)).toBe(true)
     resolve({ data: { url: "https://example.test/oauth", redirect: true }, error: null })
     await pending
@@ -91,6 +91,12 @@ describe("social sign-in recovery", () => {
     const apple = controls({ apple: true, callbackURL: "/invite/test-token" })
     expect(apple).toHaveLength(3)
     await click(apple[2])
-    expect(fixture.social).toHaveBeenCalledExactlyOnceWith({ provider: "apple", callbackURL: "/invite/test-token" })
+    expect(fixture.social).toHaveBeenCalledExactlyOnceWith({ provider: "apple", callbackURL: "/invite/test-token", errorCallbackURL: "/login?next=%2Finvite%2Ftest-token" })
+  })
+
+  it("keeps error recovery local even when the requested callback is external", async () => {
+    fixture.social.mockResolvedValue({ data: { redirect: true }, error: null })
+    await click(controls({ callbackURL: "https://untrusted.example" })[0])
+    expect(fixture.social.mock.calls[0][0].errorCallbackURL).toBe("/login?next=%2Fdashboard")
   })
 })

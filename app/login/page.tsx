@@ -1,5 +1,7 @@
 import { safeNext } from "@/lib/returnPath"
 import type { Metadata } from "next"
+import { Suspense } from "react"
+import { SignInRecovery } from "@/components/signin-recovery"
 import Link from "next/link"
 import { LoginForm } from "@/components/login-form"
 import { MagicLinkForm } from "@/components/magic-link-form"
@@ -41,6 +43,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <main className="mx-auto max-w-md px-6 py-14">
         <h1 className="text-3xl font-semibold tracking-tight">{reviewing ? "Sign in to review this action" : budgetReview ? "Sign in to review this budget" : "Sign in"}</h1>
         <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : budgetReview ? "Use an account or management key with access to the wallet named in the alert. We’ll return you to its budget after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
+
+        <Suspense fallback={null}><SignInRecovery onLoginPage /></Suspense>
 
         <div className="mt-8">
           <SocialSignIn callbackURL={next} apple={!!process.env.APPLE_CLIENT_ID} />

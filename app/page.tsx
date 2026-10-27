@@ -1,4 +1,6 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
+import { SignInRecovery } from "@/components/signin-recovery"
 import Link from "next/link"
 import "./brand.css"
 import { brandFontVars } from "./brand-fonts"
@@ -79,6 +81,8 @@ export default function Landing() {
           <div className="sn-home-nav-actions"><Link className="sn-btn sn-btn-ghost sn-btn-s" href="/login">Sign in</Link><Link className="sn-btn sn-btn-primary sn-btn-s" href="/start">Try one approval</Link></div>
         </div>
       </nav>
+
+      <div className="sn-home-wrap"><Suspense fallback={null}><SignInRecovery /></Suspense></div>
 
       <header className="sn-home-hero">
         <div className="sn-home-wrap sn-home-hero-grid">
