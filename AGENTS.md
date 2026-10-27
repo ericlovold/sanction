@@ -170,6 +170,22 @@ a full run fans out one subagent per topic and rolls up `audit/SCORECARD.md`.
 
 ## Session Ops Notes (dated — prune when stale)
 
+- As of 2026-10-27: after #410 the non-blocking CI audit recorded **13
+  chain entries (3 critical, 6 high, 4 moderate)**. These are advisory
+  inventory, not proven exploitable defects. Compatible production-side
+  overrides now pin `proxy-addr@^2.0.8`, `body-parser@^2.4.0`,
+  `qs@^6.17.0`, `hono@^4.13.14`, `ip-address@^10.7.5`, `fast-uri@^3.1.9`
+  (not 4.x), and `source-map-js@^1.2.2`. **Left for a dedicated
+  tooling PR:** `vitest` 3.2.7 → 5.x (clears `tinypool` critical +
+  `@vitest/mocker` moderate; npm's `audit fix --force` path — do not
+  take it here), plus compatible-but-dev-only `js-yaml@4.3.2`,
+  `vite@7.3.7`, and the remaining `brace-expansion` copies under
+  eslint/glob/test-exclude (the shadcn/`ts-morph` copy is already
+  5.0.12). Hosted MCP uses the Web Standard transport and stdio MCP
+  uses `StdioServerTransport`; Express/Hono HTTP servers are not
+  started. `fast-uri` is inlined in the published MCP bundle via Ajv,
+  so a bundle rebuild is required when that override changes.
+
 - As of 2026-08-26: **`npm audit` in CI is `continue-on-error: true`, so a
   green checkmark on "Dependency audit (high+)" means "did not block", not
   "clean".** 16 advisories (12 high — Next.js SSRF/cache-confusion, undici,
