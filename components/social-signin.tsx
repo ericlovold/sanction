@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { authClient } from "@/lib/auth-client"
+import { safeNext } from "@/lib/returnPath"
 
 // Google + GitHub sign-in. Kicks off the OAuth redirect; on return the callback
 // route sets the session cookie and lands on /dashboard, where the session
@@ -48,7 +49,10 @@ export function SocialSignIn({ callbackURL = "/dashboard", apple = false }: { ca
     setError("")
     setLoading(provider)
     try {
-      const result = await authClient.signIn.social({ provider, callbackURL })
+      const result = await authClient.signIn.social({
+        provider, callbackURL,
+        errorCallbackURL: `/login?next=${encodeURIComponent(safeNext(callbackURL))}`,
+      })
       if (!result.error) return
     } catch {
       // Network failures and returned SDK errors share the same recovery path.
