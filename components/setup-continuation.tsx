@@ -35,7 +35,13 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
         {setupComplete ? (detailsHidden ? "Show details" : "Hide details") : (dismissed ? "Resume setup" : "Hide steps")}
       </button>
     </div>
-    <p className="text-sm">{!hasMcpConnection ? "Next: connect your AI tool and try a human approval." : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
+    <p role="status" aria-live="polite" aria-atomic="true" aria-busy={checking} className="text-sm">{!hasMcpConnection ? "Next: connect your AI tool and try a human approval." : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
+    <div className="space-y-1">
+      <button type="button" aria-disabled={checking} onClick={() => { if (!checking) startChecking(() => router.refresh()) }} className="text-sm underline aria-disabled:cursor-wait aria-disabled:opacity-60">
+        {checking ? "Checking setup progress…" : "Check setup progress"}
+      </button>
+      {!setupComplete && <p className="text-xs text-[var(--roster-fog)]">Returned from your AI tool? Check for your saved connection or first authorization. This does not send a new approval request.</p>}
+    </div>
     {setupComplete && <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-4">
         <Link href="/dashboard/approvals" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Open approval inbox</Link>
@@ -45,16 +51,10 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
     </div>}
     {!detailsHidden && <>
       <div className="space-y-3">
-        <ul className="space-y-1 text-sm text-[var(--roster-fog)]" aria-label="Setup progress" aria-live="polite" aria-busy={checking}>
+        <ul className="space-y-1 text-sm text-[var(--roster-fog)]" aria-label="Setup progress">
           <li>{hasMcpConnection ? "Connected via MCP" : "MCP connection not yet detected"}</li>
           <li>{hasDecision ? "First authorization recorded in this wallet" : "First authorization not yet recorded"}</li>
         </ul>
-        <div className="space-y-1">
-          <button type="button" disabled={checking} onClick={() => startChecking(() => router.refresh())} className="text-sm underline disabled:cursor-wait disabled:opacity-60">
-            {checking ? "Checking setup progress…" : "Check setup progress"}
-          </button>
-          <p className="text-xs text-[var(--roster-fog)]">Returned from your AI tool? Check for your saved connection or first authorization. This does not send a new approval request.</p>
-        </div>
         {!setupComplete && <div className="flex flex-wrap items-center gap-4">
           {!hasMcpConnection ? <Link href="/docs/connect" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Connect your AI tool</Link>
             : <button type="button" onClick={copyPrompt} className="rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Copy first approval request</button>}
