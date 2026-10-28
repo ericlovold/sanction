@@ -47,7 +47,7 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
         <Link href="/dashboard/approvals" className="inline-block rounded bg-[var(--roster-brass)] px-4 py-2 text-sm font-medium text-[var(--roster-ink)]">Open approval inbox</Link>
         <Link href="/connect/mcp" className="text-sm underline">Manage connections</Link>
       </div>
-      <p className="text-xs text-[var(--roster-fog)]">An authorization records a decision, not whether an action ran.</p>
+      <p className="text-xs text-[var(--roster-fog)]">An authorization records a decision, not whether an action ran. Your AI host must ask Sanction and honor its decision; this connector does not intercept other tools.</p>
     </div>}
     {!detailsHidden && <>
       <div className="space-y-3">

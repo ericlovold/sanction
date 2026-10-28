@@ -58,6 +58,7 @@ describe("dashboard connection handoff", () => {
     expect(html).toContain("Check setup progress")
     expect(html).toContain('role="status" aria-live="polite" aria-atomic="true" aria-busy="false"')
     expect(html).toContain("An authorization records a decision, not whether an action ran.")
+    expect(html).toContain("Your AI host must ask Sanction and honor its decision; this connector does not intercept other tools.")
     expect(html).not.toContain("Continue setup")
     expect(html).toContain("Your first authorization is on the record.")
     expect(html).toContain("Open approval inbox")
