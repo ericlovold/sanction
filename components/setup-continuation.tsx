@@ -35,7 +35,7 @@ export function SetupContinuation({ proofComplete, hasMcpConnection = false, has
         {setupComplete ? (detailsHidden ? "Show details" : "Hide details") : (dismissed ? "Resume setup" : "Hide steps")}
       </button>
     </div>
-    <p role="status" aria-live="polite" aria-atomic="true" aria-busy={checking} className="text-sm">{!hasMcpConnection ? "Next: connect your AI tool and try a human approval." : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
+    <p role="status" aria-live="polite" aria-atomic="true" aria-busy={checking} className="text-sm">{!hasMcpConnection ? (hasDecision ? "Authorization recorded. Next: connect your AI tool." : "Next: connect your AI tool and try a human approval.") : hasDecision ? "Connected. Your first authorization is on the record." : "Connected. Next: request your first approval."}</p>
     <div className="space-y-1">
       <button type="button" aria-disabled={checking} onClick={() => { if (!checking) startChecking(() => router.refresh()) }} className="text-sm underline aria-disabled:cursor-wait aria-disabled:opacity-60">
         {checking ? "Checking setup progress…" : "Check setup progress"}

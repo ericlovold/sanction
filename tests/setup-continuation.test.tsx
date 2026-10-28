@@ -71,6 +71,7 @@ describe("dashboard connection handoff", () => {
     expect(html).toContain(">Continue setup</h2>")
     expect(html).not.toContain("Setup complete")
     expect(html).toContain("MCP connection not yet detected")
+    expect(html).toMatch(/<p role="status"[^>]*>Authorization recorded\. Next: connect your AI tool\.<\/p>/)
     expect(html).toContain(">Connect your AI tool</a>")
     expect(html).toContain("First authorization recorded in this wallet")
   })
