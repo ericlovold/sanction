@@ -1,0 +1,602 @@
+{
+  "version": 1,
+  "now": "2026-07-01T12:00:00.000Z",
+  "bindingVectors": [
+    {
+      "id": "missing-arguments-equals-empty-object",
+      "approved": {
+        "tool": "read"
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {}
+      },
+      "approvedCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": true,
+      "expected": {
+        "ok": true,
+        "code": null,
+        "status": null,
+        "reason": null,
+        "write": "consume"
+      }
+    },
+    {
+      "id": "missing-server-differs-empty-string",
+      "approved": {
+        "tool": "read"
+      },
+      "retry": {
+        "tool": "read",
+        "server": ""
+      },
+      "approvedCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":\"\",\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "server-is-bound",
+      "approved": {
+        "tool": "read",
+        "server": "docs"
+      },
+      "retry": {
+        "tool": "read",
+        "server": "other"
+      },
+      "approvedCanonical": "{\"arguments\":{},\"server\":\"docs\",\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":\"other\",\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "tool-is-bound",
+      "approved": {
+        "tool": "read"
+      },
+      "retry": {
+        "tool": "write"
+      },
+      "approvedCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"write\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "nested-key-order-equivalent",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "z": 2,
+          "nested": {
+            "b": true,
+            "a": 1
+          }
+        }
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {
+          "nested": {
+            "a": 1,
+            "b": true
+          },
+          "z": 2
+        }
+      },
+      "approvedCanonical": "{\"arguments\":{\"nested\":{\"a\":1,\"b\":true},\"z\":2},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{\"nested\":{\"a\":1,\"b\":true},\"z\":2},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": true,
+      "expected": {
+        "ok": true,
+        "code": null,
+        "status": null,
+        "reason": null,
+        "write": "consume"
+      }
+    },
+    {
+      "id": "array-order-is-bound",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "items": [
+            1,
+            2
+          ]
+        }
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {
+          "items": [
+            2,
+            1
+          ]
+        }
+      },
+      "approvedCanonical": "{\"arguments\":{\"items\":[1,2]},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{\"items\":[2,1]},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "number-differs-string",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "n": 1
+        }
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {
+          "n": "1"
+        }
+      },
+      "approvedCanonical": "{\"arguments\":{\"n\":1},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{\"n\":\"1\"},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "false-differs-zero",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "n": false
+        }
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {
+          "n": 0
+        }
+      },
+      "approvedCanonical": "{\"arguments\":{\"n\":false},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{\"n\":0},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "null-member-differs-missing",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "n": null
+        }
+      },
+      "retry": {
+        "tool": "read"
+      },
+      "approvedCanonical": "{\"arguments\":{\"n\":null},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "string-whitespace-is-bound",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "q": "a b"
+        }
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {
+          "q": "a  b"
+        }
+      },
+      "approvedCanonical": "{\"arguments\":{\"q\":\"a b\"},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{\"q\":\"a  b\"},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "unicode-normalization-is-not-performed",
+      "approved": {
+        "tool": "read",
+        "arguments": {
+          "q": "é"
+        }
+      },
+      "retry": {
+        "tool": "read",
+        "arguments": {
+          "q": "é"
+        }
+      },
+      "approvedCanonical": "{\"arguments\":{\"q\":\"é\"},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{\"q\":\"é\"},\"server\":null,\"tool\":\"read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "tool-name-whitespace-is-bound",
+      "approved": {
+        "tool": "read"
+      },
+      "retry": {
+        "tool": " read "
+      },
+      "approvedCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\" read \"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "tool-name-case-is-bound",
+      "approved": {
+        "tool": "read"
+      },
+      "retry": {
+        "tool": "Read"
+      },
+      "approvedCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"read\"}",
+      "retryCanonical": "{\"arguments\":{},\"server\":null,\"tool\":\"Read\"}",
+      "expectedMatch": false,
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      }
+    }
+  ],
+  "grantVectors": [
+    {
+      "id": "active-human",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {},
+      "expected": {
+        "ok": true,
+        "code": null,
+        "status": null,
+        "reason": null,
+        "write": "consume"
+      },
+      "requireHumanApproval": true
+    },
+    {
+      "id": "no-expiry",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "expiresAt": null
+      },
+      "expected": {
+        "ok": true,
+        "code": null,
+        "status": null,
+        "reason": null,
+        "write": "consume"
+      }
+    },
+    {
+      "id": "expiry-one-millisecond-future",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "expiresAt": "2026-07-01T12:00:00.001Z"
+      },
+      "expected": {
+        "ok": true,
+        "code": null,
+        "status": null,
+        "reason": null,
+        "write": "consume"
+      }
+    },
+    {
+      "id": "missing-grant",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {},
+      "expected": {
+        "ok": false,
+        "code": "GRANT_NOT_FOUND",
+        "status": 404,
+        "reason": "Grant not found",
+        "write": "none"
+      },
+      "missing": true
+    },
+    {
+      "id": "wallet-mismatch-precedes-consumed",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "walletId": "other-wallet",
+        "status": "consumed"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_NOT_FOUND",
+        "status": 404,
+        "reason": "Grant not found",
+        "write": "none"
+      }
+    },
+    {
+      "id": "agent-mismatch-precedes-unsupported",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "agentId": "other-agent",
+        "actionType": "spend.purchase"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_NOT_FOUND",
+        "status": 404,
+        "reason": "Grant not found",
+        "write": "none"
+      }
+    },
+    {
+      "id": "action-mismatch-precedes-consumed",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "actionType": "spend.purchase",
+        "status": "consumed"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_UNSUPPORTED",
+        "status": 403,
+        "reason": "Grant is not valid for this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "source-type-mismatch",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "sourceType": "other"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_UNSUPPORTED",
+        "status": 403,
+        "reason": "Grant is not valid for this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "source-id-missing",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "sourceId": null
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_UNSUPPORTED",
+        "status": 403,
+        "reason": "Grant is not valid for this tool invocation",
+        "write": "none"
+      }
+    },
+    {
+      "id": "policy-timeout-is-not-human-before-replay",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "issuedBy": "policy_timeout",
+        "status": "consumed"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_UNSUPPORTED",
+        "status": 403,
+        "reason": "This request requires a human-issued approval grant",
+        "write": "none",
+        "auditReason": "human_approval_required"
+      },
+      "requireHumanApproval": true
+    },
+    {
+      "id": "missing-issuer-is-not-human",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "issuedBy": null
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_UNSUPPORTED",
+        "status": 403,
+        "reason": "This request requires a human-issued approval grant",
+        "write": "none",
+        "auditReason": "human_approval_required"
+      },
+      "requireHumanApproval": true
+    },
+    {
+      "id": "policy-timeout-without-human-requirement",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "issuedBy": "policy_timeout"
+      },
+      "expected": {
+        "ok": true,
+        "code": null,
+        "status": null,
+        "reason": null,
+        "write": "consume"
+      }
+    },
+    {
+      "id": "replay-precedes-expiry-and-binding",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "status": "consumed",
+        "expiresAt": "2026-07-01T11:59:59.999Z"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_ALREADY_USED",
+        "status": 409,
+        "reason": "Grant already consumed",
+        "write": "none",
+        "replay": {
+          "originalRequestId": "auth_fixture",
+          "grantId": "grant_fixture"
+        }
+      },
+      "bindingMode": "legacy"
+    },
+    {
+      "id": "revoked-precedes-expiry",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "status": "revoked",
+        "expiresAt": "2026-07-01T11:59:59.999Z"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_NOT_FOUND",
+        "status": 404,
+        "reason": "Grant is revoked",
+        "write": "none"
+      }
+    },
+    {
+      "id": "expiry-exact-boundary-precedes-binding",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "expiresAt": "2026-07-01T12:00:00.000Z"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_EXPIRED",
+        "status": 403,
+        "reason": "Grant expired",
+        "write": "expire"
+      },
+      "bindingMode": "legacy"
+    },
+    {
+      "id": "expiry-in-past",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {
+        "expiresAt": "2026-07-01T11:59:59.999Z"
+      },
+      "expected": {
+        "ok": false,
+        "code": "GRANT_EXPIRED",
+        "status": 403,
+        "reason": "Grant expired",
+        "write": "expire"
+      }
+    },
+    {
+      "id": "legacy-binding-fails-closed",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {},
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      },
+      "bindingMode": "legacy"
+    },
+    {
+      "id": "corrupt-binding-fails-closed",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {},
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      },
+      "bindingMode": "corrupt"
+    },
+    {
+      "id": "wrong-wallet-binding-fails-closed",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {},
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      },
+      "bindingMode": "wrong-wallet"
+    },
+    {
+      "id": "unknown-version-binding-fails-closed",
+      "bindingId": "missing-arguments-equals-empty-object",
+      "grant": {},
+      "expected": {
+        "ok": false,
+        "code": "GRANT_MISMATCH",
+        "status": 403,
+        "reason": "Grant does not authorize this tool invocation",
+        "write": "none"
+      },
+      "bindingMode": "unknown-version"
+    }
+  ]
+}
