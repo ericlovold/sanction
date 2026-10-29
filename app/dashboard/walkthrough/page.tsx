@@ -29,10 +29,16 @@ export default async function WalkthroughPage({ searchParams }: {
         <li>{run.reuseStopped ? "Verified" : "Waiting"}: reused grant refused.</li>
       </ol>
       {run.state === "ready" && <BrokerWalkthroughControl operation="advance" id={run.id} label="Send test tool call" />}
-      {run.state === "pending" && <div className="space-y-3">
+      {run.state === "pending" && !run.restartReason && <div className="space-y-3">
         <Link className="underline" href={run.approval ? `/dashboard/approvals?review=${run.approval.id}` : "/dashboard/approvals"}>Review exact request in Approvals</Link>
         <BrokerWalkthroughControl operation="advance" id={run.id} label="Verify approved execution and replay protection" />
       </div>}
+      {run.restartReason && <div className="space-y-3">
+        <p role="status">{run.restartReason === "approval_expired" ? "The approval expired before this test ran." : "The approved grant expired before this test ran."} No upstream execution was recorded.</p>
+        <p className="text-sm text-muted-foreground">Start a fresh test to create a new test pool and agent, then send its tool call for a new approval. Starting fresh disables the old agent and preserves the test and approval history.</p>
+        <BrokerWalkthroughControl operation="restart" id={run.id} label="Start fresh test" />
+      </div>}
+      {run.state === "restarted" && <p>This test was replaced. {run.replacementId && <Link className="underline" href={`/dashboard/walkthrough?run=${encodeURIComponent(run.replacementId)}`}>Open its replacement</Link>}</p>}
       {run.state === "completed" && <div className="space-y-3">
         <p role="status" className="font-medium">Walkthrough complete. One approved execution recorded; changed arguments and grant reuse were refused.</p>
         <p className="text-sm text-muted-foreground">Next, connect your own tool. This test does not establish protection for your other agents.</p>

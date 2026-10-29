@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { hashApiKey } from "../lib/apiKey"
 const { mock } = vi.hoisted(() => ({ mock: {
-  brokerWalkthrough: { findFirst: vi.fn(), update: vi.fn() }, pendingApproval: { findFirst: vi.fn() },
+  brokerWalkthrough: { findFirst: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) }, pendingApproval: { findFirst: vi.fn() }, grant: { findMany: vi.fn().mockResolvedValue([]) },
 } }))
 vi.mock("@/lib/walletSubtree", () => ({ subtreeWalletIds: async () => ({ ids: ["owner", "child"] }) }))
 vi.mock("@/lib/db", () => ({ db: mock }))
@@ -14,18 +14,18 @@ describe("walkthrough evidence boundary", () => {
     expect(mock.brokerWalkthrough.findFirst).not.toHaveBeenCalled()
     mock.brokerWalkthrough.findFirst.mockResolvedValue({ upstreamTokenHash: hashApiKey("upstream-token") })
     expect(await receiveWalkthroughCall("trial", "Bearer agent-key", {})).toBeNull()
-    expect(mock.brokerWalkthrough.update).not.toHaveBeenCalled()
+    expect(mock.brokerWalkthrough.updateMany).not.toHaveBeenCalled()
   })
   it("counts every authenticated tool invocation, including mutated arguments", async () => {
     mock.brokerWalkthrough.findFirst.mockResolvedValue({ upstreamTokenHash: hashApiKey("upstream-token") })
     const r = await receiveWalkthroughCall("trial", "Bearer upstream-token", { method: "tools/call", id: 7, params: { name: "unexpected", arguments: { path: "changed" } } })
     expect(r).toMatchObject({ id: 7, result: { content: [{ text: "Sanction walkthrough: harmless read completed." }] } })
-    expect(mock.brokerWalkthrough.update).toHaveBeenCalledWith({ where: { id: "trial" }, data: { executionCount: { increment: 1 } } })
+    expect(mock.brokerWalkthrough.updateMany).toHaveBeenCalledWith({ where: { id: "trial", state: { not: "restarted" }, expiresAt: { gt: expect.any(Date) } }, data: { executionCount: { increment: 1 } } })
   })
   it("does not count protocol messages as tool executions", async () => {
     mock.brokerWalkthrough.findFirst.mockResolvedValue({ upstreamTokenHash: hashApiKey("upstream-token") })
     expect(await receiveWalkthroughCall("trial", "Bearer upstream-token", { method: "ping", id: 1 })).toMatchObject({ error: { code: -32601 } })
-    expect(mock.brokerWalkthrough.update).not.toHaveBeenCalled()
+    expect(mock.brokerWalkthrough.updateMany).not.toHaveBeenCalled()
   })
   it("scopes owner reads and selects no credentials", async () => {
     mock.brokerWalkthrough.findFirst.mockResolvedValue(null)
@@ -39,6 +39,12 @@ describe("walkthrough evidence boundary", () => {
     mock.brokerWalkthrough.findFirst.mockResolvedValue({ id: "trial", requestId: "request", testWalletId: "child", expiresAt: new Date(), completedAt: null })
     mock.pendingApproval.findFirst.mockResolvedValue({ id: "approval", status: "pending" })
     expect(await walkthroughView("owner")).toMatchObject({ approval: { status: "pending" } })
-    expect(mock.pendingApproval.findFirst).toHaveBeenCalledWith({ where: { walletId: "child", sourceType: "authorization_request", sourceId: "request" }, select: { id: true, status: true } })
+    expect(mock.pendingApproval.findFirst).toHaveBeenCalledWith({ where: { walletId: "child", sourceType: "authorization_request", sourceId: "request" }, select: { id: true, status: true, expiresAt: true, constraintsJson: true } })
   })
+})
+
+it("refuses an upstream invocation retired between authentication and recording", async () => {
+  mock.brokerWalkthrough.findFirst.mockResolvedValue({ upstreamTokenHash: hashApiKey("upstream-token") })
+  mock.brokerWalkthrough.updateMany.mockResolvedValueOnce({ count: 0 })
+  expect(await receiveWalkthroughCall("trial", "Bearer upstream-token", { method: "tools/call", id: 1 })).toBeNull()
 })

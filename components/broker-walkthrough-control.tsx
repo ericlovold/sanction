@@ -1,7 +1,7 @@
 "use client"
 import { useActionState } from "react"
 import { walkthroughAction } from "@/app/dashboard/walkthrough/actions"
-export function BrokerWalkthroughControl({ operation, id, label }: { operation: "start" | "advance"; id?: string; label: string }) {
+export function BrokerWalkthroughControl({ operation, id, label }: { operation: "start" | "advance" | "restart"; id?: string; label: string }) {
   const [state, action, pending] = useActionState(walkthroughAction, {})
   return <form action={action} className="space-y-2">
     <input type="hidden" name="operation" value={operation} />
