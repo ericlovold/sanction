@@ -1,0 +1,247 @@
+{
+  "version": 1,
+  "requests": [
+    {
+      "name": "sanction_authorize",
+      "path": "/authorize",
+      "arguments": {
+        "action": "purchase",
+        "amount_usd": 12.34,
+        "merchant": " Fixture Vendor ",
+        "category": "software",
+        "description": "line one\nline two",
+        "grant_id": "grant_fixture",
+        "execution_jwt": "fixture_execution_token"
+      },
+      "body": {
+        "action": "purchase",
+        "amount_usd": 12.34,
+        "merchant": " Fixture Vendor ",
+        "category": "software",
+        "description": "line one\nline two",
+        "grant_id": "grant_fixture"
+      },
+      "authorization": "Bearer fixture_execution_token",
+      "handler": "authorize"
+    },
+    {
+      "name": "sanction_authorize_provision",
+      "path": "/authorize/provision",
+      "arguments": {
+        "resource": "fixture.seat",
+        "line_item": "Team / Standard",
+        "quantity": 2,
+        "unit_price_usd": 6.17,
+        "amount_usd": 12.34,
+        "category": "software",
+        "description": "two seats",
+        "grant_id": "grant_fixture",
+        "execution_jwt": "fixture_execution_token"
+      },
+      "body": {
+        "resource": "fixture.seat",
+        "line_item": "Team / Standard",
+        "quantity": 2,
+        "unit_price_usd": 6.17,
+        "amount_usd": 12.34,
+        "category": "software",
+        "description": "two seats",
+        "grant_id": "grant_fixture"
+      },
+      "authorization": "Bearer fixture_execution_token",
+      "handler": "provision"
+    },
+    {
+      "name": "sanction_authorize_tool",
+      "path": "/authorize/tool",
+      "arguments": {
+        "tool": "fixture.deploy",
+        "server": "Fixture/Server",
+        "arguments": {
+          "path": " /tmp/a b ",
+          "nested": {
+            "zero": 0,
+            "disabled": false,
+            "empty": "",
+            "absent": null
+          },
+          "ordered": [
+            3,
+            1,
+            2
+          ],
+          "unicode": "caf\u00e9"
+        },
+        "require_approval": true,
+        "approval_reason": "Review exact deployment",
+        "grant_id": "grant_fixture"
+      },
+      "body": {
+        "tool": "fixture.deploy",
+        "server": "Fixture/Server",
+        "arguments": {
+          "path": " /tmp/a b ",
+          "nested": {
+            "zero": 0,
+            "disabled": false,
+            "empty": "",
+            "absent": null
+          },
+          "ordered": [
+            3,
+            1,
+            2
+          ],
+          "unicode": "caf\u00e9"
+        },
+        "require_approval": true,
+        "approval_reason": "Review exact deployment",
+        "grant_id": "grant_fixture"
+      },
+      "authorization": null,
+      "handler": "tool"
+    },
+    {
+      "name": "sanction_authorize_capability",
+      "path": "/authorize/capability",
+      "arguments": {
+        "capability": "plugin:fixture",
+        "arguments": {
+          "version": "1.0",
+          "config": {
+            "enabled": false
+          },
+          "sources": [
+            "local",
+            "remote"
+          ]
+        },
+        "grant_id": "grant_fixture"
+      },
+      "body": {
+        "capability": "plugin:fixture",
+        "arguments": {
+          "version": "1.0",
+          "config": {
+            "enabled": false
+          },
+          "sources": [
+            "local",
+            "remote"
+          ]
+        },
+        "grant_id": "grant_fixture"
+      },
+      "authorization": null,
+      "handler": "capability"
+    }
+  ],
+  "decisions": [
+    {
+      "name": "denied",
+      "httpStatus": 403,
+      "response": {
+        "authorized": false,
+        "status": "denied",
+        "code": "GRANT_MISMATCH",
+        "request_id": "request_fixture",
+        "reason": "Exact request differs",
+        "private_field": "must-not-leak"
+      },
+      "expected": {
+        "authorized": false,
+        "status": "denied",
+        "next_action": "stop",
+        "code": "GRANT_MISMATCH",
+        "request_id": "request_fixture",
+        "reason": "Exact request differs"
+      }
+    },
+    {
+      "name": "waiting",
+      "httpStatus": 202,
+      "response": {
+        "authorized": false,
+        "status": "escalated",
+        "code": "ESCALATION_REQUIRED",
+        "request_id": "request_fixture",
+        "private_field": "must-not-leak"
+      },
+      "expected": {
+        "authorized": false,
+        "status": "escalated",
+        "next_action": "wait",
+        "code": "ESCALATION_REQUIRED",
+        "request_id": "request_fixture",
+        "remediation": "Pause and wait for human review, then call sanction_check_authorization once with request_id: request_fixture. Do not retry or automatically request another approval."
+      }
+    },
+    {
+      "name": "grant consumed",
+      "httpStatus": 200,
+      "response": {
+        "authorized": true,
+        "status": "approved",
+        "request_id": "request_fixture",
+        "grant_status": "consumed",
+        "private_field": "must-not-leak"
+      },
+      "expected": {
+        "authorized": true,
+        "status": "approved",
+        "next_action": "proceed",
+        "code": "GRANT_CONSUMED",
+        "request_id": "request_fixture",
+        "grant_status": "consumed"
+      }
+    }
+  ],
+  "poll": {
+    "name": "sanction_check_authorization",
+    "arguments": {
+      "request_id": "request_fixture"
+    },
+    "path": "/authorize/request_fixture",
+    "response": {
+      "status": "approved",
+      "request_id": "request_fixture",
+      "grant_id": "grant_fixture",
+      "grant_status": "active",
+      "grant_expires_at": null,
+      "private_field": "must-not-leak"
+    },
+    "expected": {
+      "authorized": false,
+      "status": "approved",
+      "next_action": "retry_with_grant",
+      "code": "GRANT_ISSUED",
+      "request_id": "request_fixture",
+      "grant_id": "grant_fixture",
+      "grant_status": "active",
+      "grant_expires_at": null
+    },
+    "handler": "authorization"
+  },
+  "deniedPoll": {
+    "response": {
+      "authorized": false,
+      "status": "denied",
+      "code": "POLICY_DENIED",
+      "request_id": "request_fixture",
+      "reason": "Rejected by owner",
+      "grant_id": "stale_grant_must_not_leak",
+      "grant_status": "active",
+      "grant_expires_at": null
+    },
+    "expected": {
+      "authorized": false,
+      "status": "denied",
+      "next_action": "stop",
+      "code": "POLICY_DENIED",
+      "request_id": "request_fixture",
+      "reason": "Rejected by owner",
+      "grant_status": "active",
+      "grant_expires_at": null
+    }
+  }
+}
