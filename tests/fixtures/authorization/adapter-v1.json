@@ -70,7 +70,7 @@
             1,
             2
           ],
-          "unicode": "café"
+          "unicode": "caf\u00e9"
         },
         "require_approval": true,
         "approval_reason": "Review exact deployment",
@@ -92,7 +92,7 @@
             1,
             2
           ],
-          "unicode": "café"
+          "unicode": "caf\u00e9"
         },
         "require_approval": true,
         "approval_reason": "Review exact deployment",
@@ -221,5 +221,27 @@
       "grant_expires_at": null
     },
     "handler": "authorization"
+  },
+  "deniedPoll": {
+    "response": {
+      "authorized": false,
+      "status": "denied",
+      "code": "POLICY_DENIED",
+      "request_id": "request_fixture",
+      "reason": "Rejected by owner",
+      "grant_id": "stale_grant_must_not_leak",
+      "grant_status": "active",
+      "grant_expires_at": null
+    },
+    "expected": {
+      "authorized": false,
+      "status": "denied",
+      "next_action": "stop",
+      "code": "POLICY_DENIED",
+      "request_id": "request_fixture",
+      "reason": "Rejected by owner",
+      "grant_status": "active",
+      "grant_expires_at": null
+    }
   }
 }

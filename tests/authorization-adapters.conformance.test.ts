@@ -146,6 +146,17 @@ describe.each<Transport>(["http", "internal-dispatch", "bundled-stdio"])("author
     }
   })
 
+  it("suppresses stale grants when an authorization check is denied", async () => {
+    const { client, seen, invokedHandlers } = await adapter(transport, vectors.deniedPoll.response)
+    const result = await client.callTool({ name: vectors.poll.name, arguments: vectors.poll.arguments })
+    assertDecision(result, vectors.deniedPoll.expected)
+    expect(result.structuredContent).not.toHaveProperty("grant_id")
+    expect(JSON.stringify(result)).not.toContain("stale_grant_must_not_leak")
+    expect(JSON.stringify(result)).not.toContain("retry_with_grant")
+    expect(seen).toEqual([{ path: vectors.poll.path, method: "GET", body: null, authorization: null, apiKey: transport === "internal-dispatch" ? null : "pxy_adapter_fixture" }])
+    if (transport === "internal-dispatch") expect(invokedHandlers).toEqual([vectors.poll.handler])
+  })
+
   it("fails closed on malformed decisions", async () => {
     const { client } = await adapter(transport, { authorized: true, status: "denied" })
     assertDecision(await client.callTool({ name: vectors.requests[2].name, arguments: vectors.requests[2].arguments }), {
