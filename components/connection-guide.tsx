@@ -127,6 +127,14 @@ export function ConnectionGuide({ source }: { source: string }) {
               <h2 className="font-display text-xl font-semibold">{step === 1 ? "Check the connection" : "Request your first approval"}</h2>
               <Markdown source={stepSource} />
               {prompt && <CopyButton key={`${host}:${step}`} text={prompt} label={step === 1 ? "Copy connection check" : "Copy test request"} />}
+              {step === 2 && (
+                <div className="mt-4 space-y-2">
+                  <a href="/dashboard/approvals" target="_blank" rel="noopener noreferrer" className="inline-block rounded-md border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-400/20 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300">
+                    Open approval inbox (new tab)
+                  </a>
+                  <p className="text-sm text-muted-foreground">After your AI tool returns a pending request, review it in the inbox. Then return here for the follow-up prompt below.</p>
+                </div>
+              )}
               {step === 1 ? (
                 <button type="button" onClick={() => setStep(2)} className="mt-4 text-sm font-medium text-amber-200 underline underline-offset-4">After a successful check: request approval</button>
               ) : (
