@@ -138,8 +138,8 @@ export type Persona = {
   history?: (dayIndex: number) => DayPlan
   /** API-only staging for targets without DB access (no backdating possible):
    *  today's spends + past outcomes (occurred_at is a first-class API field)
-   *  arm windowed state like the cost-per-outcome ceiling. Run once, before
-   *  the first pulse. */
+   *  arm windowed state like the cost-per-outcome ceiling. Pulse re-applies
+   *  this when the rolling window has aged out; skip it when already armed. */
   prime?: {
     spends: SpendSpec[]
     outcomes: (OutcomeSpec & { days_ago: number })[]

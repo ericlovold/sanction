@@ -26,6 +26,7 @@ import { meridian } from "./personas/meridian"
 import { coastline } from "./personas/coastline"
 import { harborwren } from "./personas/harborwren"
 import { checkPulseFixtures } from "./preflight"
+import { ensureCpoArmed } from "./cpoArm"
 
 const PERSONAS: Record<string, Persona> = { meridian, coastline, harborwren }
 
@@ -259,22 +260,14 @@ async function runOutcomes(
 
 // API-only staging for DB-less targets: today's spends + occurred_at-backdated
 // outcomes arm windowed state (the CPO ceiling) without touching the database.
+// Idempotent: a window that is already over the ceiling is left alone.
 async function prime(persona: Persona) {
   if (!persona.prime) fail(`persona "${persona.key}" has no prime plan`)
   const keys = loadKeys(persona.key)
   if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
-  const c = makeChecker()
-  console.log("prime spends:")
-  await runSpends(keys, persona.prime.spends, c, { stagePending: false })
-  console.log("prime outcomes (backdated via occurred_at):")
-  for (const o of persona.prime.outcomes) {
-    const occurred = new Date(Date.now() - o.days_ago * 24 * 3600 * 1000).toISOString()
-    await runOutcomes(keys, [o], c, { occurredAt: occurred })
-  }
-  if (c.mismatches()) {
-    console.log(`\nPrime finished with ${c.mismatches()} mismatch(es).`)
-    process.exit(1)
-  }
+  console.log("arming CPO window:")
+  const errors = await ensureCpoArmed(persona, keys)
+  if (errors.length) fail(`prime failed:\n${errors.join("\n")}`)
   console.log(`\nPrimed — windowed state armed. Run pulse.`)
 }
 
@@ -285,6 +278,8 @@ async function pulse(persona: Persona, watch: boolean) {
   if (!keys.company) fail(`no keys for "${persona.key}" — run seed first`)
   const problems = await checkPulseFixtures(persona, keys)
   if (problems.length) fail(`pulse fixture preflight failed before writes:\n${problems.join("\n")}\nWait for fresh fixtures; do not reset counters or relax expectations.`)
+  const armErrors = await ensureCpoArmed(persona, keys)
+  if (armErrors.length) fail(`pulse CPO window could not be armed before the probe:\n${armErrors.join("\n")}`)
   const c = makeChecker()
   keys.pending = [] // reset staging; re-pulse restages
 
