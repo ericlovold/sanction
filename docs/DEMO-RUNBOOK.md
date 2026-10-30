@@ -23,10 +23,10 @@ Run order matters, per target: **seed → history (DB targets) or prime
 (DB-less targets, e.g. prod) → pulse**. Coastline's ceiling story *requires*
 history or prime before its first pulse. History needs `DATABASE_URL`
 for the backdate pass (see `scripts/demo/backdate.ts` for why and what it
-touches); seed, prime, and pulse are pure REST. Maintenance beat: the
-Bluebird throttle's windowed ratio decays by design (a throttled channel
-approves nothing, so its spend ages out) — when the daily pulse flags
-Bluebird approved-instead-of-escalated, re-run `prime coastline`. After bootstrapping, bundle the key
+touches); seed, prime, and pulse are pure REST. Pulse itself re-arms
+Bluebird's cost-per-outcome window when the 30-day sample has aged out
+(idempotent, date-scoped outcomes, skip when already over the ceiling), so
+the daily $12 Google Ads probe still has to escalate. After bootstrapping, bundle the key
 files into the `DEMO_KEYS_JSON` secret (recipe in
 `.github/workflows/demo-pulse.yml`) — the **Demo Pulse** workflow then
 re-pulses all three companies daily, so dashboards always show a live day
@@ -38,7 +38,7 @@ owner-authenticated reporting for its token seats. Any positive token spend
 in the current UTC day, missing data, or failed read stops that persona before
 writes and preserves its local pending-request list. This conservative guard
 can reject a run that would still fit the budget. It is not a policy simulation:
-monthly and ancestor limits, CPO drift, concurrent traffic, and a deployment's
+monthly and ancestor limits, concurrent traffic, and a deployment's
 budget-reset timezone can still make a fresh fixture fail the actual pulse.
 Never reset counters or loosen assertions to obtain a green run.
 
@@ -46,9 +46,9 @@ Actions attempts all three personas and summarizes each result; any failed
 or blocked persona keeps the workflow red. Each persona has a five-minute
 deadline; a timeout is a failure with potentially completed writes, never an
 automatic retry. A successful individual pulse does
-not replace a green complete canary. For Bluebird drift, inspect both the
-outcome sample size and the projected CPO before deciding to re-prime; priming
-creates real synthetic decisions and is not an automatic repair.
+not replace a green complete canary. Bluebird's pulse re-arms the CPO
+window before the escalate probe; a red Coastline run after that is a
+product or fixture failure, not calendar drift.
 
 Entering a company: **`/login` → paste that company's `sk_` key.** You are
 now their ops lead — approvals are clickable. Your own login (HQ's owner)
