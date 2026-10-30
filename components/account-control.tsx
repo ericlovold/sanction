@@ -13,7 +13,7 @@ export function AccountControl({ view }: { view: { name: string; isSession: bool
   return (
     <form action={logoutAction} className="flex items-center gap-2 text-xs">
       <span className="hidden text-zinc-500 sm:inline">{view.name}</span>
-      <button type="submit" className="rounded border border-zinc-700 px-2 py-1 text-zinc-400 transition-colors hover:text-zinc-100">
+      <button type="submit" className="shrink-0 cursor-pointer whitespace-nowrap rounded border-2 border-white/80 px-2.5 py-1.5 font-medium text-white transition-colors hover:border-white hover:bg-white hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:bg-white/85">
         Log out
       </button>
     </form>
