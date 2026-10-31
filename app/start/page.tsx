@@ -42,7 +42,7 @@ export default function StartPage() {
           </p>
           <ol className="mt-5 space-y-2 text-sm" aria-label="Setup steps">
             <li>1. Sign in with a verified account.</li>
-            <li>2. Connect your AI tool using the guided setup.</li>
+            <li>2. Connect your AI tool. Per-host steps: <Link href="/install" className="sanction-link">Install</Link>.</li>
             <li>3. Approve or deny a test request. Nothing executes.</li>
           </ol>
           <div className="mt-6">

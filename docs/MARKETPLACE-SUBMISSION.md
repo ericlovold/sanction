@@ -47,7 +47,8 @@ Connector completion precedes activation and go-to-market work; listing presence
 - [x] **Engineering:** Verify public `/privacy` and `/support` return HTTP 200.
 - [x] **Engineering:** `/terms` returns HTTP 200 on 2026-10-11; #364 added it and `interface.termsOfServiceURL` to the OpenAI source manifest. The uploaded portal artifact and final legal attestations still require account verification.
 - [ ] **Together:** Prepare a dedicated reviewer identity, sample data and host-specific login instructions. Do not weaken production authentication for review.
-- [ ] **Engineering:** Assemble logo, concise one-off approval description, setup/disconnection guide, annotation rationale and versioned release notes.
+- [x] **Engineering:** Public setup/disconnect guide for ChatGPT and Codex: [`/docs/chatgpt-codex`](https://getsanction.com/docs/chatgpt-codex), plus the per-surface hub at [`/install`](https://getsanction.com/install). These are source pages; they are not live until this change is deployed.
+- [ ] **Engineering:** Assemble logo, concise one-off approval description, annotation rationale and versioned release notes. The setup/disconnection guide is drafted (item above); the remaining listing artifacts are still open.
 - [ ] **Together:** Record the actual host, version, date, input, sanitized result and outcome for every case. No credentials in recordings, packages or public reports.
 
 The backend harness in [PR #342](https://github.com/ericlovold/sanction/pull/342)
@@ -226,7 +227,7 @@ The [review packet](SLACK-SUBMISSION.md) is preparation, not marketplace accepta
 - [ ] **Eric:** Verify eligibility: at least ten active workspace installations maintained throughout review, and ten weekly active users. Active workspaces must have used the app within 28 days; sandbox installs do not count. Confirm live account counters before applying.
 - [ ] **Together:** Prove public OAuth installation in an external workspace, correct owner/workspace routing, approval and rejection, and uninstall behavior.
 - [ ] **Engineering:** Check OAuth state, authenticated Slack requests, token handling and HTTPS against the review requirements.
-- [ ] **Engineering:** Publish Slack-specific setup/install guidance, listing screenshots, privacy disclosures and support reachable without a Sanction account.
+- [ ] **Engineering:** Publish Slack-specific setup/install guidance, listing screenshots, privacy disclosures and support reachable without a Sanction account. `/slack` remains the Slack landing; `/install#slack` now points there. Screenshots and Marketplace assets are still required.
 - [ ] **Eric:** Commit to support responses within two business days and confirm the app's eligibility. Describe approval decisions separately from financial transactions or remote action execution.
 - [ ] **Together:** Prepare populated Sanction reviewer credentials and instructions for Slack's reviewers to install into their own workspace. Do not provide a Slack workspace login as the test account.
 - [ ] **Engineering:** Record the install → setup → approval/rejection → uninstall walkthrough; run automated checks and resolve findings.

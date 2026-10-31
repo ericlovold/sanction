@@ -150,14 +150,14 @@ export default function Landing() {
       <section className="sn-home-section sn-home-wrap">
         <div className="sn-home-section-heading"><Label>Fits the way you work</Label><h2>Your providers stay yours.</h2><p>Start with a cooperative approval connection. Add enforcement in the paths you control as your workflow grows.</p></div>
         <div className="sn-home-integrations">
-          <article><h3>Connect an AI host</h3><p>Use the approvals connection to request and check decisions. The agent must consult Sanction and honor the response.</p><Link href="/docs/connect">Connection guide & host test status →</Link></article>
+          <article><h3>Connect an AI host</h3><p>Use the approvals connection to request and check decisions. The agent must consult Sanction and honor the response.</p><Link href="/install">Install on your host →</Link></article>
           <article><h3>Govern the execution path</h3><p>Route tool calls through the MCP broker, check actions in your application integration, or route model usage through the budget gateway. Enforcement covers those connected paths.</p><Link href="/platform">Explore the platform →</Link></article>
           <article><h3>Keep a decision record</h3><p>See which agent requested an action and how it was authorized. The record evidences the decision; it does not prove an external action ran.</p><Link href="/docs">Read the documentation →</Link></article>
         </div>
       </section>
 
       <section className="sn-home-closing"><div className="sn-home-wrap"><Label>Start with one approval</Label><h2>If you’re not sure, Sanction it.</h2><p>One safe request. A human decision. A clear next step.</p><div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Try one approval</Link><Link className="sn-btn sn-btn-secondary sn-btn-l" href="/start#create-account">Create a free account</Link></div></div></section>
-      <footer className="sn-home-footer sn-home-wrap"><div><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="104" height="20" /><p>Authorize. Protect. Govern.</p></div><nav aria-label="Footer navigation"><Link href="/use-cases">Use cases</Link><Link href="/platform">Platform</Link><Link href="/docs/connect">Connect</Link><Link href="/slack">Slack</Link><Link href="/about">About</Link><Link href="/roadmap">Roadmap</Link><Link href="/changelog">Changelog</Link><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></nav></footer>
+      <footer className="sn-home-footer sn-home-wrap"><div><img src="/brand/sanction-wordmark-green.svg" alt="Sanction" width="104" height="20" /><p>Authorize. Protect. Govern.</p></div><nav aria-label="Footer navigation"><Link href="/use-cases">Use cases</Link><Link href="/platform">Platform</Link><Link href="/install">Install</Link><Link href="/docs/connect">Connect</Link><Link href="/slack">Slack</Link><Link href="/about">About</Link><Link href="/roadmap">Roadmap</Link><Link href="/changelog">Changelog</Link><Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></nav></footer>
     </main>
   )
 }

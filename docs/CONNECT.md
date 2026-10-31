@@ -8,6 +8,10 @@ Sanction is free for individuals. Start with the harmless test below: it request
 permission and executes nothing. Connecting Sanction does not automatically
 intercept the host's other tools.
 
+Per-surface install paths (ChatGPT, Codex, Claude, Cursor, Slack), including
+disconnect: [Install Sanction](/install). ChatGPT and Codex also have a
+[setup and disconnect guide](/docs/chatgpt-codex).
+
 ## 1. Choose your host
 
 Create your [Sanction account](/start) first. OAuth connections require a verified
@@ -60,7 +64,7 @@ manifest lists both profiles.
 | Codex | Add the HTTP server using the commands below, then sign in. | Configuration follows Codex documentation; Sanction lifecycle test pending. |
 | Grok (consumer) | [Connectors](https://grok.com/connectors) → New Connector → Custom. Enter the URL above and complete the offered authentication. | Custom `/mcp/approvals` OAuth completed October 6: consent identified Grok, eight tools enabled, one `sanction_wallet_status` read. Approval lifecycle still pending. Not a directory listing. |
 | Grok Bot | In chat, ask the Bot to add `https://getsanction.com/mcp/approvals`. Complete Sanction OAuth. Official Bot docs still describe catalog plugins, not a custom MCP form. | Unauthenticated `/mcp/approvals` challenges with `WWW-Authenticate` resource metadata (production, October 22). A Bot session reached OAuth sign-in with no custom headers. Consent completion, tool list, and approval lifecycle are unverified. Not a Connect-apps listing. |
-| ChatGPT | A remote MCP plugin is the distribution path. Sanction's package and review evidence are being prepared. | No verified public listing or completed ChatGPT lifecycle test. A local Codex connection does not install a ChatGPT web plugin. |
+| ChatGPT | No verified public listing. Use the [ChatGPT/Codex setup guide](/docs/chatgpt-codex) when a listing is published. A local Codex connection does not install ChatGPT web. | No verified public listing or completed ChatGPT lifecycle test. Package candidate only. |
 
 ### Cursor
 

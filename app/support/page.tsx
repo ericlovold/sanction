@@ -12,6 +12,7 @@ const rows: [string, string, string][] = [
   ["Help and questions", "eric@getsanction.com", "mailto:eric@getsanction.com?subject=Sanction%20support"],
   ["Security reports", "eric@getsanction.com — no public issues, please", "mailto:eric@getsanction.com?subject=Sanction%20security%20report"],
   ["Documentation", "getsanction.com/docs", "/docs"],
+  ["Install an AI host", "getsanction.com/install — ChatGPT, Codex, Claude, Cursor, Slack", "/install"],
   ["Source and issues", "github.com/ericlovold/sanction", "https://github.com/ericlovold/sanction/issues"],
   ["Status of your install", "Dashboard → Approvals shows connected Slack workspaces and routes", "/dashboard/approvals"],
 ]

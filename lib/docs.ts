@@ -5,6 +5,7 @@ import path from "node:path"
 // Only public-facing guides are listed here.
 export const DOCS: Record<string, { file: string; title: string; description: string }> = {
   connect: { file: "CONNECT.md", title: "Connect and ask for approval", description: "Choose your AI host and try one human approval. Setup paths, test status, and a harmless first request." },
+  "chatgpt-codex": { file: "CHATGPT-CODEX.md", title: "ChatGPT and Codex setup", description: "Connect or disconnect Sanction in Codex today, and in ChatGPT when a listing is published. Honest about what is shipped." },
   "grok-bot": { file: "GROK-BOT.md", title: "Grok Bot connection boundaries", description: "Hosted MCP, safe connection checks, and the distinction between Grok consumer and Grok Bot." },
   "mcp-oauth": { file: "MCP-OAUTH.md", title: "MCP OAuth and decisions", description: "Connect an approval-focused host, understand the decision contract, and disconnect access." },
   "developer-usage": { file: "DEVELOPER-USAGE.md", title: "Developer usage", description: "Connect Claude Code and Codex telemetry, then prove one native tool approval." },

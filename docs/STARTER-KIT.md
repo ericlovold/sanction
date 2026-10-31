@@ -13,6 +13,14 @@ Everything below is that loop, three ways: raw REST, MCP tools, and webhooks.
 
 ## 0. Setup (60 seconds)
 
+Connecting Claude, Cursor, Codex, ChatGPT, or Slack rather than calling REST?
+Start at [Install](/install). The curls below are the API-key path.
+
+**If you create a wallet here and later sign in** with a verified email or
+social account, that first claim revokes pre-claim agent keys. Claim the
+wallet through [sign-in](https://getsanction.com/login) first, then mint
+new agent keys. Details: [Quickstart](./QUICKSTART.md).
+
 ```bash
 # Create a wallet (returns a management key sk_… — keep it out of agent hands)
 curl -X POST https://getsanction.com/api/v1/wallets \
@@ -111,7 +119,9 @@ yourself; ask again.
 ## 3. The loop, over MCP
 
 If your runtime speaks MCP, the agent carries a Sanction wallet — not another tool
-server next to GitHub. Discovery: [`GET /.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json).
+server next to GitHub. Hosts that support OAuth (Claude, Cursor, Codex) should
+use `https://getsanction.com/mcp/approvals` from [Install](/install) instead of
+pasting a `pxy_` key. Discovery: [`GET /.well-known/wallet-card.json`](https://getsanction.com/.well-known/wallet-card.json).
 
 ```json
 {

@@ -8,6 +8,10 @@
 
 ## 0. Hosted or local?
 
+Connecting an AI host (Claude, Cursor, Codex, Slack) instead of curling the
+API? Use [Install](/install), then the [connection guide](/docs/connect). The
+steps below are the API path.
+
 Every step below runs against the hosted API — nothing to install. **Cloned the
 repo and want it local instead?** The API routes need Postgres:
 
