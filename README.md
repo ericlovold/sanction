@@ -18,6 +18,7 @@ No policy edit is required, and blocked actions stay blocked.
 
 Individuals can use Sanction free, without a card. The host must ask and honor the
 decision; connection alone does not enforce its other tools.
+[Install on your host](https://getsanction.com/install) ·
 [Choose your host and try one approval](https://getsanction.com/docs/connect).
 
 ## Who runs Sanction
