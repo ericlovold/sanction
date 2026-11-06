@@ -38,7 +38,7 @@ const steps = [
   {
     n: "1",
     title: "Create your account",
-    desc: "Sign up free and get two keys, shown once: an agent key (pxy_) for your agents, and a management key (sk_) for provisioning and policy. No card required.",
+    desc: "Sign up free. AI-host connections use a verified sign-in and do not require copying keys. The API path still issues two keys, shown once: an agent key (pxy_) for your agents, and a management key (sk_) for provisioning and policy. No card required.",
     cta: { label: "Create a wallet →", href: "/start" },
   },
   {
@@ -94,6 +94,8 @@ const concepts = [
 ]
 
 const ecosystem = [
+  { title: "Install", desc: "Per-surface install and disconnect: ChatGPT, Codex, Claude, Cursor, Slack.", href: "/install" },
+  { title: "ChatGPT and Codex", desc: "Setup and disconnect for the OpenAI hosts. Honest about the unpublished ChatGPT listing.", href: "/docs/chatgpt-codex" },
   { title: "Slack approvals", desc: "Bring the human decision loop into the channel your team already watches.", href: "/slack" },
   { title: "The agent wallet", desc: "Carry, present, verify — MCP as the wallet an agent takes into A2A, not another tool server.", href: "/docs/agent-wallet" },
   { title: "Compatibility", desc: "Badges, channel packs, and install paths for MCP, frameworks, gateways, and payment-agent pilots.", href: "/compatibility" },
@@ -148,6 +150,16 @@ export default function Docs() {
           Govern your agents&apos; token spend — across every provider, user, and system. Here&apos;s the fastest path
           from zero to a metered, capped, audited agent.
         </p>
+
+        <section className="mt-10 rounded-lg border border-amber-400/25 bg-amber-400/[0.04] p-5">
+          <h2 className="font-display text-lg font-semibold tracking-tight">Installing on ChatGPT, Codex, Claude, Cursor, or Slack?</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Each host has its own path. Connecting does not intercept the host&apos;s other tools. ChatGPT has no verified public listing yet.
+          </p>
+          <Link href="/install" className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
+            Install paths →
+          </Link>
+        </section>
 
         {/* Quickstart */}
         <section className="mt-12 space-y-8">

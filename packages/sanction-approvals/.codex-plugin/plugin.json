@@ -13,7 +13,7 @@
   "interface": {
     "displayName": "Sanction Approvals",
     "shortDescription": "Pause for human approval",
-    "longDescription": "Request human review of an exact tool action, then check and redeem its one-use grant when the user resumes. Synthetic tests execute nothing. This cooperative approval workflow does not intercept other tools, install enforcement hooks, or replace host permissions. Requires a Sanction account and connection.",
+    "longDescription": "Request human review of an exact tool action, then check and redeem its one-use grant when the user resumes. Synthetic tests execute nothing. This cooperative approval workflow does not intercept other tools, install enforcement hooks, or replace host permissions. Requires a Sanction account and connection. Setup and disconnect: https://getsanction.com/install and https://getsanction.com/docs/chatgpt-codex.",
     "developerName": "Sanction",
     "category": "Developer Tools",
     "capabilities": [
