@@ -16,7 +16,7 @@ Prepared 2026-10-03. Draft for review; no submission or dedicated reviewer-accou
 
 **Connection:** `https://getsanction.com/mcp/approvals` — remote MCP, OAuth authorization code with S256 PKCE and dynamic client registration. The access scope is `sanction:approvals`; refresh uses `offline_access`.
 
-**Links:** [Website](https://getsanction.com), [setup documentation](https://getsanction.com/docs/connect), [privacy](https://getsanction.com/privacy), [support](https://getsanction.com/support), [manage/disconnect connections](https://getsanction.com/connect/mcp).
+**Links:** [Website](https://getsanction.com), [install](https://getsanction.com/install), [setup documentation](https://getsanction.com/docs/connect), [privacy](https://getsanction.com/privacy), [support](https://getsanction.com/support), [manage/disconnect connections](https://getsanction.com/connect/mcp).
 
 **Assets and portal-only fields:** Candidate icon: [logo.svg](../cursor-plugin/assets/logo.svg). Confirm the portal's accepted format before upload. Categories, permanent slug, publisher/company identity, private review contact and final data-handling declarations: **PENDING owner review**. Do not invent category labels or publish credentials in this packet.
 

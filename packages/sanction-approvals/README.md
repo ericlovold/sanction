@@ -47,12 +47,16 @@ The older bundled validator rejected this field; its allowlist does not reflect
 those requirements. JSON and URL checks are not full schema validation. Portal
 validation and acceptance remain unverified.
 
+Setup and disconnect for reviewers and end users:
+[getsanction.com/install](https://getsanction.com/install) and
+[getsanction.com/docs/chatgpt-codex](https://getsanction.com/docs/chatgpt-codex).
+`https://getsanction.com/terms` is live (HTTP 200). Confirm the uploaded ZIP
+still includes `termsOfServiceURL` before treating the portal artifact as current.
+
 ## Submission blockers
 
 - Verify the publisher identity and listing name in the portal.
-- Review and deploy the proposed `/terms` page, then verify public access at
-  `https://getsanction.com/terms` before using it for submission. Deployment and
-  public availability remain pending.
+- Confirm public `/terms`, `/privacy`, `/support`, and `/install` still return HTTP 200.
 - Complete OAuth connection, domain verification, and a current tool scan;
   review tool annotations and justifications.
 - Run the candidate cases below with a dedicated review account and sample data,
@@ -73,14 +77,17 @@ credentials, funded payment instruments, outbound integrations, and real agent
 workloads out of this wallet. Configure only the synthetic policies needed for
 the cases below; restore the baseline between cases.
 
-Use the existing management-key sign-in: open `/login`, expand “Have a management
-key”, and enter the review wallet's `sk_` key. This key grants owner access, so
-isolation is essential. Store the key and exact sign-in steps only in the secure
-reviewer-access fields in the portal, never in this package or the recording.
+OAuth consent requires a **verified human sign-in** (the portal's magic-link
+or email-code identity, or Google/GitHub/Apple) for a wallet the reviewer
+owns or administers. A management key (`sk_`) can open the dashboard; it does
+**not** establish the OAuth identity the host needs. Provision that reviewer
+on an isolated synthetic wallet. Store sign-in steps only in the portal's
+secure reviewer-access fields, never in this package or the recording.
 
 Before submission, verify in a fresh browser session that the reviewer can sign
-in, connect the plugin through OAuth to the intended review wallet, inspect its
-pending approvals, and approve or reject a synthetic request without assistance.
+in with that verified identity, connect the plugin through OAuth to the intended
+review wallet, inspect its pending approvals, and approve or reject a synthetic
+request without assistance.
 Record the tested date and any access expiry privately; keep access valid for
 the review period and revoke it when review ends. This setup is a recommendation,
 not evidence that a review wallet or working connection already exists.

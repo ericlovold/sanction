@@ -89,6 +89,10 @@ available; review is guidance, not a new enforced prerequisite.
 | Support | https://getsanction.com/support |
 | Support contact | eric@getsanction.com |
 
+Keep this listing field on `/slack`. The public hub at
+[`/install#slack`](https://getsanction.com/install#slack) points here; do not
+replace the Slack landing with the multi-host page.
+
 Use **Install from your landing page**. The OAuth start route requires a Sanction
 admin session and redirects unauthenticated visitors to sign-in; it does not meet
 Slack's optional Direct Install requirement for an immediate 302 to Slack OAuth.
