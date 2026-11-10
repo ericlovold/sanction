@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withEve } from "eve/next";
 import path from "path";
 
 const nextConfig: NextConfig = {
@@ -69,4 +70,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// withEve returns a function-shaped config. Keep the original helpers attached
+// so existing config-level tests and tooling can inspect redirects and headers.
+const eveConfig = Object.assign(withEve(nextConfig), nextConfig);
+export default eveConfig as unknown as NextConfig;
