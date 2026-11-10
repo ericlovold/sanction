@@ -24,6 +24,7 @@ const ICON = {
   overview: "M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
   credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
+  eve: "M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4",
 }
 
 // Roster pass (2026-08-15): three surfaces. The tree is home. Approvals is
@@ -33,6 +34,7 @@ const items: Item[] = [
   { href: "/dashboard", label: "Roster", icon: <Icon d={ICON.overview} /> },
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
   { href: "/dashboard/vault", label: "Vault", icon: <Icon d={ICON.credentials} /> },
+  { href: "/dashboard/eve", label: "eve", icon: <Icon d={ICON.eve} /> },
 ]
 
 function isActive(pathname: string, href: string): boolean {
