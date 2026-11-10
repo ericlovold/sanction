@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from "node:fs"
 import { dirname, join, resolve, relative } from "node:path"
 
 const ROOT = resolve(process.argv[2] ?? ".")
-const SKIP = new Set(["node_modules", ".git", ".next", "coverage", "audit", "lib/generated"])
+const SKIP = new Set(["node_modules", ".git", ".next", "coverage", "audit", "lib/generated", ".eve", ".output"])
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {

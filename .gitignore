@@ -67,3 +67,7 @@ scripts/demo/.local-keys/
 
 # stray tool output (never repo content)
 /output/
+
+# eve compiled artifacts (local `eve build`; Vercel compiles during next build)
+/.eve/
+/.output/
