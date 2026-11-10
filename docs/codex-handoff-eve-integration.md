@@ -2,24 +2,32 @@
 
 ## Objective
 
-Turn sanction into a production-ready control plane for an eve-powered sanctions/compliance agent. The first increment should connect the existing dashboard onboarding experience to a real eve agent lifecycle without introducing mock persistence or exposing provider credentials.
+Wire eve as the conversational onboarding layer for Sanction, the authorization plane for AI agents. Sanction approves, escalates, or denies spend, MCP tool calls, credential use, provisioning, and x402 payment challenges before they become irreversible. It is not sanctions screening or compliance matching.
 
-## Current branch and implementation
+The intended first-run conversation, from `agent/instructions.md`:
 
-- Branch: `v0/eve-integration`
-- Existing PR commit: `f23a7db Add eve integration onboarding`
-- Added `/dashboard/eve` onboarding UI.
-- Added an `agent/` directory with sanction-specific instructions and a connection definition.
-- Updated `next.config.ts` to mount eve routes through `withEve`.
-- Added the eve runtime dependency.
+1. Scan the organization through connectors the user has already granted.
+2. Submit a normalized roster snapshot with provenance and show shadow-AI findings.
+3. Preview a deterministic seat plan.
+4. Never apply a plan without explicit owner approval. Applying a plan is a provision action and must go through Sanction's approval loop.
+
+Hosted MCP lives at `https://getsanction.com/mcp`. The shipped tools are authorization and status (`sanction_authorize`, `sanction_authorize_provision`, `sanction_authorize_tool`, `sanction_authorize_capability`, `sanction_log_tokens`, `sanction_log_outcome`, `sanction_wallet_status`, `sanction_check_authorization`). Roster submission and seat-plan tools are not on that surface yet.
+
+## Current implementation (main)
+
+- `/dashboard/eve` is a preview mockup. Example teams and spend are hardcoded. The page is labeled preview and is off the default sidebar until it runs on real connector state. The route stays reachable by URL.
+- `agent/` holds sanction-specific instructions and an MCP client pointed at `https://getsanction.com/mcp`.
+- `next.config.ts` mounts eve routes through `withEve`.
+- The eve runtime dependency is installed. Connector status is not persisted. Do not claim a connector is connected until status confirms it.
 
 ## Important constraints
 
 1. Use eve for durable agent behavior; do not replace it with ad hoc route handlers or client-only state.
-2. Use Vercel Connect for third-party credentials and channels. Never add Slack, sanctions-data, or model secrets to source files or `.env` examples.
-3. Use the existing database integration for user/org data. Do not add localStorage, hardcoded production data, or a second persistence layer.
+2. Use Vercel Connect for third-party credentials and channels. Never add Slack, directory, or model secrets to source files or `.env` examples.
+3. Use the existing database for user/org data. Do not add localStorage, hardcoded production data, or a second persistence layer. Preview example data on `/dashboard/eve` is temporary and must be replaced by confirmed connector state.
 4. Preserve the existing dashboard shell, responsive behavior, and access-control conventions.
 5. Keep all user-facing copy lowercase for `eve`.
+6. Never claim a connector is connected until status confirms it.
 
 ## Recommended next slice
 
@@ -45,7 +53,7 @@ Do not store provider access tokens. Store only the Vercel Connect connector ide
 
 ### 3. Wire the onboarding page
 
-Replace the current presentation-only actions with real server actions or route handlers:
+Replace the preview mockup with real server actions or route handlers:
 
 - create a connector request
 - open/resume Vercel Connect setup
@@ -53,22 +61,22 @@ Replace the current presentation-only actions with real server actions or route 
 - disconnect/revoke a connector
 - show actionable error states
 
-The page should remain usable on mobile, use accessible buttons and labels, and never claim a connector is connected until status confirms it.
+The page should remain usable on mobile, use accessible buttons and labels, and never claim a connector is connected until status confirms it. Remove the example teams and spend once a confirmed snapshot exists.
 
 ### 4. Add an eve web channel
 
 Keep the public surface restricted by default. Add a dashboard chat/status surface only for authenticated sanction users, then expose eve's web channel through the existing app shell. The agent should be able to:
 
-- explain a sanction match and its evidence
-- summarize a case
+- explain a roster snapshot and its provenance
+- preview a seat plan (pools, seats, budgets, policy packs)
 - identify missing review information
-- draft, but not autonomously execute, high-impact enforcement actions
+- request authorization through Sanction MCP; draft, but not autonomously apply, a seat plan
 
-Sensitive actions require explicit approval and an auditable event.
+Sensitive actions require explicit owner approval and an auditable event. Applying a plan uses `sanction_authorize_provision` and the existing grant redeem loop.
 
 ### 5. Add auditability
 
-Create an append-only audit record for connector changes, agent runs, approvals, and enforcement decisions. Capture actor, organization, action, target, timestamp, result, and a redacted metadata payload. Add a small activity panel to the dashboard before enabling destructive workflows.
+Create an append-only audit record for connector changes, agent runs, approvals, and authorization decisions. Capture actor, organization, action, target, timestamp, result, and a redacted metadata payload. Add a small activity panel to the dashboard before enabling destructive workflows.
 
 ## Acceptance criteria
 
@@ -80,18 +88,21 @@ Create an append-only audit record for connector changes, agent runs, approvals,
 - Every approval and connector state change produces an audit event.
 - The UI has loading, empty, error, and revoked states and works at mobile width.
 - No production action is executed without explicit approval.
+- The UI never claims a connector is connected until status confirms it.
 
 ## Suggested implementation order
 
 1. Inspect existing auth, organization, and database patterns.
 2. Verify the current eve build and route mount.
-3. Add the connector/audit schema and migration through the project’s established database workflow.
+3. Add the connector/audit schema and migration through the project's established database workflow.
 4. Implement server-side connector actions and status mapping.
-5. Replace onboarding placeholders with real state.
+5. Replace onboarding placeholders with confirmed connector state.
 6. Add the restricted eve web channel and approval boundary.
 7. Add tests for authorization, connector state transitions, and audit records.
 8. Run checks, browser verification, and update this handoff with any deviations.
 
 ## Open product decision
 
-The default recommendation is **restricted web access for authenticated sanction users**, with Slack or other external channels added only after the connector ownership and audit model are proven. If sanction must support a public intake channel, define the tenant-routing and abuse controls before enabling it.
+Restricted web access for authenticated sanction users, with Slack or other external channels added only after the connector ownership and audit model are proven. If a public intake channel is required, define tenant-routing and abuse controls before enabling it.
+
+eve is in provider scope as a preview integration alongside ChatGPT (2026-11-10). The preview page stays off the default sidebar until it runs on real connector state.

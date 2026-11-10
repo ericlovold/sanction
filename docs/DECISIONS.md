@@ -1,5 +1,10 @@
 # Product decisions
 
+- 2026-11-10 — **eve is in scope as a preview integration alongside ChatGPT.**
+  Why: the founder reopened provider scope after the 2026-10-29 ChatGPT-only activation freeze; eve remains the intended conversational onboarding layer for roster snapshots, seat-plan previews, and the Sanction approval loop.
+  Rejected: treating `/dashboard/eve` as a live connector surface, or putting it on the default signed-in sidebar, while findings are still hardcoded.
+  Revisit when: the page runs on persisted connector status and can show a confirmed connection without example data.
+
 - 2026-10-29 — **ChatGPT is the only additional provider integration in the current activation scope.**
   Why: finish the existing connector and onboarding paths before activation; ChatGPT's remaining submission blocker is the demonstration video, per the founder's current assessment.
   Rejected: adding more provider integrations during this slice, which would expand the work before the existing first-approval experience is ready.
