@@ -164,7 +164,6 @@ export default async function Dashboard() {
       <OnboardingTour autoStart={isDemo || roster.agentCount === 0} canRunProof={view.isSession && canAdd} />
 
       <div className="mx-auto max-w-5xl space-y-6">
-        <Link href="/dashboard/usage" className="mr-5 text-sm underline">Developer usage</Link>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--roster-brass)]">Roster</p>
