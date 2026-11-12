@@ -32,18 +32,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const acceptingInvite = next.startsWith("/invite/")
   const budgetReview = next.startsWith("/dashboard/spend?wallet=")
   const reviewing = next.startsWith("/dashboard/approvals?review=")
+  const connectingUsage = next.split("?")[0] === "/dashboard/connect"
   return (
     <div className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh", background: "var(--surface-page)", color: "var(--text-body)" }}>
       <header className="border-b" style={{ borderColor: "var(--paper-3)" }}>
         <nav className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
           <Link href="/" className="font-semibold tracking-tight">Sanction</Link>
-          <Link href="/start" className="sanction-link text-sm">Create a wallet →</Link>
+          {!connectingUsage && <Link href="/start" className="sanction-link text-sm">Create a wallet →</Link>}
         </nav>
       </header>
 
       <main className="mx-auto max-w-md px-6 py-14">
-        <h1 className="text-3xl font-semibold tracking-tight">{acceptingInvite ? "Sign in to accept your invite" : reviewing ? "Sign in to review this action" : budgetReview ? "Sign in to review this budget" : "Sign in"}</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{acceptingInvite ? "Use the social account for the email address that received your invite. We’ll return you to the invite after sign-in." : reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : budgetReview ? "Use an account or management key with access to the wallet named in the alert. We’ll return you to its budget after sign-in." : "Welcome back. Sign in to your Sanction console."}</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{acceptingInvite ? "Sign in to accept your invite" : reviewing ? "Sign in to review this action" : budgetReview ? "Sign in to review this budget" : connectingUsage ? "Sign in for usage reporting" : "Sign in"}</h1>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{acceptingInvite ? "Use the social account for the email address that received your invite. We’ll return you to the invite after sign-in." : reviewing ? "Use an account or management key with access to the wallet that raised this request. We’ll return you to the decision after sign-in." : budgetReview ? "Use an account or management key with access to the wallet named in the alert. We’ll return you to its budget after sign-in." : connectingUsage ? "New to Sanction? Continue with Google or GitHub to create your free wallet. After sign-in, you’ll return to your tool setup." : "Welcome back. Sign in to your Sanction console."}</p>
 
         <Suspense fallback={null}><SignInRecovery onLoginPage /></Suspense>
 
@@ -65,9 +66,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </details>
         </>}
 
-        <p className="mt-8 text-xs" style={{ color: "var(--text-muted)" }}>
+        {!connectingUsage && <p className="mt-8 text-xs" style={{ color: "var(--text-muted)" }}>
           No wallet yet? <Link href="/start" style={{ color: "var(--status-approved)" }}>Create one free →</Link>
-        </p>
+        </p>}
       </main>
     </div>
   )

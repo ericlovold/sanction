@@ -40,7 +40,26 @@ describe("individual usage setup", () => {
     expect(loginHref).toBeDefined()
     const returnPath = new URL(loginHref!, "https://example.test").searchParams.get("next")
     expect(safeNext(returnPath)).toBe(next)
+    expect(html).toContain("Sign in or create a wallet")
+    expect(html).not.toContain('href="/start"')
     expect(mocks.connection).not.toHaveBeenCalled()
+  })
+
+  it("keeps Claude cost estimates separate from Codex session tokens", async () => {
+    mocks.wallet.mockResolvedValue(wallet("owner"))
+    mocks.usage.mockResolvedValue({
+      connections: [], truncated: false,
+      sessions: [{
+        key: "local-codex", sessionId: "session", source: "codex", seat: "Local",
+        lastEvent: new Date(), modelCalls: 1, unmeteredCalls: 0, unpricedCalls: 1,
+        tokensIn: 24, tokensOut: 8, estimatedCost: 0,
+      }],
+    })
+    const html = renderToStaticMarkup(await UsagePage())
+    expect(html).toContain("Claude Code also reports cost estimates when available.")
+    expect(html).toContain("24 / 8")
+    expect(html).toContain(">Unavailable</td>")
+    expect(html).not.toContain("$0.0000")
   })
 
   it.each([

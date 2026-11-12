@@ -20,11 +20,8 @@ export default async function ConnectPage({ searchParams }: {
     const next = hasSource ? `/dashboard/connect?source=${source}` : "/dashboard/connect"
     return <div className="mx-auto max-w-3xl space-y-4 p-5 md:p-10">
       <h1 className="text-2xl font-semibold">Connect {hasSource ? sourceNames[source] : "a developer tool"}</h1>
-      <p className="text-sm text-muted-foreground">Sign in to your wallet to set up usage reporting.</p>
-      <div className="flex flex-wrap gap-4 text-sm underline">
-        <Link href={`/login?next=${encodeURIComponent(next)}`}>Sign in to connect your own tool</Link>
-        <Link href="/start">Create a wallet</Link>
-      </div>
+      <p className="text-sm text-muted-foreground">Set up usage reporting in your own wallet.</p>
+      <Link className="inline-block rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={`/login?next=${encodeURIComponent(next)}`}>Sign in or create a wallet</Link>
     </div>
   }
   const check = typeof params.check === "string" && /^\d{1,6}$/.test(params.check) ? Number(params.check) + 1 : 1
