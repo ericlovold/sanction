@@ -154,7 +154,7 @@ export default function InstallPage() {
             </li>
             <li>
               <strong>Cursor community plugin:</strong> rotate its agent key in{" "}
-              <Link href="/dashboard/keys" className="sanction-link">API keys</Link>, then remove the plugin. Rotation stops all clients using the old key.
+              <Link href="/dashboard/agents" className="sanction-link">Seats</Link>, then remove the plugin. Rotation stops all clients using the old key.
             </li>
             <li>
               <strong>Slack:</strong> disconnect the workspace on{" "}

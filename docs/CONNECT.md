@@ -189,7 +189,7 @@ contract details](/docs/mcp-oauth) explain the boundary and remaining test gaps.
 
 For OAuth, revoke the host at [MCP connections](/connect/mcp), then remove the connector in the host. Revocation stops future requests through that connection. Earlier decisions and admitted work keep their recorded status.
 
-For the Cursor community plugin, rotate its agent key in [API keys](/dashboard/keys), then remove the plugin from Cursor. Every client using the old key loses access when you rotate it. Removing the plugin alone leaves the key valid.
+For the Cursor community plugin, open its seat under [Seats](/dashboard/agents) and select **Rotate key**, then remove the plugin from Cursor. Every client using the old key loses access when you rotate it. Removing the plugin alone leaves the key valid.
 
 Report setup problems through [Sanction support](mailto:eric@getsanction.com).
 Include the host and failed step, but no keys, tokens, grants, or private action

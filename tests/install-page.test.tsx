@@ -24,6 +24,7 @@ describe("public /install hub", () => {
     expect(page).toContain('href="/slack"')
     expect(page).toContain('href="/connect/mcp"')
     expect(page).toContain('id="disconnect"')
+    expect(page).toContain('href="/dashboard/agents"')
   })
 
   it("distinguishes community listings, custom installs, and unavailable listings", () => {
