@@ -148,9 +148,13 @@ export default function InstallPage() {
           <h2 className="text-2xl font-semibold tracking-tight">Disconnect</h2>
           <ul className="mt-4 max-w-2xl space-y-3 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             <li>
-              <strong>AI host connections:</strong> revoke the host at{" "}
+              <strong>OAuth connections:</strong> revoke the host at{" "}
               <Link href="/connect/mcp" className="sanction-link">MCP connections</Link>
               . Then remove the connector in the host. Disconnect stops future requests; it does not undo completed decisions.
+            </li>
+            <li>
+              <strong>Cursor community plugin:</strong> rotate its agent key in{" "}
+              <Link href="/dashboard/keys" className="sanction-link">API keys</Link>, then remove the plugin. Rotation stops all clients using the old key.
             </li>
             <li>
               <strong>Slack:</strong> disconnect the workspace on{" "}
