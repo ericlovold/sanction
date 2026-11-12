@@ -18,6 +18,7 @@ describe("public /install hub", () => {
       expect(page).toContain(`id="${id}"`)
     }
     expect(page).toContain("https://getsanction.com/mcp/approvals")
+    expect(page).toContain('href="/docs/developer-usage"')
     expect(page).toContain('href="/docs/connect#host=grok-consumer&amp;step=connect"')
     expect(page).toContain('href="/docs/chatgpt-codex"')
     expect(page).toContain('href="/slack"')

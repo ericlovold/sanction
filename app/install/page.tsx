@@ -113,6 +113,10 @@ export default function InstallPage() {
           For an OAuth connection, <Link href="/start#create-account" className="sanction-link" style={{ textDecoration: "underline" }}>sign in to your free account</Link> and choose an active agent from a wallet you own or administer.
         </p>
 
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          To see sessions and tokens from Claude Code or local Codex, <Link href="/docs/developer-usage" className="sanction-link" style={{ textDecoration: "underline" }}>set up usage reporting</Link>.
+        </p>
+
         <section className="mt-12 space-y-5" aria-label="Install paths">
           {surfaces.map((surface) => (
             <article
