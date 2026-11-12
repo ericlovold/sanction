@@ -123,10 +123,11 @@ checks, not evidence of a successful production installation or a security audit
   stored but no longer deliver. Reconnect affected routes with **Add to Slack**
   or replace them with incoming-webhook URLs. Verify deployment and production
   configuration privately before attesting public-distribution readiness.
-- [ ] Confirm the portal's live usage eligibility. Slack requires ten active
-  workspace installs maintained throughout review; its guidelines also name ten
-  weekly active users. Active workspaces have been used within 28 days and exclude
-  sandboxes. Do not count local records as proof of Slack's counters.
+- [ ] Read the live Slack portal counters before applying. Maintain ten active
+  workspace installations throughout review. Under the November 2 rule, low
+  usage means both fewer than ten active workspaces and fewer than twenty
+  monthly active users. A low-usage submission carries a 30-day resubmission
+  delay. [Slack’s updated criteria](https://docs.slack.dev/changelog/2026/11/02/slack-marketplace-submission-criteria/).
 - [ ] Resolve suitability with Slack's reviewers: the guidelines exclude financial
   transactions and certain remote execution uses. Explain the authorization flow
   accurately; an approval-only description does not guarantee acceptance.

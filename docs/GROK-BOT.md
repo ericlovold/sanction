@@ -29,21 +29,13 @@ compatibility. Track these distinct gates in the [submission checklist](MARKETPL
 
 ## Check host support first
 
-Official Grok Bot documentation still describes Connect apps → choose a catalog
-plugin → Add → authenticate if requested → attach it in chat with `@`. That
-page does not document an arbitrary custom MCP form. See [Grok’s computer and
-apps guide](https://docs.x.ai/grok-bot/computer-and-apps) (checked 2026-10-22).
-
-Grok Bot can add a remote MCP server as a connector; it discovers Sanction's
-OAuth sign-in on its own. Add the public HTTPS URL
-`https://getsanction.com/mcp/approvals`. Localhost and stdio servers are not
-reachable from the Bot’s cloud computer.
-
-Grok Bot authenticates custom MCP over OAuth. There is no safe owner UI for
-custom secret headers. Do not paste a `pxy_…` agent key into chat, saved skills,
-URLs, or committed files, and never ask the Bot to display a key.
-
-Where a host supports that custom remote MCP path:
+In the desktop app, open **Connect apps → Add a custom connector**. Name it
+Sanction, choose **Remote HTTPS**, enter the URL below, and select **Add plugin**.
+You can also ask the Bot to add the public URL in chat. The desktop form offers
+optional headers and OAuth client settings. For Sanction, leave them blank
+and use the verified sign-in when prompted. Choose the intended wallet and
+agent on Sanction's consent page. Team MCP policy can block the connection.
+[Grok Bot setup, checked November 12](https://docs.x.ai/grok-bot/computer-and-apps).
 
 | Setting | Value |
 | --- | --- |
