@@ -29,7 +29,7 @@ npm run test:coverage      # Coverage with ratchet thresholds (see below)
 npm run test:db            # DB-backed tests (tests/*.db.test.ts) — needs a real
                            # Postgres in DATABASE_URL + RUN_DB_TESTS=1, plus
                            # SANCTION_SIGNING_SECRET / SANCTION_CREDENTIAL_ENCRYPTION_KEY
-npm run build              # prisma generate + guarded migrate + next build
+npm run build              # prisma generate + guarded migrate + eve build (off Vercel) + next build
 npm run build:mcp          # esbuild-bundle mcp-server.ts → packages/sanction-mcp/mcp-server.js
 npx prisma migrate dev     # Create a migration after editing prisma/schema.prisma
 bash scripts/smoke.sh      # End-to-end smoke test against a live deployment
