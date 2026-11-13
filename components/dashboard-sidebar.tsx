@@ -22,15 +22,14 @@ function Icon({ d }: { d: string }) {
 // Minimal inline icons (no icon-lib dependency).
 const ICON = {
   overview: "M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z",
+  usage: "M4 4v16h16M8 16v-4m5 4V7m5 9v-6",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
   credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
 }
 
-// Roster pass (2026-08-15): three surfaces. The tree is home. Approvals is
-// the only job that is not an object property. Vault holds secrets, people,
-// and the signed record. Old URLs stay reachable from the vault drawers.
 const items: Item[] = [
   { href: "/dashboard", label: "Roster", icon: <Icon d={ICON.overview} /> },
+  { href: "/dashboard/usage", label: "Developer usage", icon: <Icon d={ICON.usage} /> },
   { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
   { href: "/dashboard/vault", label: "Vault", icon: <Icon d={ICON.credentials} /> },
 ]
@@ -44,15 +43,16 @@ function NavLink({ item, active, pending, onNavigate }: { item: Item; active: bo
   return (
     <Link
       href={item.href}
+      aria-current={active ? "page" : undefined}
       onClick={onNavigate}
       data-tour={item.href.replace("/dashboard/", "nav-").replace("/dashboard", "nav-overview")}
-      className={`group flex items-center gap-3 border-l-2 py-2 pl-3 pr-3 text-sm transition-colors ${
+      className={`group flex items-center gap-3 whitespace-nowrap border-l-2 px-2 py-2 text-sm transition-colors max-[359px]:px-1.5 max-[359px]:text-xs md:px-3 ${
         active
           ? "border-sidebar-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
           : "border-transparent text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
       }`}
     >
-      <span className={active ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"}>{item.icon}</span>
+      <span className={`hidden md:inline-flex ${active ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"}`}>{item.icon}</span>
       <span className="flex-1">{item.label}</span>
       {showBadge && (
         <span className="rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[oklch(0.82_0.11_85)]">{pending}</span>

@@ -22,7 +22,7 @@ This is a reduced tool surface, **not a restricted credential**. The supplied ag
 
 ## Submission board
 
-Observations are dated below; connector status reconciled 2026-10-11 (America/Chicago); portal observations retain their original dates. Checked boxes mean observed evidence,
+Observations are dated below; public directory and distribution checks updated 2026-11-12 (America/Chicago). Private portal observations retain their original dates. Checked boxes mean observed evidence,
 not assumed acceptance. **Engineering** prepares artifacts and fixes; **Eric**
 owns accounts, identity, legal approval and submission; **Together** runs host tests.
 Portal identity, eligibility and review status must be checked in the actual account.
@@ -32,11 +32,11 @@ Portal identity, eligibility and review status must be checked in the actual acc
 | MCP Registry / npm | `packages/sanction-mcp/` | 0.10.0 published; hosted `/mcp` entry verified | Complete; monitor releases separately from directories |
 | Claude | Remote connector | [Community listing](https://claude.ai/directory/sanction-approvals) renders all eight tools, observed 2026-10-06 | Fresh installation and recorded host lifecycle remain unverified |
 | ChatGPT + Codex | `packages/sanction-approvals/` ZIP | 0.1.0 draft needs attention; MCP configured and authorized, domain verified, skill checks pass (2026-10-06) | Terms live and source manifest updated; verify uploaded artifact, reviewer access, video, tool review and separate ChatGPT/Codex host evidence |
-| Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | Marketplace rejected per publisher email; [community submission](https://cursor.directory/plugins/sanction) scanning, unpublished and hidden (2026-10-06) | Community security scan and authenticated host test; no public listing established |
-| Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with successful security checks and no reviews, checked 2026-10-11 | Catalog review and authenticated host tests; publication pending |
+| Cursor | [Public MIT plugin](https://github.com/ericlovold/sanction-plugin) | [Cursor Directory community listing](https://cursor.directory/plugins/sanction) rendered the Sanction title and heading on 2026-11-12. Cursor declined the separate official Marketplace application. | Install from the community listing in a clean Cursor profile and record an authenticated approval and denial |
+| Grok Build | Public plugin catalog PR | [xAI PR #1156](https://github.com/xai-org/plugin-marketplace/pull/1156) open with three successful checks, checked 2026-11-12 | Catalog review and authenticated host tests; publication pending |
 | Grok consumer | Custom MCP connection | OAuth completed; Sanction Approvals appears Connected and Added (2026-10-06) | Eight tools visible; read-only wallet smoke passed; approval lifecycle and public catalog route unverified |
-| Grok Bot | Marketplace plugin | Public publisher route unverified | Confirm route with xAI before preparing a claimed submission |
-| Slack | Slack app submission | October 14 portal: public distribution enabled; submission draft unlocked; 1 active workspace and 0 active users over 28 days; listing text and scope reasons prepared. Earlier broker approval/redeem and denial proof remains separate | Deploy installation-generation and revoked-token fixes; complete external-workspace lifecycle, usage eligibility, reviewer access and assets. See [readiness checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026); no submission claimed |
+| Grok Bot | Custom remote MCP | Desktop custom setup is documented by xAI. The Sanction rehearsal reached OAuth sign-in. | Finish consent, discovery and a decision on this host. A public catalog listing remains unverified. |
+| Slack | Slack app submission | Direct installation is available at [Sanction for Slack](https://getsanction.com/slack). Development-workspace lifecycle evidence and October portal counts are dated in the [review packet](SLACK-SUBMISSION.md). | Complete an external-workspace lifecycle and check current Slack counters and review readiness before applying |
 
 Connector completion precedes activation and go-to-market work; listing presence alone does not complete the host tests.
 
@@ -125,8 +125,8 @@ was rejected, per the publisher email reviewed on 2026-10-06.
 
 A separate [Cursor Directory community submission](https://cursor.directory/plugins/sanction)
 was created on 2026-10-06 through its [submission form](https://cursor.directory/plugins/new).
-It reports a pending security scan and remains unpublished and hidden. The
-scanner selected the repository's Grok configuration; the submitted MCP component
+On 2026-11-12 a public browser rendered the Sanction community listing. At submission, the
+scanner had selected the repository's Grok configuration; the submitted MCP component
 was corrected to the Cursor configuration: `/mcp` with
 `x-api-key: ${SANCTION_AGENT_KEY}`. No credential value was submitted in that field.
 Authenticated host testing remains pending.
@@ -135,7 +135,8 @@ Authenticated host testing remains pending.
 - [x] **Engineering:** Validate manifest paths/frontmatter and every declared `${SANCTION_AGENT_KEY}` variable; remove all credential values.
 - [ ] **Together:** Load the plugin locally in Cursor. Verify discovery, secret configuration, wallet status, request/pause, exact redemption and denial.
 - [x] **Eric:** Submit the public repository URL and publisher application for manual review; portal receipt confirmed 2026-10-03.
-- [ ] **Together:** Track the community security scan and resolve findings; verify any published listing and installation in a clean profile. Community acceptance does not reverse the marketplace rejection.
+- [x] **Together:** Verify the public community listing renders the Sanction plugin.
+- [ ] **Together:** Record a fresh installation and completed approval flow from that listing.
 
 **Done:** Accepted public listing and a recorded Cursor lifecycle. A direct MCP
 install link or successful local load is not marketplace acceptance. Cursor
@@ -196,7 +197,7 @@ not a public publisher application procedure.
 ### Grok Bot — verify its own marketplace path
 
 - [ ] **Eric:** Confirm the supported publisher route and whether the intended Sanction package can appear in Bot's Marketplace. No automatic Cursor-to-Bot public listing is established here.
-- [ ] **Together:** In the supported Marketplace flow, add the connector, authenticate, attach it with `@`, and test the approval lifecycle.
+- [ ] **Together:** Add the custom Remote HTTPS connector, complete Sanction OAuth and test the approval lifecycle. If a public listing is accepted, repeat installation through that entry point.
 - [ ] **Eric / team admin:** Check Cursor's Plugins & MCPs / Team Marketplace policy for allowed servers. Bot inherits that connector policy; it has no independent team connector list.
 - [ ] **Together:** Use a dedicated test identity and record the shared-account boundary. A user's Bots share their computer and permitted connectors; Bot names do not isolate credentials.
 - [ ] **Together:** Verify fresh installation from any eventual listing and save the result.
@@ -219,12 +220,10 @@ separate denial stopping without another fixture invocation. These are bounded
 live proofs, not an external-workspace adoption or uninstall certificate.
 
 The [October 14 checkpoint](SLACK-SUBMISSION.md#readiness-checkpoint--october-14-2026)
-records enabled public distribution and an unlocked submission draft. Slack shows
-1 active workspace and 0 users active in the past 28 days; usage eligibility and
-the remaining listing requirements are not complete.
+records enabled public distribution and an unlocked submission draft. On that date Slack showed one active workspace and zero users active in the previous 28 days. Read the live portal counters for the current cohort.
 The [review packet](SLACK-SUBMISSION.md) is preparation, not marketplace acceptance.
 
-- [ ] **Eric:** Verify eligibility: at least ten active workspace installations maintained throughout review, and ten weekly active users. Active workspaces must have used the app within 28 days; sandbox installs do not count. Confirm live account counters before applying.
+- [ ] **Eric:** Verify the portal's current active-installation and monthly-active-user counters. Maintain ten active workspace installations through review. Slack classifies a submission as low usage when both counts are below ten active workspaces and twenty monthly active users. A low-usage submission delays resubmission by 30 days. [November 2 criteria](https://docs.slack.dev/changelog/2026/11/02/slack-marketplace-submission-criteria/).
 - [ ] **Together:** Prove public OAuth installation in an external workspace, correct owner/workspace routing, approval and rejection, and uninstall behavior.
 - [ ] **Engineering:** Check OAuth state, authenticated Slack requests, token handling and HTTPS against the review requirements.
 - [ ] **Engineering:** Publish Slack-specific setup/install guidance, listing screenshots, privacy disclosures and support reachable without a Sanction account. `/slack` remains the Slack landing; `/install#slack` now points there. Screenshots and Marketplace assets are still required.

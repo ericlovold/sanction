@@ -90,8 +90,12 @@ export default function Landing() {
             <Label>Human in the loop, productized</Label>
             <h1 className="sn-hero-h1">Human oversight.<br />Autonomous agents.</h1>
             <p className="sn-home-lead">Your agent has work to do. Some decisions still need you. Review the proposed action in Sanction or Slack when configured, and keep a record of your answer.</p>
-            <div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Try one approval</Link><a className="sn-btn sn-btn-secondary sn-btn-l" href="#how">See how it works</a></div>
-            <p className="sn-home-small">Try the preview without an account. Nothing is sent or spent.</p>
+            <div className="sn-home-actions"><Link className="sn-btn sn-btn-primary sn-btn-l" href="/start">Try one approval</Link><Link className="sn-btn sn-btn-secondary sn-btn-l" href="/install">Find your connector</Link></div>
+            <p className="sn-home-small">
+              Try the preview without an account. Nothing is sent or spent.<br />
+              Free for individuals, including production and client work. No card required.{" "}
+              <Link href="/platform#pricing" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>See plans</Link>
+            </p>
           </div>
           <ApprovalVisual />
         </div>

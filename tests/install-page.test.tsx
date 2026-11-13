@@ -11,26 +11,32 @@ function html() {
 }
 
 describe("public /install hub", () => {
-  it("names every GTM surface and the approvals endpoint", () => {
+  it("links each tool shortcut to its setup or availability section", () => {
     const page = html()
-    for (const name of ["ChatGPT", "Codex", "Claude", "Cursor", "Slack"]) {
-      expect(page).toContain(name)
+    for (const id of ["claude", "cursor", "codex", "grok", "slack", "chatgpt"]) {
+      expect(page).toContain(`href="#${id}"`)
+      expect(page).toContain(`id="${id}"`)
     }
     expect(page).toContain("https://getsanction.com/mcp/approvals")
+    expect(page).toContain('href="/docs/developer-usage"')
+    expect(page).toContain('href="/docs/connect#host=grok-consumer&amp;step=connect"')
     expect(page).toContain('href="/docs/chatgpt-codex"')
     expect(page).toContain('href="/slack"')
     expect(page).toContain('href="/connect/mcp"')
     expect(page).toContain('id="disconnect"')
+    expect(page).toContain('href="/dashboard/agents"')
   })
 
-  it("does not claim unpublished listings or interception", () => {
+  it("distinguishes community listings, custom installs, and unavailable listings", () => {
     const page = html()
     expect(page).toContain("No verified public listing")
-    expect(page).toContain("Cursor Marketplace rejected")
+    expect(page).toContain('href="https://cursor.directory/plugins/sanction"')
+    expect(page).toContain("outside the official Cursor Marketplace")
+    expect(page).toContain('href="https://claude.ai/directory/sanction-approvals"')
+    expect(page).toContain("fresh installation unverified")
     expect(page).toContain("Slack Marketplace submission is not complete")
     expect(page).toContain("does not intercept")
     expect(page).not.toMatch(/install Sanction from ChatGPT/i)
-    expect(page).toContain("not Verified status")
   })
 })
 

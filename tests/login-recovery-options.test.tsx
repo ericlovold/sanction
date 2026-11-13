@@ -26,3 +26,11 @@ it.each(["/dashboard", "/dashboard/approvals?review=test", "https://untrusted.ex
   expect(html).not.toContain("Sign in to accept your invite")
   expect(html).not.toContain("untrusted.example")
 })
+
+it.each(["codex", "claude-code"])("keeps first-time social sign-in on the selected %s setup path", async source => {
+  const next = `/dashboard/connect?source=${source}`
+  const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({ next }) }))
+  expect(html).toContain("Continue with Google or GitHub to create your free wallet.")
+  expect(html).toContain(`href="${next}"`)
+  expect(html).not.toContain('href="/start"')
+})

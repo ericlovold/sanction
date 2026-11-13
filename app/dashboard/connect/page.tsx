@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { getViewWallet } from "@/lib/session"
-import { NoWallet } from "@/components/no-wallet"
 import { ConnectionConfig } from "@/components/connection-config"
 import { developerConfig, developerConnection } from "@/lib/developerConnection"
 import { hasRole } from "@/lib/roles"
@@ -14,12 +13,18 @@ const date = (value: Date) => value.toISOString().replace("T", " ").slice(0, 19)
 export default async function ConnectPage({ searchParams }: {
   searchParams: Promise<{ source?: string; seat?: string; check?: string }>
 }) {
-  const wallet = await getViewWallet()
-  if (!wallet) return <NoWallet />
-  if (!wallet.isSession) return <div className="p-6"><Link href="/login?next=%2Fdashboard%2Fconnect" className="underline">Sign in to connect your own tool</Link></div>
-  const params = await searchParams
-  const check = typeof params.check === "string" && /^\d{1,6}$/.test(params.check) ? Number(params.check) + 1 : 1
+  const [wallet, params] = await Promise.all([getViewWallet(), searchParams])
   const source = params.source === "codex" ? "codex" : "claude-code"
+  if (!wallet?.isSession) {
+    const hasSource = params.source === source
+    const next = hasSource ? `/dashboard/connect?source=${source}` : "/dashboard/connect"
+    return <div className="mx-auto max-w-3xl space-y-4 p-5 md:p-10">
+      <h1 className="text-2xl font-semibold">Connect {hasSource ? sourceNames[source] : "a developer tool"}</h1>
+      <p className="text-sm text-muted-foreground">Set up usage reporting in your own wallet.</p>
+      <Link className="inline-block rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={`/login?next=${encodeURIComponent(next)}`}>Sign in or create a wallet</Link>
+    </div>
+  }
+  const check = typeof params.check === "string" && /^\d{1,6}$/.test(params.check) ? Number(params.check) + 1 : 1
   const seat = typeof params.seat === "string" ? params.seat : ""
   const [view, proof] = await Promise.all([
     developerConnection(wallet.id, seat, source),
