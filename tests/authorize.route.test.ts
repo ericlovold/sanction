@@ -16,6 +16,7 @@ const { dbMock } = vi.hoisted(() => ({
     pendingApproval: { findFirst: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
@@ -124,6 +125,7 @@ beforeEach(() => {
   dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1", actionType: "spend.purchase", resourceJson: {}, reason: "r" })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
+  dbMock.$queryRaw.mockResolvedValue([{ dailySpentUsd: 0, monthlySpentUsd: 0 }])
   vi.mocked(cascadeDailyWouldExceed).mockResolvedValue(false)
 })
 
@@ -160,6 +162,12 @@ describe("authorize — the spend ladder", () => {
     const res = await authorize(req(SPEND)) // $5 < $10
     expect(res.status).toBe(200)
     expect((await res.json())).toMatchObject({ authorized: true, status: "approved" })
+    expect(dbMock.$queryRaw).toHaveBeenCalledOnce()
+    expect(dbMock.grant.findMany).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.aggregate).not.toHaveBeenCalled()
+    const lockCall = dbMock.$executeRaw.mock.calls.findIndex(([sql]) => sql.join("").includes("pg_advisory_xact_lock"))
+    expect(lockCall).toBeGreaterThanOrEqual(0)
+    expect(dbMock.$executeRaw.mock.invocationCallOrder[lockCall]).toBeLessThan(dbMock.$queryRaw.mock.invocationCallOrder[0])
   })
 
   it("escalates between the threshold and the hard cap, creating the pending approval", async () => {
@@ -181,7 +189,7 @@ describe("authorize — the spend ladder", () => {
       ...AGENT,
       wallet: { ...AGENT.wallet, policy: { ...POLICY, dailySpendBudgetUsd: 1_000 } }, // $10/day
     })
-    dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 8 } })
+    dbMock.$queryRaw.mockResolvedValue([{ dailySpentUsd: 8, monthlySpentUsd: 8 }])
     const res = await authorize(req(SPEND)) // 8 + 5 > 10
     expect(res.status).toBe(403)
     expect((await res.json()).code).toBe("DAILY_BUDGET_EXCEEDED")
@@ -193,8 +201,7 @@ describe("authorize — the spend ladder", () => {
       ...AGENT,
       wallet: { ...AGENT.wallet, policy: { ...POLICY, monthlySpendBudgetUsd: 80_000 } },
     })
-    // Both the daily and monthly aggregate reads resolve to the same month total.
-    dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 798 } })
+    dbMock.$queryRaw.mockResolvedValue([{ dailySpentUsd: 0, monthlySpentUsd: 798 }])
     const res = await authorize(req(SPEND)) // $798 + $5 > $800 monthly, but « $10k daily
     expect(res.status).toBe(403)
     expect((await res.json()).code).toBe("MONTHLY_BUDGET_EXCEEDED")

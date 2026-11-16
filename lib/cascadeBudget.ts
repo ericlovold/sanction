@@ -260,7 +260,7 @@ export async function cascadeDailyWouldExceed(
   return false
 }
 
-// Approved spend since `since`, as the one where clause every budget read shares.
+// Approved spend since `since` for the single-window reader.
 //   - Dated by decidedAt: a grant redemption counts on the day it spends, not
 //     the day it escalated (createdAt covers undated legacy rows).
 //   - Observed rows are would-be spend: they count only toward an observing
@@ -290,6 +290,10 @@ export function approvedSpendSince(
 
 export type SpendReadTx = Pick<typeof db, "authorizationRequest" | "grant">
 
+function grantLookbackStart(since: Date): Date {
+  return new Date(since.getTime() - 60 * 60 * 1000)
+}
+
 // Approved spend since `since` (approvedSpendSince), summed. A grant is minted
 // in the approval that stamps its row's decidedAt, so only grants from the
 // window (plus slack for app/DB clock skew) can shadow a counted row.
@@ -304,7 +308,7 @@ export async function approvedSpendSum(
       agentId: typeof agentIds === "string" ? agentIds : { in: agentIds },
       sourceType: "authorization_request",
       status: { not: "consumed" },
-      createdAt: { gte: new Date(since.getTime() - 60 * 60 * 1000) },
+      createdAt: { gte: grantLookbackStart(since) },
     },
     select: { sourceId: true },
   })
@@ -313,4 +317,42 @@ export async function approvedSpendSum(
     where: approvedSpendSince(agentIds, since, countObserved, unredeemed),
     _sum: { amountUsd: true },
   })
+}
+
+/** Both agent budget windows in one read under the spend authorization lock. */
+export async function agentSpendTotals(
+  tx: Pick<typeof db, "$queryRaw">,
+  agentId: string,
+  dayStart: Date,
+  monthStart: Date,
+  countObserved: boolean,
+) {
+  const firstStart = monthStart < dayStart ? monthStart : dayStart
+  // A grant can shadow a row in the monthly window but predate the daily
+  // lookback. The latest unconsumed grant determines exclusion in each sum.
+  const [totals] = await tx.$queryRaw<Array<{ dailySpentUsd: number; monthlySpentUsd: number }>>`
+    WITH unredeemed AS (
+      SELECT "sourceId", MAX("createdAt") AS issued
+      FROM "Grant"
+      WHERE "agentId" = ${agentId} AND "sourceType" = 'authorization_request'
+        AND "status" <> 'consumed' AND "sourceId" <> ''
+        AND "createdAt" >= ${grantLookbackStart(firstStart)}
+      GROUP BY "sourceId"
+    ), spend AS (
+      SELECT ar."amountUsd", COALESCE(ar."decidedAt", ar."createdAt") AS spent, g.issued
+      FROM "AuthorizationRequest" ar
+      LEFT JOIN unredeemed g ON g."sourceId" = ar.id
+      WHERE ar."agentId" = ${agentId} AND ar.status = 'approved'
+        AND (ar."decidedAt" >= ${firstStart} OR (ar."decidedAt" IS NULL AND ar."createdAt" >= ${firstStart}))
+        AND (${countObserved} OR (ar."detailsJson"->'observed') IS DISTINCT FROM 'true'::jsonb)
+    )
+    SELECT COALESCE(SUM("amountUsd") FILTER (
+             WHERE spent >= ${dayStart} AND (issued IS NULL OR issued < ${grantLookbackStart(dayStart)})
+           ), 0) AS "dailySpentUsd",
+           COALESCE(SUM("amountUsd") FILTER (
+             WHERE spent >= ${monthStart} AND (issued IS NULL OR issued < ${grantLookbackStart(monthStart)})
+           ), 0) AS "monthlySpentUsd"
+    FROM spend
+  `
+  return totals
 }
