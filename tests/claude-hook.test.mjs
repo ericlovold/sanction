@@ -110,7 +110,11 @@ describe('Claude hook', () => {
     }
     expect(fetch).not.toHaveBeenCalled()
     expect((await readdir(env.SANCTION_HOOK_STATE_DIR)).length).toBe(0)
-    for (const command of ['git push', 'git push origin $(git branch --show-current)', 'cd x && git push', 'FOO=1 git  push -f', 'echo $(git push)', 'bash -c "git push"', 'git \\\n push', '(git push)']) {
+    for (const command of ['git push', 'git push origin $(git branch --show-current)', 'cd x && git push', 'FOO=1 git  push -f', 'echo $(git push)', 'bash -c "git push"', 'git \\\n push', '(git push)',
+      // A continuation inside a word is deleted by the shell: this IS `git push`.
+      'git pu\\\nsh $(printf origin)', 'git pu\\\r\nsh', 'g\\\nit push',
+      // Quoted mentions gate by design; the check cannot tell echo from `bash -c`.
+      'echo "git push $(date)"', "sh -c 'cd x; git push'"]) {
       expect(permission(await runHook(bash(command), env, fetch, gate)), command).toBe('deny')
     }
     // Input the check cannot read is gated, and a missing key still denies.

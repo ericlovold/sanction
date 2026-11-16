@@ -20,11 +20,13 @@ const PREFIX = /^[a-z0-9-]+(\+[a-z0-9-]+){0,5}$/
  * Claude Code runs a multi-word `if` filter on ANY command containing `$()`,
  * backticks or `$VAR`, so without this every such command would request
  * approval. Quotes and line continuations are dropped first, so the check
- * only ever errs toward gating; anything that is not a string is gated.
- * Words assembled from variables (`git $X`) are not caught. */
+ * errs toward gating: telling `echo "git push"` from `bash -c "git push"`
+ * needs a shell interpreter, so both gate. Anything that is not a string is
+ * gated. Words assembled from variables (`git $X`) are not caught. */
 export function mentions(command, prefix) {
   if (typeof command !== "string") return true
-  const text = command.replace(/\\\r?\n/g, " ").replace(/["'\\]/g, "")
+  // The shell deletes a backslash-newline outright, so `pu\<newline>sh` is `push`.
+  const text = command.replace(/\\\r?\n/g, "").replace(/["'\\]/g, "")
   const words = prefix.split(" ").map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+")
   return new RegExp(`(?:^|[^A-Za-z0-9_./-])${words}(?=$|[\\s;&|)<>\`])`).test(text)
 }
