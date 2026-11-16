@@ -4,7 +4,7 @@ import { auth } from "./auth-config"
 import { mcpOAuthResource, MCP_APPROVALS_SCOPE } from "./mcpOAuthProvider"
 import { mcpConnectionIdentity } from "./mcpOAuthAccess"
 import { handleAuthenticatedMcpRequest } from "./mcpRemote"
-import { dispatchMcpApprovalCall } from "./mcpApprovalDispatch"
+import { dispatchMcpApprovalCall } from "./mcpDispatch"
 import { clientIp, rateLimit } from "./rateLimit"
 
 export async function handleOAuthMcpRequest(req: NextRequest): Promise<Response> {

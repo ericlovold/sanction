@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { db } from "../lib/db"
 import { generateApiKey } from "../lib/apiKey"
-import { dayStart } from "../lib/cascadeBudget"
+import { agentSpendTotals, approvedSpendSum, dayStart } from "../lib/cascadeBudget"
 
 vi.mock("next/server", async (importOriginal) => {
   const mod = await importOriginal<typeof import("next/server")>()
@@ -82,6 +82,52 @@ describe.skipIf(!run)("cascade + per-agent budget accounting", () => {
 
   beforeAll(() => {
     stamp = Math.floor(Math.random() * 1e6)
+  })
+
+  it("reads the same daily and monthly dollars as the individual budget windows", async () => {
+    const wallet = await makeWallet({ agent: true, policy: {} })
+    const otherWallet = await makeWallet({ agent: true, policy: {} })
+    const agent = await db.agent.findFirstOrThrow({ where: { walletId: wallet.id } })
+    const other = await db.agent.findFirstOrThrow({ where: { walletId: otherWallet.id } })
+    const month = new Date("2026-06-01T00:00:00Z")
+    const day = new Date("2026-06-12T00:00:00Z")
+    const beforeMonth = new Date(month.getTime() - 1)
+    const dayGrantCutoff = new Date(day.getTime() - 3_600_000)
+    const row = { agentId: agent.id, action: "purchase", merchant: "m", category: "software", status: "approved", createdAt: day }
+    const id = (label: string) => `${agent.id}-${label}`
+    expect(await agentSpendTotals(db, agent.id, day, month, false)).toEqual({ dailySpentUsd: 0, monthlySpentUsd: 0 })
+    await db.authorizationRequest.createMany({ data: [
+      { ...row, amountUsd: 1.25, createdAt: beforeMonth, decidedAt: day },
+      { ...row, amountUsd: 2, createdAt: month }, // undated legacy row, month only
+      { ...row, amountUsd: 4, decidedAt: beforeMonth },
+      { ...row, amountUsd: 8, detailsJson: { observed: true } },
+      { ...row, amountUsd: 16, detailsJson: { observed: "true" } }, // only boolean true marks observation
+      { ...row, amountUsd: 0.5, detailsJson: { observed: null } },
+      { ...row, amountUsd: 32, status: "denied" },
+      { ...row, amountUsd: 64, kind: "provision", detailsJson: { tags: {} } },
+      { ...row, amountUsd: 128, id: id("old-grant") },
+      { ...row, amountUsd: 256, id: id("unused") },
+      { ...row, amountUsd: 512, id: id("consumed") },
+      { ...row, amountUsd: 1024, agentId: other.id },
+    ] })
+    const grant = { walletId: wallet.id, agentId: agent.id, actionType: "spend.purchase", sourceType: "authorization_request", subjectJson: {}, resourceJson: {} }
+    await db.grant.createMany({ data: [
+      { ...grant, sourceId: id("old-grant"), status: "revoked", createdAt: new Date(dayGrantCutoff.getTime() - 1) },
+      { ...grant, sourceId: id("unused"), status: "expired", createdAt: dayGrantCutoff },
+      { ...grant, sourceId: id("unused"), status: "active", createdAt: month },
+      { ...grant, sourceId: id("consumed"), status: "consumed", createdAt: day },
+      { ...grant, sourceId: id("consumed"), sourceType: "other", createdAt: day },
+      { ...grant, sourceId: id("consumed"), walletId: otherWallet.id, agentId: other.id, createdAt: day },
+    ] })
+
+    for (const countObserved of [false, true]) {
+      const observed = countObserved ? 8 : 0
+      const totals = await agentSpendTotals(db, agent.id, day, month, countObserved)
+      expect(totals).toEqual({ dailySpentUsd: 721.75 + observed, monthlySpentUsd: 595.75 + observed })
+      const daily = await approvedSpendSum(db, agent.id, day, countObserved)
+      const monthly = await approvedSpendSum(db, agent.id, month, countObserved)
+      expect(totals).toEqual({ dailySpentUsd: daily._sum.amountUsd, monthlySpentUsd: monthly._sum.amountUsd })
+    }
   })
 
   it("ancestor caps always apply: an over-parent-cap request in observe mode is a real deny", async () => {

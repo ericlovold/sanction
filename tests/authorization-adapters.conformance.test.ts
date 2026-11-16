@@ -28,7 +28,7 @@ vi.mock("@/app/api/v1/wallets/stats/route", () => ({ GET: routes.stats }))
 vi.mock("@/app/api/v1/authorize/[id]/route", () => ({ GET: routes.authorization }))
 
 import { createSanctionMcpServer } from "@/lib/mcpServer"
-import { dispatchMcpApprovalCall } from "@/lib/mcpApprovalDispatch"
+import { dispatchMcpApprovalCall } from "@/lib/mcpDispatch"
 import { internalAgentIdentity } from "@/lib/internalAgentAuth"
 import { authenticateAgent } from "@/lib/auth"
 
