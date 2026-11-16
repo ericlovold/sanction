@@ -78,7 +78,27 @@ time; future timestamps beyond five minutes are rejected. Old exports do not
 become today's usage. A valid active key may report past activity even when its
 wallet is frozen or over budget; revoked or expired keys cannot ingest.
 
+## Install the Claude Code plugin
+
+The [Claude Code plugin](../claude-plugin/README.md) installs the hook for you
+and pauses a short list of risky shell commands (`git push`, `npm publish`,
+`rm -rf` and others) until a person approves the exact command. It asks for a
+human decision on each one, so it needs no policy pack.
+
+```bash
+claude plugin marketplace add ericlovold/sanction
+```
+
+```bash
+claude plugin install sanction@sanction
+```
+
+Claude Code asks for a dedicated seat's key and keeps it in the platform's
+secure store. The limits below apply to the plugin too.
+
 ## Prove one Claude Code action is governed
+
+This is the manual path, for a tool the plugin does not cover.
 
 Use a **dedicated test wallet and seat**, then apply the **Claude Code approval
 test** policy pack in Policy. It escalates `claude-code.Read` and denies unlisted
@@ -98,7 +118,7 @@ restrictive; it is not a general coding policy.
       "matcher": "Read",
       "hooks": [{
         "type": "command",
-        "command": "node /absolute/path/to/sanction/scripts/developer/claude-hook.mjs",
+        "command": "node /absolute/path/to/sanction/claude-plugin/hooks/claude-hook.mjs",
         "timeout": 15
       }]
     }]
@@ -126,7 +146,8 @@ this a tamper-proof sandbox. Telemetry delivery does not attest that hooks run.
 
 Network/configuration failures and observe-mode responses produce a denial.
 The hook uses an eight-second network timeout and does not wait for a human
-inside the hook. Pending state contains only request IDs and idempotency keys,
+inside the hook. A rejected, timed-out or unredeemable request clears its own
+pending state; retrying opens a new request. Pending state contains only request IDs and idempotency keys,
 under `~/.local/state/sanction/hooks` (override with `SANCTION_HOOK_STATE_DIR`).
 For denied/expired requests or a lock left by a killed process, stop the relevant
 Claude session before removing that test session's pending state; retrying then

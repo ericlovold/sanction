@@ -1,0 +1,68 @@
+{
+  "description": "Pauses a short list of risky shell commands until a person approves the exact command in Sanction.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule git-push",
+            "if": "Bash(git push *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule npm-publish",
+            "if": "Bash(npm publish *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule gh-pr-merge",
+            "if": "Bash(gh pr merge *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule rm-rf",
+            "if": "Bash(rm -rf *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule terraform-apply",
+            "if": "Bash(terraform apply *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule terraform-destroy",
+            "if": "Bash(terraform destroy *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule kubectl-delete",
+            "if": "Bash(kubectl delete *)",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          }
+        ]
+      }
+    ]
+  }
+}

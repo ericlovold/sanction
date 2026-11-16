@@ -1,0 +1,14 @@
+{
+  "name": "sanction",
+  "description": "Human approval for risky agent actions.",
+  "owner": {
+    "name": "Sanction / getsanction.com (ericlovold)"
+  },
+  "plugins": [
+    {
+      "name": "sanction",
+      "source": "./claude-plugin",
+      "description": "Pause risky shell commands in Claude Code until a person approves the exact command in Sanction."
+    }
+  ]
+}
