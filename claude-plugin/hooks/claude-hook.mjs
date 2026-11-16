@@ -14,15 +14,31 @@ const decision = (permissionDecision, permissionDecisionReason) => ({ hookSpecif
   hookEventName: "PreToolUse", permissionDecision, permissionDecisionReason,
 } })
 const RULE_LABEL = /^[a-z0-9][a-z0-9-]{0,39}$/
+const PREFIX = /^[a-z0-9-]+(\+[a-z0-9-]+){0,5}$/
+
+/** True unless the shell text plainly never mentions the gated words.
+ * Claude Code runs a multi-word `if` filter on ANY command containing `$()`,
+ * backticks or `$VAR`, so without this every such command would request
+ * approval. Quotes and line continuations are dropped first, so the check
+ * only ever errs toward gating; anything that is not a string is gated.
+ * Words assembled from variables (`git $X`) are not caught. */
+export function mentions(command, prefix) {
+  if (typeof command !== "string") return true
+  const text = command.replace(/\\\r?\n/g, " ").replace(/["'\\]/g, "")
+  const words = prefix.split(" ").map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+")
+  return new RegExp(`(?:^|[^A-Za-z0-9_./-])${words}(?=$|[\\s;&|)<>\`])`).test(text)
+}
 
 /** `--require-approval` asks for a human decision without a policy edit;
- * `--rule <label>` names the host-side filter that fired. Throws on anything
- * else so a mistyped install denies instead of silently running ungated. */
+ * `--rule <label>` names the host-side filter that fired; `--prefix a+b`
+ * repeats that filter's words (`+` for spaces) for the local check. Throws on
+ * anything else so a mistyped install denies instead of running ungated. */
 export function parseArgs(argv) {
   const options = {}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--require-approval") options.requireApproval = true
     else if (argv[i] === "--rule" && RULE_LABEL.test(argv[i + 1] ?? "")) options.rule = argv[++i]
+    else if (argv[i] === "--prefix" && PREFIX.test(argv[i + 1] ?? "")) options.prefix = argv[++i].replaceAll("+", " ")
     else throw Error("Invalid hook arguments")
   }
   return options
@@ -30,12 +46,15 @@ export function parseArgs(argv) {
 
 // Host-installed adapter, not a tamper-proof sandbox. No key or tool input is
 // written to disk. One pending request per exact session/tool/input binding.
+// Resolves to null, "no decision", when a prefix is set and the command does
+// not mention it: the host's normal permission flow then applies.
 export async function runHook(input, env = process.env, request = fetch, options = {}) {
   let lock
   try {
     if (input.hook_event_name !== "PreToolUse" || typeof input.session_id !== "string" || !input.session_id ||
         typeof input.cwd !== "string" || !input.cwd || typeof input.tool_name !== "string" || !input.tool_name || !input.tool_input || typeof input.tool_input !== "object" || Array.isArray(input.tool_input)) throw Error("Invalid hook input")
     if (options.rule !== undefined && !RULE_LABEL.test(options.rule)) throw Error("Invalid rule label")
+    if (options.prefix !== undefined && !mentions(input.tool_input.command, options.prefix)) return null
     const origin = new URL(env.SANCTION_URL || "https://getsanction.com")
     if (origin.protocol !== "https:" && !(origin.protocol === "http:" && ["localhost", "127.0.0.1"].includes(origin.hostname))) throw Error("HTTPS required")
     // An explicit environment key wins; the plugin option is how Claude Code
@@ -125,6 +144,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       raw += chunk
       if (Buffer.byteLength(raw) > 65536) throw Error("Hook input too large")
     }
-    process.stdout.write(JSON.stringify(await runHook(JSON.parse(raw), process.env, fetch, options)) + "\n")
+    // No decision is exit 0 with no output, which Claude Code treats as success.
+    const result = await runHook(JSON.parse(raw), process.env, fetch, options)
+    if (result) process.stdout.write(JSON.stringify(result) + "\n")
   } catch { process.stdout.write(JSON.stringify(decision("deny", "Invalid or oversized Sanction hook input.")) + "\n") }
 }

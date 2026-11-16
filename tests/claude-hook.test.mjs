@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { parseArgs, runHook } from '../claude-plugin/hooks/claude-hook.mjs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { mentions, parseArgs, runHook } from '../claude-plugin/hooks/claude-hook.mjs'
 const input = { hook_event_name: 'PreToolUse', session_id: 's', cwd: '/tmp/proof', tool_name: 'Read', tool_input: { file_path: '/tmp/proof/note.txt' } }
 async function fixture(fn) {
   const directory = await mkdtemp(join(tmpdir(), 'sanction-hook-'))
@@ -98,6 +100,38 @@ describe('Claude hook', () => {
     expect(parseArgs(['--require-approval', '--rule', 'git-push'])).toEqual({ requireApproval: true, rule: 'git-push' })
     for (const bad of [['--rule'], ['--rule', 'UPPER'], ['--unknown'], ['git-push']]) expect(() => parseArgs(bad)).toThrow()
   }))
+  it('gives no decision, and makes no request, for a command that never mentions the gated words', async () => fixture(async env => {
+    // Claude Code runs a multi-word filter on any command with $(), backticks or $VAR.
+    const gate = { requireApproval: true, rule: 'git-push', prefix: 'git push' }
+    const fetch = vi.fn().mockResolvedValue(response({ status: 'escalated', request_id: 'r' }))
+    const bash = command => ({ ...input, tool_name: 'Bash', tool_input: { command } })
+    for (const command of ['echo $(date)', 'echo $HOME', 'ls `pwd`', 'legit push', 'git pushx', 'git status && echo push']) {
+      expect(await runHook(bash(command), env, fetch, gate)).toBeNull()
+    }
+    expect(fetch).not.toHaveBeenCalled()
+    expect((await readdir(env.SANCTION_HOOK_STATE_DIR)).length).toBe(0)
+    for (const command of ['git push', 'git push origin $(git branch --show-current)', 'cd x && git push', 'FOO=1 git  push -f', 'echo $(git push)', 'bash -c "git push"', 'git \\\n push', '(git push)']) {
+      expect(permission(await runHook(bash(command), env, fetch, gate)), command).toBe('deny')
+    }
+    // Input the check cannot read is gated, and a missing key still denies.
+    expect(mentions(undefined, 'git push')).toBe(true)
+    expect(permission(await runHook(bash('git push'), { ...env, SANCTION_AGENT_KEY: '' }, fetch, gate))).toBe('deny')
+    expect(mentions('rm -rf /tmp/x', 'rm -rf')).toBe(true)
+    expect(mentions('rm -rfv x', 'rm -rf')).toBe(false)
+    expect(parseArgs(['--prefix', 'rm+-rf'])).toEqual({ prefix: 'rm -rf' })
+    for (const bad of [['--prefix'], ['--prefix', 'git push'], ['--prefix', 'git+$(x)']]) expect(() => parseArgs(bad)).toThrow()
+  }))
+  it('prints nothing and exits 0 for no decision, and a denial for anything it cannot read', () => {
+    const script = fileURLToPath(new URL('../claude-plugin/hooks/claude-hook.mjs', import.meta.url))
+    const run = (args, stdin) => spawnSync(process.execPath, [script, ...args], { input: stdin, encoding: 'utf8', env: { PATH: process.env.PATH } })
+    const quiet = run(['--require-approval', '--rule', 'git-push', '--prefix', 'git+push'], JSON.stringify({ ...input, tool_name: 'Bash', tool_input: { command: 'echo $(date)' } }))
+    expect([quiet.status, quiet.stdout]).toEqual([0, ''])
+    for (const [args, stdin] of [[['--prefix', 'git push'], '{}'], [['--prefix', 'git+push'], 'not json']]) {
+      const out = run(args, stdin)
+      expect(out.status).toBe(0)
+      expect(permission(JSON.parse(out.stdout))).toBe('deny')
+    }
+  })
   it('ships plugin hooks that fail closed, one distinct rule per filter', async () => {
     const { hooks } = JSON.parse(await readFile(new URL('../claude-plugin/hooks/hooks.json', import.meta.url), 'utf8'))
     const handlers = hooks.PreToolUse.flatMap(group => { expect(group.matcher).toBe('Bash'); return group.hooks })
@@ -109,6 +143,7 @@ describe('Claude hook', () => {
       expect(script).toBe('hooks/claude-hook.mjs')
       const options = parseArgs(args.split(' '))
       expect(options.requireApproval).toBe(true)
+      expect(handler.if).toBe(`Bash(${options.prefix} *)`) // the local check repeats the host filter
       return options.rule
     })
     expect(rules.length).toBeGreaterThan(0)

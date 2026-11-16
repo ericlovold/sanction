@@ -41,7 +41,9 @@ Needs Claude Code 2.1.295 or newer and Node 20 or newer on `PATH`.
 | `kubectl-delete` | `kubectl delete` |
 
 The list lives in [`hooks/hooks.json`](hooks/hooks.json). Claude Code does the
-matching, including inside `&&` chains and `$( )`.
+matching, including inside `&&` chains and `$( )`. It also runs these filters
+on any command containing `$( )`, backticks or `$VAR`, so the hook checks the
+command text itself and stays out of the way unless the gated words appear.
 
 ## The approval loop
 
@@ -60,8 +62,9 @@ A wallet policy that denies `claude-code.Bash` cannot be approved around.
 
 - **Not a sandbox.** Whoever controls the host's settings can disable the
   plugin. It guards against mistakes, not a hostile operator.
-- **Prefix matching is best-effort.** `git -C . push` and `rm -fr` are not
-  caught. Claude Code's own permission rules remain the place for deny lists.
+- **Prefix matching is best-effort.** `git -C . push`, `rm -fr` and words
+  assembled from variables (`git $X`) are not caught. `echo "git push"` is
+  gated. Claude Code's own permission rules remain the place for deny lists.
 - **One approval per rule.** `git push && npm publish` matches two rules and
   needs two approvals.
 - **Fails closed.** If Sanction is unreachable, the hook times out, or Node is
