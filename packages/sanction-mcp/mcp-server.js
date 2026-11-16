@@ -36857,6 +36857,7 @@ var APPROVAL_MCP_TOOLS = [
   "sanction_wallet_status",
   "sanction_check_authorization"
 ];
+var MCP_API_TIMEOUT_MS = 15e3;
 var MCP_SERVER_VERSION = "0.10.0";
 var MCP_DECISION_INSTRUCTIONS = "Sanction returns a decision, not permission. isError:false means the call succeeded, not that the action is allowed. Read authorized and next_action from the first result text (authorized=... next_action=...) or the JSON block. next_action=proceed: do only that authorized action. next_action=wait: pause; after the owner says they decided, call sanction_check_authorization once; if still waiting, tell the owner and do not check again. next_action=retry_with_grant: retry the identical original request plus grant_id; execute only if that call returns authorized=true. next_action=stop: do not retry or open another request. Connecting this server does not intercept other tools.";
 var traceOf = (extra) => extractTraceContext(extra?._meta);
@@ -36881,13 +36882,13 @@ async function callSanction(opts, path, method, body, bearerToken, trace = {}) {
     headers["Authorization"] = `Bearer ${bearerToken}`;
   }
   try {
-    if (opts.apiCall) return await opts.apiCall(path, method, body, bearerToken, trace);
-    const res = await fetch(`${opts.apiUrl}${path}`, {
+    const res = opts.apiCall ? await opts.apiCall(path, method, body, bearerToken, trace) : await fetch(`${opts.apiUrl}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : void 0,
-      signal: AbortSignal.timeout(15e3)
+      signal: AbortSignal.timeout(MCP_API_TIMEOUT_MS)
     });
+    if (!(res instanceof Response)) return res;
     try {
       const result = await res.json();
       if ((path === "/tokens" || path === "/outcomes") && !res.ok) {

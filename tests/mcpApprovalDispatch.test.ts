@@ -20,7 +20,7 @@ vi.mock("@/app/api/v1/authorize/[id]/route", () => ({ GET: routes.authorization 
 
 import { authenticateAgent } from "@/lib/auth"
 import { bindInternalAgentIdentity, internalAgentIdentity } from "@/lib/internalAgentAuth"
-import { dispatchMcpApprovalCall } from "@/lib/mcpApprovalDispatch"
+import { dispatchMcpApprovalCall } from "@/lib/mcpDispatch"
 import { hashApiKey } from "@/lib/apiKey"
 
 const identity = { agentId: "agent_internal", walletId: "wallet_internal" }
