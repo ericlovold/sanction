@@ -7,56 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule git-push --prefix git+push",
-            "if": "Bash(git push *)",
-            "timeout": 15,
-            "onFailure": "block",
-            "statusMessage": "Checking with Sanction"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule npm-publish --prefix npm+publish",
-            "if": "Bash(npm publish *)",
-            "timeout": 15,
-            "onFailure": "block",
-            "statusMessage": "Checking with Sanction"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule gh-pr-merge --prefix gh+pr+merge",
-            "if": "Bash(gh pr merge *)",
-            "timeout": 15,
-            "onFailure": "block",
-            "statusMessage": "Checking with Sanction"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule rm-rf --prefix rm+-rf",
-            "if": "Bash(rm -rf *)",
-            "timeout": 15,
-            "onFailure": "block",
-            "statusMessage": "Checking with Sanction"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule terraform-apply --prefix terraform+apply",
-            "if": "Bash(terraform apply *)",
-            "timeout": 15,
-            "onFailure": "block",
-            "statusMessage": "Checking with Sanction"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule terraform-destroy --prefix terraform+destroy",
-            "if": "Bash(terraform destroy *)",
-            "timeout": 15,
-            "onFailure": "block",
-            "statusMessage": "Checking with Sanction"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --require-approval --rule kubectl-delete --prefix kubectl+delete",
-            "if": "Bash(kubectl delete *)",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --gate-bash",
             "timeout": 15,
             "onFailure": "block",
             "statusMessage": "Checking with Sanction"

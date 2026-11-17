@@ -107,7 +107,7 @@ restrictive; it is not a general coding policy.
 
 1. Create a harmless local file containing a short note.
 2. Set `SANCTION_AGENT_KEY` to that test seat's key in the terminal launching
-   Claude Code. Use Node 20 or newer.
+   Claude Code. Use Node 20+ and Claude Code 2.1.295+.
 3. Merge this hook into your private Claude settings, replacing the script path
    with the absolute path in your Sanction checkout. Do not replace other hooks.
 
@@ -118,8 +118,9 @@ restrictive; it is not a general coding policy.
       "matcher": "Read",
       "hooks": [{
         "type": "command",
-        "command": "node /absolute/path/to/sanction/claude-plugin/hooks/claude-hook.mjs",
-        "timeout": 15
+        "command": "node \"/absolute/path/to/sanction/claude-plugin/hooks/claude-hook.mjs\"",
+        "timeout": 15,
+        "onFailure": "block"
       }]
     }]
   }
@@ -132,6 +133,10 @@ restrictive; it is not a general coding policy.
    input, and approve it.
 6. Retry the identical read in the **same Claude session**. The hook retrieves
    and consumes the one-use grant before permitting the tool.
+
+Existing settings can keep `scripts/developer/claude-hook.mjs`. Add
+`"onFailure": "block"` so Claude Code blocks the tool if the hook cannot start
+or times out.
 
 Changing the working directory or tool input requires another approval. An
 expired or consumed grant never authorizes execution. A successful later read

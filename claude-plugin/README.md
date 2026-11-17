@@ -22,11 +22,11 @@ Needs Claude Code 2.1.295 or newer and Node 20 or newer on `PATH`.
    claude plugin install sanction@sanction
    ```
 
-3. Enter the key when Claude Code asks for **Sanction agent key**. Claude Code
-   keeps it in the platform's secure store, not in `settings.json`.
+3. Open `/plugin` in Claude Code. On the **Installed** tab, select Sanction,
+   choose **Configure**, and enter the dedicated seat key. To check whether
+   the key is set, run `claude plugin configure sanction@sanction` in a terminal.
 
-`SANCTION_AGENT_KEY` in the environment overrides the stored key.
-`SANCTION_URL` points the hook at a self-hosted Sanction.
+The stored plugin key is scoped to `https://getsanction.com`. For a self-hosted instance, set both `SANCTION_URL` and that instance’s `SANCTION_AGENT_KEY` in your environment.
 
 ## What it gates
 
@@ -40,19 +40,19 @@ Needs Claude Code 2.1.295 or newer and Node 20 or newer on `PATH`.
 | `terraform-destroy` | `terraform destroy` |
 | `kubectl-delete` | `kubectl delete` |
 
-The list lives in [`hooks/hooks.json`](hooks/hooks.json). Claude Code does the
-matching, including inside `&&` chains and `$( )`. It also runs these filters
-on any command containing `$( )`, backticks or `$VAR`, so the hook checks the
-command text itself and stays out of the way unless the gated words appear.
+One [Bash hook](hooks/claude-hook.mjs) checks these command prefixes locally.
+A command that mentions multiple listed prefixes produces one approval request.
+The reviewer sees each match and the exact tool input.
 
 ## The approval loop
 
 1. Claude tries a gated command. The hook asks Sanction for a human decision
    and blocks the command. No policy edit is needed.
-2. You review the exact working directory and command in the approval inbox,
-   or in Slack when configured, and approve or reject.
-3. Claude retries the identical command in the same session. The hook redeems
-   the one-use grant and lets that one run through.
+2. Open the request in Sanction to review the working directory and full tool input.
+   Slack cards link to these details when Slack is configured.
+3. Retry with the same session, working directory, and tool input, including the
+   description if provided. The hook redeems the grant once. Claude Code then
+   applies its normal permission rules.
 
 A changed command, another session, or a second run needs a new approval. A
 rejected or timed-out request stays blocked; retrying opens a new request.
@@ -65,10 +65,7 @@ A wallet policy that denies `claude-code.Bash` cannot be approved around.
 - **Prefix matching is best-effort.** `git -C . push`, `rm -fr` and words
   assembled from variables (`git $X`) are not caught. `echo "git push"` is
   gated. Claude Code's own permission rules remain the place for deny lists.
-- **One approval per rule.** `git push && npm publish` matches two rules and
-  needs two approvals.
-- **Fails closed.** If Sanction is unreachable, the hook times out, or Node is
-  missing, the gated command is blocked.
+- **Availability.** A Sanction outage blocks commands matching the list. If the local Bash hook cannot start or times out, Claude Code blocks the Bash call.
 - **Approval is not execution.** A redeemed grant shows the command was
   permitted. It does not prove the command ran or succeeded.
 
