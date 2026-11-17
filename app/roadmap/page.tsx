@@ -6,8 +6,9 @@ import { Markdown } from "@/components/markdown"
 import { ROADMAP, type RoadmapItem } from "@/lib/roadmap"
 import { listPublishedIdeas } from "@/lib/ideas"
 
-// Votes and new submissions should show fresh; this page reads the DB on request.
-export const dynamic = "force-dynamic"
+// Public board snapshot; submit/vote actions invalidate it immediately.
+// The interval also picks up editorial changes made outside those actions.
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: "Sanction Roadmap — what we're building, and what you want next",

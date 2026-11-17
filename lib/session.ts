@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers"
+import { cache } from "react"
 import { db } from "./db"
 import { hashApiKey, generateApiKey } from "./apiKey"
 import { auth } from "./auth-config"
@@ -23,6 +24,14 @@ export const SESSION_COOKIE = "sanction_session"
 // falls back to the default precedence instead of granting anything.
 export const ACTIVE_WALLET_COOKIE = "sanction_active_wallet"
 const MAX_AGE = 60 * 60 * 24 * 30
+
+async function readSocialSession() {
+  return auth.api.getSession({ headers: await headers() })
+}
+
+// React cache lasts for one Server Component render, never across requests.
+// Only view helpers use it; action/route guards always read current auth state.
+const readRenderSession = cache(readSocialSession)
 
 export async function setSession(managementKey: string) {
   ;(await cookies()).set(SESSION_COOKIE, managementKey, {
@@ -253,12 +262,16 @@ export type SessionActor = { type: "key" } | { type: "user"; userId: string; ema
  * Mutating dashboard actions should call this instead of getSessionWallet so
  * they can enforce a role floor (lib/roles.ts's hasRole).
  */
-export async function getSessionMember(): Promise<
+export async function getSessionMember() {
+  return resolveSessionMember()
+}
+
+async function resolveSessionMember(readSession = readSocialSession): Promise<
   { wallet: NonNullable<Awaited<ReturnType<typeof getSessionWallet>>>; role: WalletRole; actor: SessionActor } | null
 > {
   let socialFailed = false
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
+    const session = await readSession()
     if (session?.user) {
       const preferred = (await cookies()).get(ACTIVE_WALLET_COOKIE)?.value ?? null
       const wallet = await resolveWalletForUser(session.user, preferred)
@@ -318,10 +331,14 @@ export async function requireSessionRole(min: WalletRole) {
  * wallet (the key IS the wallet) — no switching. Drives the sidebar switcher
  * and validates switchWalletAction; anything not in this list is unreachable.
  */
-export async function listSessionWallets(): Promise<Array<{ id: string; name: string; role: WalletRole }>> {
+export async function listSessionWallets() {
+  return resolveSessionWallets()
+}
+
+async function resolveSessionWallets(readSession = readSocialSession): Promise<Array<{ id: string; name: string; role: WalletRole }>> {
   let socialFailed = false
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
+    const session = await readSession()
     if (session?.user) {
       const [owned, memberships] = await Promise.all([
         db.wallet.findMany({ where: { userId: session.user.id }, select: { id: true, name: true } }),
@@ -356,13 +373,17 @@ export async function listSessionWallets(): Promise<Array<{ id: string; name: st
   return []
 }
 
+// Render-only counterpart of listSessionWallets. Switching wallets continues
+// to use the uncached helper so it validates current ownership/membership.
+export const listViewWallets = cache(() => resolveSessionWallets(readRenderSession))
+
 /**
  * The wallet a dashboard page should render: the logged-in wallet if there's a
  * session, otherwise the public demo wallet (SANCTION_WALLET_ID) in read-only
  * mode. Returns null only if neither exists.
  */
-export async function getViewWallet() {
-  const s = await getSessionMember()
+export const getViewWallet = cache(async () => {
+  const s = await resolveSessionMember(readRenderSession)
   if (s) return { id: s.wallet.id, name: s.wallet.name, isSession: true as const, role: s.role }
 
   const demo = process.env.SANCTION_WALLET_ID
@@ -371,4 +392,4 @@ export async function getViewWallet() {
     if (w) return { id: w.id, name: w.name, isSession: false as const, role: "viewer" as const }
   }
   return null
-}
+})
