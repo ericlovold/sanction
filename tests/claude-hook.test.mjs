@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -33,6 +33,34 @@ describe('Claude hook', () => {
     expect(permission(await runHook({ ...input, tool_input: { file_path: '/tmp/other' } }, env, fetch))).toBe('deny')
     expect(fetch.mock.calls[2][1].method).toBe('POST')
     expect(JSON.parse(fetch.mock.calls[2][1].body).grant_id).toBeUndefined()
+  }))
+  it('preserves malformed state and denies retries without contacting Sanction', async () => fixture(async env => {
+    await runHook(input, env, vi.fn().mockRejectedValue(Error('offline')))
+    const [filename] = await readdir(env.SANCTION_HOOK_STATE_DIR)
+    const file = join(env.SANCTION_HOOK_STATE_DIR, filename)
+    const { idempotency } = JSON.parse(await readFile(file, 'utf8'))
+    const malformed = [
+      '{', 'null', 'false', '0', '""', '[]', '{}',
+      ...[null, 1, ' ', 'damaged-key'].map(value => JSON.stringify({ idempotency: value })),
+      ...[null, false, {}, '', '  '].map(requestId => JSON.stringify({ idempotency, requestId })),
+    ]
+    const request = vi.fn()
+    for (const contents of malformed) {
+      await writeFile(file, contents)
+      expect(permission(await runHook(input, env, request)), contents).toBe('deny')
+      expect(request, contents).not.toHaveBeenCalled()
+      expect(await readFile(file, 'utf8'), contents).toBe(contents)
+    }
+
+    // Pre-plugin files without a request ID retry the same idempotent POST.
+    await writeFile(file, JSON.stringify({ idempotency }))
+    request.mockResolvedValueOnce(response({ status: 'escalated', request_id: 'request-1' }))
+      .mockResolvedValueOnce(response({ status: 'escalated' }))
+    expect(permission(await runHook(input, env, request))).toBe('deny')
+    expect(request.mock.calls[0][1].headers['idempotency-key']).toBe(idempotency)
+    expect(permission(await runHook(input, env, request))).toBe('deny')
+    expect(request.mock.calls[1][0].pathname).toBe('/api/v1/authorize/request-1')
+    expect(request.mock.calls.map(([, init]) => init.method)).toEqual(['POST', 'GET'])
   }))
   it('fails closed on outage, observe, malformed input, expired grants, and concurrent attempts', async () => fixture(async env => {
     for (const result of [{ authorized: true, status: 'allowed', would_be: {} }, { authorized: true, status: 'approved' }, { authorized: false, status: 'denied', code: 'GRANT_EXPIRED' }]) {

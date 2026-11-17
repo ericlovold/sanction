@@ -17,6 +17,18 @@ const gatedPrefixes = [
   "git push", "npm publish", "gh pr merge", "rm -rf",
   "terraform apply", "terraform destroy", "kubectl delete",
 ]
+// Both the original hook and the plugin persist keys produced by randomUUID().
+const idempotencyUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function parseState(contents) {
+  const state = JSON.parse(contents)
+  if (!state || typeof state !== "object" || Array.isArray(state) ||
+      typeof state.idempotency !== "string" || !idempotencyUuid.test(state.idempotency) ||
+      (state.requestId !== undefined && (typeof state.requestId !== "string" || !state.requestId.trim()))) {
+    throw Error("Invalid pending hook state")
+  }
+  return state
+}
 
 // Conservative text matching also gates quoted mentions of an entire prefix.
 export function mentions(command, prefix) {
@@ -68,8 +80,10 @@ export async function runHook(input, env = process.env, request = fetch, options
     await mkdir(lockPath, { mode: 0o700 })
     lock = lockPath
     let state
-    try { state = JSON.parse(await readFile(file, "utf8")) } catch (error) { if (error.code !== "ENOENT") throw error }
-    if (!state) {
+    try {
+      state = parseState(await readFile(file, "utf8"))
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error
       state = { idempotency: randomUUID() }
       await writeFile(file, JSON.stringify(state), { mode: 0o600 })
     }
