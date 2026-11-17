@@ -9,7 +9,9 @@ import {
 import { rateLimit } from "@/lib/rateLimit"
 import { withTenant } from "@/lib/rls"
 
-// Global cleanup must not consume other suites' current fixtures.
+// test:db runs this file after the other DB suites: Better Auth's real login
+// adapter also deletes expired verification rows and would race these counts.
+// A historical cutoff prevents cleanup from consuming any current fixtures.
 const now = new Date("2001-06-01T00:00:00.000Z")
 const executionCutoff = new Date(now.getTime() - EXECUTION_TOKEN_RETENTION_MS)
 const transientCutoff = new Date(now.getTime() - TRANSIENT_RETENTION_MS)
