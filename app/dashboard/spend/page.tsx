@@ -9,7 +9,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet, listSessionWallets } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
-import { dailyPace, bucketByDay } from "@/lib/burn"
+import { dailyPace } from "@/lib/burn"
+import { readSpendChartDays } from "@/lib/spendChartDays"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd, fmtCount } from "@/lib/format"
 import { RunwayChart } from "@/components/runway-chart"
@@ -66,12 +67,9 @@ function BudgetBar({ label, actual, budget, format }: { label: string; actual: n
 async function getSpend(walletId: string) {
   const dayStart = new Date()
   dayStart.setHours(0, 0, 0, 0)
-  const monthStart = new Date()
+  const monthStart = new Date(dayStart)
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
-  const trendStart = new Date()
-  trendStart.setDate(trendStart.getDate() - 13)
-  trendStart.setHours(0, 0, 0, 0)
 
   // Analytics roll up the subtree (org-wide burn); the budget bars stay on the
   // root wallet's own policy — the org envelope. Leaf subtree = self, no change.
@@ -104,8 +102,8 @@ async function getSpend(walletId: string) {
 
   const [
     tokDay, spendDay, tokMonth, spendMonth,
-    byModel, byTask, tokByAgent, authByAgent, byCategory, decisionMix, trendLogs,
-    monthTokenLogs, monthSpendReqs, authByAgentRecent, deniedNotes,
+    byModel, byTask, tokByAgent, authByAgent, byCategory, decisionMix,
+    chartDays, authByAgentRecent, deniedNotes,
   ] = await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
@@ -117,9 +115,7 @@ async function getSpend(walletId: string) {
     db.authorizationRequest.groupBy({ by: ["agentId", "status"], where: monthScope, _sum: { amountUsd: true }, _count: true }),
     db.authorizationRequest.groupBy({ by: ["category"], where: { ...monthScope, status: "approved" }, _sum: { amountUsd: true }, _count: true, orderBy: { _sum: { amountUsd: "desc" } } }),
     db.authorizationRequest.groupBy({ by: ["status"], where: monthScope, _count: true }),
-    db.tokenLog.findMany({ where: { agentId: { in: agentIds }, createdAt: { gte: trendStart } }, select: { createdAt: true, costUsd: true } }),
-    db.tokenLog.findMany({ where: { agentId: { in: agentIds }, createdAt: { gte: monthStart } }, select: { createdAt: true, costUsd: true } }),
-    db.authorizationRequest.findMany({ where: { ...monthScope, status: "approved" }, select: { createdAt: true, amountUsd: true } }),
+    readSpendChartDays(walletIds, agentIds, dayStart),
     db.authorizationRequest.groupBy({ by: ["agentId", "status"], where: { agentId: { in: agentIds }, createdAt: { gte: weekStart } }, _count: true }),
     db.authorizationRequest.groupBy({ by: ["agentId", "decisionNote"], where: { ...monthScope, status: "denied" }, _count: true }),
   ])
@@ -140,19 +136,7 @@ async function getSpend(walletId: string) {
   }
   const agentList = [...agentRows.values()].sort((a, b) => (b.tokenCost + b.spend) - (a.tokenCost + a.spend))
 
-  // 14-day token-cost trend, bucketed by local day
-  const days: { label: string; cost: number }[] = []
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(trendStart)
-    d.setDate(trendStart.getDate() + i)
-    days.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, cost: 0 })
-  }
-  for (const log of trendLogs) {
-    const d = new Date(log.createdAt)
-    d.setHours(0, 0, 0, 0)
-    const idx = Math.round((d.getTime() - trendStart.getTime()) / 86400000)
-    if (idx >= 0 && idx < 14) days[idx].cost += log.costUsd
-  }
+  const { days, tokenByMonthDay, spendByMonthDay } = chartDays
   const trendMax = Math.max(...days.map((d) => d.cost), 0.0001)
 
   const mix = Object.fromEntries(decisionMix.map((r) => [r.status, r._count])) as Record<string, number>
@@ -160,11 +144,6 @@ async function getSpend(walletId: string) {
   // MONO-0: the month's fresh engine decisions, from the counter (allowed tool
   // calls never persist a row, so the row-derived mix undercounts them).
   const decisions = await decisionsThisMonth(walletIds)
-
-  // Month runway: per-day totals since the 1st, for the cumulative chart.
-  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate()
-  const tokenByMonthDay = bucketByDay(monthTokenLogs.map((l) => ({ at: l.createdAt, amount: l.costUsd })), monthStart, daysInMonth)
-  const spendByMonthDay = bucketByDay(monthSpendReqs.map((r) => ({ at: r.createdAt, amount: r.amountUsd })), monthStart, daysInMonth)
 
   // Seat health: month vs last-7-days decision mix, plus each seat's most-hit
   // denial code (decisionNote → stable DecisionCode, same mapping agents see).
