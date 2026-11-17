@@ -216,6 +216,36 @@ instances.
 `POST /audit/verify` recomputes the chain and signature self-contained, naming
 the first broken link if any row was altered, dropped, or reordered.
 
+## Expired-record cleanup
+
+Vercel calls `GET /api/cron/cleanup` daily at 05:17 UTC with the
+`CRON_SECRET` bearer. Configure that secret in production to enable the job.
+The same secret also enables the existing weekly digest cron. Missing or
+incorrect credentials return 401.
+
+Each run processes up to 1,000 candidates per table, oldest expiry first.
+Execution tokens become eligible 30 days after expiry when `spentUsd` is zero
+and they have no credential-injection references. Tokens carrying spend or
+credential-access evidence retain their history. A pruned token disappears
+from token history, and mandate verification returns `invalid` for it.
+Legacy magic links and Better Auth verification values become eligible 24 hours
+after expiry. Rate-limit counters become eligible 24 hours after their window
+ends. Active values and counters remain available.
+
+Cleanup uses the restricted application role and scopes execution-token reads
+and deletes to registered wallets. Each table runs atomically in its own
+transaction. Concurrent runs skip locked rows. The response contains deletion
+counts, `batchFull` for tables that reached the limit, and `failed` for table
+errors. A nonempty `batchFull` means another authenticated run may have more
+work. A table error returns HTTP 500 while preserving completed batches.
+Foreign-key protection retains legacy audit references even when RLS hides
+them from the cleanup query. Failed token groups are split to isolate these
+references, so unrelated candidates can still be deleted. The response counts
+these protected rows in `retainedExecutionTokens`.
+Each completed run logs the same counts and table statuses for operators.
+If all 1,000 candidates are protected by hidden references, an operator must
+repair those legacy references before the job can reach newer tokens.
+
 ## Known limitations
 
 - Single region. Execution tokens are HS256 with one signing secret; asymmetric

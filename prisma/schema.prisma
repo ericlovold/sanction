@@ -255,6 +255,7 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+  @@index([expiresAt])
   @@map("verification")
 }
 
@@ -274,6 +275,7 @@ model MagicLink {
   wallet    Wallet    @relation(fields: [walletId], references: [id])
 
   @@index([walletId])
+  @@index([expiresAt])
 }
 
 // Owner-registered HTTP endpoint notified on events (escalations, budget trips).
@@ -587,6 +589,7 @@ model ExecutionToken {
   @@index([agentId])
   @@index([walletId, status])
   @@index([status, expiresAt])
+  @@index([expiresAt])
 }
 
 // Audit record of every credential injection — what was accessed, when, by whom
