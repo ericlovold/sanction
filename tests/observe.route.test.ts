@@ -43,6 +43,7 @@ vi.mock("@/lib/cascadeBudget", async (orig) => {
   const mod = await orig<typeof import("@/lib/cascadeBudget")>()
   return {
     ...mod,
+    agentSpendTotals: vi.fn(async () => ({ dailySpentUsd: 0, monthlySpentUsd: 0 })),
     walletAncestorChain: vi.fn(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }]),
     reserveCascadeDailySpend: vi.fn(async () => []),
     cascadeDailyWouldExceed: vi.fn(async () => false),

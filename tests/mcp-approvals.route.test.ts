@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { NextRequest } from "next/server"
 
-const { authMock, rateLimitMock } = vi.hoisted(() => ({
+const { authMock, rateLimitMock, statsMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
+  statsMock: vi.fn(),
   rateLimitMock: vi.fn(),
 }))
 
+vi.mock("@/app/api/v1/wallets/stats/route", () => ({ GET: statsMock }))
 vi.mock("@/lib/auth", () => ({ authenticateAgent: authMock }))
 vi.mock("@/lib/rateLimit", async (orig) => {
   const mod = await orig<typeof import("@/lib/rateLimit")>()
@@ -142,11 +144,11 @@ describe("/mcp/approvals — isolated hosted tool profile", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it("forwards wallet status with the authenticated wallet and agent key", async () => {
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+  it("dispatches wallet status locally with the authenticated wallet and agent key", async () => {
+    statsMock.mockResolvedValueOnce(Response.json({
       today: { token_cost_usd: 0.1, spend_usd: 1 },
       month: { token_cost_usd: 0.2, spend_usd: 2 }, pending_approvals: 0,
-    }), { headers: { "content-type": "application/json" } }))
+    }))
     const response = await POST(request(toolCall("sanction_wallet_status", { wallet_id: "wal_other" }),
       { "x-api-key": KEY, "x-wallet-id": "wal_other" }, `${URL}?wallet_id=wal_other`))
     expect(response.status).toBe(200)
@@ -154,11 +156,12 @@ describe("/mcp/approvals — isolated hosted tool profile", () => {
     expect(body.error).toBeUndefined()
     expect(body.result.isError).toBeFalsy()
     expect(body.result.content[0].text).toContain("No pending approvals")
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe("https://getsanction.com/api/v1/wallets/stats?wallet_id=wal_approvals_test")
-    expect(init.method).toBe("GET")
-    expect(new Headers(init.headers).get("x-api-key")).toBe(KEY)
+    expect(statsMock).toHaveBeenCalledOnce()
+    const [inner] = statsMock.mock.calls[0]
+    expect(inner.url).toBe("https://getsanction.com/api/v1/wallets/stats?wallet_id=wal_approvals_test")
+    expect(inner.method).toBe("GET")
+    expect(inner.headers.get("x-api-key")).toBe(KEY)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("ignores query, headers, and JSON-RPC metadata asking for the wallet profile", async () => {

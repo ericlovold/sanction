@@ -585,6 +585,7 @@ model ExecutionToken {
   injections CredentialInjection[]
 
   @@index([agentId])
+  @@index([walletId, status])
   @@index([status, expiresAt])
 }
 
@@ -626,6 +627,7 @@ model AuthorizationRequest {
 
   @@unique([agentId, idempotencyKey])
   @@index([agentId, createdAt])
+  @@index([agentId, status, decidedAt])
   @@index([status])
 }
 

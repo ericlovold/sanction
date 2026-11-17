@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
 import { authenticateAgent } from "./auth"
 import { publicOrigin } from "./authzen"
-import { createSanctionMcpServer, type SanctionMcpToolProfile, type SanctionMcpOptions } from "./mcpServer"
+import { createSanctionMcpServer, MCP_API_TIMEOUT_MS, type SanctionMcpToolProfile, type SanctionMcpOptions } from "./mcpServer"
 import { clientIp, rateLimit } from "./rateLimit"
 
 const NO_STORE = { "Cache-Control": "no-store" } as const
@@ -132,7 +132,27 @@ export async function handleSanctionMcpRequest(
   const origin = publicOrigin(req)
   return handleAuthenticatedMcpRequest(req, {
     apiKey, apiUrl: `${origin}/api/v1`, walletId: agent.walletId, toolProfile,
+    apiCall: (...args) => withHostedDeadline(import("./mcpDispatch").then(({ dispatchMcpCall }) =>
+      dispatchMcpCall({ apiKey, origin, walletId: agent.walletId, profile: toolProfile }, ...args),
+    )),
   })
+}
+
+async function withHostedDeadline(pending: Promise<Response>): Promise<Response> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const result = await Promise.race([
+      pending,
+      new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), MCP_API_TIMEOUT_MS) }),
+    ])
+    if (result !== null) return result
+    // A write may already be committing. Let the same invocation finish within
+    // the platform duration even though the caller must stop on an unknown result.
+    after(pending)
+    throw new Error("The operation was aborted due to timeout")
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // Call only after authenticating at the route boundary. Each instance is request-local.

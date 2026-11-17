@@ -23,6 +23,7 @@ import { notifySpendBudgetThreshold, notifyPoolCapThresholds } from "@/lib/thres
 import type { CascadeCrossing } from "@/lib/cascadeBudget"
 import {
   CascadeBudgetExceeded,
+  agentSpendTotals,
   approvedSpendSum,
   SUBTREE_CAP_EXCEEDED_NOTE,
   cascadeDailyWouldExceed,
@@ -336,9 +337,8 @@ export async function POST(req: NextRequest) {
       // and execution-budget gates are stateful, so they run here (not in the
       // stateless pre-check) — and before the ladder, so a sub-floor charge can
       // never bypass a hard budget.
-      const [dailySpend, monthlySpend, cpo] = await Promise.all([
-        approvedSpendSum(tx, agent.id, dayStart, observe),
-        approvedSpendSum(tx, agent.id, monthStart, observe),
+      const [spend, cpo] = await Promise.all([
+        agentSpendTotals(tx, agent.id, dayStart, monthStart, observe),
         // CPO-1: windowed spend + outcomes for the ceiling, read under the same
         // lock as the budget state so the throttle can't race its own approvals.
         cpoContext(tx, agent.walletId, policy, undefined, observe),
@@ -350,7 +350,7 @@ export async function POST(req: NextRequest) {
         exec = { valid, spentUsd: et?.spentUsd ?? 0, budgetUsd: et?.budgetUsd ?? 0 }
       }
 
-      const ctxFull = { ...ctxBase, dailySpentUsd: dailySpend._sum.amountUsd ?? 0, monthlySpentUsd: monthlySpend._sum.amountUsd ?? 0, exec, cpo }
+      const ctxFull = { ...ctxBase, ...spend, exec, cpo }
       const decision = evaluate(ctxFull, observe ? [...SPEND_STATELESS, ...SPEND_STATEFUL] : SPEND_STATEFUL)
       // EVID-1: persist the revision in force plus the exact context evaluated,
       // so this decision can be replayed and proven later.
@@ -395,7 +395,7 @@ export async function POST(req: NextRequest) {
         // transaction, the same way the grant path and the AuthZEN PDP do it.
         poolCrossings = await reserveCascadeDailySpend(tx, agent.walletId, amountCents, new Date(), ancestorChain)
 
-        const prevDailyCents = Math.round((dailySpend._sum.amountUsd ?? 0) * 100)
+        const prevDailyCents = Math.round(spend.dailySpentUsd * 100)
         spendCrossing = { prevCents: prevDailyCents, nextCents: prevDailyCents + amountCents }
       } else if (await cascadeDailyWouldExceed(tx, agent.walletId, amountCents, new Date(), ancestorChain.slice(0, 1), true)) {
         // The wallet's OWN cap is relaxed in observe, but the would_be must stay

@@ -17,9 +17,6 @@ vi.mock("next/server", async (importOriginal) => {
 // GATED: runs only when RUN_DB_TESTS=1, and you MUST point DATABASE_URL at a
 // DISPOSABLE test database (a Neon branch) — NEVER prod. It writes + deletes rows.
 //   RUN_DB_TESTS=1 DATABASE_URL="postgres://…neon-branch…" npx vitest run tests/concurrency.db.test.ts
-//
-// NOTE: authored but not yet executed in this environment (no DB reachable). First
-// run against a real test DB is the verification step.
 const run = process.env.RUN_DB_TESTS === "1"
 
 describe.skipIf(!run)("daily budget holds under concurrency (no leak)", () => {
@@ -54,7 +51,7 @@ describe.skipIf(!run)("daily budget holds under concurrency (no leak)", () => {
     await db.wallet.delete({ where: { id: walletId } })
   })
 
-  it("10 concurrent $10 charges against a $50/day budget approve at most $50", async () => {
+  it("10 concurrent $10 charges against a $50/day budget approve exactly $50", async () => {
     const { POST } = await import("@/app/api/v1/authorize/route")
     const call = () =>
       POST(
@@ -66,9 +63,8 @@ describe.skipIf(!run)("daily budget holds under concurrency (no leak)", () => {
       )
     const results = await Promise.all(Array.from({ length: 10 }, call))
     const decisions = await Promise.all(results.map((r) => r.json()))
-    const approvedUsd = decisions.filter((d) => d.status === "approved").length * 10
-    // The advisory lock must serialize the daily-budget check — never over $50.
-    expect(approvedUsd).toBeLessThanOrEqual(50)
+    expect(decisions.filter((d) => d.status === "approved")).toHaveLength(5)
+    expect(decisions.filter((d) => d.status === "denied" && d.code === "DAILY_BUDGET_EXCEEDED")).toHaveLength(5)
   })
 })
 
@@ -128,7 +124,7 @@ describe.skipIf(!run)("subtree daily cap holds under concurrency (no sibling lea
     await db.wallet.delete({ where: { id: rootId } })
   })
 
-  it("sibling agents under one capped parent approve at most the parent cap", async () => {
+  it("sibling agents under one capped parent approve exactly the parent cap", async () => {
     const { POST } = await import("@/app/api/v1/authorize/route")
     const call = (_: unknown, i: number) =>
       POST(
@@ -140,9 +136,7 @@ describe.skipIf(!run)("subtree daily cap holds under concurrency (no sibling lea
       )
     const results = await Promise.all(Array.from({ length: 10 }, call))
     const decisions = await Promise.all(results.map((r) => r.json()))
-    const approvedUsd = decisions.filter((d) => d.status === "approved").length * 10
-
-    expect(approvedUsd).toBeLessThanOrEqual(50)
-    expect(decisions.some((d) => d.code === "SUBTREE_CAP_EXCEEDED")).toBe(true)
+    expect(decisions.filter((d) => d.status === "approved")).toHaveLength(5)
+    expect(decisions.filter((d) => d.status === "denied" && d.code === "SUBTREE_CAP_EXCEEDED")).toHaveLength(5)
   })
 })
