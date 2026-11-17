@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "postinstall": "prisma generate",
-    "build": "prisma generate && node scripts/migrate-deploy.mjs && next build",
+    "postinstall": "node scripts/patch-oauth-revocation.mjs && prisma generate",
+    "build": "node scripts/patch-oauth-revocation.mjs && prisma generate && node scripts/migrate-deploy.mjs && next build",
     "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=packages/sanction-mcp/mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
     "start": "next start",
     "lint": "eslint",
