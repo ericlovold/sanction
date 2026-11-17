@@ -6,6 +6,8 @@ import { VerifyMagicLink } from "@/components/verify-magic-link"
 export const metadata: Metadata = {
   title: "Sanction — Sign in",
   description: "Finish signing in to your Sanction wallet.",
+  referrer: "no-referrer",
+  robots: { index: false, follow: false },
 }
 
 export const dynamic = "force-dynamic"

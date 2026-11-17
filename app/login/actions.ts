@@ -68,8 +68,9 @@ export async function requestMagicLinkAction(_prev: MagicLinkRequestState, form:
     // the token row exists, the user can retry; the operator sees the log.
     try {
       await sendMagicLinkEmail(email, link)
-    } catch (e) {
-      console.error("magic-link email send failed:", e)
+    } catch {
+      // Provider errors may echo the recovery URL; log no exception details.
+      console.error("Recovery sign-in email could not be delivered")
     }
   }
 

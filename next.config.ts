@@ -59,13 +59,13 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
-      {
-        source: "/connect/mcp/login/verify",
+      ...["/auth/verify", "/connect/mcp/login/verify"].map((source) => ({
+        source,
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Cache-Control", value: "no-store" },
         ],
-      },
+      })),
     ];
   },
 };
