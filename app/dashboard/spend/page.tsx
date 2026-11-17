@@ -7,7 +7,7 @@ import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
-import { getViewWallet, listSessionWallets } from "@/lib/session"
+import { getViewWallet, listViewWallets } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
 import { dailyPace } from "@/lib/burn"
 import { readSpendChartDays } from "@/lib/spendChartDays"
@@ -195,7 +195,7 @@ export default async function SpendPage({ searchParams }: {
   if (requestedWallet && requestedWallet !== view.id) {
     const { ids } = await subtreeWalletIds(view.id)
     if (!ids.includes(requestedWallet)) {
-      const wallets = (await listSessionWallets()).filter(w => w.id !== view.id)
+      const wallets = (await listViewWallets()).filter(w => w.id !== view.id)
       return <div className="mx-auto max-w-xl p-6"><Card>
         <CardHeader><CardTitle>Switch wallets to review this budget</CardTitle></CardHeader>
         <CardContent className="space-y-4 text-sm">

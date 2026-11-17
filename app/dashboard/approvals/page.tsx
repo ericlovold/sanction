@@ -12,7 +12,7 @@ import { WebhookSettings } from "@/components/webhook-settings"
 import { approvalsEmptyCopy } from "@/lib/firstHour"
 import { listPendingApprovals } from "@/lib/approvals"
 import { withTenant } from "@/lib/rls"
-import { getViewWallet, listSessionWallets } from "@/lib/session"
+import { getViewWallet, listViewWallets } from "@/lib/session"
 import { slackClientId } from "@/lib/slackOAuth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
@@ -266,7 +266,7 @@ export default async function ApprovalsPage({
 
   if (focus?.kind === "missing" && review) {
     const next = approvalReturnPath(review)
-    const wallets = (await listSessionWallets()).filter(w => w.id !== walletId)
+    const wallets = (await listViewWallets()).filter(w => w.id !== walletId)
     return (
       <div className="mx-auto max-w-xl p-6">
         <Card>

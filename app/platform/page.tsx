@@ -17,10 +17,9 @@ export const metadata: Metadata = {
     "Review an AI agent’s proposed action before it proceeds. Start with one human approval, then add budgets, policies, and a record of decisions.",
 }
 
-// The hero shows a LIVE pending escalation from the demo wallet, so the page
-// must render per request — not be statically prerendered at build (where the
-// demo DB/env isn't available, which froze the fallback card in place).
-export const dynamic = "force-dynamic"
+// Public demo snapshot: refresh after a minute, with immediate invalidation
+// when a visitor decides through either demo surface.
+export const revalidate = 60
 
 const structuredData = [
   {
