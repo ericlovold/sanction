@@ -80,6 +80,18 @@ describe("GATEWAY_PROVIDERS.extract — per-provider usage shape", () => {
 })
 
 describe("makeStreamMeter — accumulates SSE usage", () => {
+  it("accepts cumulative Anthropic delta input but preserves prior input when absent", () => {
+    const m = makeStreamMeter("anthropic")
+    m.feed({ type: "message_start", message: { usage: { output_tokens: 1 } } })
+    m.feed({ type: "message_delta", usage: { input_tokens: 10, output_tokens: 4 } })
+    expect(m.result()).toMatchObject({ tokensIn: 10, tokensOut: 4 })
+    expect(m.hasCompleteUsage()).toBe(true)
+    m.feed({ type: "message_delta", usage: { output_tokens: 5 } })
+    expect(m.result()).toMatchObject({ tokensIn: 10, tokensOut: 5 })
+    expect(m.hasCompleteUsage()).toBe(true)
+    m.feed({ type: "message_delta", usage: { input_tokens: -1, output_tokens: 6 } })
+    expect(m.hasCompleteUsage()).toBe(false)
+  })
   it("anthropic: input on message_start, final output on message_delta", () => {
     const m = makeStreamMeter("anthropic")
     m.feed({ type: "message_start", message: { model: "claude-x", usage: { input_tokens: 12, output_tokens: 1 } } })

@@ -16,6 +16,7 @@ const { dbMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn() },
     policy: { findUnique: vi.fn() },
     tokenLog: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    gatewayReservation: { findMany: vi.fn() },
     walletDecisionCounter: { upsert: vi.fn(async () => ({})), aggregate: vi.fn(async () => ({ _sum: { count: 0 } })) },
     authorizationRequest: { findUnique: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     grant: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
@@ -122,6 +123,7 @@ beforeEach(() => {
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue({})
   dbMock.wallet.findUnique.mockResolvedValue(OWNER_WALLET)
+  dbMock.gatewayReservation.findMany.mockResolvedValue([])
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
 })
@@ -586,8 +588,9 @@ describe("tokens — usage logging under the daily token budget", () => {
     expect((await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: { ...USAGE, tokens_in: -1 } }))).status).toBe(400)
   })
 
-  it("logs directly when the wallet has no policy (nothing to enforce)", async () => {
+  it("logs when neither the wallet nor its ancestors impose a token cap", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: null } })
+    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
     dbMock.tokenLog.create.mockResolvedValue({ id: "tl_1" })
     const res = await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: USAGE }))
     expect(res.status).toBe(200)
