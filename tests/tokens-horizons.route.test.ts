@@ -29,6 +29,7 @@ vi.mock("@/lib/poolAccess", () => ({ walletSubtreeIds: vi.fn(async () => []) }))
 import { POST as logTokens } from "../app/api/v1/tokens/route"
 import { walletAncestorChain } from "../lib/cascadeBudget"
 import { walletSubtreeIds } from "../lib/poolAccess"
+import { walletFreezeState } from "../lib/freeze"
 
 const KEY = "pxy_testagentkey"
 const WID = "wallet_1"
@@ -64,6 +65,7 @@ beforeEach(() => {
   dbMock.$executeRaw.mockResolvedValue(undefined)
   vi.mocked(walletAncestorChain).mockImplementation(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }] as never)
   vi.mocked(walletSubtreeIds).mockResolvedValue([])
+  vi.mocked(walletFreezeState).mockResolvedValue({ frozen: false })
 })
 
 describe("/tokens — daily horizon (unchanged)", () => {
@@ -72,6 +74,7 @@ describe("/tokens — daily horizon (unchanged)", () => {
     const res = await logTokens(reqTokens(USAGE))
     const body = await res.json()
     expect(res.status).toBe(402)
+    expect(res.headers.get("cache-control")).toBe("no-store")
     expect(body.horizon).toBe("daily")
     expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
   })
@@ -114,6 +117,7 @@ describe("/tokens — pooled subtree-daily horizon", () => {
     dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 1 } })
     const res = await logTokens(reqTokens(USAGE))
     expect(res.status).toBe(200)
+    expect(res.headers.get("cache-control")).toBe("no-store")
     expect(dbMock.tokenLog.create).toHaveBeenCalled()
   })
 })
@@ -169,7 +173,10 @@ describe("/tokens — reservations share the budget", () => {
 
   it("fails closed when the ancestry walk is truncated", async () => {
     vi.mocked(walletAncestorChain).mockResolvedValue([{ id: WID, parentId: "unresolved", policy: null }] as never)
-    await expect(logTokens(reqTokens(USAGE))).rejects.toThrow("Incomplete wallet ancestry")
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: "TOKEN_BUDGET_UNAVAILABLE" })
+    expect(res.headers.get("cache-control")).toBe("no-store")
     expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
   })
 
@@ -180,7 +187,59 @@ describe("/tokens — reservations share the budget", () => {
     vi.mocked(walletSubtreeIds).mockResolvedValue([WID])
     dbMock.wallet.findFirst.mockResolvedValue({ id: "omitted-child" })
     dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
-    await expect(logTokens(reqTokens(USAGE))).rejects.toThrow("Incomplete token pool membership")
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: "TOKEN_BUDGET_UNAVAILABLE" })
+    expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
+  })
+})
+
+describe("/tokens — verified freezes and unavailable state stay distinct", () => {
+  it.each([false, true])("returns uncached 403 when a freeze appears under the budget lock (parent=%s)", async (parent) => {
+    const chain = parent
+      ? [{ id: WID, parentId: "parent", policy: null }, { id: "parent", parentId: null, policy: null }]
+      : [{ id: WID, parentId: null, policy: null }]
+    vi.mocked(walletAncestorChain).mockResolvedValueOnce(chain).mockResolvedValueOnce(
+      chain.map((node, index) => ({ ...node, ...(index === chain.length - 1 ? { frozenAt: new Date(), frozenReason: "Paused" } : {}) })),
+    )
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ code: "WALLET_FROZEN", error: parent ? "Parent wallet is frozen" : "Wallet is frozen" })
+    expect(res.headers.get("cache-control")).toBe("no-store")
+    expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
+  })
+
+  it("returns uncached 403 for an already frozen wallet", async () => {
+    vi.mocked(walletFreezeState).mockResolvedValue({ frozen: true, frozenWalletId: WID, self: true, reason: null })
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ code: "WALLET_FROZEN" })
+    expect(res.headers.get("cache-control")).toBe("no-store")
+    expect(dbMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it("does not turn an unverified pre-check hierarchy into a frozen-policy denial", async () => {
+    vi.mocked(walletFreezeState).mockResolvedValue({ frozen: true, frozenWalletId: WID, self: true, reason: null, unverified: true })
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: "TOKEN_BUDGET_UNAVAILABLE" })
+    expect(res.headers.get("cache-control")).toBe("no-store")
+  })
+
+  it("returns uncached unavailable state if the pre-check database read fails", async () => {
+    vi.mocked(walletFreezeState).mockRejectedValue(new Error("database unavailable"))
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: "TOKEN_BUDGET_UNAVAILABLE" })
+    expect(res.headers.get("cache-control")).toBe("no-store")
+  })
+
+  it("keeps transaction failures separate from verified freezes", async () => {
+    dbMock.$transaction.mockRejectedValue(new Error("database unavailable"))
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: "TOKEN_BUDGET_UNAVAILABLE" })
+    expect(res.headers.get("cache-control")).toBe("no-store")
     expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
   })
 })

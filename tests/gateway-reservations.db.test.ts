@@ -110,12 +110,46 @@ async function logs(walletIds: string[]) {
   return db.tokenLog.findMany({ where: { agent: { walletId: { in: walletIds } } } })
 }
 
-async function waitUntil(check: () => Promise<boolean>) {
+// Promise.all rejects before other fixture/transaction writes finish. Drain the
+// entire batch before propagating its original error so teardown cannot race it.
+async function settleAll<T>(operations: Promise<T>[]): Promise<T[]> {
+  const outcomes = await Promise.allSettled(operations)
+  return outcomes.map((outcome) => {
+    if (outcome.status === "rejected") throw outcome.reason
+    return outcome.value
+  })
+}
+
+type Observed<T> = { promise: Promise<T>; throwIfRejected: () => void }
+
+// Attach the handler when background work starts, before any polling or other
+// awaits. The original promise remains awaitable, with its original error.
+function observe<T>(promise: Promise<T>): Observed<T> {
+  let failure: { reason: unknown } | undefined
+  void promise.catch((reason) => { failure = { reason } })
+  return { promise, throwIfRejected: () => { if (failure) throw failure.reason } }
+}
+
+async function waitUntil(check: () => Promise<boolean>, operations: Observed<unknown>[] = []) {
   const deadline = Date.now() + 4_000
-  while (!(await check())) {
+  while (true) {
+    operations.forEach((operation) => operation.throwIfRejected())
+    const reached = await check()
+    operations.forEach((operation) => operation.throwIfRejected())
+    if (reached) return
     if (Date.now() > deadline) throw new Error("Timed out waiting for the PostgreSQL concurrency barrier")
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
+}
+
+async function advisoryWaiters(client: Client, key: string, blockerPid: number): Promise<number[]> {
+  const { rows } = await client.query<{ pid: number }>(`SELECT pid FROM pg_locks
+    WHERE locktype = 'advisory' AND NOT granted
+      AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+      AND classid::bigint = CASE WHEN hashtext($1) < 0 THEN 4294967295 ELSE 0 END
+      AND objid::bigint = (hashtext($1)::bigint & 4294967295) AND objsubid = 1
+      AND $2::int = ANY(pg_blocking_pids(pid))`, [key, blockerPid])
+  return rows.map((row) => row.pid)
 }
 
 describe.skipIf(!run)("gateway reservations (Postgres)", () => {
@@ -128,18 +162,46 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     // Delete linked logs first, then reservations, then their owners.
     await db.tokenLog.deleteMany({ where: { agent: { walletId: scope } } })
     await db.gatewayReservation.deleteMany({ where: { walletId: scope } })
+    await db.authorizationRequest.deleteMany({ where: { agent: { walletId: scope } } })
     await db.agent.deleteMany({ where: { walletId: scope } })
     await db.policy.deleteMany({ where: { walletId: scope } })
     for (const id of [...wallets].reverse()) await db.wallet.delete({ where: { id } })
     wallets.length = 0
   })
 
+  it("drains concurrent fixture writes before surfacing an earlier rejection", async () => {
+    const failure = new Error("fixture batch failed")
+    let unblock!: () => void
+    const gate = new Promise<void>((resolve) => { unblock = resolve })
+    let drained = false
+    const batch = observe(settleAll([
+      Promise.reject<TestWallet>(failure),
+      gate.then(() => makeWallet()),
+    ]).finally(() => { drained = true }))
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(drained).toBe(false)
+    } finally {
+      unblock()
+      await Promise.allSettled([batch.promise])
+    }
+    await expect(batch.promise).rejects.toBe(failure)
+    expect(drained).toBe(true)
+    expect(await db.wallet.count({ where: { id: { in: wallets } } })).toBe(1)
+  })
+
+  it("surfaces a background rejection instead of masking it as a barrier timeout", async () => {
+    const failure = new Error("background database operation failed")
+    const operation = observe(Promise.reject(failure))
+    await expect(waitUntil(async () => false, [operation])).rejects.toBe(failure)
+  })
+
   it("admits exactly five of ten sibling $1 reservations under a $5 parent", async () => {
     const parent = await makeWallet({ pool: 500 })
-    const children = await Promise.all([
+    const children = await settleAll([
       makeWallet({ parentId: parent.id }), makeWallet({ parentId: parent.id }),
     ])
-    const results = await Promise.all(Array.from({ length: 10 }, (_, i) => reserve(children[i % 2])))
+    const results = await settleAll(Array.from({ length: 10 }, (_, i) => reserve(children[i % 2])))
     const accepted = results.filter((r) => !r.exhausted)
     const denied = results.filter((r) => r.exhausted)
     expect(accepted).toHaveLength(5)
@@ -147,6 +209,25 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     expect(denied).toEqual(Array.from({ length: 5 }, () => expect.objectContaining({
       horizon: "subtree-daily", capWalletId: parent.id, spent: 5, budget: 5,
     })))
+    const decisionIds = denied.map((result) => result.decisionId)
+    expect(decisionIds).toEqual(Array(5).fill(expect.any(String)))
+    expect(new Set(decisionIds).size).toBe(5)
+    const receipts = await db.authorizationRequest.findMany({
+      where: { agent: { walletId: { in: children.map((child) => child.id) } } },
+    })
+    expect(receipts.map((receipt) => receipt.id).sort()).toEqual([...decisionIds].sort())
+    expect(receipts).toEqual(Array.from({ length: 5 }, () => expect.objectContaining({
+      kind: "tool", action: "invoke", status: "denied", amountUsd: 0, decidedAt: expect.any(Date),
+      detailsJson: expect.objectContaining({
+        source: "gateway", provider: "anthropic", model, horizon: "subtree-daily",
+        code: "GATEWAY_BUDGET_EXCEEDED", cap_wallet_id: parent.id,
+        limit_usd: 5, occupied_usd: 5, requested_reservation_usd: 1,
+      }),
+    })))
+    expect(await db.pendingApproval.count({ where: {
+      walletId: { in: children.map((child) => child.id) },
+      sourceType: "authorization_request", sourceId: { in: receipts.map((receipt) => receipt.id) },
+    } })).toBe(0)
     const rows = await reservations(children.map((child) => child.id))
     expect(rows).toHaveLength(5)
     expect(rows.reduce((total, row) => total + row.reservedUsd, 0)).toBe(5)
@@ -155,14 +236,14 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     // A failed attempt must not leave another debit behind: releasing one
     // admitted request opens exactly one slot, even after five failed attempts.
     await releaseGatewayBudget(accepted[0].reservationId!)
-    const retries = await Promise.all([reserve(children[0]), reserve(children[1])])
+    const retries = await settleAll([reserve(children[0]), reserve(children[1])])
     expect(retries.filter((r) => !r.exhausted)).toHaveLength(1)
     expect(retries.filter((r) => r.exhausted)).toHaveLength(1)
   })
 
   it("enforces the seat daily override across simultaneous requests", async () => {
     const wallet = await makeWallet({ daily: 10_000, seatDaily: 100 })
-    const results = await Promise.all(Array.from({ length: 6 }, () => reserve(wallet, 0.25)))
+    const results = await settleAll(Array.from({ length: 6 }, () => reserve(wallet, 0.25)))
     expect(results.filter((r) => !r.exhausted)).toHaveLength(4)
     expect(results.filter((r) => r.exhausted)).toEqual([
       expect.objectContaining({ horizon: "daily", spent: 1, budget: 1 }),
@@ -178,7 +259,7 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
   ] as const)("admits three exact $0.10 %s charges under a $0.30 %s cap", async (writer, horizon) => {
     const wallet = await makeWallet(horizon === "daily" ? { daily: 30 }
       : horizon === "monthly" ? { monthly: 30 } : { pool: 30 })
-    const results = await Promise.all(Array.from({ length: 3 }, async () =>
+    const results = await settleAll(Array.from({ length: 3 }, async () =>
       writer === "gateway" ? !(await reserve(wallet, 0.1)).exhausted : (await logTokens(wallet, 0.1)).status === 200))
     expect(results).toEqual([true, true, true])
     const next = await reserve(wallet, 0.000001)
@@ -197,7 +278,7 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
       agentId: wallet.agent.id, model, tokensIn: 1_250_000, tokensOut: 0,
       costUsd: 1.25, createdAt: month,
     } })
-    const results = await Promise.all(Array.from({ length: 3 }, () => reserve(wallet, 0.25)))
+    const results = await settleAll(Array.from({ length: 3 }, () => reserve(wallet, 0.25)))
     expect(results.filter((r) => !r.exhausted)).toHaveLength(1)
     expect(results.filter((r) => r.exhausted)).toEqual([
       expect.objectContaining({ horizon: "monthly", spent: 1.5, budget: 1.5 }),
@@ -211,11 +292,11 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     const inner = await makeWallet({ parentId: root.id, pool: 200 })
     const leaf = await makeWallet({ parentId: inner.id })
     const sibling = await makeWallet({ parentId: root.id })
-    const innerResults = await Promise.all(Array.from({ length: 6 }, () => reserve(leaf)))
+    const innerResults = await settleAll(Array.from({ length: 6 }, () => reserve(leaf)))
     expect(innerResults.filter((r) => !r.exhausted)).toHaveLength(2)
     expect(innerResults.filter((r) => r.exhausted)).toEqual(Array.from({ length: 4 }, () =>
       expect.objectContaining({ horizon: "subtree-daily", capWalletId: inner.id })))
-    const outerResults = await Promise.all(Array.from({ length: 6 }, () => reserve(sibling)))
+    const outerResults = await settleAll(Array.from({ length: 6 }, () => reserve(sibling)))
     expect(outerResults.filter((r) => !r.exhausted)).toHaveLength(3)
     expect(outerResults.filter((r) => r.exhausted)).toEqual(Array.from({ length: 3 }, () =>
       expect.objectContaining({ horizon: "subtree-daily", capWalletId: root.id })))
@@ -226,7 +307,7 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     const wallet = await makeWallet({ daily: 100 })
     const id = await admitted(wallet)
     const usage = { ...dollarUsage, tokensIn: 250_000 }
-    const costs = await Promise.all(Array.from({ length: 10 }, () => resolveGatewayBudget(id, usage, true)))
+    const costs = await settleAll(Array.from({ length: 10 }, () => resolveGatewayBudget(id, usage, true)))
     expect(costs).toEqual(Array(10).fill(0.25))
     expect(await logs([wallet.id])).toEqual([expect.objectContaining({
       gatewayReservationId: id, costUsd: 0.25, tokensIn: 250_000,
@@ -279,6 +360,36 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     })
   })
 
+  it("admits a moved seat through the gateway without charging its destination for an earlier settled call", async () => {
+    const original = await makeWallet({ pool: 500 })
+    const destination = await makeWallet({ pool: 500 })
+    const originalSibling = await makeWallet({ parentId: original.id })
+    const id = await admitted(original, 5)
+    await resolveGatewayBudget(id, { ...dollarUsage, tokensIn: 5_000_000 }, true)
+    await db.agent.update({
+      where: { id: original.agent.id, walletId: original.id },
+      data: { walletId: destination.id },
+    })
+    const fetchMock = vi.fn(async () => Response.json({
+      model: gatewayBody.model, usage: { input_tokens: 1, output_tokens: 1 },
+    }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    // Authentication reloads the moved seat from PostgreSQL. Its new pool has
+    // room even though the old settled TokenLog still belongs to the same seat.
+    expect((await gatewayRequest(original)).status).toBe(200)
+    const denied = await gatewayRequest(originalSibling)
+    expect(denied.status).toBe(402)
+    expect(await denied.json()).toMatchObject({ horizon: "subtree-daily", cap_wallet_id: original.id, spent_usd: 5 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await reservations([destination.id])).toEqual([
+      expect.objectContaining({ agentId: original.agent.id, status: "settled", observedUsd: 0.000018 }),
+    ])
+    expect(await db.gatewayReservation.findFirst({ where: { id, walletId: original.id } })).toMatchObject({
+      status: "settled", observedUsd: 5,
+    })
+  })
+
   it("keeps incomplete and missing usage charged until confirmed settlement", async () => {
     const parent = await makeWallet({ pool: 200 })
     const first = await makeWallet({ parentId: parent.id })
@@ -309,7 +420,7 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     const direct = await makeWallet({ parentId: parent.id })
     await admitted(gateway)
     expect((await logTokens(direct)).status).toBe(200)
-    const outcomes = await Promise.all(Array.from({ length: 8 }, async (_, i) => {
+    const outcomes = await settleAll(Array.from({ length: 8 }, async (_, i) => {
       if (i % 2 === 0) return !(await reserve(gateway)).exhausted
       const response = await logTokens(direct)
       expect([200, 402]).toContain(response.status)
@@ -348,20 +459,20 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     const lockKey = `token-budget:wallet:${wallet.id}`
     const blocker = new Client({ connectionString: process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL })
     await blocker.connect()
-    let writing: Promise<unknown> | undefined
+    let writing: Observed<unknown> | undefined
     try {
+      const { rows: [{ pid: blockerPid }] } = await blocker.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")
       await blocker.query("BEGIN")
       await blocker.query("SELECT pg_advisory_xact_lock(hashtext($1)::int8)", [lockKey])
       // Start the real transaction in this period, then hold it at its wallet
       // lock. PostgreSQL CURRENT_TIMESTAMP remains the transaction start even
       // when the budget operation resumes in a later accounting period.
-      writing = writer === "settlement" ? resolveGatewayBudget(id!, dollarUsage, true) : logTokens(wallet)
+      writing = observe<unknown>(writer === "settlement" ? resolveGatewayBudget(id!, dollarUsage, true) : logTokens(wallet))
       await waitUntil(async () => {
-        const { rows } = await blocker.query(`SELECT 1 FROM pg_locks
-          WHERE locktype = 'advisory' AND NOT granted
-            AND objid::bigint = (hashtext($1)::bigint & 4294967295)`, [lockKey])
-        return rows.length > 0
-      })
+        const waiting = await advisoryWaiters(blocker, lockKey, blockerPid)
+        expect(waiting.length).toBeLessThanOrEqual(1)
+        return waiting.length === 1
+      }, [writing])
       const before = new Date()
       const nextPeriod = new Date(before.getFullYear(), before.getMonth() + 1, 1, 1)
       // Fake only Date: sockets, PostgreSQL timeouts, and the lock barrier keep
@@ -370,7 +481,7 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
       vi.useFakeTimers({ toFake: ["Date"] })
       vi.setSystemTime(nextPeriod)
       await blocker.query("COMMIT")
-      const outcome = await writing
+      const outcome = await writing.promise
       if (writer === "settlement") expect(outcome).toBe(1)
       else expect((outcome as Response).status).toBe(200)
       expect(await logs([wallet.id])).toEqual([
@@ -380,10 +491,10 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     } finally {
       await blocker.query("ROLLBACK").catch(() => {})
       await blocker.end()
-      await Promise.allSettled(writing ? [writing] : [])
+      await Promise.allSettled(writing ? [writing.promise] : [])
       vi.useRealTimers()
     }
-  })
+  }, 15_000)
 
   it("commits five holds before blocked provider fetches and denies five sibling requests", async () => {
     const perRequest = await gatewayReservationSize()
@@ -391,7 +502,7 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     expect(perRequest * 5).toBeLessThanOrEqual(capCents / 100)
     expect(perRequest * 6).toBeGreaterThan(capCents / 100)
     const parent = await makeWallet({ pool: capCents })
-    const children = await Promise.all([
+    const children = await settleAll([
       makeWallet({ parentId: parent.id }), makeWallet({ parentId: parent.id }),
     ])
     let unblock!: () => void
@@ -404,12 +515,12 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
       return Response.json({ model: gatewayBody.model, usage: { input_tokens: 1, output_tokens: 1 } })
     })
     vi.stubGlobal("fetch", fetchMock)
-    const calls = Array.from({ length: 10 }, (_, i) => gatewayRequest(children[i % 2]).then((response) => {
+    const calls = Array.from({ length: 10 }, (_, i) => observe(gatewayRequest(children[i % 2]).then((response) => {
       returned++
       return response
-    }))
+    })))
     try {
-      await waitUntil(async () => started + returned === 10)
+      await waitUntil(async () => started + returned === 10, calls)
       expect(started).toBe(5)
       expect(returned).toBe(5)
       expect(fetchMock).toHaveBeenCalledTimes(5)
@@ -420,9 +531,9 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
       expect(await logs(children.map((child) => child.id))).toHaveLength(0)
     } finally {
       unblock()
-      await Promise.allSettled(calls)
+      await Promise.allSettled(calls.map((call) => call.promise))
     }
-    const results = await Promise.all(calls)
+    const results = await settleAll(calls.map((call) => call.promise))
     expect(results.filter((response) => response.status === 200)).toHaveLength(5)
     expect(results.filter((response) => response.status === 402)).toHaveLength(5)
     expect(await logs(children.map((child) => child.id))).toHaveLength(5)
@@ -481,34 +592,55 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     const id = await admitted(first)
     const blocker = new Client({ connectionString: process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL })
     await blocker.connect()
-    let settling: Promise<number> | undefined
-    let competing: ReturnType<typeof reserve> | undefined
+    let settling: Observed<number> | undefined
+    let competing: Observed<Awaited<ReturnType<typeof reserve>>> | undefined
     try {
+      const { rows: [{ pid: blockerPid }] } = await blocker.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")
       await blocker.query("BEGIN")
       // Block only the durable spend insertion, after settlement has started.
       // Reads and reservation inserts remain available to independent wallets.
       await blocker.query('LOCK TABLE "TokenLog" IN SHARE MODE')
-      settling = resolveGatewayBudget(id, dollarUsage, true)
+      settling = observe(resolveGatewayBudget(id, dollarUsage, true))
+      const parentLockKey = `token-budget:wallet:${parent.id}`
+      let settlementPid: number | undefined
       await waitUntil(async () => {
-        const { rows } = await blocker.query(`SELECT 1 FROM pg_locks
-          WHERE relation = '"TokenLog"'::regclass
-            AND mode = 'RowExclusiveLock' AND NOT granted`)
-        return rows.length > 0
-      })
-      let siblingFinished = false
-      competing = reserve(sibling).then((result) => { siblingFinished = true; return result })
+        // Identify our settlement backend by the unique parent lock it holds,
+        // its blocked TokenLog write, and this connection actually blocking it.
+        const { rows } = await blocker.query<{ pid: number }>(`SELECT waiting.pid
+          FROM pg_locks waiting JOIN pg_locks parent ON parent.pid = waiting.pid
+          WHERE waiting.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+            AND waiting.relation = '"TokenLog"'::regclass
+            AND waiting.mode = 'RowExclusiveLock' AND NOT waiting.granted
+            AND parent.locktype = 'advisory' AND parent.granted
+            AND parent.classid::bigint = CASE WHEN hashtext($1) < 0 THEN 4294967295 ELSE 0 END
+            AND parent.objid::bigint = (hashtext($1)::bigint & 4294967295) AND parent.objsubid = 1
+            AND $2::int = ANY(pg_blocking_pids(waiting.pid))`, [parentLockKey, blockerPid])
+        expect(rows.length).toBeLessThanOrEqual(1)
+        settlementPid = rows[0]?.pid
+        return settlementPid !== undefined
+      }, [settling])
+      competing = observe(reserve(sibling))
+      let siblingPid: number | undefined
+      await waitUntil(async () => {
+        const waiting = await advisoryWaiters(blocker, parentLockKey, settlementPid!)
+        expect(waiting.length).toBeLessThanOrEqual(1)
+        siblingPid = waiting[0]
+        return siblingPid !== undefined
+      }, [settling, competing])
       await admitted(independent)
-      expect(siblingFinished).toBe(false)
+      // Independent progress happens while the sibling is demonstrably waiting
+      // on this settlement's parent lock, not merely while its promise is idle.
+      expect(await advisoryWaiters(blocker, parentLockKey, settlementPid!)).toEqual([siblingPid])
       expect(await reservations([first.id])).toEqual([expect.objectContaining({ id, status: "pending" })])
       expect(await logs([first.id])).toHaveLength(0)
       await blocker.query("COMMIT")
-      expect(await settling).toBe(1)
-      expect(await competing).toMatchObject({ exhausted: true, spent: 1, capWalletId: parent.id })
+      expect(await settling.promise).toBe(1)
+      expect(await competing.promise).toMatchObject({ exhausted: true, spent: 1, capWalletId: parent.id })
       expect(await logs([first.id])).toEqual([expect.objectContaining({ gatewayReservationId: id, costUsd: 1 })])
     } finally {
       await blocker.query("ROLLBACK").catch(() => {})
       await blocker.end()
-      await Promise.allSettled([settling, competing].filter((promise) => promise !== undefined))
+      await Promise.allSettled([settling?.promise, competing?.promise].filter((promise) => promise !== undefined))
     }
   }, 15_000)
 })

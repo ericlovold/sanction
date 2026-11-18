@@ -30,9 +30,11 @@ vi.mock("@/lib/gateway", async (orig) => {
 
 import { POST as gateway } from "../app/api/gateway/[provider]/[...path]/route"
 import { isBudgetExhausted } from "../lib/gateway"
-import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget } from "../lib/gatewayBudget"
+import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget, recordGatewayBudgetDenial, GatewayWalletFrozenError } from "../lib/gatewayBudget"
 
-vi.mock("@/lib/gatewayBudget", () => ({
+vi.mock("@/lib/gatewayBudget", async (orig) => ({
+  ...await orig<typeof import("@/lib/gatewayBudget")>(),
+  recordGatewayBudgetDenial: vi.fn(async () => "denial_1"),
   reserveGatewayBudget: vi.fn(async () => ({ exhausted: false, spent: 1, budget: 10, reservationId: "hold_1" })),
   resolveGatewayBudget: vi.fn(async () => 0.05),
   releaseGatewayBudget: vi.fn(async () => {}),
@@ -69,6 +71,7 @@ beforeEach(() => {
   vi.mocked(resolveGatewayBudget).mockResolvedValue(0.05)
   vi.mocked(reserveGatewayBudget).mockResolvedValue({ exhausted: false, spent: 1, budget: 10, reservationId: "hold_1" })
   vi.mocked(releaseGatewayBudget).mockResolvedValue(undefined)
+  vi.mocked(recordGatewayBudgetDenial).mockResolvedValue("denial_1")
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: false, spent: 1, budget: 10 } as never)
 })
@@ -98,7 +101,7 @@ describe("gateway proxy — gates before the upstream call", () => {
   })
 
   it("402 before spending when the daily token budget is exhausted", async () => {
-    vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: true, spent: 10, budget: 10 } as never)
+    vi.mocked(reserveGatewayBudget).mockResolvedValue({ exhausted: true, spent: 10, budget: 10, horizon: "daily" } as never)
     global.fetch = vi.fn()
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
     expect(res.status).toBe(402)
@@ -224,6 +227,7 @@ describe("gateway proxy — forwarding and metering", () => {
     expect(res.status).toBe(200)
     expect(await res.text()).toBe(SSE_WITH_USAGE)
     expect(resolveGatewayBudget).toHaveBeenCalledTimes(3) // bounded retries
+    expect(releaseGatewayBudget).not.toHaveBeenCalled()
   })
 })
 
@@ -498,7 +502,7 @@ describe("gateway reservation lifecycle", () => {
   })
 
   it("retains capacity when an SSE stream closes before its terminal event", async () => {
-    const sse = 'data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}\n\n'
+    const sse = 'data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}\n\ndata: {"type":"message_delta","usage":{"output_tokens":4}}\n\n'
     global.fetch = vi.fn(async () => new Response(sse, { headers: { "content-type": "text/event-stream" } }))
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
     await res.text()
@@ -556,4 +560,140 @@ it("does not bill response retrieval again or create an unreserved usage write",
   expect(res.status).toBe(200)
   expect(reserveGatewayBudget).not.toHaveBeenCalled()
   expect(resolveGatewayBudget).not.toHaveBeenCalled()
+})
+
+describe("gateway review regressions", () => {
+  it("lets the reservation decide generation admission despite stale legacy attribution", async () => {
+    vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: true, spent: 10, budget: 10, horizon: "subtree-daily" })
+    global.fetch = vi.fn(async () => Response.json({ usage: { input_tokens: 3, output_tokens: 4 } }))
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    expect(isBudgetExhausted).not.toHaveBeenCalled()
+    expect(reserveGatewayBudget).toHaveBeenCalledOnce()
+  })
+
+  it.each(["oversize", "invalid-utf8"])("rejects %s original streamed bytes before rewriting or dispatch", async (kind) => {
+    const prefix = new TextEncoder().encode('{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"')
+    const suffix = new TextEncoder().encode('"}]}')
+    const raw = kind === "oversize"
+      ? new TextEncoder().encode(' '.repeat(8 * 1024 * 1024) + '{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hi"}]}')
+      : new Uint8Array([...prefix, 0xff, ...suffix])
+    const request = new NextRequest("https://test.local/api/gateway/openai/v1/chat/completions", {
+      method: "POST", headers: { "x-sanction-key": KEY, authorization: "Bearer provider-key" }, body: raw,
+    })
+    global.fetch = vi.fn()
+    const res = await gateway(request, params("openai", "v1/chat/completions"))
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ code: "GATEWAY_RESERVATION_INVALID_REQUEST" })
+    expect(reserveGatewayBudget).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])("retains a hold after malformed SSE data (malformed=%s)", async (malformed) => {
+    const sse = ['data: {"usage":{"prompt_tokens":3,"completion_tokens":4}}',
+      ...(malformed ? ['data: {broken json'] : []), 'data: [DONE]', ''].join('\n\n')
+    global.fetch = vi.fn(async () => new Response(sse, { headers: { "content-type": "text/event-stream" } }))
+    const res = await gateway(req("openai", "v1/chat/completions", { body: { model: "gpt-4o", messages: [{ role: "user", content: "hi" }], stream: true } }), params("openai", "v1/chat/completions"))
+    expect(await res.text()).toBe(sse)
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), !malformed)
+    expect(releaseGatewayBudget).not.toHaveBeenCalled()
+  })
+
+  it("retains a hold when cancellation resolves a pending read after terminal usage", async () => {
+    const upstream = new ReadableStream<Uint8Array>({ start(c) {
+      c.enqueue(new TextEncoder().encode('data: {"usage":{"prompt_tokens":3,"completion_tokens":4}}\n\ndata: [DONE]\n\n'))
+    } })
+    global.fetch = vi.fn(async () => new Response(upstream, { headers: { "content-type": "text/event-stream" } }))
+    const res = await gateway(req("openai", "v1/chat/completions", { body: { model: "gpt-4o", messages: [{ role: "user", content: "hi" }], stream: true } }), params("openai", "v1/chat/completions"))
+    const reader = res.body!.getReader()
+    await reader.read()
+    const pending = reader.read()
+    await reader.cancel("cancel with read pending")
+    expect(await pending).toMatchObject({ done: true })
+    expect(resolveGatewayBudget).toHaveBeenCalledExactlyOnceWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), false)
+  })
+
+  const cases = [
+    { label: "normal", usage: { promptTokenCount: 3, candidatesTokenCount: 4 }, complete: true, out: 4 },
+    { label: "thinking", usage: { promptTokenCount: 3, candidatesTokenCount: 4, thoughtsTokenCount: 10 }, complete: true, out: 14 },
+    { label: "invalid thoughts", usage: { promptTokenCount: 3, candidatesTokenCount: 4, thoughtsTokenCount: -1 }, complete: false, out: 3 },
+    { label: "thinking only with total", usage: { promptTokenCount: 3, thoughtsTokenCount: 10, totalTokenCount: 13 }, complete: true, out: 10 },
+    { label: "omitted candidates included in total", usage: { promptTokenCount: 3, thoughtsTokenCount: 10, totalTokenCount: 17 }, complete: true, out: 14 },
+    { label: "missing candidate evidence", usage: { promptTokenCount: 3, thoughtsTokenCount: 10 }, complete: false, out: 10 },
+    { label: "inconsistent total", usage: { promptTokenCount: 3, candidatesTokenCount: 4, totalTokenCount: 8 }, complete: false, out: 4 },
+    { label: "unaccounted tool prompt", usage: { promptTokenCount: 3, candidatesTokenCount: 4, toolUsePromptTokenCount: 2 }, complete: false, out: 4 },
+  ]
+  describe.each([false, true])("Gemini stream=%s", (stream) => {
+    it.each(cases)("settles $label according to complete usage evidence", async ({ usage, complete, out }) => {
+      const response = { usageMetadata: usage, candidates: [{ finishReason: "MAX_TOKENS" }] }
+      global.fetch = vi.fn(async () => stream
+        ? new Response(`data: ${JSON.stringify(response)}\n\n`, { headers: { "content-type": "text/event-stream" } })
+        : Response.json(response))
+      const path = `v1beta/models/gemini-2.5-flash:${stream ? "streamGenerateContent" : "generateContent"}`
+      const res = await gateway(req("gemini", path, { body: { contents: [{ parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 100, thinkingConfig: { thinkingBudget: 10 } } } }), params("gemini", path))
+      expect(res.status).toBe(200)
+      await res.text()
+      expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: out }), complete)
+    })
+  })
+})
+
+it("returns the typed freeze denial when the wallet freezes during reservation", async () => {
+  vi.mocked(reserveGatewayBudget).mockRejectedValueOnce(new GatewayWalletFrozenError({ frozen: true, frozenWalletId: "wallet_1", self: true, reason: null }))
+  global.fetch = vi.fn()
+  const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+  expect(res.status).toBe(403)
+  expect(res.headers.get("cache-control")).toBe("no-store")
+  expect(await res.json()).toMatchObject({ code: "WALLET_FROZEN" })
+  expect(global.fetch).not.toHaveBeenCalled()
+})
+
+it("records a legacy non-generating budget denial before returning 402", async () => {
+  vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: true, spent: 10, budget: 10, horizon: "daily" })
+  global.fetch = vi.fn()
+  const res = await gateway(req("openai", "v1/models", { method: "GET" }), params("openai", "v1/models"))
+  expect(res.status).toBe(402)
+  expect(await res.json()).toMatchObject({ request_id: "denial_1", horizon: "daily" })
+  expect(recordGatewayBudgetDenial).toHaveBeenCalledWith(AGENT, expect.objectContaining({ provider: "openai", path: "v1/models", verdict: expect.objectContaining({ exhausted: true }) }))
+  expect(global.fetch).not.toHaveBeenCalled()
+})
+
+it("fails closed when a legacy budget denial cannot be recorded", async () => {
+  vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: true, spent: 10, budget: 10, horizon: "daily" })
+  vi.mocked(recordGatewayBudgetDenial).mockRejectedValueOnce(new Error("db down"))
+  global.fetch = vi.fn()
+  const res = await gateway(req("openai", "v1/models", { method: "GET" }), params("openai", "v1/models"))
+  expect(res.status).toBe(503)
+  expect(global.fetch).not.toHaveBeenCalled()
+})
+
+it.each([200, 400])("retains the hold for invalid UTF-8 JSON on status %s", async (status) => {
+  const raw = new Uint8Array([
+    ...new TextEncoder().encode('{"message":"'), 0xff,
+    ...new TextEncoder().encode(status === 200 ? '","usage":{"input_tokens":3,"output_tokens":4}}' : '"}'),
+  ])
+  global.fetch = vi.fn(async () => new Response(raw, { status, headers: { "content-type": "application/json" } }))
+  const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+  expect(res.status).toBe(status)
+  expect(new Uint8Array(await res.arrayBuffer())).toEqual(raw)
+  expect(releaseGatewayBudget).not.toHaveBeenCalled()
+  expect(resolveGatewayBudget).not.toHaveBeenCalled()
+})
+
+it.each([{ error: { message: "stream failed" } }, null, "invalid chunk"])("retains a Gemini array hold after a failed or malformed trailing chunk: %j", async (tail) => {
+  global.fetch = vi.fn(async () => Response.json([
+    { usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 4 }, candidates: [{ finishReason: "STOP" }] }, tail,
+  ]))
+  const path = "v1beta/models/gemini-2.5-flash:streamGenerateContent"
+  const res = await gateway(req("gemini", path, { body: { contents: [{ parts: [{ text: "hi" }] }], generationConfig: { thinkingConfig: { thinkingBudget: 0 } } } }), params("gemini", path))
+  expect(res.status).toBe(200)
+  expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), false)
+  expect(releaseGatewayBudget).not.toHaveBeenCalled()
+})
+
+it("settles a successful Responses result with its normal null error field", async () => {
+  global.fetch = vi.fn(async () => Response.json({ status: "completed", error: null, usage: { input_tokens: 3, output_tokens: 4 } }))
+  const res = await gateway(req("openai", "v1/responses", { body: { model: "gpt-4o", input: "hi" } }), params("openai", "v1/responses"))
+  expect(res.status).toBe(200)
+  expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), true)
 })

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
-import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, makeStreamMeter, forceStreamUsage, isUnmeteredBackgroundRequest } from "@/lib/gateway"
+import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, makeStreamMeter, forceStreamUsage, isUnmeteredBackgroundRequest, hasCompleteGeminiUsage } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
-import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget } from "@/lib/gatewayBudget"
-import { prepareGatewayRequest, GatewayReservationRequestError } from "@/lib/gatewayRequestBudget"
+import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget, GatewayWalletFrozenError, recordGatewayBudgetDenial } from "@/lib/gatewayBudget"
+import { prepareGatewayRequest, GatewayReservationRequestError, validateGatewayRequestBytes } from "@/lib/gatewayRequestBudget"
 import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { withTenant } from "@/lib/rls"
@@ -74,14 +74,17 @@ function meteringFailure(): Response {
 }
 
 function hasCompleteJsonUsage(provider: string, path: string, body: ArrayBuffer): boolean {
-  const raw = JSON.parse(new TextDecoder().decode(body))
+  const raw = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body))
+  const chunks = Array.isArray(raw) ? raw : [raw]
+  if (chunks.some((chunk) => !chunk || typeof chunk !== "object" || Array.isArray(chunk) ||
+      chunk.error != null)) return false
   const obj = Array.isArray(raw) ? raw.findLast((v) => v?.usageMetadata) : raw
   const u = provider === "gemini" ? obj?.usageMetadata : obj?.usage
   const valid = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0
   if (provider === "openai" && path === "v1/embeddings") {
     return valid(u?.prompt_tokens) && valid(u?.total_tokens) && u.prompt_tokens === u.total_tokens
   }
-  if (provider === "gemini") return valid(u?.promptTokenCount) && valid(u?.candidatesTokenCount)
+  if (provider === "gemini") return hasCompleteGeminiUsage(u)
   if (provider === "anthropic") return valid(u?.input_tokens) && valid(u?.output_tokens)
   return valid(u?.prompt_tokens ?? u?.input_tokens) && valid(u?.completion_tokens ?? u?.output_tokens)
 }
@@ -102,35 +105,53 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
     return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403, headers: noStore })
   }
 
-  // Token budget wall before the call: seat daily, seat monthly, then pooled
-  // subtree caps up the wallet tree — if any line is spent, don't call out.
-  const { exhausted, spent, budget, horizon, capWalletId } = await isBudgetExhausted(agent)
-  if (exhausted) {
-    const which = horizon ?? "daily"
-    const label =
-      which === "subtree-daily"
-        ? "Pool daily token cap exhausted"
-        : which === "monthly"
-          ? "Monthly token budget exhausted"
-          : "Daily token budget exhausted"
-    return NextResponse.json(
-      {
-        error: label,
-        horizon: which,
-        limit_usd: budget,
-        spent_usd: spent,
-        // Back-compat fields for existing integrations (daily wall shape).
-        daily_limit_usd: which === "daily" ? budget : undefined,
-        daily_spent_usd: which === "daily" ? spent : undefined,
-        cap_wallet_id: capWalletId,
-      },
-      { status: 402, headers: noStore },
-    )
+  const method = req.method
+  const reserves = isMeteredPath(provider, method, path.join("/")) &&
+    !(provider === "anthropic" && path.join("/") === "v1/messages/count_tokens")
+  // Reserving requests use the atomic verdict below, including pinned wallet
+  // attribution. The legacy spend-only check is for non-generating requests.
+  if (!reserves) {
+    const verdict = await isBudgetExhausted(agent)
+    const { exhausted, spent, budget, horizon, capWalletId } = verdict
+    if (exhausted) {
+      let decisionId: string
+      try {
+        decisionId = await recordGatewayBudgetDenial(agent, { provider, path: path.join("/"), verdict })
+      } catch {
+        return NextResponse.json({ error: "Sanction could not record the budget denial", code: "GATEWAY_RESERVATION_FAILED" }, { status: 503, headers: noStore })
+      }
+      const which = horizon ?? "daily"
+      const label =
+        which === "subtree-daily"
+          ? "Pool daily token cap exhausted"
+          : which === "monthly"
+            ? "Monthly token budget exhausted"
+            : "Daily token budget exhausted"
+      return NextResponse.json(
+        {
+          error: label,
+          request_id: decisionId,
+          horizon: which,
+          limit_usd: budget,
+          spent_usd: spent,
+          // Back-compat fields for existing integrations (daily wall shape).
+          daily_limit_usd: which === "daily" ? budget : undefined,
+          daily_spent_usd: which === "daily" ? spent : undefined,
+          cap_wallet_id: capWalletId,
+        },
+        { status: 402, headers: noStore },
+      )
+    }
   }
 
   const url = `${cfg.baseUrl}/${path.join("/")}${req.nextUrl.search}`
-  const method = req.method
   const rawBody = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer()
+  if (reserves) {
+    try { validateGatewayRequestBytes(rawBody) } catch (err) {
+      if (!(err instanceof GatewayReservationRequestError)) throw err
+      return NextResponse.json({ error: err.message, code: err.code }, { status: 400, headers: noStore })
+    }
+  }
   // Metering is not the caller's choice: force stream usage reporting on the
   // way out (no-op for providers that already stream usage by default).
   let body = forceStreamUsage(provider, rawBody, path.join("/"))
@@ -204,7 +225,9 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   // Every metered generation commits a durable hold before fetch can begin.
   let reservationId: string | undefined
   let requestModel = ""
-  if (isMeteredPath(provider, method, path.join("/")) && !(provider === "anthropic" && path.join("/") === "v1/messages/count_tokens")) {
+  let admittedSpent = 0
+  let admittedBudget: number | null = null
+  if (reserves) {
     try {
       const prepared = prepareGatewayRequest(provider, path.join("/"), body)
       body = prepared.body
@@ -216,6 +239,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
         return NextResponse.json({
           error: "Insufficient token budget for this request and calls already in flight",
           code: "GATEWAY_BUDGET_EXCEEDED",
+          request_id: held.decisionId,
           horizon: held.horizon,
           limit_usd: held.budget,
           spent_usd: held.spent,
@@ -227,7 +251,12 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       }
       if (!held.reservationId) throw new Error("Missing gateway reservation")
       reservationId = held.reservationId
+      admittedSpent = held.spent
+      admittedBudget = held.budget
     } catch (err) {
+      if (err instanceof GatewayWalletFrozenError) {
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 403, headers: noStore })
+      }
       if (err instanceof GatewayReservationRequestError) {
         return NextResponse.json({ error: err.message, code: err.code }, { status: 400, headers: noStore })
       }
@@ -242,9 +271,9 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
         agentId: agent.id,
         ownerEmail: agent.wallet.ownerEmail,
         agentName: agent.name,
-        prevUsd: spent,
-        nextUsd: spent + cost,
-        budgetUsd: budget,
+        prevUsd: admittedSpent,
+        nextUsd: admittedSpent + cost,
+        budgetUsd: admittedBudget,
       })
     } catch {
       // Threshold alerts are best-effort; the usage write above is not.
@@ -285,14 +314,18 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   // release unused capacity. Partial usage is recorded with the hold retained.
   if (ct.includes("text/event-stream") && upstream.body) {
     const meter = makeStreamMeter(provider)
-    const decoder = new TextDecoder()
+    const decoder = new TextDecoder("utf-8", { fatal: true })
     const reader = upstream.body.getReader()
     let buf = ""
     let settled = false
     let terminal = false
     let streamError = false
-    const parse = (chunk: Uint8Array) => {
-      buf += decoder.decode(chunk, { stream: true })
+    let cancelling = false
+    const parse = (chunk: Uint8Array, final = false) => {
+      try { buf += decoder.decode(chunk, { stream: !final }) } catch {
+        streamError = true
+        return
+      }
       let nl: number
       while ((nl = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, nl).trim()
@@ -303,12 +336,14 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
           if (payload && payload !== "[DONE]") {
             try {
               const event = JSON.parse(payload)
-              if (event.error || event.type === "error" || event.type === "response.failed") streamError = true
+              if (event.error != null || event.type === "error" || event.type === "response.failed") streamError = true
               if (event.type === "message_stop" || event.type === "response.completed" || event.type === "response.incomplete" ||
                   (provider === "gemini" && event.candidates?.some((c: { finishReason?: string }) => c.finishReason))) terminal = true
               meter.feed(event)
             } catch {
-              // partial/non-JSON event line — ignore
+              // A later undecodable record may contain final usage. Earlier
+              // observations are retained, but cannot release this hold.
+              streamError = true
             }
           }
         }
@@ -342,15 +377,18 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
           return
         }
         if (next.done) {
-          parse(new TextEncoder().encode("\n")) // consume a final data line without newline
-          await settle("complete")
-          controller.close()
+          parse(new TextEncoder().encode("\n"), true) // consume a final data line without newline
+          if (!cancelling) {
+            await settle("complete")
+            controller.close()
+          }
           return
         }
         controller.enqueue(next.value) // live pass-through — the client sees every token as it lands
         parse(next.value)
       },
       async cancel(reason) {
+        cancelling = true
         // Stop the provider generating first, then bill what it already reported.
         await reader.cancel(reason).catch(() => {})
         await settle("cancelled")
@@ -365,7 +403,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
     try { buf = await upstream.arrayBuffer() } catch { return meteringFailure() }
     let usage: GatewayUsage | null = null
     try {
-      const json = JSON.parse(new TextDecoder().decode(buf))
+      const json = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(buf))
       // Rejected request with no contradictory usage evidence. Transport
       // failures, 408/5xx, malformed bodies and streams keep their holds.
       if (reservationId && [400, 401, 403, 404, 422, 429].includes(upstream.status) &&

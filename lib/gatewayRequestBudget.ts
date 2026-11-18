@@ -23,6 +23,17 @@ function unsupported(message: string): never {
   throw new GatewayReservationRequestError("GATEWAY_RESERVATION_UNSUPPORTED", message)
 }
 
+/** Validate original bytes before any JSON rewrite can shrink the body or
+ * replace invalid UTF-8. Returns the decoded text without normalizing it. */
+export function validateGatewayRequestBytes(rawBody: ArrayBuffer | undefined): string {
+  if (!rawBody || !rawBody.byteLength || rawBody.byteLength > MAX_REQUEST_BYTES) invalid(`The request body must be non-empty JSON no larger than ${MAX_REQUEST_BYTES} bytes.`)
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(rawBody)
+  } catch {
+    invalid("The request body must be valid UTF-8 JSON.")
+  }
+}
+
 function object(value: unknown, at: string): JsonObject {
   if (!value || typeof value !== "object" || Array.isArray(value)) invalid(`${at} must be a JSON object.`)
   return value as JsonObject
@@ -107,6 +118,12 @@ function anthropicRequest(body: JsonObject): { output: number; messages: number 
     if (typeof message.content === "string") continue
     for (const value of list(message.content, "messages[].content")) {
       const block = object(value, "messages[].content[]")
+      if (block.type === "thinking" || block.type === "redacted_thinking") {
+        // Claude reconstructs full reasoning from opaque signature/data, not
+        // necessarily the visible thinking summary. Its decoded input is not
+        // covered by this explicit-text estimator.
+        unsupported("Thinking-block replay cannot be reserved because its signature or data carries encrypted reasoning. Use a tool conversation with thinking disabled.")
+      }
       if (block.type === "tool_use") {
         fields(block, "type id name input cache_control", "tool_use")
         text(block.id, "tool_use.id")
@@ -144,6 +161,9 @@ function anthropicRequest(body: JsonObject): { output: number; messages: number 
     fields(thinking, "type budget_tokens", "thinking")
     if (thinking.type === "enabled") {
       if (limit(thinking.budget_tokens, "thinking.budget_tokens") >= output) invalid("thinking.budget_tokens must be less than max_tokens.")
+      if (Array.isArray(body.tools) && body.tools.length > 0) {
+        unsupported("Enabled thinking with tools requires encrypted thinking-block replay, which gateway reservations cannot size. Set thinking.type to disabled for tool conversations, or omit tools.")
+      }
     } else if (thinking.type !== "disabled") {
       unsupported("thinking.type must be enabled with an explicit budget_tokens, or disabled.")
     }
@@ -166,11 +186,27 @@ function openaiText(value: unknown, at: string, responses: boolean): void {
   if (typeof value === "string") return
   for (const entry of list(value, at)) {
     const part = object(entry, at)
-    fields(part, "type text", at)
+    fields(part, responses && part.type === "output_text" ? "type text annotations" : "type text", at)
     if (!(responses ? ["input_text", "output_text"] : ["text"]).includes(String(part.type))) {
       unsupported(`${at} supports text only; media, files, and stored items cannot be sized.`)
     }
     text(part.text, `${at}.text`)
+    if (part.annotations !== undefined) {
+      if (!Array.isArray(part.annotations)) invalid(`${at}.annotations must be an array.`)
+      if (part.annotations.length > 0) unsupported(`${at}.annotations must be empty; file, URL, and container references are not supported by text-only reservations.`)
+    }
+  }
+}
+
+// IDs/status label a fully supplied inline item. They never substitute for its
+// text or function arguments; item_reference remains outside the allowlist.
+function responseItemMetadata(item: JsonObject, at: string): void {
+  if (item.id !== undefined) {
+    text(item.id, `${at}.id`)
+    if (!item.id.trim()) invalid(`${at}.id must be a non-empty string.`)
+  }
+  if (item.status !== undefined && (typeof item.status !== "string" || !["in_progress", "completed", "incomplete"].includes(item.status))) {
+    invalid(`${at}.status must be in_progress, completed, or incomplete.`)
   }
 }
 
@@ -268,15 +304,23 @@ function openaiRequest(body: JsonObject, path: string): { output: number; messag
       text(message.call_id, "input.function_call_output.call_id")
       text(message.output, "input.function_call_output.output")
     } else if (responses && message.type === "function_call") {
-      fields(message, "type call_id name arguments", "input.function_call")
+      fields(message, "type call_id name arguments id status", "input.function_call")
       text(message.call_id, "input.function_call.call_id")
       text(message.name, "input.function_call.name")
       text(message.arguments, "input.function_call.arguments")
+      responseItemMetadata(message, "input.function_call")
     } else {
-      fields(message, responses ? "type role content" : "role content name tool_call_id tool_calls function_call refusal", "messages[]")
+      fields(message, responses ? "type role content id status phase" : "role content name tool_call_id tool_calls function_call refusal", "messages[]")
       if (responses && message.type !== undefined && message.type !== "message") unsupported("input supports explicit messages and function calls only; stored items cannot be sized.")
       if (!["user", "assistant", "system", "developer", ...(responses ? [] : ["tool", "function"])].includes(String(message.role))) invalid("messages[].role is not supported.")
       if (!(message.content == null && !responses && (message.tool_calls || message.function_call))) openaiText(message.content, "messages[].content", responses)
+      if (responses) {
+        responseItemMetadata(message, "messages[]")
+        if (message.phase !== undefined && (message.role !== "assistant" ||
+            (message.phase !== null && message.phase !== "commentary" && message.phase !== "final_answer"))) {
+          invalid("messages[].phase must be commentary, final_answer, or null on an assistant message.")
+        }
+      }
       if (message.function_call !== undefined) functionCall(message.function_call, "messages[].function_call")
       if (message.tool_calls !== undefined) {
         for (const value of list(message.tool_calls, "messages[].tool_calls")) {
@@ -383,10 +427,10 @@ export function prepareGatewayRequest(provider: string, path: string, rawBody: A
   if (!((provider === "anthropic" && path === "v1/messages") ||
     (provider === "openai" && ["v1/chat/completions", "v1/responses", "v1/completions", "v1/embeddings"].includes(path)) ||
     (provider === "gemini" && geminiModel))) unsupported(`Gateway reservations do not support ${provider}/${path}. Use a supported text-generation or text-embedding endpoint.`)
-  if (!rawBody || !rawBody.byteLength || rawBody.byteLength > MAX_REQUEST_BYTES) invalid(`The request body must be non-empty JSON no larger than ${MAX_REQUEST_BYTES} bytes.`)
+  const decoded = validateGatewayRequestBytes(rawBody)
   let parsed: unknown
   try {
-    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(rawBody), (_key, value: unknown) => {
+    parsed = JSON.parse(decoded, (_key, value: unknown) => {
       if (typeof value === "number" && !Number.isFinite(value)) invalid("All JSON numbers must be finite.")
       return value
     })

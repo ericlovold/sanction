@@ -5,7 +5,18 @@ import { db } from "@/lib/db"
 import { authenticateAgent } from "@/lib/auth"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { notifyTokenBudgetThreshold } from "@/lib/thresholds"
-import { recordTokenUsageUnderBudget } from "@/lib/gatewayBudget"
+import { GatewayWalletFrozenError, recordTokenUsageUnderBudget } from "@/lib/gatewayBudget"
+import { logger } from "@/lib/log"
+
+const noStore = { "cache-control": "no-store" }
+const log = logger("v1/tokens")
+
+function unavailableBudgetState() {
+  return NextResponse.json(
+    { error: "Sanction could not verify token budget state", code: "TOKEN_BUDGET_UNAVAILABLE" },
+    { status: 503, headers: noStore },
+  )
+}
 
 const schema = z.object({
   model: z.string(),
@@ -17,27 +28,43 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   const { agent, error } = await authenticateAgent(req)
-  if (!agent) return NextResponse.json({ error }, { status: 401 })
+  if (!agent) return NextResponse.json({ error }, { status: 401, headers: noStore })
 
   // KILL-1: a frozen wallet (or ancestor) pauses every data-plane action.
-  const freeze = await walletFreezeState(db, agent.walletId)
+  let freeze
+  try {
+    freeze = await walletFreezeState(db, agent.walletId)
+  } catch {
+    log.error("Token budget freeze state unavailable", { agentId: agent.id, walletId: agent.walletId })
+    return unavailableBudgetState()
+  }
   if (freeze.frozen) {
-    return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403 })
+    if (freeze.unverified) return unavailableBudgetState()
+    return NextResponse.json({ error: frozenNote(freeze), code: "WALLET_FROZEN" }, { status: 403, headers: noStore })
   }
 
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400, headers: noStore })
   }
 
   const { model, tokens_in, tokens_out, cost_usd, task } = parsed.data
 
   // Logs and in-flight gateway calls consume the same budget capacity, even
   // when this wallet has no local policy but inherits a capped ancestor.
-  const outcome = await recordTokenUsageUnderBudget(agent, {
-    model, tokensIn: tokens_in, tokensOut: tokens_out, costUsd: cost_usd, taskLabel: task,
-  })
+  let outcome: Awaited<ReturnType<typeof recordTokenUsageUnderBudget>>
+  try {
+    outcome = await recordTokenUsageUnderBudget(agent, {
+      model, tokensIn: tokens_in, tokensOut: tokens_out, costUsd: cost_usd, taskLabel: task,
+    })
+  } catch (error) {
+    if (error instanceof GatewayWalletFrozenError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 403, headers: noStore })
+    }
+    log.error("Token budget state unavailable", { agentId: agent.id, walletId: agent.walletId })
+    return unavailableBudgetState()
+  }
 
   if (outcome.exhausted) {
     const label =
@@ -57,7 +84,7 @@ export async function POST(req: NextRequest) {
         daily_spent_usd: outcome.horizon === "daily" ? outcome.spent : undefined,
         cap_wallet_id: outcome.capWalletId,
       },
-      { status: 402 },
+      { status: 402, headers: noStore },
     )
   }
 
@@ -75,5 +102,5 @@ export async function POST(req: NextRequest) {
     }),
   )
 
-  return NextResponse.json({ id: outcome.logId, recorded: true, cost_usd, agent: agent.name })
+  return NextResponse.json({ id: outcome.logId, recorded: true, cost_usd, agent: agent.name }, { headers: noStore })
 }

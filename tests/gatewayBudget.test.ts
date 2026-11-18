@@ -6,6 +6,7 @@ const { dbMock, warn } = vi.hoisted(() => ({
     wallet: { findFirst: vi.fn() },
     tokenLog: { aggregate: vi.fn(), create: vi.fn(), upsert: vi.fn() },
     gatewayReservation: { create: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
+    authorizationRequest: { create: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
@@ -16,9 +17,10 @@ vi.mock("@/lib/log", () => ({ logger: () => ({ warn }) }))
 vi.mock("@/lib/cascadeBudget", () => ({ walletAncestorChain: vi.fn() }))
 vi.mock("@/lib/poolAccess", () => ({ walletSubtreeIds: vi.fn() }))
 
-import { recordTokenUsageUnderBudget, releaseGatewayBudget, reserveGatewayBudget, resolveGatewayBudget } from "../lib/gatewayBudget"
+import { GatewayWalletFrozenError, recordGatewayBudgetDenial, recordTokenUsageUnderBudget, releaseGatewayBudget, reserveGatewayBudget, resolveGatewayBudget } from "../lib/gatewayBudget"
 import { walletAncestorChain } from "../lib/cascadeBudget"
 import { walletSubtreeIds } from "../lib/poolAccess"
+import { decisionCode } from "../lib/decisions"
 
 const AGENT = {
   id: "agent-1", walletId: "wallet-1", isActive: true, dailyTokenBudgetUsd: null,
@@ -49,6 +51,7 @@ beforeEach(() => {
   dbMock.gatewayReservation.create.mockResolvedValue(reservation)
   dbMock.gatewayReservation.findUniqueOrThrow.mockImplementation(async () => ({ ...reservation }))
   dbMock.gatewayReservation.update.mockImplementation(async ({ data }: { data: Partial<typeof reservation> }) => Object.assign(reservation, data))
+  dbMock.authorizationRequest.create.mockResolvedValue({ id: "denial-1" })
   vi.mocked(walletAncestorChain).mockResolvedValue(CHAIN)
   vi.mocked(walletSubtreeIds).mockResolvedValue([AGENT.walletId])
 })
@@ -63,12 +66,17 @@ describe("durable gateway admission", () => {
       where: { id: AGENT.id, walletId: AGENT.walletId }, include: { wallet: { include: { policy: true } } },
     })
     expect(dbMock.agent.findUnique.mock.invocationCallOrder[0]).toBeGreaterThan(dbMock.$executeRaw.mock.invocationCallOrder.at(-1)!)
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 
   it("does not create a hold when other committed holds occupy the budget", async () => {
     dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 10, observedUsd: 0 }])
-    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, spent: 10, horizon: "daily" })
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, spent: 10, horizon: "daily", decisionId: "denial-1" })
     expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
+    expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      agentId: AGENT.id, status: "denied", amountUsd: 0,
+      detailsJson: expect.objectContaining({ wallet_id: AGENT.walletId, provider: INPUT.provider, model: INPUT.model, horizon: "daily", occupied_usd: 10, limit_usd: 10, requested_reservation_usd: 1 }),
+    }) }))
   })
 
   it("admits the final ten cents of a thirty-cent cap despite binary floating-point dust", async () => {
@@ -128,6 +136,28 @@ describe("durable gateway admission", () => {
     vi.mocked(walletAncestorChain).mockResolvedValue([{ ...CHAIN[0], frozenAt: new Date() }])
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Wallet is frozen")
     await expect(recordTokenUsageUnderBudget(AGENT, { ...USAGE, costUsd: 0.1 })).rejects.toThrow("Wallet is frozen")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("exposes the verified parent freeze as a typed policy denial", async () => {
+    vi.mocked(walletAncestorChain).mockResolvedValue([
+      { ...CHAIN[0], parentId: "parent" },
+      { id: "parent", parentId: null, policy: null, frozenAt: new Date(), frozenReason: "Paused" },
+    ])
+    await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toMatchObject({
+      name: "GatewayWalletFrozenError", code: "WALLET_FROZEN", message: "Parent wallet is frozen",
+      freeze: { frozen: true, frozenWalletId: "parent", self: false, reason: "Paused" },
+    })
+  })
+
+  it("does not label an unverifiable hierarchy as a verified freeze", async () => {
+    vi.mocked(walletAncestorChain).mockResolvedValue([
+      { ...CHAIN[0], parentId: "missing-parent" },
+      { id: "different-parent", parentId: null, policy: null },
+    ])
+    const result = reserveGatewayBudget(AGENT, INPUT)
+    await expect(result).rejects.toThrow("Wallet hierarchy could not be verified")
+    await expect(result).rejects.not.toBeInstanceOf(GatewayWalletFrozenError)
   })
 
   it.each([{ chain: [] }, { chain: [{ id: "wrong-wallet", parentId: null, policy: null }] }])("rejects missing or mismatched ancestry", async ({ chain }) => {
@@ -186,6 +216,49 @@ describe("durable gateway admission", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe("gateway budget denial receipts", () => {
+  it.each(["daily", "monthly", "subtree-daily"] as const)("records a terminal %s denial in the existing audit stream", async (horizon) => {
+    const receipt = await recordGatewayBudgetDenial(AGENT, {
+      provider: "anthropic", model: "claude-sonnet-4", path: "v1/messages", requestedUsd: 1,
+      verdict: { exhausted: true, spent: 9.5, budget: 10, horizon, capWalletId: "parent" },
+    })
+    expect(receipt).toBe("denial-1")
+    const row = dbMock.authorizationRequest.create.mock.calls[0][0].data
+    expect(row).toMatchObject({
+      agentId: AGENT.id, kind: "tool", action: "invoke", amountUsd: 0, status: "denied",
+      merchant: "gateway:anthropic:claude-sonnet-4", category: "gateway",
+      createdAt: expect.any(Date), decidedAt: expect.any(Date),
+      detailsJson: {
+        source: "gateway", code: "GATEWAY_BUDGET_EXCEEDED", wallet_id: AGENT.walletId,
+        provider: "anthropic", model: "claude-sonnet-4", path: "v1/messages", horizon,
+        limit_usd: 10, occupied_usd: 9.5, requested_reservation_usd: 1, cap_wallet_id: "parent",
+      },
+    })
+    expect(row.decisionNote).toBe(`Gateway token budget exceeded: ${horizon}; provider=anthropic; model=claude-sonnet-4; limit_usd=10; occupied_usd=9.5; requested_reservation_usd=1`)
+    expect(row.decisionContextJson).toBeUndefined()
+    expect(decisionCode(row.status, row.decisionNote)).toBe("POLICY_DENIED")
+  })
+
+  it("supports a non-generating budget check without inventing a model or requested charge", async () => {
+    await recordGatewayBudgetDenial(AGENT, { provider: "anthropic", verdict: { exhausted: true, spent: 10, budget: 10 } })
+    expect(dbMock.authorizationRequest.create.mock.calls[0][0].data.detailsJson).toMatchObject({
+      model: "not-applicable", path: null, horizon: "daily", requested_reservation_usd: null, cap_wallet_id: null,
+    })
+  })
+
+  it.each([{ exhausted: false, budget: 10 }, { exhausted: true, budget: null }])("refuses a receipt without a concrete denial", async (verdict) => {
+    await expect(recordGatewayBudgetDenial(AGENT, { provider: "anthropic", verdict: { ...verdict, spent: 0 } })).rejects.toThrow("requires an exhausted budget")
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("fails admission closed if its denial receipt cannot be durably stored", async () => {
+    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 10, observedUsd: 0 }])
+    dbMock.authorizationRequest.create.mockRejectedValue(new Error("receipt write failed"))
+    await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("receipt write failed")
+    expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
   })
 })
 

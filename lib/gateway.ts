@@ -42,12 +42,36 @@ function anthropicInput(u: AnthropicUsage): { tokensIn: number } & CacheUsage {
   }
 }
 
-type GeminiUsageMetadata = { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
+type GeminiUsageMetadata = { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; totalTokenCount?: number; toolUsePromptTokenCount?: number }
+
+const validTokenCount = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0
+
+// Google defines totalTokenCount as prompt + tool prompts + thoughts + candidates.
+// Omitted candidate counts are safe only when a total accounts for them. Never
+// infer zero visible output just because the provider omitted its counter.
+function geminiCandidateTokens(u: GeminiUsageMetadata): number | undefined {
+  if (u.candidatesTokenCount != null) return u.candidatesTokenCount
+  if (validTokenCount(u.totalTokenCount) && validTokenCount(u.promptTokenCount) &&
+      validTokenCount(u.thoughtsTokenCount ?? 0) && (u.toolUsePromptTokenCount ?? 0) === 0) {
+    const candidates = u.totalTokenCount - u.promptTokenCount - (u.thoughtsTokenCount ?? 0)
+    if (validTokenCount(candidates)) return candidates
+  }
+}
+
+export function hasCompleteGeminiUsage(u: GeminiUsageMetadata | undefined): boolean {
+  if (!u || !validTokenCount(u.promptTokenCount) || !validTokenCount(u.thoughtsTokenCount ?? 0) ||
+      (u.toolUsePromptTokenCount ?? 0) !== 0) return false
+  const candidates = geminiCandidateTokens(u)
+  if (!validTokenCount(candidates)) return false
+  const total = u.promptTokenCount + candidates + (u.thoughtsTokenCount ?? 0)
+  return Number.isSafeInteger(total) && (u.totalTokenCount == null ||
+    validTokenCount(u.totalTokenCount) && u.totalTokenCount === total)
+}
 
 // Thinking tokens bill at the output rate but are reported outside
 // candidatesTokenCount.
 function geminiTokens(u: GeminiUsageMetadata): { tokensIn: number; tokensOut: number } {
-  return { tokensIn: u.promptTokenCount ?? 0, tokensOut: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) }
+  return { tokensIn: u.promptTokenCount ?? 0, tokensOut: (geminiCandidateTokens(u) ?? 0) + (u.thoughtsTokenCount ?? 0) }
 }
 
 export const GATEWAY_PROVIDERS: Record<
@@ -377,7 +401,10 @@ export function makeStreamMeter(provider: string) {
         } else if (d.type === "message_delta" && d.usage) {
           // message_delta usage is cumulative; newer responses repeat the input
           // side here too, so take it when present.
-          if (d.usage.input_tokens != null) Object.assign(acc, anthropicInput(d.usage))
+          if (d.usage.input_tokens != null) {
+            Object.assign(acc, anthropicInput(d.usage))
+            inputSeen = valid(d.usage.input_tokens)
+          }
           acc.tokensOut = d.usage.output_tokens ?? acc.tokensOut
           outputSeen = valid(d.usage.output_tokens)
         }
@@ -402,8 +429,7 @@ export function makeStreamMeter(provider: string) {
         if (d.usageMetadata) {
           Object.assign(acc, geminiTokens(d.usageMetadata))
           inputSeen = valid(d.usageMetadata.promptTokenCount)
-          outputSeen = valid(d.usageMetadata.candidatesTokenCount) &&
-            (d.usageMetadata.thoughtsTokenCount == null || valid(d.usageMetadata.thoughtsTokenCount))
+          outputSeen = hasCompleteGeminiUsage(d.usageMetadata)
         }
       }
     },

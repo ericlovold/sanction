@@ -4,6 +4,7 @@ import { walletAncestorChain, type WalletBudgetNode } from "./cascadeBudget"
 import { walletSubtreeIds } from "./poolAccess"
 import { costUsd, type GatewayUsage, type TokenBudgetVerdict } from "./gateway"
 import { logger } from "./log"
+import { freezeStateFromChain, frozenNote, type FreezeState } from "./freeze"
 
 export type GatewayBudgetAgent = {
   id: string
@@ -15,12 +16,35 @@ export type GatewayBudgetAgent = {
 }
 
 export type GatewayReservationInput = { provider: string; model: string; reservedUsd: number }
-export type GatewayReservationVerdict = TokenBudgetVerdict & { reservationId?: string }
+export type GatewayReservationVerdict = TokenBudgetVerdict & { reservationId?: string; decisionId?: string }
+export type GatewayBudgetDenialInput = {
+  provider: string
+  model?: string
+  path?: string
+  requestedUsd?: number
+  verdict: TokenBudgetVerdict
+}
 export type TokenUsageData = { model: string; tokensIn: number; tokensOut: number; costUsd: number; taskLabel?: string }
 type Tx = Prisma.TransactionClient
 const UNRESOLVED = ["pending", "uncertain"]
 const log = logger("gateway-budget")
 const MICROS_PER_USD = 1_000_000
+
+/** A verified freeze is a policy denial, not an unavailable budget store. */
+export class GatewayWalletFrozenError extends Error {
+  readonly code = "WALLET_FROZEN"
+  constructor(readonly freeze: Extract<FreezeState, { frozen: true }>) {
+    super(frozenNote(freeze))
+    this.name = "GatewayWalletFrozenError"
+  }
+}
+
+function assertBudgetUnfrozen(chain: WalletBudgetNode[], walletId: string): void {
+  const freeze = freezeStateFromChain(chain, walletId)
+  if (!freeze.frozen) return
+  if (freeze.unverified) throw new Error("Wallet hierarchy could not be verified")
+  throw new GatewayWalletFrozenError(freeze)
+}
 
 /** Costs round upward at microdollar precision. Ignore only floating-point
  * dust near an integer (for example 0.1 + 0.1 + 0.1), not real fractions. */
@@ -151,16 +175,70 @@ async function checkBudget(tx: Tx, agent: GatewayBudgetAgent, amount: number, ch
   return { exhausted: false, spent, budget: daily }
 }
 
+/** Reuse the canonical decision stream without claiming pure-engine replay
+ * evidence. A refusal is terminal and carries no spend or execution authority. */
+export async function recordGatewayBudgetDenial(
+  agent: Pick<GatewayBudgetAgent, "id" | "walletId">,
+  input: GatewayBudgetDenialInput,
+  tx: Pick<Prisma.TransactionClient, "authorizationRequest"> = db,
+): Promise<string> {
+  const { verdict } = input
+  if (!verdict.exhausted || verdict.budget == null) throw new Error("Gateway denial receipt requires an exhausted budget")
+  costMicros(verdict.budget)
+  costMicros(verdict.spent)
+  if (input.requestedUsd != null) costMicros(input.requestedUsd)
+  const model = input.model ?? "not-applicable"
+  const horizon = verdict.horizon ?? "daily"
+  const now = new Date()
+  // Signed exports carry the note, but not detailsJson. Keep the decision's
+  // provider, model, horizon and numbers in both representations.
+  const reason = `Gateway token budget exceeded: ${horizon}; provider=${input.provider}; model=${model}; limit_usd=${verdict.budget}; occupied_usd=${verdict.spent}; requested_reservation_usd=${input.requestedUsd ?? "not-applicable"}`
+  const receipt = await tx.authorizationRequest.create({
+    data: {
+      agentId: agent.id,
+      kind: "tool",
+      action: "invoke",
+      amountUsd: 0,
+      merchant: `gateway:${input.provider}:${model}`,
+      category: "gateway",
+      status: "denied",
+      decisionNote: reason,
+      createdAt: now,
+      decidedAt: now,
+      detailsJson: {
+        source: "gateway",
+        code: "GATEWAY_BUDGET_EXCEEDED",
+        wallet_id: agent.walletId,
+        provider: input.provider,
+        model,
+        path: input.path ?? null,
+        horizon,
+        limit_usd: verdict.budget,
+        occupied_usd: verdict.spent,
+        requested_reservation_usd: input.requestedUsd ?? null,
+        cap_wallet_id: verdict.capWalletId ?? null,
+      },
+    },
+    select: { id: true },
+  })
+  return receipt.id
+}
+
 /** The returned ID exists durably before the caller may contact the provider. */
 export async function reserveGatewayBudget(agent: GatewayBudgetAgent, input: GatewayReservationInput): Promise<GatewayReservationVerdict> {
   const reservedUsd = costMicros(input.reservedUsd) / MICROS_PER_USD
   return db.$transaction(async (tx) => {
     const chain = await lockBudget(tx, agent)
     const current = await currentAgent(tx, agent)
-    if (chain.some((node) => node.frozenAt)) throw new Error("Wallet is frozen")
+    assertBudgetUnfrozen(chain, agent.walletId)
     const now = new Date()
     const verdict = await checkBudget(tx, current, reservedUsd, chain, now)
-    if (verdict.exhausted) return verdict
+    if (verdict.exhausted) {
+      const decisionId = await recordGatewayBudgetDenial(current, {
+        provider: input.provider, model: input.model, requestedUsd: reservedUsd, verdict,
+      }, tx)
+      return { ...verdict, decisionId }
+    }
     const reservation = await tx.gatewayReservation.create({
       data: {
         agentId: agent.id,
@@ -182,7 +260,7 @@ export async function recordTokenUsageUnderBudget(agent: GatewayBudgetAgent, usa
   return db.$transaction(async (tx) => {
     const chain = await lockBudget(tx, agent)
     const current = await currentAgent(tx, agent)
-    if (chain.some((node) => node.frozenAt)) throw new Error("Wallet is frozen")
+    assertBudgetUnfrozen(chain, agent.walletId)
     const now = new Date()
     const verdict = await checkBudget(tx, current, usage.costUsd, chain, now)
     if (verdict.exhausted) return verdict

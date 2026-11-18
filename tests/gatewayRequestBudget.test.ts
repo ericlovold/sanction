@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { costUsd } from "../lib/gateway"
-import { GatewayReservationRequestError, prepareGatewayRequest } from "../lib/gatewayRequestBudget"
+import { GatewayReservationRequestError, prepareGatewayRequest, validateGatewayRequestBytes } from "../lib/gatewayRequestBudget"
 
 vi.mock("../lib/db", () => ({ db: {} }))
 
@@ -142,7 +142,7 @@ describe("unsupported hidden input and output", () => {
   })
 
   it("rejects stored response item references and background requests", () => {
-    expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ type: "item_reference", id: "item-hidden" }] }, "id")
+    expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ type: "item_reference", id: "item-hidden" }] }, "stored items")
     expectError("openai", "v1/responses", { model: "gpt-4o", input: "Hi", background: true }, "background")
   })
 
@@ -182,8 +182,8 @@ describe("unsupported hidden input and output", () => {
 describe("counted client function and structured text shapes", () => {
   const parameters = { type: "object", properties: { file: { type: "string" } }, $defs: { text: { type: "string" } }, $ref: "#/$defs/text" }
 
-  it("preserves Anthropic client function exchange, schemas, and bounded thinking", () => {
-    const request = anthropic({ max_tokens: 2000, thinking: { type: "enabled", budget_tokens: 1024 },
+  it("preserves Anthropic client function exchange and schemas with thinking disabled", () => {
+    const request = anthropic({ max_tokens: 2000, thinking: { type: "disabled" },
       messages: [
         { role: "assistant", content: [{ type: "tool_use", id: "call-1", name: "lookup", input: { file: "report.txt" } }] },
         { role: "user", content: [{ type: "tool_result", tool_use_id: "call-1", content: [{ type: "text", text: "Result" }] }] },
@@ -193,6 +193,24 @@ describe("counted client function and structured text shapes", () => {
     })
     expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(request)).body)).toEqual(request)
     expect(prepareGatewayRequest("anthropic", "v1/messages", encode(anthropic({ thinking: { type: "disabled" } }))).reservedUsd).toBeGreaterThan(0)
+  })
+
+  it("supports bounded Anthropic thinking without tools but rejects the tool workflow upfront", () => {
+    const firstTurn = anthropic({ max_tokens: 2000, thinking: { type: "enabled", budget_tokens: 1024 } })
+    expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(firstTurn)).body)).toEqual(firstTurn)
+    expect(prepareGatewayRequest("anthropic", "v1/messages", encode({ ...firstTurn, tools: [] })).reservedUsd).toBeGreaterThan(0)
+    expectError("anthropic", "v1/messages", { ...firstTurn, tools: [{ name: "lookup", input_schema: parameters }] }, "Set thinking.type to disabled")
+  })
+
+  it.each([
+    { type: "thinking", thinking: "Visible summary", signature: "opaque-signed-full-reasoning" },
+    { type: "thinking", thinking: "", signature: "opaque-signed-full-reasoning" },
+    { type: "redacted_thinking", data: "opaque-encrypted-reasoning" },
+  ])("rejects encrypted Anthropic replay even when it contains visible text %#", (block) => {
+    expectError("anthropic", "v1/messages", anthropic({ messages: [
+      { role: "assistant", content: [block, { type: "tool_use", id: "call-1", name: "lookup", input: {} }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "call-1", content: "Result" }] },
+    ] }), "encrypted reasoning")
   })
 
   it("preserves chat client functions and JSON schema output", () => {
@@ -219,6 +237,64 @@ describe("counted client function and structured text shapes", () => {
       text: { format: { type: "json_schema", name: "reply", schema: parameters }, verbosity: "low" }, reasoning: { effort: "low", summary: "auto" },
     }
     expect(decode(prepareGatewayRequest("openai", "v1/responses", encode(request)).body)).toMatchObject(request)
+  })
+
+  it.each(["in_progress", "completed", "incomplete"])("preserves complete inline Responses replay with status %s", (status) => {
+    const request = { model: "gpt-4o", max_output_tokens: 200, input: [
+      { type: "message", id: "msg_1", role: "assistant", status, content: [{ type: "output_text", text: "I will check.", annotations: [] }] },
+      { type: "function_call", id: "fc_1", status, call_id: "call_1", name: "lookup", arguments: '{"term":"日本語"}' },
+      { type: "function_call_output", call_id: "call_1", output: "Result" },
+    ] }
+    const result = prepareGatewayRequest("openai", "v1/responses", encode(request))
+    expect(decode(result.body)).toEqual(request)
+    expect(result.reservedUsd).toBe(costUsd(result.model, result.body.byteLength + 1024 + 3 * 256, 200))
+  })
+
+  it.each(["commentary", "final_answer", null])("preserves an inline assistant message phase %s", (phase) => {
+    const request = { model: "gpt-4o", input: [{ type: "message", id: "msg_1", role: "assistant", status: "completed", phase,
+      content: [{ type: "output_text", text: "Done", annotations: [] }],
+    }] }
+    expect(decode(prepareGatewayRequest("openai", "v1/responses", encode(request)).body)).toMatchObject(request)
+  })
+
+  it.each(["queued", "failed", "", null, 1, ["completed"]])("rejects invalid replay status %s on messages and function calls", (status) => {
+    for (const item of [
+      { type: "message", role: "assistant", content: [{ type: "output_text", text: "Done", annotations: [] }] },
+      { type: "function_call", call_id: "call_1", name: "lookup", arguments: "{}" },
+    ]) {
+      expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ ...item, status }] }, ".status", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    }
+  })
+
+  it.each([null, 42, "", " "])("rejects invalid replay id %s on messages and function calls", (id) => {
+    for (const item of [
+      { type: "message", role: "assistant", content: "Done" },
+      { type: "function_call", call_id: "call_1", name: "lookup", arguments: "{}" },
+    ]) {
+      expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ ...item, id }] }, ".id", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    }
+  })
+
+  it("requires actual inline content or arguments even when replay metadata is supplied", () => {
+    expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ type: "message", role: "assistant", id: "msg_1", status: "completed" }] }, "content", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ type: "function_call", id: "fc_1", status: "completed", call_id: "call_1", name: "lookup" }] }, "arguments", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ type: "item_reference", id: "msg_1", status: "completed" }] }, "stored items")
+  })
+
+  it("rejects referenced or malformed annotations while preserving the text-only boundary", () => {
+    const request = (content: unknown) => ({ model: "gpt-4o", input: [{ type: "message", role: "assistant", content: [content] }] })
+    expectError("openai", "v1/responses", request({ type: "output_text", text: "Result", annotations: [{ type: "file_citation", file_id: "file_hidden" }] }), "annotations must be empty")
+    expectError("openai", "v1/responses", request({ type: "output_text", text: "Result", annotations: null }), "annotations must be an array", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("openai", "v1/responses", request({ type: "input_text", text: "Result", annotations: [] }), "annotations")
+    expectError("openai", "v1/responses", request({ type: "output_text", text: "Result", annotations: [], file_id: "file_hidden" }), "file_id")
+  })
+
+  it("validates assistant-only phase values", () => {
+    for (const item of [
+      { role: "assistant", phase: "queued" }, { role: "user", phase: "final_answer" },
+    ]) {
+      expectError("openai", "v1/responses", { model: "gpt-4o", input: [{ ...item, content: "Hi" }] }, ".phase", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    }
   })
 
   it("preserves Gemini client functions, JSON output, and explicit disabled thinking", () => {
@@ -262,5 +338,37 @@ describe("malformed requests fail closed", () => {
 
   it("rejects token-id arrays for the explicitly text-only embeddings contract", () => {
     expectError("openai", "v1/embeddings", { model: "gpt-4o", input: [1, 2, 3] }, "must be text", "GATEWAY_RESERVATION_INVALID_REQUEST")
+  })
+})
+
+describe("original request byte validation", () => {
+  const maxBytes = 8 * 1024 * 1024
+
+  it("returns decoded text without normalizing whitespace or multi-byte characters", () => {
+    const raw = '  {"input":"日本語 😀"} \n'
+    expect(validateGatewayRequestBytes(new TextEncoder().encode(raw).buffer)).toBe(raw)
+  })
+
+  it("accepts exactly 8 MiB and rejects oversized JSON that rewriting would shrink", () => {
+    const json = JSON.stringify(chat({ stream: true }))
+    const boundary = json + " ".repeat(maxBytes - json.length)
+    expect(validateGatewayRequestBytes(new TextEncoder().encode(boundary).buffer)).toHaveLength(maxBytes)
+    expect(() => validateGatewayRequestBytes(new TextEncoder().encode(boundary + " ").buffer)).toThrow("8388608 bytes")
+  })
+
+  it.each([undefined, new ArrayBuffer(0)])("rejects absent or empty original bytes", (raw) => {
+    expect(() => validateGatewayRequestBytes(raw)).toThrow(GatewayReservationRequestError)
+  })
+
+  it("rejects malformed UTF-8 embedded in otherwise parseable streaming JSON", () => {
+    const before = new TextEncoder().encode('{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"')
+    const after = new TextEncoder().encode('"}]}')
+    const raw = new Uint8Array(before.length + 1 + after.length)
+    raw.set(before)
+    raw[before.length] = 0xff
+    raw.set(after, before.length + 1)
+    // A lenient decode/JSON rewrite would hide the invalid byte as U+FFFD.
+    expect(JSON.parse(new TextDecoder().decode(raw)).messages[0].content).toBe("\uFFFD")
+    expect(() => validateGatewayRequestBytes(raw.buffer)).toThrow("valid UTF-8 JSON")
   })
 })

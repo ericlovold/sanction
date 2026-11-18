@@ -99,6 +99,11 @@ server-side tools/retrieval, and multiple candidates. Perplexity generation is
 currently rejected because its search work cannot be bounded from the request.
 A `400` response explains which input needs to change. Function definitions and
 ordinary local tool results are supported where their text is in the request.
+Responses assistant messages and function calls can be replayed inline, including
+their validated metadata. Anthropic thinking combined with client tools is
+rejected before dispatch: its required signed continuation can contain encrypted
+reasoning whose input cost cannot be bounded from the visible text. Thinking
+without tools and tools without thinking remain supported.
 
 **Compatibility change:** requests that previously passed through a metered
 endpoint may now need an explicit bound or a supported text-only shape. The
@@ -110,6 +115,13 @@ Each reservation has one associated usage log. A successful settlement atomicall
 records usage and releases the unused portion. Retrying settlement cannot charge
 twice. The price rates are captured at admission so a deployment cannot change
 the basis halfway through a call.
+
+Gemini reports that omit the candidate count settle only when its total token
+count accounts for prompt, thinking, and candidate usage. Missing or inconsistent
+totals keep the hold. This follows Google's
+[usage-counter definitions](https://ai.google.dev/api/generate-content#UsageMetadata).
+Malformed stream records and cancellation cannot release a hold based on earlier
+usage alone. Budget denials have terminal audit records and return a `request_id`.
 
 JSON request rejections (`400`, `401`, `403`, `404`, `422`, `429`) without
 contradictory usage evidence release unused holds. Network failures, redirects, `408`, server errors, cancelled
