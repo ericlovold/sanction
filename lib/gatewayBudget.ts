@@ -1,7 +1,6 @@
 import { db } from "./db"
-import type { Prisma } from "./generated/prisma/client"
-import { walletAncestorChain, type WalletBudgetNode } from "./cascadeBudget"
-import { walletSubtreeIds } from "./poolAccess"
+import { Prisma } from "./generated/prisma/client"
+import type { WalletBudgetNode } from "./cascadeBudget"
 import { costUsd, type GatewayUsage, type TokenBudgetVerdict } from "./gateway"
 import { logger } from "./log"
 import { freezeStateFromChain, frozenNote, type FreezeState } from "./freeze"
@@ -26,7 +25,6 @@ export type GatewayBudgetDenialInput = {
 }
 export type TokenUsageData = { model: string; tokensIn: number; tokensOut: number; costUsd: number; taskLabel?: string }
 type Tx = Prisma.TransactionClient
-const UNRESOLVED = ["pending", "uncertain"]
 const log = logger("gateway-budget")
 const MICROS_PER_USD = 1_000_000
 
@@ -79,95 +77,170 @@ function periods(now: Date) {
   return { day, month }
 }
 
+type AncestorRow = Omit<WalletBudgetNode, "policy"> & {
+  policyId: string | null
+  perTransactionMaxUsd: number
+  subtreeDailyCapUsd: number | null
+  subtreeDailyTokenCapUsd: number | null
+  policyDaily: number | null; policyMonthly: number | null
+  seatId: string | null; seatWalletId: string | null; seatActive: boolean | null; seatExpiresAt: Date | null
+  seatDaily: number | null; seatMonthly: number | null
+}
+type BudgetSnapshot = { chain: WalletBudgetNode[]; current: (GatewayBudgetAgent & { expiresAt: Date | null }) | null }
+
+/** Same leaf-first, cycle-safe 16-node bound as the shared ancestor walker,
+ * in one round trip. An incomplete chain is rejected by lockBudget below. */
+async function budgetSnapshot(tx: Tx, agent: Pick<GatewayBudgetAgent, "id" | "walletId">): Promise<BudgetSnapshot> {
+  const rows = await tx.$queryRaw<AncestorRow[]>`
+    WITH RECURSIVE ancestors AS (
+      SELECT w."id", w."parentId", w."frozenAt", w."frozenReason", ARRAY[w."id"] AS path
+      FROM "Wallet" w WHERE w."id" = ${agent.walletId}
+      UNION ALL
+      SELECT w."id", w."parentId", w."frozenAt", w."frozenReason", a.path || w."id"
+      FROM "Wallet" w JOIN ancestors a ON w."id" = a."parentId"
+      WHERE cardinality(a.path) < 16 AND NOT w."id" = ANY(a.path)
+    )
+    SELECT a."id", a."parentId", a."frozenAt", a."frozenReason",
+      p."id" AS "policyId", p."perTransactionMaxUsd", p."subtreeDailyCapUsd", p."subtreeDailyTokenCapUsd",
+      p."dailyTokenBudgetUsd" AS "policyDaily", p."monthlyTokenBudgetUsd" AS "policyMonthly",
+      seat.id AS "seatId", seat."walletId" AS "seatWalletId", seat."isActive" AS "seatActive",
+      seat."expiresAt" AS "seatExpiresAt", seat."dailyTokenBudgetUsd" AS "seatDaily", seat."monthlyTokenBudgetUsd" AS "seatMonthly"
+    FROM ancestors a LEFT JOIN "Policy" p ON p."walletId" = a."id"
+    LEFT JOIN "Agent" seat ON seat.id = ${agent.id} AND seat."walletId" = ${agent.walletId}
+    ORDER BY cardinality(a.path)
+  `
+  const chain = rows.map((row) => ({
+    id: row.id, parentId: row.parentId, frozenAt: row.frozenAt, frozenReason: row.frozenReason,
+    policy: row.policyId == null ? null : { perTransactionMaxUsd: row.perTransactionMaxUsd,
+      subtreeDailyCapUsd: row.subtreeDailyCapUsd, subtreeDailyTokenCapUsd: row.subtreeDailyTokenCapUsd },
+  }))
+  const own = rows[0]
+  const current = own?.seatId && own.seatWalletId ? {
+    id: own.seatId, walletId: own.seatWalletId, isActive: own.seatActive === true, expiresAt: own.seatExpiresAt,
+    dailyTokenBudgetUsd: own.seatDaily, monthlyTokenBudgetUsd: own.seatMonthly,
+    wallet: { policy: own.policyDaily == null ? null : { dailyTokenBudgetUsd: own.policyDaily, monthlyTokenBudgetUsd: own.policyMonthly } },
+  } : null
+  return { chain, current }
+}
+
 /** Reservations and /tokens take the same wallet locks, then the agent lock.
  * Wallet locks include uncapped ancestors so sibling seats share a lock even
  * when a cap is newly enabled. The transaction ends before any provider IO. */
-async function lockBudget(tx: Tx, agent: Pick<GatewayBudgetAgent, "id" | "walletId">): Promise<WalletBudgetNode[]> {
-  const chain = await walletAncestorChain(tx, agent.walletId)
+async function lockBudget(tx: Tx, agent: Pick<GatewayBudgetAgent, "id" | "walletId">): Promise<BudgetSnapshot> {
+  const { chain } = await budgetSnapshot(tx, agent)
   if (!chain.length || chain[0].id !== agent.walletId || chain.at(-1)?.parentId !== null) {
     throw new Error("Incomplete wallet ancestry; token budget cannot be enforced")
   }
-  for (const walletId of chain.map((node) => node.id).sort()) {
-    const key = `token-budget:wallet:${walletId}`
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key})::int8)`
-  }
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agent.id})::int8)`
+  const keys = [...chain.map((node) => node.id).sort().map((id) => `token-budget:wallet:${id}`), agent.id]
+  // PostgreSQL evaluates output expressions after ORDER BY when they are not
+  // used in the sort. Ordinality preserves sorted wallets, then the agent.
+  // Do not fold reads into this statement: its snapshot predates any lock wait.
+  await tx.$executeRaw(Prisma.sql`
+    SELECT pg_advisory_xact_lock(hashtext(k.key)::int8)
+    FROM unnest(ARRAY[${Prisma.join(keys)}]::text[]) WITH ORDINALITY AS k(key, ord)
+    ORDER BY k.ord
+  `)
   // Read policy after acquiring locks. Membership changes require a retry so
   // an admission never proceeds while missing one of its current pool locks.
-  const lockedChain = await walletAncestorChain(tx, agent.walletId)
+  const snapshot = await budgetSnapshot(tx, agent)
+  const lockedChain = snapshot.chain
   if (lockedChain.map((node) => node.id).join("/") !== chain.map((node) => node.id).join("/") || lockedChain.at(-1)?.parentId !== null) {
     throw new Error("Wallet ancestry changed during token budget admission")
   }
-  return lockedChain
+  return snapshot
 }
 
-async function currentAgent(tx: Tx, agent: GatewayBudgetAgent): Promise<GatewayBudgetAgent> {
-  const current = await tx.agent.findUnique({
-    where: { id: agent.id, walletId: agent.walletId },
-    include: { wallet: { include: { policy: true } } },
-  })
+function currentAgent(current: BudgetSnapshot["current"]): GatewayBudgetAgent {
   if (!current || !current.isActive || current.expiresAt && current.expiresAt <= new Date()) {
     throw new Error("Agent is no longer authorized to consume token budget")
   }
   return current
 }
 
-async function occupiedUsd(
-  tx: Tx,
-  scope: { agentId: string } | { walletIds: string[] },
-  since: Date,
-): Promise<number> {
-  const logScope = "agentId" in scope
-    ? { agentId: scope.agentId, OR: [{ gatewayReservationId: null }, { gatewayReservation: { status: "settled" } }] }
-    : { OR: [
-      { gatewayReservationId: null, agent: { walletId: { in: scope.walletIds } } },
-      // A seat can move to another wallet while a request is in flight. Its
-      // reserved call stays charged to the wallet that admitted it.
-      { gatewayReservation: { walletId: { in: scope.walletIds }, status: "settled" } },
-    ] }
-  const holdScope = "agentId" in scope ? { agentId: scope.agentId } : { walletId: { in: scope.walletIds } }
-  const [logs, holds] = await Promise.all([
-    tx.tokenLog.aggregate({
-      where: {
-        ...logScope,
-        createdAt: { gte: since },
-        // An unresolved call's observation log is covered by its hold below.
-      },
-      _sum: { costUsd: true },
-    }),
-    tx.gatewayReservation.findMany({
-      where: { ...holdScope, status: { in: UNRESOLVED } },
-      select: { reservedUsd: true, observedUsd: true },
-    }),
-  ])
-  const heldMicros = holds.reduce((sum, hold) => addMicros(sum, costMicros(Math.max(hold.reservedUsd, hold.observedUsd))), 0)
-  return addMicros(costMicros(logs._sum.costUsd ?? 0), heldMicros) / MICROS_PER_USD
+type OccupancyRow = {
+  scopeId: string; kind: "agent" | "pool"; walletIds: string[]; incomplete: boolean
+  dailyLogs: number; monthlyLogs: number; holds: number[]
+}
+
+/** One statement for all horizons/scopes. Each pool's traversal stops at 500
+ * nodes, then verifies completeness. Logs and holds never join each other,
+ * preventing duplicated usage. Holds retain their individual micro rounding. */
+async function budgetOccupancy(tx: Tx, agentId: string, poolIds: string[], now: Date, monthly: boolean): Promise<OccupancyRow[]> {
+  const { day, month } = periods(now)
+  const poolArray = poolIds.length ? Prisma.sql`ARRAY[${Prisma.join(poolIds)}]::text[]` : Prisma.sql`ARRAY[]::text[]`
+  return tx.$queryRaw<OccupancyRow[]>(Prisma.sql`
+    WITH scopes AS (
+      SELECT ${agentId}::text AS "scopeId", 'agent'::text AS kind, ARRAY[]::text[] AS "walletIds"
+      UNION ALL
+      SELECT root.id, 'pool', members.ids
+      FROM unnest(${poolArray}) AS root(id)
+      CROSS JOIN LATERAL (
+        WITH RECURSIVE subtree AS (
+          SELECT w."id", ARRAY[w."id"] AS path FROM "Wallet" w WHERE w."id" = root.id
+          UNION ALL
+          SELECT w."id", s.path || w."id" FROM "Wallet" w JOIN subtree s ON w."parentId" = s."id"
+          WHERE cardinality(s.path) <= 32 AND NOT w."id" = ANY(s.path)
+        )
+        SELECT COALESCE(array_agg(bounded."id"), ARRAY[]::text[]) AS ids
+        FROM (SELECT "id" FROM subtree LIMIT 500) bounded
+      ) members
+    )
+    SELECT s."scopeId", s.kind, s."walletIds",
+      (s.kind = 'pool' AND EXISTS (
+        SELECT 1 FROM "Wallet" child WHERE child."parentId" = ANY(s."walletIds") AND NOT child."id" = ANY(s."walletIds")
+      )) AS incomplete,
+      COALESCE(logs.daily, 0)::float8 AS "dailyLogs", COALESCE(logs.monthly, 0)::float8 AS "monthlyLogs",
+      ARRAY(
+        SELECT GREATEST(r."reservedUsd", r."observedUsd") FROM "GatewayReservation" r
+        WHERE r.status IN ('pending', 'uncertain') AND (
+          (s.kind = 'agent' AND r."agentId" = s."scopeId") OR (s.kind = 'pool' AND r."walletId" = ANY(s."walletIds"))
+        )
+      ) AS holds
+    FROM scopes s
+    LEFT JOIN LATERAL (
+      SELECT SUM(l."costUsd") FILTER (WHERE l."createdAt" >= ${day}) AS daily, SUM(l."costUsd") AS monthly
+      FROM "TokenLog" l
+      LEFT JOIN "GatewayReservation" r ON r.id = l."gatewayReservationId"
+      LEFT JOIN "Agent" a ON a.id = l."agentId"
+      WHERE l."createdAt" >= CASE WHEN s.kind = 'agent' AND ${monthly}::boolean THEN ${month}::timestamp ELSE ${day}::timestamp END AND (
+        (s.kind = 'agent' AND l."agentId" = s."scopeId" AND (l."gatewayReservationId" IS NULL OR r.status = 'settled'))
+        OR (s.kind = 'pool' AND (
+          (l."gatewayReservationId" IS NULL AND a."walletId" = ANY(s."walletIds"))
+          OR (r.status = 'settled' AND r."walletId" = ANY(s."walletIds"))
+        ))
+      )
+    ) logs ON true
+  `)
+}
+
+function occupiedUsd(row: OccupancyRow, monthly = false): number {
+  const heldMicros = row.holds.reduce((sum, hold) => addMicros(sum, costMicros(hold)), 0)
+  return addMicros(costMicros(monthly ? row.monthlyLogs : row.dailyLogs), heldMicros) / MICROS_PER_USD
 }
 
 async function checkBudget(tx: Tx, agent: GatewayBudgetAgent, amount: number, chain: WalletBudgetNode[], now: Date): Promise<TokenBudgetVerdict> {
-  const { day, month } = periods(now)
+  const monthlyCents = agent.monthlyTokenBudgetUsd ?? agent.wallet.policy?.monthlyTokenBudgetUsd
+  const rows = await budgetOccupancy(tx, agent.id, chain.filter((node) => node.policy?.subtreeDailyTokenCapUsd != null).map((node) => node.id), now, monthlyCents != null)
+  const own = rows.find((row) => row.kind === "agent" && row.scopeId === agent.id)
+  if (!own) throw new Error("Incomplete agent token budget snapshot")
   const dailyCents = agent.dailyTokenBudgetUsd ?? agent.wallet.policy?.dailyTokenBudgetUsd
   const daily = dailyCents == null ? null : dailyCents / 100
-  const spent = await occupiedUsd(tx, { agentId: agent.id }, day)
+  const spent = occupiedUsd(own)
   if (dailyCents != null && exceeds(spent, amount, dailyCents)) return { exhausted: true, spent, budget: daily, horizon: "daily" }
 
-  const monthlyCents = agent.monthlyTokenBudgetUsd ?? agent.wallet.policy?.monthlyTokenBudgetUsd
   if (monthlyCents != null) {
-    const monthSpent = await occupiedUsd(tx, { agentId: agent.id }, month)
+    const monthSpent = occupiedUsd(own, true)
     if (exceeds(monthSpent, amount, monthlyCents)) return { exhausted: true, spent: monthSpent, budget: monthlyCents / 100, horizon: "monthly" }
   }
   for (const node of chain) {
     const capCents = node.policy?.subtreeDailyTokenCapUsd
     if (capCents == null) continue
-    const subtree = await walletSubtreeIds(tx, node.id)
+    const pool = rows.find((row) => row.kind === "pool" && row.scopeId === node.id)
     // poolAccess bounds dashboard traversals; a truncated membership list is
     // not sufficient evidence to admit more spend.
-    if (subtree.length >= 500) throw new Error("Token pool membership exceeds the enforcement traversal limit")
-    if (!subtree.includes(agent.walletId) || await tx.wallet.findFirst({
-      where: { parentId: { in: subtree }, id: { notIn: subtree } },
-      select: { id: true },
-    })) throw new Error("Incomplete token pool membership; budget cannot be enforced")
-    const poolSpent = await occupiedUsd(tx, { walletIds: subtree }, day)
+    if (pool && pool.walletIds.length >= 500) throw new Error("Token pool membership exceeds the enforcement traversal limit")
+    if (!pool || !pool.walletIds.includes(agent.walletId) || pool.incomplete) throw new Error("Incomplete token pool membership; budget cannot be enforced")
+    const poolSpent = occupiedUsd(pool)
     if (exceeds(poolSpent, amount, capCents)) {
       return { exhausted: true, spent: poolSpent, budget: capCents / 100, horizon: "subtree-daily", capWalletId: node.id }
     }
@@ -228,8 +301,9 @@ export async function recordGatewayBudgetDenial(
 export async function reserveGatewayBudget(agent: GatewayBudgetAgent, input: GatewayReservationInput): Promise<GatewayReservationVerdict> {
   const reservedUsd = costMicros(input.reservedUsd) / MICROS_PER_USD
   return db.$transaction(async (tx) => {
-    const chain = await lockBudget(tx, agent)
-    const current = await currentAgent(tx, agent)
+    const snapshot = await lockBudget(tx, agent)
+    const chain = snapshot.chain
+    const current = currentAgent(snapshot.current)
     assertBudgetUnfrozen(chain, agent.walletId)
     const now = new Date()
     const verdict = await checkBudget(tx, current, reservedUsd, chain, now)
@@ -258,8 +332,9 @@ export async function reserveGatewayBudget(agent: GatewayBudgetAgent, input: Gat
 export async function recordTokenUsageUnderBudget(agent: GatewayBudgetAgent, usage: TokenUsageData): Promise<TokenBudgetVerdict & { logId?: string }> {
   costMicros(usage.costUsd)
   return db.$transaction(async (tx) => {
-    const chain = await lockBudget(tx, agent)
-    const current = await currentAgent(tx, agent)
+    const snapshot = await lockBudget(tx, agent)
+    const chain = snapshot.chain
+    const current = currentAgent(snapshot.current)
     assertBudgetUnfrozen(chain, agent.walletId)
     const now = new Date()
     const verdict = await checkBudget(tx, current, usage.costUsd, chain, now)

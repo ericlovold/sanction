@@ -2,31 +2,60 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { dbMock, warn } = vi.hoisted(() => ({
   dbMock: {
-    agent: { findUnique: vi.fn() },
-    wallet: { findFirst: vi.fn() },
-    tokenLog: { aggregate: vi.fn(), create: vi.fn(), upsert: vi.fn() },
-    gatewayReservation: { create: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
+    tokenLog: { create: vi.fn(), upsert: vi.fn() },
+    gatewayReservation: { create: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     authorizationRequest: { create: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
   },
   warn: vi.fn(),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/log", () => ({ logger: () => ({ warn }) }))
-vi.mock("@/lib/cascadeBudget", () => ({ walletAncestorChain: vi.fn() }))
-vi.mock("@/lib/poolAccess", () => ({ walletSubtreeIds: vi.fn() }))
 
 import { GatewayWalletFrozenError, recordGatewayBudgetDenial, recordTokenUsageUnderBudget, releaseGatewayBudget, reserveGatewayBudget, resolveGatewayBudget } from "../lib/gatewayBudget"
-import { walletAncestorChain } from "../lib/cascadeBudget"
-import { walletSubtreeIds } from "../lib/poolAccess"
 import { decisionCode } from "../lib/decisions"
+import type { Prisma } from "../lib/generated/prisma/client"
 
 const AGENT = {
   id: "agent-1", walletId: "wallet-1", isActive: true, dailyTokenBudgetUsd: null,
   wallet: { policy: { dailyTokenBudgetUsd: 1000, monthlyTokenBudgetUsd: null } },
 }
-const CHAIN = [{ id: AGENT.walletId, parentId: null, policy: null }]
+type AncestorFixture = {
+  id: string; parentId: string | null; frozenAt?: Date | null; frozenReason?: string | null
+  policyId: string | null; perTransactionMaxUsd: number | null
+  subtreeDailyCapUsd: number | null; subtreeDailyTokenCapUsd: number | null
+}
+type AgentFixture = {
+  id: string; walletId: string; isActive: boolean; expiresAt: Date | null
+  dailyTokenBudgetUsd: number | null; monthlyTokenBudgetUsd: number | null
+  policyDaily: number | null; policyMonthly: number | null
+}
+type OccupancyFixture = {
+  scopeId: string; kind: "agent" | "pool"; walletIds: string[]; incomplete: boolean
+  dailyLogs: number; monthlyLogs: number; holds: number[]
+}
+const CHAIN: AncestorFixture[] = [{
+  id: AGENT.walletId, parentId: null, policyId: "policy-1", perTransactionMaxUsd: 0,
+  subtreeDailyCapUsd: null, subtreeDailyTokenCapUsd: null,
+}]
+const CURRENT_AGENT: AgentFixture = {
+  id: AGENT.id, walletId: AGENT.walletId, isActive: true, expiresAt: null,
+  dailyTokenBudgetUsd: null, monthlyTokenBudgetUsd: null, policyDaily: 1000, policyMonthly: null,
+}
+const EMPTY_USAGE: OccupancyFixture = {
+  scopeId: AGENT.id, kind: "agent", walletIds: [], incomplete: false, dailyLogs: 0, monthlyLogs: 0, holds: [],
+}
+let ancestors: AncestorFixture[]
+let currentAgent: AgentFixture | null
+let occupancy: OccupancyFixture[]
+let afterLocks: () => void
+let statements: Array<{ kind: "ancestry" | "locks" | "occupancy"; sql: string; values: unknown[] }>
+
+function rawStatement(query: Prisma.Sql | TemplateStringsArray, values: unknown[]) {
+  return "sql" in query ? { sql: query.sql, values: query.values } : { sql: query.join("?"), values }
+}
 const INPUT = { provider: "anthropic", model: "claude-sonnet-4", reservedUsd: 1 }
 const USAGE = { model: "claude-sonnet-4", tokensIn: 1000, tokensOut: 1000 }
 let reservation: {
@@ -40,20 +69,46 @@ beforeEach(() => {
     id: "reservation-1", agentId: AGENT.id, walletId: AGENT.walletId, ...INPUT,
     observedUsd: 0, status: "pending", inputRateUsdPerMillion: 3, outputRateUsdPerMillion: 15,
   }
+  ancestors = CHAIN.map((node) => ({ ...node }))
+  currentAgent = { ...CURRENT_AGENT }
+  occupancy = [{ ...EMPTY_USAGE, holds: [] }]
+  afterLocks = () => {}
+  statements = []
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
-  dbMock.$executeRaw.mockResolvedValue(1)
-  dbMock.agent.findUnique.mockResolvedValue(AGENT)
-  dbMock.wallet.findFirst.mockResolvedValue(null)
-  dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: null } })
+  dbMock.$executeRaw.mockImplementation(async (query: Prisma.Sql) => {
+    const statement = rawStatement(query, [])
+    if (!statement.sql.includes("pg_advisory_xact_lock")) throw new Error(`Unexpected SQL mutation: ${statement.sql}`)
+    statements.push({ kind: "locks", ...statement })
+    afterLocks()
+    return 1
+  })
+  // These fixtures are the database's domain snapshots. PostgreSQL tests prove
+  // traversal and aggregation; these tests exercise decisions over their rows.
+  dbMock.$queryRaw.mockImplementation(async (query: Prisma.Sql | TemplateStringsArray, ...values: unknown[]) => {
+    const statement = rawStatement(query, values)
+    if (statement.sql.includes("WITH RECURSIVE ancestors AS")) {
+      statements.push({ kind: "ancestry", ...statement })
+      return ancestors.map((node) => ({
+        ...node,
+        seatId: currentAgent?.id ?? null, seatWalletId: currentAgent?.walletId ?? null,
+        seatActive: currentAgent?.isActive ?? null, seatExpiresAt: currentAgent?.expiresAt ?? null,
+        seatDaily: currentAgent?.dailyTokenBudgetUsd ?? null, seatMonthly: currentAgent?.monthlyTokenBudgetUsd ?? null,
+        policyDaily: node.id === AGENT.walletId ? currentAgent?.policyDaily ?? null : null,
+        policyMonthly: node.id === AGENT.walletId ? currentAgent?.policyMonthly ?? null : null,
+      }))
+    }
+    if (statement.sql.includes("WITH scopes AS")) {
+      statements.push({ kind: "occupancy", ...statement })
+      return occupancy
+    }
+    throw new Error(`Unexpected SQL read: ${statement.sql}`)
+  })
   dbMock.tokenLog.create.mockResolvedValue({ id: "log-1" })
   dbMock.tokenLog.upsert.mockResolvedValue({ id: "log-1" })
-  dbMock.gatewayReservation.findMany.mockResolvedValue([])
   dbMock.gatewayReservation.create.mockResolvedValue(reservation)
   dbMock.gatewayReservation.findUniqueOrThrow.mockImplementation(async () => ({ ...reservation }))
   dbMock.gatewayReservation.update.mockImplementation(async ({ data }: { data: Partial<typeof reservation> }) => Object.assign(reservation, data))
   dbMock.authorizationRequest.create.mockResolvedValue({ id: "denial-1" })
-  vi.mocked(walletAncestorChain).mockResolvedValue(CHAIN)
-  vi.mocked(walletSubtreeIds).mockResolvedValue([AGENT.walletId])
 })
 
 describe("durable gateway admission", () => {
@@ -62,15 +117,57 @@ describe("durable gateway admission", () => {
     expect(dbMock.gatewayReservation.create).toHaveBeenCalledWith({ data: {
       agentId: AGENT.id, walletId: AGENT.walletId, ...INPUT, inputRateUsdPerMillion: 3, outputRateUsdPerMillion: 15, createdAt: expect.any(Date),
     } })
-    expect(dbMock.agent.findUnique).toHaveBeenCalledWith({
-      where: { id: AGENT.id, walletId: AGENT.walletId }, include: { wallet: { include: { policy: true } } },
-    })
-    expect(dbMock.agent.findUnique.mock.invocationCallOrder[0]).toBeGreaterThan(dbMock.$executeRaw.mock.invocationCallOrder.at(-1)!)
+    expect(statements.map(({ kind }) => kind)).toEqual(["ancestry", "locks", "ancestry", "occupancy"])
+    expect(statements[2].values).toEqual([AGENT.walletId, AGENT.id, AGENT.walletId])
+    expect(dbMock.gatewayReservation.create.mock.invocationCallOrder[0]).toBeGreaterThan(dbMock.$queryRaw.mock.invocationCallOrder.at(-1)!)
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 
+  it("locks sorted wallet keys before the agent, then reads every budget scope in a separate statement", async () => {
+    ancestors = [
+      { ...CHAIN[0], parentId: "z-parent", policyId: "leaf-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 },
+      { ...CHAIN[0], id: "z-parent", parentId: "a-root", policyId: "parent-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 2000 },
+      { ...CHAIN[0], id: "a-root", policyId: "root-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 3000 },
+    ]
+    occupancy.push(...ancestors.map((node, index) => ({
+      ...EMPTY_USAGE, kind: "pool" as const, scopeId: node.id, walletIds: ancestors.slice(0, index + 1).map(({ id }) => id),
+    })))
+    await reserveGatewayBudget(AGENT, INPUT)
+    expect(statements.map(({ kind }) => kind)).toEqual(["ancestry", "locks", "ancestry", "occupancy"])
+    expect(statements[1].values).toEqual([
+      "token-budget:wallet:a-root", `token-budget:wallet:${AGENT.walletId}`, "token-budget:wallet:z-parent", AGENT.id,
+    ])
+    expect(statements[1].sql).toMatch(/WITH ORDINALITY[\s\S]*ORDER BY k\.ord/)
+    expect(statements[1].sql).not.toMatch(/\b(?:LIMIT|DISTINCT|GROUP BY)\b/)
+    expect(statements.at(-1)?.values.filter((value) => typeof value === "string")).toEqual([AGENT.id, AGENT.walletId, "z-parent", "a-root"])
+    expect(dbMock.$queryRaw).toHaveBeenCalledTimes(3)
+    expect(dbMock.$executeRaw).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["reserve", "report", "settle", "release"] as const)("retains default deadlines without SQL settings overrides for %s", async (operation) => {
+    if (operation === "reserve") await reserveGatewayBudget(AGENT, INPUT)
+    if (operation === "report") await recordTokenUsageUnderBudget(AGENT, { ...USAGE, costUsd: 0.018 })
+    if (operation === "settle") await resolveGatewayBudget(reservation.id, USAGE, true)
+    if (operation === "release") await releaseGatewayBudget(reservation.id)
+    expect(dbMock.$transaction).toHaveBeenCalledExactlyOnceWith(expect.any(Function), { isolationLevel: "ReadCommitted" })
+    expect(statements.map(({ sql }) => sql).join("\n")).not.toMatch(/\b(?:SET|set_config|statement_timeout|lock_timeout|idle_in_transaction_session_timeout)\b/i)
+    expect(dbMock.$executeRaw).toHaveBeenCalledTimes(1)
+  })
+
+  it("reads a sibling's newly committed hold after the lock wait", async () => {
+    ancestors = [
+      { ...CHAIN[0], parentId: "parent" },
+      { ...CHAIN[0], id: "parent", policyId: "parent-policy", subtreeDailyTokenCapUsd: 1000 },
+    ]
+    occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: "parent", walletIds: ["parent", AGENT.walletId, "sibling"] })
+    afterLocks = () => { occupancy[1].holds = [10] }
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, spent: 10, horizon: "subtree-daily", capWalletId: "parent" })
+    expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
+    expect(statements.findIndex(({ kind }) => kind === "occupancy")).toBeGreaterThan(statements.findIndex(({ kind }) => kind === "locks"))
+  })
+
   it("does not create a hold when other committed holds occupy the budget", async () => {
-    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 10, observedUsd: 0 }])
+    occupancy[0].holds = [10]
     expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, spent: 10, horizon: "daily", decisionId: "denial-1" })
     expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
     expect(dbMock.authorizationRequest.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
@@ -80,9 +177,62 @@ describe("durable gateway admission", () => {
   })
 
   it("admits the final ten cents of a thirty-cent cap despite binary floating-point dust", async () => {
-    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { policy: { dailyTokenBudgetUsd: 30 } } })
-    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 0.1, observedUsd: 0 }, { reservedUsd: 0.1, observedUsd: 0 }])
+    currentAgent!.policyDaily = 30
+    occupancy[0].holds = [0.1, 0.1]
     expect(await reserveGatewayBudget(AGENT, { ...INPUT, reservedUsd: 0.1 })).toMatchObject({ exhausted: false, spent: 0.2, budget: 0.3 })
+  })
+
+  it("rounds individual holds upward while ignoring dust in the accumulated logs", async () => {
+    occupancy[0].dailyLogs = 0.1 + 0.2
+    occupancy[0].holds = [0.0000001, 0.0000001]
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: false, spent: 0.300002 })
+  })
+
+  it("applies the monthly cap to monthly logs plus the same unresolved holds", async () => {
+    currentAgent!.policyMonthly = 2000
+    occupancy[0] = { ...EMPTY_USAGE, dailyLogs: 1, monthlyLogs: 19, holds: [0.5] }
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, horizon: "monthly", spent: 19.5, budget: 20 })
+  })
+
+  it.each([
+    { seat: null, policy: null, monthly: false },
+    { seat: null, policy: 1000, monthly: true },
+    { seat: 1000, policy: null, monthly: true },
+    { seat: 0, policy: null, monthly: true },
+  ])("requests a monthly snapshot only when a monthly cap exists: %j", async ({ seat, policy, monthly }) => {
+    currentAgent!.monthlyTokenBudgetUsd = seat
+    currentAgent!.policyMonthly = policy
+    await reserveGatewayBudget(AGENT, INPUT)
+    expect(statements.at(-1)?.values.filter((value) => typeof value === "boolean")).toEqual([monthly])
+  })
+
+  it("checks an ancestor pool even when the seat and its wallet have no local policy", async () => {
+    currentAgent!.policyDaily = null
+    ancestors = [
+      { ...CHAIN[0], parentId: "parent", policyId: null, perTransactionMaxUsd: null },
+      { ...CHAIN[0], id: "parent", policyId: "parent-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 },
+    ]
+    occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: "parent", walletIds: ["parent", AGENT.walletId, "sibling"], dailyLogs: 8, holds: [1.5] })
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, horizon: "subtree-daily", capWalletId: "parent", spent: 9.5, budget: 10 })
+  })
+
+  it("preserves daily, monthly, then leaf-to-root denial precedence regardless of snapshot row order", async () => {
+    currentAgent!.policyMonthly = 1000
+    ancestors = [
+      { ...CHAIN[0], parentId: "parent", policyId: "leaf-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 },
+      { ...CHAIN[0], id: "parent", policyId: "parent-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 },
+    ]
+    const own = { ...EMPTY_USAGE, dailyLogs: 10, monthlyLogs: 10 }
+    occupancy = [
+      { ...EMPTY_USAGE, kind: "pool", scopeId: "parent", walletIds: ["parent", AGENT.walletId], dailyLogs: 10 },
+      { ...EMPTY_USAGE, kind: "pool", scopeId: AGENT.walletId, walletIds: [AGENT.walletId], dailyLogs: 10 },
+      own,
+    ]
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ horizon: "daily" })
+    own.dailyLogs = 0
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ horizon: "monthly" })
+    own.monthlyLogs = 0
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ horizon: "subtree-daily", capWalletId: AGENT.walletId })
   })
 
   it("rounds a real fractional microdollar cost upward before holding capacity", async () => {
@@ -91,7 +241,7 @@ describe("durable gateway admission", () => {
   })
 
   it("never treats a positive sub-microdollar cost as free under a zero cap", async () => {
-    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { policy: { dailyTokenBudgetUsd: 0 } } })
+    currentAgent!.policyDaily = 0
     expect(await reserveGatewayBudget(AGENT, { ...INPUT, reservedUsd: 1e-30 })).toMatchObject({ exhausted: true, budget: 0 })
     expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
   })
@@ -102,18 +252,27 @@ describe("durable gateway admission", () => {
   })
 
   it("rejects a sum that exceeds safe accounting precision", async () => {
-    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 5_000_000_000, observedUsd: 0 }, { reservedUsd: 5_000_000_000, observedUsd: 0 }])
+    occupancy[0].holds = [5_000_000_000, 5_000_000_000]
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("safe accounting precision")
   })
 
   it("never rounds malformed fractional-cent caps upward", async () => {
-    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { policy: { dailyTokenBudgetUsd: 0.5 } } })
+    currentAgent!.policyDaily = 0.5
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Invalid token budget")
   })
 
   it("uses a lower policy loaded after locking instead of the caller's earlier policy", async () => {
-    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { policy: { dailyTokenBudgetUsd: 50 } } })
+    afterLocks = () => { currentAgent!.policyDaily = 50 }
     expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, budget: 0.5 })
+  })
+
+  it("uses an ancestor cap newly enabled during the lock wait", async () => {
+    afterLocks = () => {
+      ancestors[0] = { ...CHAIN[0], policyId: "new-policy", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 50 }
+    }
+    occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: AGENT.walletId, walletIds: [AGENT.walletId] })
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, horizon: "subtree-daily", budget: 0.5 })
+    expect(statements[1].values).toContain(`token-budget:wallet:${AGENT.walletId}`)
   })
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, -1])("refuses invalid reservation cost %s without DB work", async (reservedUsd) => {
@@ -121,29 +280,29 @@ describe("durable gateway admission", () => {
     expect(dbMock.$transaction).not.toHaveBeenCalled()
   })
 
-  it.each([null, { ...AGENT, isActive: false }, { ...AGENT, expiresAt: new Date(0) }])("refuses a missing, revoked, or expired seat under the lock", async (agent) => {
-    dbMock.agent.findUnique.mockResolvedValue(agent)
+  it.each([null, { ...CURRENT_AGENT, isActive: false }, { ...CURRENT_AGENT, expiresAt: new Date(0) }])("refuses a missing, revoked, or expired seat under the lock", async (agent) => {
+    afterLocks = () => { currentAgent = agent }
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("no longer authorized")
     expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
   })
 
   it("accepts a still-valid seat expiry", async () => {
-    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, expiresAt: new Date(Date.now() + 60_000) })
+    currentAgent!.expiresAt = new Date(Date.now() + 60_000)
     expect((await reserveGatewayBudget(AGENT, INPUT)).exhausted).toBe(false)
   })
 
   it("rejects newly frozen ancestors before reserving or reporting more spend", async () => {
-    vi.mocked(walletAncestorChain).mockResolvedValue([{ ...CHAIN[0], frozenAt: new Date() }])
+    afterLocks = () => { ancestors[0].frozenAt = new Date() }
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Wallet is frozen")
     await expect(recordTokenUsageUnderBudget(AGENT, { ...USAGE, costUsd: 0.1 })).rejects.toThrow("Wallet is frozen")
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 
   it("exposes the verified parent freeze as a typed policy denial", async () => {
-    vi.mocked(walletAncestorChain).mockResolvedValue([
+    ancestors = [
       { ...CHAIN[0], parentId: "parent" },
-      { id: "parent", parentId: null, policy: null, frozenAt: new Date(), frozenReason: "Paused" },
-    ])
+      { ...CHAIN[0], id: "parent", frozenAt: new Date(), frozenReason: "Paused" },
+    ]
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toMatchObject({
       name: "GatewayWalletFrozenError", code: "WALLET_FROZEN", message: "Parent wallet is frozen",
       freeze: { frozen: true, frozenWalletId: "parent", self: false, reason: "Paused" },
@@ -151,37 +310,50 @@ describe("durable gateway admission", () => {
   })
 
   it("does not label an unverifiable hierarchy as a verified freeze", async () => {
-    vi.mocked(walletAncestorChain).mockResolvedValue([
+    ancestors = [
       { ...CHAIN[0], parentId: "missing-parent" },
-      { id: "different-parent", parentId: null, policy: null },
-    ])
+      { ...CHAIN[0], id: "different-parent" },
+    ]
     const result = reserveGatewayBudget(AGENT, INPUT)
     await expect(result).rejects.toThrow("Wallet hierarchy could not be verified")
     await expect(result).rejects.not.toBeInstanceOf(GatewayWalletFrozenError)
   })
 
-  it.each([{ chain: [] }, { chain: [{ id: "wrong-wallet", parentId: null, policy: null }] }])("rejects missing or mismatched ancestry", async ({ chain }) => {
-    vi.mocked(walletAncestorChain).mockResolvedValue(chain)
+  it.each([{ chain: [] }, { chain: [{ ...CHAIN[0], id: "wrong-wallet" }] }])("rejects missing or mismatched ancestry", async ({ chain }) => {
+    ancestors = chain
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Incomplete wallet ancestry")
   })
 
   it("rejects ancestry changes while acquiring its locks", async () => {
-    vi.mocked(walletAncestorChain).mockResolvedValueOnce(CHAIN).mockResolvedValueOnce([
-      { ...CHAIN[0], parentId: "new-root" }, { id: "new-root", parentId: null, policy: null },
-    ])
+    afterLocks = () => {
+      ancestors = [{ ...CHAIN[0], parentId: "new-root" }, { ...CHAIN[0], id: "new-root" }]
+    }
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("ancestry changed")
   })
 
   it("rejects a subtree truncated by the node limit", async () => {
-    vi.mocked(walletAncestorChain).mockResolvedValue([{ ...CHAIN[0], policy: { perTransactionMaxUsd: 0, subtreeDailyCapUsd: null, subtreeDailyTokenCapUsd: 1000 } }])
-    vi.mocked(walletSubtreeIds).mockResolvedValue(Array.from({ length: 500 }, (_, i) => `wallet-${i}`))
+    ancestors = [{ ...CHAIN[0], policyId: "policy-1", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 }]
+    occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: AGENT.walletId, walletIds: Array.from({ length: 500 }, (_, i) => `wallet-${i}`) })
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("traversal limit")
   })
 
   it("does not admit against a subtree missing the caller's own wallet", async () => {
-    vi.mocked(walletAncestorChain).mockResolvedValue([{ ...CHAIN[0], policy: { perTransactionMaxUsd: 0, subtreeDailyCapUsd: null, subtreeDailyTokenCapUsd: 1000 } }])
-    vi.mocked(walletSubtreeIds).mockResolvedValue([])
+    ancestors = [{ ...CHAIN[0], policyId: "policy-1", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 }]
+    occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: AGENT.walletId, walletIds: [] })
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Incomplete token pool")
+  })
+
+  it("rejects a subtree with omitted descendants even when it contains the caller", async () => {
+    ancestors = [{ ...CHAIN[0], policyId: "policy-1", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 }]
+    occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: AGENT.walletId, walletIds: [AGENT.walletId], incomplete: true })
+    await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Incomplete token pool")
+  })
+
+  it.each(["agent", "pool"] as const)("fails closed when the occupancy snapshot omits the required %s scope", async (missing) => {
+    if (missing === "agent") occupancy = []
+    else ancestors = [{ ...CHAIN[0], policyId: "policy-1", perTransactionMaxUsd: 0, subtreeDailyTokenCapUsd: 1000 }]
+    await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow(missing === "agent" ? "Incomplete agent token budget snapshot" : "Incomplete token pool")
+    expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
   })
 
   it("propagates a failed reservation commit without returning authority to call upstream", async () => {
@@ -190,7 +362,7 @@ describe("durable gateway admission", () => {
   })
 
   it("rejects non-finite persisted occupancy rather than admitting through a failed comparison", async () => {
-    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: Number.NaN } })
+    occupancy[0].dailyLogs = Number.NaN
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("Invalid token cost")
     expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
   })
@@ -200,10 +372,7 @@ describe("durable gateway admission", () => {
     try {
       const afterMidnight = new Date(2026, 10, 19, 0, 0, 1)
       vi.setSystemTime(new Date(2026, 10, 18, 23, 59, 59))
-      dbMock.$executeRaw.mockImplementation(async () => {
-        vi.setSystemTime(afterMidnight)
-        return 1
-      })
+      afterLocks = () => { vi.setSystemTime(afterMidnight) }
       await reserveGatewayBudget(AGENT, INPUT)
       await recordTokenUsageUnderBudget(AGENT, { ...USAGE, costUsd: 0.018 })
       await resolveGatewayBudget(reservation.id, USAGE, true)
@@ -211,8 +380,11 @@ describe("durable gateway admission", () => {
       expect(dbMock.tokenLog.create.mock.calls[0][0].data.createdAt).toEqual(afterMidnight)
       expect(dbMock.tokenLog.upsert.mock.calls[0][0].create.createdAt).toEqual(afterMidnight)
       expect(dbMock.tokenLog.upsert.mock.calls[0][0].update.createdAt).toEqual(afterMidnight)
-      expect(dbMock.tokenLog.aggregate.mock.calls[0][0].where.createdAt.gte).toEqual(new Date(2026, 10, 19))
-      expect(dbMock.$transaction.mock.calls.every((call) => call[1].isolationLevel === "ReadCommitted")).toBe(true)
+      expect(statements.filter(({ kind }) => kind === "occupancy").map(({ values }) => values.filter((value) => value instanceof Date))).toEqual([
+        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19)],
+        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19)],
+      ])
+      expect(dbMock.$transaction.mock.calls.map((call) => call[1])).toEqual(Array(3).fill({ isolationLevel: "ReadCommitted" }))
     } finally {
       vi.useRealTimers()
     }
@@ -255,7 +427,7 @@ describe("gateway budget denial receipts", () => {
   })
 
   it("fails admission closed if its denial receipt cannot be durably stored", async () => {
-    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 10, observedUsd: 0 }])
+    occupancy[0].holds = [10]
     dbMock.authorizationRequest.create.mockRejectedValue(new Error("receipt write failed"))
     await expect(reserveGatewayBudget(AGENT, INPUT)).rejects.toThrow("receipt write failed")
     expect(dbMock.gatewayReservation.create).not.toHaveBeenCalled()
