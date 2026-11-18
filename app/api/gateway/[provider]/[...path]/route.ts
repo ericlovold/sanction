@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { frozenNote, walletFreezeState } from "@/lib/freeze"
 import { hashApiKey } from "@/lib/apiKey"
-import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, meterUsage, makeStreamMeter, forceStreamUsage, isUnmeteredBackgroundRequest } from "@/lib/gateway"
+import { GATEWAY_PROVIDERS, isBudgetExhausted, isMeteredPath, makeStreamMeter, forceStreamUsage, isUnmeteredBackgroundRequest } from "@/lib/gateway"
 import type { GatewayUsage } from "@/lib/gateway"
+import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget } from "@/lib/gatewayBudget"
+import { prepareGatewayRequest, GatewayReservationRequestError } from "@/lib/gatewayRequestBudget"
 import { hasProviderAuth, providerAuthHeader, type ProviderId } from "@/lib/providers"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { withTenant } from "@/lib/rls"
@@ -71,6 +73,19 @@ function meteringFailure(): Response {
   )
 }
 
+function hasCompleteJsonUsage(provider: string, path: string, body: ArrayBuffer): boolean {
+  const raw = JSON.parse(new TextDecoder().decode(body))
+  const obj = Array.isArray(raw) ? raw.findLast((v) => v?.usageMetadata) : raw
+  const u = provider === "gemini" ? obj?.usageMetadata : obj?.usage
+  const valid = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0
+  if (provider === "openai" && path === "v1/embeddings") {
+    return valid(u?.prompt_tokens) && valid(u?.total_tokens) && u.prompt_tokens === u.total_tokens
+  }
+  if (provider === "gemini") return valid(u?.promptTokenCount) && valid(u?.candidatesTokenCount)
+  if (provider === "anthropic") return valid(u?.input_tokens) && valid(u?.output_tokens)
+  return valid(u?.prompt_tokens ?? u?.input_tokens) && valid(u?.completion_tokens ?? u?.output_tokens)
+}
+
 async function handle(req: NextRequest, ctx: { params: Promise<{ provider: string; path?: string[] }> }) {
   const { provider, path = [] } = await ctx.params
   const noStore = { "cache-control": "no-store" }
@@ -118,7 +133,16 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   const rawBody = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer()
   // Metering is not the caller's choice: force stream usage reporting on the
   // way out (no-op for providers that already stream usage by default).
-  const body = forceStreamUsage(provider, rawBody)
+  let body = forceStreamUsage(provider, rawBody, path.join("/"))
+
+  // Credential ownership must not select a route around the reservation gate.
+  // GET metadata/retrieval is non-generating; billable POST paths must be known.
+  if (method === "POST" && !isMeteredPath(provider, method, path.join("/"))) {
+    return NextResponse.json({
+      error: "This gateway endpoint cannot reserve and meter its cost. Use a supported text-generation or text-embedding endpoint.",
+      code: "GATEWAY_PATH_NOT_METERED",
+    }, { status: 403, headers: noStore })
+  }
 
   // Provider-key injection (Providers page): when the caller sends NO provider
   // auth of its own, fall back to the wallet's vaulted provider:<id> key —
@@ -141,7 +165,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
     if (isUnmeteredBackgroundRequest(provider, path.join("/"), body)) {
       return NextResponse.json(
         {
-          error: `The stored ${provider} key is not used for background-mode responses (background: true): they return no usage and settle via an unmetered retrieval. Send your own provider auth header, or omit background.`,
+          error: `The stored ${provider} key is not used for background-mode responses (background: true): they return no usage and settle via an unmetered retrieval. Omit background so usage settles in the same request.`,
           code: "GATEWAY_PATH_NOT_METERED",
         },
         { status: 403, headers: noStore },
@@ -176,6 +200,41 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       )
     }
   }
+  // GET metadata and token counting do not start generation or need holds.
+  // Every metered generation commits a durable hold before fetch can begin.
+  let reservationId: string | undefined
+  let requestModel = ""
+  if (isMeteredPath(provider, method, path.join("/")) && !(provider === "anthropic" && path.join("/") === "v1/messages/count_tokens")) {
+    try {
+      const prepared = prepareGatewayRequest(provider, path.join("/"), body)
+      body = prepared.body
+      requestModel = prepared.model
+      const held = await reserveGatewayBudget(agent, {
+        provider, model: prepared.model, reservedUsd: prepared.reservedUsd,
+      })
+      if (held.exhausted) {
+        return NextResponse.json({
+          error: "Insufficient token budget for this request and calls already in flight",
+          code: "GATEWAY_BUDGET_EXCEEDED",
+          horizon: held.horizon,
+          limit_usd: held.budget,
+          spent_usd: held.spent,
+          requested_reservation_usd: prepared.reservedUsd,
+          daily_limit_usd: held.horizon === "daily" ? held.budget : undefined,
+          daily_spent_usd: held.horizon === "daily" ? held.spent : undefined,
+          cap_wallet_id: held.capWalletId,
+        }, { status: 402, headers: noStore })
+      }
+      if (!held.reservationId) throw new Error("Missing gateway reservation")
+      reservationId = held.reservationId
+    } catch (err) {
+      if (err instanceof GatewayReservationRequestError) {
+        return NextResponse.json({ error: err.message, code: err.code }, { status: 400, headers: noStore })
+      }
+      log.error("gateway budget reservation failed", { agentId: agent.id, provider })
+      return NextResponse.json({ error: "Sanction could not reserve token budget", code: "GATEWAY_RESERVATION_FAILED" }, { status: 503, headers: noStore })
+    }
+  }
   const notifyThreshold = async (cost: number) => {
     try {
       await notifyTokenBudgetThreshold({
@@ -191,58 +250,47 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       // Threshold alerts are best-effort; the usage write above is not.
     }
   }
-  const meterObservedUsage = async (usage: GatewayUsage): Promise<boolean> => {
+  const meterObservedUsage = async (usage: GatewayUsage, complete: boolean): Promise<boolean> => {
+    // Retrieval can repeat an earlier response's usage. It is not new spend.
+    if (!reservationId) return true
     try {
-      const cost = await meterUsage(agent.id, provider, usage)
+      const cost = await resolveGatewayBudget(reservationId, { ...usage, model: requestModel }, complete)
       await notifyThreshold(cost)
       return true
     } catch {
       return false
     }
   }
-  // Meter with bounded retries — for the streaming path, where the client has
-  // already received the bytes so we can't withhold. The budget gate above
-  // already fails closed on a DB outage (the read throws before the provider
-  // is ever called), so the only case this covers is a transient write blip
-  // after a healthy read. Retries clear that; a hard final failure is logged
-  // loudly (a genuine anomaly) and left as a single-call under-count — the
-  // honest limit without an external durable queue.
-  const meterWithRetry = async (usage: GatewayUsage): Promise<void> => {
+  // Settlement is idempotent by reservation ID. If all writes fail, the
+  // committed hold still consumes budget; a failure cannot reopen capacity.
+  const meterWithRetry = async (usage: GatewayUsage, complete: boolean): Promise<void> => {
     for (let attempt = 0; attempt < 3; attempt++) {
-      if (await meterObservedUsage(usage)) return
+      if (await meterObservedUsage(usage, complete)) return
     }
-    console.error("gateway meter write failed after retries — usage uncounted", {
+    console.error("gateway settlement failed after retries — reservation retained", {
       agentId: agent.id, provider, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut,
     })
   }
 
   let upstream: Response
   try {
-    upstream = await fetch(url, { method, headers: outHeaders, body })
+    upstream = await fetch(url, { method, headers: outHeaders, body, redirect: "error" })
   } catch {
     return NextResponse.json({ error: "Upstream provider unreachable" }, { status: 502, headers: noStore })
   }
 
   const ct = upstream.headers.get("content-type") ?? ""
 
-  // Streaming (SSE) → tee bytes straight through to the client as the provider
-  // produces them, parse `data:` events as they pass, and meter the accumulated
-  // usage when the stream ends. Live streaming is preserved; metering settles at
-  // stream-end with retries. (Withholding a stream we've already begun sending
-  // is impossible, and buffering the whole thing first kills streaming and risks
-  // a token-burn-then-timeout at maxDuration — that's why the enforcement leans
-  // on the pre-call budget gate, which fails closed on a DB outage.)
-  //
-  // The stream can also end without draining: the client disconnects, the
-  // upstream errors, or the runtime cancels us. Tokens the provider already
-  // reported (Anthropic's input side lands in message_start) are real spend,
-  // so every exit path settles whatever usage has accumulated — exactly once.
+  // Relay SSE live. Only a complete usage report plus a terminal event can
+  // release unused capacity. Partial usage is recorded with the hold retained.
   if (ct.includes("text/event-stream") && upstream.body) {
     const meter = makeStreamMeter(provider)
     const decoder = new TextDecoder()
     const reader = upstream.body.getReader()
     let buf = ""
     let settled = false
+    let terminal = false
+    let streamError = false
     const parse = (chunk: Uint8Array) => {
       buf += decoder.decode(chunk, { stream: true })
       let nl: number
@@ -251,9 +299,14 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
         buf = buf.slice(nl + 1)
         if (line.startsWith("data:")) {
           const payload = line.slice(5).trim()
+          if (payload === "[DONE]") terminal = true
           if (payload && payload !== "[DONE]") {
             try {
-              meter.feed(JSON.parse(payload))
+              const event = JSON.parse(payload)
+              if (event.error || event.type === "error" || event.type === "response.failed") streamError = true
+              if (event.type === "message_stop" || event.type === "response.completed" || event.type === "response.incomplete" ||
+                  (provider === "gemini" && event.candidates?.some((c: { finishReason?: string }) => c.finishReason))) terminal = true
+              meter.feed(event)
             } catch {
               // partial/non-JSON event line — ignore
             }
@@ -265,15 +318,11 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
       if (settled) return
       settled = true
       const usage = meter.result()
-      if (usage.tokensIn || usage.tokensOut) {
-        await meterWithRetry(usage)
+      if (usage.tokensIn || usage.tokensOut || meter.hasCompleteUsage()) {
+        await meterWithRetry(usage, upstream.ok && outcome === "complete" && !streamError && terminal && meter.hasCompleteUsage())
       } else {
-        // No usage seen: either the stream reported none even after we set
-        // include_usage, or it ended before the provider sent any (OpenAI
-        // only reports at the end). The call is unmetered and the budget did
-        // not move. Never silent: an unmetered call is a hole in the thing
-        // this product exists to guarantee.
-        log.warn("gateway stream reported no usage — call is unmetered", {
+        // No evidence of final cost: keep the full hold, even across restarts.
+        log.warn("gateway stream reported no usage — reservation retained", {
           provider,
           agentId: agent.id,
           walletId: agent.walletId,
@@ -293,6 +342,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
           return
         }
         if (next.done) {
+          parse(new TextEncoder().encode("\n")) // consume a final data line without newline
           await settle("complete")
           controller.close()
           return
@@ -311,16 +361,29 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
 
   // JSON response -> read, meter, return.
   if (ct.includes("application/json")) {
-    const buf = await upstream.arrayBuffer()
+    let buf: ArrayBuffer
+    try { buf = await upstream.arrayBuffer() } catch { return meteringFailure() }
     let usage: GatewayUsage | null = null
     try {
       const json = JSON.parse(new TextDecoder().decode(buf))
+      // Rejected request with no contradictory usage evidence. Transport
+      // failures, 408/5xx, malformed bodies and streams keep their holds.
+      if (reservationId && [400, 401, 403, 404, 422, 429].includes(upstream.status) &&
+          json && typeof json === "object" && !Array.isArray(json) &&
+          !Object.hasOwn(json, "usage") && !Object.hasOwn(json, "usageMetadata")) {
+        try { await releaseGatewayBudget(reservationId) } catch { return meteringFailure() }
+        return passthroughResponse(upstream, buf)
+      }
       usage = cfg.extract(json, path.join("/"))
     } catch {
       // not parseable / no usage - pass the body through untouched
     }
-    if (usage && (usage.tokensIn || usage.tokensOut) && !(await meterObservedUsage(usage))) {
-      return meteringFailure()
+    let complete = false
+    try { complete = hasCompleteJsonUsage(provider, path.join("/"), buf) } catch { /* retain the hold */ }
+    if (usage || complete) {
+      if (!(await meterObservedUsage(usage ?? { model: requestModel, tokensIn: 0, tokensOut: 0 }, upstream.ok && complete))) {
+        return meteringFailure()
+      }
     }
     return passthroughResponse(upstream, buf)
   }

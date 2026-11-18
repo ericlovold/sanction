@@ -5,8 +5,11 @@ call, reads token usage off the response, meters it against the agent's budget,
 and returns the answer untouched after metering succeeds. **No `log_tokens` call
 to remember** — change a base URL and add one header.
 
-If the agent has already spent its daily token budget, the gateway returns `402`
-**before** calling the provider — the spend is stopped, not just recorded.
+Before a metered generation starts, the gateway reserves its estimated maximum
+cost against the seat's daily/monthly budgets and every ancestor's pooled daily
+token cap. Recorded usage **plus outstanding reservations** must fit. Calls that
+do not fit receive `402` before reaching the provider. Concurrent sibling seats
+and self-reported `/tokens` writes compete for the same capacity.
 
 Base URL: `https://getsanction.com/api/gateway/<provider>`
 Auth: `x-sanction-key: pxy_…` (your agent key). Your provider key is forwarded as usual.
@@ -34,7 +37,7 @@ client = OpenAI(
     api_key="<OPENAI_API_KEY>",
     default_headers={"x-sanction-key": "pxy_…"},
 )
-client.chat.completions.create(model="gpt-4o-mini",
+client.chat.completions.create(model="gpt-4o-mini", max_completion_tokens=100,
                                messages=[{"role": "user", "content": "hi"}])
 ```
 
@@ -44,12 +47,12 @@ client.chat.completions.create(model="gpt-4o-mini",
 curl -X POST \
   "https://getsanction.com/api/gateway/gemini/v1beta/models/gemini-flash-latest:generateContent?key=$GOOGLE_API_KEY" \
   -H "x-sanction-key: pxy_…" -H "content-type: application/json" \
-  -d '{"contents":[{"parts":[{"text":"hi"}]}]}'
+  -d '{"contents":[{"parts":[{"text":"hi"}]}],"generationConfig":{"maxOutputTokens":100,"thinkingConfig":{"thinkingBudget":0}}}'
 ```
 
 ## What it meters
 
-Every call lands in your Spend dashboard by agent, model, and `gateway:<provider>`
+Calls with reported usage land in your Spend dashboard by agent, model, and `gateway:<provider>`
 task label, against the same daily token budget the policy enforces. Set per-agent
 budgets with `PATCH /api/v1/agents`.
 
@@ -59,8 +62,10 @@ Streaming is metered and **stays live** — the gateway tees the SSE stream to y
 client untouched, so tokens arrive as the provider generates them, and settles the
 meter when the stream ends:
 - **Anthropic** & **Gemini** — usage is in the stream by default; metered automatically.
-- **OpenAI** — set `stream_options: {include_usage: true}` so the final chunk carries
-  usage; otherwise a streamed OpenAI call can't be metered.
+- **OpenAI Chat Completions** — Sanction forces `stream_options.include_usage`.
+- A final usage report and terminal event settle the reservation. Cancellation,
+  an incomplete stream, or missing usage retains the hold; restarting the
+  gateway or crossing midnight does not free it.
 
 ## Stored provider keys: metered endpoints only
 
@@ -68,26 +73,64 @@ When a call carries no provider auth, the gateway injects the key you connected
 under Dashboard → Providers, but only for endpoints whose responses it meters:
 Anthropic `POST /v1/messages` (and `/v1/messages/count_tokens`); OpenAI
 `POST /v1/chat/completions`, `/v1/responses`, `/v1/embeddings`, `/v1/completions`;
-Perplexity `POST /chat/completions`; Gemini `POST .../models/{model}:generateContent`
+Gemini `POST .../models/{model}:generateContent`
 and `:streamGenerateContent`. Any other path (batches, files, fine-tuning…)
 returns `403` with `code: "GATEWAY_PATH_NOT_METERED"` and is never sent upstream,
 because it would spend on the stored key with nothing metered. OpenAI
 `/v1/responses` with `background: true` gets the same `403`: background mode
 returns no usage and settles through an unmetered retrieval. A request that
-brings its own provider auth header passes through to any path.
+brings its own provider auth header may still retrieve metadata with GET.
+Unmetered POST paths are rejected with either credential source; ownership of
+the provider key does not bypass reservations. GET retrievals do not charge a
+second time for usage already reported by an earlier generation.
 
-## Notes / limits
+## Reservation sizing and supported requests
 
-- Pricing is an **estimate** per model (see `lib/gateway.ts`); tune as needed.
-- **Fail-closed is enforced at the budget gate**, before the provider is called:
-  if the daily token budget is exhausted, or Sanction can't read spend state
-  (a DB outage makes the pre-call read throw), the call is stopped and the
-  provider is never reached. For a **non-streaming (JSON)** response, if usage
-  can't be metered afterward, Sanction withholds the body and returns `502`.
-  For a **streaming** response — where the client has already begun receiving
-  bytes and withholding is impossible — the meter write is retried at stream
-  end; a hard failure is logged and left as a single-call under-count rather
-  than breaking the stream.
-- With a provider key connected in the dashboard, the agent never sees it: the
-  gateway injects it on metered endpoints only. Agents that send their own
-  provider key keep full passthrough.
+Sanction sizes a hold from the forwarded UTF-8 request bytes, framing allowance,
+and enforced maximum output tokens using its model pricing table. Anthropic
+input reserves the highest supported prompt-cache write multiplier. A missing
+output limit gets a server-supplied default of 1,024 tokens. Gemini requires an
+explicit `thinkingBudget` (zero is allowed), which is also reserved.
+
+This first reservation adapter supports bounded text generation and text
+embeddings. Hidden or unbounded inputs are rejected before dispatch: media,
+provider-stored conversations/cache references, background generation,
+server-side tools/retrieval, and multiple candidates. Perplexity generation is
+currently rejected because its search work cannot be bounded from the request.
+A `400` response explains which input needs to change. Function definitions and
+ordinary local tool results are supported where their text is in the request.
+
+**Compatibility change:** requests that previously passed through a metered
+endpoint may now need an explicit bound or a supported text-only shape. The
+Anthropic token-count endpoint remains non-generating and does not reserve.
+
+## Settlement and failure handling
+
+Each reservation has one associated usage log. A successful settlement atomically
+records usage and releases the unused portion. Retrying settlement cannot charge
+twice. The price rates are captured at admission so a deployment cannot change
+the basis halfway through a call.
+
+JSON request rejections (`400`, `401`, `403`, `404`, `422`, `429`) without
+contradictory usage evidence release unused holds. Network failures, redirects, `408`, server errors, cancelled
+streams, and missing usage remain charged conservatively. Partial usage is
+recorded without freeing the remaining hold. Database failure before reservation
+prevents dispatch; database failure after dispatch leaves the committed hold in
+place. There is deliberately no automatic timeout refund: the provider may have
+continued working. Uncertain reservations require reconciliation against provider
+evidence before capacity can be released; there is no automatic reconciliation
+or dashboard release control in this slice.
+
+## What the cap guarantees
+
+The concurrency guarantee is that admitted **estimated capacity** plus recorded
+usage fits every applicable cap when admission commits. Prices and input token
+counts are estimates, not a guarantee about a provider invoice. Provider-reported
+usage above a reservation is recorded in full, even if that crosses a cap; later
+admissions stop. Sanction never clamps observed cost to make a cap appear to hold.
+Non-token provider fees and calls sent directly to a provider are outside this
+accounting.
+
+The Spend dashboard reports observed usage. Outstanding holds are separate
+`GatewayReservation` records and are included in admission decisions, including
+the `spent_usd` occupancy returned with a reservation denial.

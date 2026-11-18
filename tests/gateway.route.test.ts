@@ -29,7 +29,14 @@ vi.mock("@/lib/gateway", async (orig) => {
 })
 
 import { POST as gateway } from "../app/api/gateway/[provider]/[...path]/route"
-import { isBudgetExhausted, meterUsage } from "../lib/gateway"
+import { isBudgetExhausted } from "../lib/gateway"
+import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget } from "../lib/gatewayBudget"
+
+vi.mock("@/lib/gatewayBudget", () => ({
+  reserveGatewayBudget: vi.fn(async () => ({ exhausted: false, spent: 1, budget: 10, reservationId: "hold_1" })),
+  resolveGatewayBudget: vi.fn(async () => 0.05),
+  releaseGatewayBudget: vi.fn(async () => {}),
+}))
 import { notifyTokenBudgetThreshold } from "../lib/thresholds"
 
 const KEY = "pxy_testagentkey"
@@ -44,14 +51,14 @@ const AGENT = {
 
 const realFetch = global.fetch
 
-function req(provider: string, path: string, opts: { key?: string | null; body?: unknown; providerAuth?: boolean } = {}) {
+function req(provider: string, path: string, opts: { key?: string | null; body?: unknown; providerAuth?: boolean; method?: "POST" | "GET" } = {}) {
   const headers: Record<string, string> = { "content-type": "application/json" }
   if (opts.providerAuth !== false) headers["authorization"] = "Bearer caller-own-key"
   if (opts.key !== null) headers["x-sanction-key"] = opts.key ?? KEY
   return new NextRequest(`https://test.local/api/gateway/${provider}/${path}`, {
-    method: "POST",
+    method: opts.method ?? "POST",
     headers,
-    body: JSON.stringify(opts.body ?? { model: "claude-sonnet-5", messages: [] }),
+    body: opts.method === "GET" ? undefined : JSON.stringify(opts.body ?? { model: "claude-sonnet-5", messages: [{ role: "user", content: "hi" }] }),
   })
 }
 const params = (provider: string, path: string) => ({ params: Promise.resolve({ provider, path: path.split("/") }) })
@@ -59,6 +66,9 @@ const params = (provider: string, path: string) => ({ params: Promise.resolve({ 
 beforeEach(() => {
   dbMock.wallet.findUnique.mockResolvedValue({ id: "w_root", parentId: null, frozenAt: null, frozenReason: null }) // KILL-1: routes now read freeze state
   vi.clearAllMocks()
+  vi.mocked(resolveGatewayBudget).mockResolvedValue(0.05)
+  vi.mocked(reserveGatewayBudget).mockResolvedValue({ exhausted: false, spent: 1, budget: 10, reservationId: "hold_1" })
+  vi.mocked(releaseGatewayBudget).mockResolvedValue(undefined)
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   vi.mocked(isBudgetExhausted).mockResolvedValue({ exhausted: false, spent: 1, budget: 10 } as never)
 })
@@ -121,7 +131,7 @@ describe("gateway proxy — forwarding and metering", () => {
     expect(new Headers(init.headers).get("x-sanction-key")).toBeNull()
 
     // usage came off the response body and was metered
-    expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 100, tokensOut: 50 }))
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 100, tokensOut: 50 }), true)
 
     // response passthrough: body intact, no-store stamped
     expect(res.headers.get("cache-control")).toBe("no-store")
@@ -130,15 +140,15 @@ describe("gateway proxy — forwarding and metering", () => {
 
   it("passes through a JSON response with no usage block unmetered", async () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as never
-    const res = await gateway(req("openai", "v1/models"), params("openai", "v1/models"))
+    const res = await gateway(req("openai", "v1/models", { method: "GET" }), params("openai", "v1/models"))
     expect(res.status).toBe(200)
-    expect(meterUsage).not.toHaveBeenCalled()
+    expect(resolveGatewayBudget).not.toHaveBeenCalled()
   })
 
   it("withholds JSON responses when observed usage cannot be metered", async () => {
     const upstreamBody = JSON.stringify({ id: "msg_1", usage: { input_tokens: 100, output_tokens: 50 }, model: "claude-sonnet-5" })
     global.fetch = vi.fn(async () => new Response(upstreamBody, { status: 200, headers: { "content-type": "application/json" } })) as never
-    vi.mocked(meterUsage).mockRejectedValueOnce(new Error("db down"))
+    vi.mocked(resolveGatewayBudget).mockRejectedValueOnce(new Error("db down"))
 
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
 
@@ -155,7 +165,7 @@ describe("gateway proxy — forwarding and metering", () => {
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
 
     expect(res.status).toBe(200)
-    expect(meterUsage).toHaveBeenCalled()
+    expect(resolveGatewayBudget).toHaveBeenCalled()
     expect((await res.json()).id).toBe("msg_1")
   })
 
@@ -179,7 +189,7 @@ describe("gateway proxy — forwarding and metering", () => {
     expect(res.status).toBe(200)
     const text = await res.text() // draining the stream fires the flush-time metering
     expect(text).toBe(sse)
-    expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80, tokensOut: 40 }))
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 80, tokensOut: 40 }), true)
   })
 
   const SSE_WITH_USAGE = [
@@ -192,28 +202,28 @@ describe("gateway proxy — forwarding and metering", () => {
     global.fetch = vi.fn(async () =>
       new Response(new Blob([SSE_WITH_USAGE]).stream(), { status: 200, headers: { "content-type": "text/event-stream" } }),
     ) as never
-    vi.mocked(meterUsage).mockRejectedValueOnce(new Error("transient blip")) // first attempt fails, retry succeeds
+    vi.mocked(resolveGatewayBudget).mockRejectedValueOnce(new Error("transient blip")) // first attempt fails, retry succeeds
 
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
     expect(res.status).toBe(200)
     expect(await res.text()).toBe(SSE_WITH_USAGE)
-    expect(meterUsage).toHaveBeenCalledTimes(2) // failed once, retried, succeeded
+    expect(resolveGatewayBudget).toHaveBeenCalledTimes(2) // failed once, retried, succeeded
   })
 
-  it("still streams SSE even if metering ultimately fails — enforcement is the pre-call gate, not withholding", async () => {
+  it("retains the reservation if SSE settlement fails after bounded retries", async () => {
     global.fetch = vi.fn(async () =>
       new Response(new Blob([SSE_WITH_USAGE]).stream(), { status: 200, headers: { "content-type": "text/event-stream" } }),
     ) as never
-    vi.mocked(meterUsage).mockRejectedValue(new Error("db down")) // every attempt fails
+    vi.mocked(resolveGatewayBudget).mockRejectedValue(new Error("db down")) // every attempt fails
 
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
     // The client already received the bytes; we can't withhold a live stream.
     // The budget gate fails closed on a DB outage BEFORE the provider call, so
     // a stream that got this far means the read succeeded — the write blip is
-    // logged and left as a single-call under-count, not a 502.
+    // the committed hold stays charged; this cannot reopen capacity.
     expect(res.status).toBe(200)
     expect(await res.text()).toBe(SSE_WITH_USAGE)
-    expect(meterUsage).toHaveBeenCalledTimes(3) // bounded retries
+    expect(resolveGatewayBudget).toHaveBeenCalledTimes(3) // bounded retries
   })
 })
 
@@ -222,7 +232,7 @@ describe("gateway proxy — abandoned streams and header hygiene", () => {
 
   beforeEach(() => {
     // An earlier test leaves meterUsage rejecting; clearAllMocks keeps implementations.
-    vi.mocked(meterUsage).mockResolvedValue(0.05)
+    vi.mocked(resolveGatewayBudget).mockResolvedValue(0.05)
   })
 
   // An upstream that emits message_start and then hangs, like a long generation.
@@ -248,8 +258,8 @@ describe("gateway proxy — abandoned streams and header hygiene", () => {
     await reader.read() // message_start reaches the client
     await reader.cancel("client went away")
 
-    expect(meterUsage).toHaveBeenCalledTimes(1)
-    expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80 }))
+    expect(resolveGatewayBudget).toHaveBeenCalledTimes(1)
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 80 }), false)
     expect(upstreamCancelled).toBe(true)
   })
 
@@ -269,8 +279,8 @@ describe("gateway proxy — abandoned streams and header hygiene", () => {
     ctl.error(new Error("upstream reset"))
     await expect(reader.read()).rejects.toThrow("upstream reset")
 
-    expect(meterUsage).toHaveBeenCalledTimes(1)
-    expect(meterUsage).toHaveBeenCalledWith("agent_1", "anthropic", expect.objectContaining({ tokensIn: 80 }))
+    expect(resolveGatewayBudget).toHaveBeenCalledTimes(1)
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 80 }), false)
   })
 
   it("never forwards cookies, management keys or proxy/platform headers upstream, and drops upstream set-cookie", async () => {
@@ -296,7 +306,7 @@ describe("gateway proxy — abandoned streams and header hygiene", () => {
         "x-real-ip": "203.0.113.9",
         forwarded: "for=203.0.113.9",
       },
-      body: JSON.stringify({ model: "claude-sonnet-5" }),
+      body: JSON.stringify({ model: "claude-sonnet-5", messages: [{ role: "user", content: "hi" }] }),
     })
     const res = await gateway(r, params("anthropic", "v1/messages"))
 
@@ -378,24 +388,24 @@ describe("gateway provider-key injection (Providers page)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it("bring-your-own-key background-mode responses still pass through", async () => {
+  it("rejects background generation even with caller-owned auth because its cost cannot be reserved", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: "queued" }), { status: 200, headers: { "content-type": "application/json" } }))
     global.fetch = fetchMock as never
     const res = await gateway(
       req("openai", "v1/responses", { body: { model: "gpt-5", input: "hi", background: true } }),
       params("openai", "v1/responses"),
     )
-    expect(res.status).toBe(200)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
     expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
   })
 
-  it("bring-your-own-key calls to unmetered endpoints still pass through", async () => {
+  it("rejects caller-key POSTs to unmetered endpoints before dispatch", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } }))
     global.fetch = fetchMock as never
     const res = await gateway(req("openai", "v1/files"), params("openai", "v1/files"))
-    expect(res.status).toBe(200)
-    expect(String((fetchMock.mock.calls[0] as unknown as [string])[0])).toContain("/v1/files")
+    expect(res.status).toBe(403)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("caller-supplied auth wins — vault is not consulted", async () => {
@@ -404,4 +414,146 @@ describe("gateway provider-key injection (Providers page)", () => {
     expect(res.status).toBe(200)
     expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
   })
+})
+
+describe("gateway reservation lifecycle", () => {
+  it("commits the hold before fetch and forwards the enforced output cap", async () => {
+    let held = false
+    vi.mocked(reserveGatewayBudget).mockImplementationOnce(async () => {
+      await Promise.resolve()
+      held = true
+      return { exhausted: false, spent: 0, budget: 10, reservationId: "hold_1" }
+    })
+    global.fetch = vi.fn(async (_url, init) => {
+      expect(held).toBe(true)
+      const sent = JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer))
+      expect(sent.max_tokens).toBe(1024)
+      return Response.json({ model: "claude-sonnet-5", usage: { input_tokens: 3, output_tokens: 4 } })
+    })
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    expect(reserveGatewayBudget).toHaveBeenCalledWith(AGENT, expect.objectContaining({ reservedUsd: expect.any(Number) }))
+  })
+
+  it("402s an oversubscribed shared cap without calling the provider", async () => {
+    vi.mocked(reserveGatewayBudget).mockResolvedValueOnce({ exhausted: true, spent: 5, budget: 5, horizon: "subtree-daily", capWalletId: "root" })
+    global.fetch = vi.fn()
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ code: "GATEWAY_BUDGET_EXCEEDED", cap_wallet_id: "root", requested_reservation_usd: expect.any(Number) })
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("fails closed on a reservation write failure", async () => {
+    vi.mocked(reserveGatewayBudget).mockRejectedValueOnce(new Error("db down"))
+    global.fetch = vi.fn()
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(503)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([400, 401, 403, 404, 422, 429])("releases a definitively rejected %s request", async (status) => {
+    global.fetch = vi.fn(async () => Response.json({ error: "rejected" }, { status }))
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(status)
+    expect(releaseGatewayBudget).toHaveBeenCalledWith("hold_1")
+    expect(resolveGatewayBudget).not.toHaveBeenCalled()
+  })
+
+  it.each([408, 500, 502, 503, 529])("retains a hold after an ambiguous %s response", async (status) => {
+    global.fetch = vi.fn(async () => Response.json({ error: "unknown outcome" }, { status }))
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(status)
+    expect(releaseGatewayBudget).not.toHaveBeenCalled()
+    expect(resolveGatewayBudget).not.toHaveBeenCalled()
+  })
+
+  it("retains a hold after a network failure or success without usage", async () => {
+    global.fetch = vi.fn(async () => { throw new Error("socket reset after dispatch") })
+    expect((await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))).status).toBe(502)
+    global.fetch = vi.fn(async () => Response.json({ id: "no-usage" }))
+    expect((await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))).status).toBe(200)
+    expect(releaseGatewayBudget).not.toHaveBeenCalled()
+    expect(resolveGatewayBudget).not.toHaveBeenCalled()
+  })
+
+  it("treats truncated JSON usage as partial, never releasing unused capacity", async () => {
+    global.fetch = vi.fn(async () => Response.json({ model: "claude-sonnet-5", usage: { input_tokens: 10 } }))
+    await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 10 }), false)
+  })
+
+  it("settles reported zero usage instead of abandoning its reservation", async () => {
+    global.fetch = vi.fn(async () => Response.json({ model: "claude-sonnet-5", usage: { input_tokens: 0, output_tokens: 0 } }))
+    await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 0, tokensOut: 0 }), true)
+  })
+
+  it("reads a terminal SSE event without a trailing newline", async () => {
+    const sse = 'data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}\n\ndata: {"type":"message_delta","usage":{"output_tokens":4}}\n\ndata: {"type":"message_stop"}'
+    global.fetch = vi.fn(async () => new Response(sse, { headers: { "content-type": "text/event-stream" } }))
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(await res.text()).toBe(sse)
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), true)
+  })
+
+  it("retains capacity when an SSE stream closes before its terminal event", async () => {
+    const sse = 'data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}\n\n'
+    global.fetch = vi.fn(async () => new Response(sse, { headers: { "content-type": "text/event-stream" } }))
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    await res.text()
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3 }), false)
+  })
+})
+
+describe("gateway final usage evidence", () => {
+  it("reserves streamed Responses without injecting a Chat-Completions-only field", async () => {
+    global.fetch = vi.fn(async (_url, init) => {
+      const body = JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer))
+      expect(body.stream_options).toBeUndefined()
+      expect(body.max_output_tokens).toBe(1024)
+      return new Response('data: {"type":"response.completed","response":{"model":"gpt-4o","usage":{"input_tokens":3,"output_tokens":4}}}\n\n', { headers: { "content-type": "text/event-stream" } })
+    })
+    const res = await gateway(req("openai", "v1/responses", { body: { model: "gpt-4o", input: "hi", stream: true } }), params("openai", "v1/responses"))
+    expect(res.status).toBe(200)
+    await res.text()
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), true)
+  })
+
+  it("does not release a rejection that carries usage", async () => {
+    global.fetch = vi.fn(async () => Response.json({ usage: { input_tokens: 3, output_tokens: 4 } }, { status: 429 }))
+    await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    expect(releaseGatewayBudget).not.toHaveBeenCalled()
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), false)
+  })
+
+  it("does not treat a terminal marker after an error event as complete usage", async () => {
+    global.fetch = vi.fn(async () => new Response([
+      'data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}',
+      'data: {"type":"message_delta","usage":{"output_tokens":4}}',
+      'data: {"type":"error","error":{"message":"failed"}}',
+      'data: [DONE]',
+      '',
+    ].join('\n\n'), { headers: { "content-type": "text/event-stream" } }))
+    const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
+    await res.text()
+    expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 4 }), false)
+  })
+})
+
+it("settles text embeddings with their actual prompt-only usage shape", async () => {
+  global.fetch = vi.fn(async () => Response.json({
+    model: "text-embedding-3-small", data: [{ embedding: [0.1] }], usage: { prompt_tokens: 3, total_tokens: 3 },
+  }))
+  const res = await gateway(req("openai", "v1/embeddings", { body: { model: "text-embedding-3-small", input: "hello" } }), params("openai", "v1/embeddings"))
+  expect(res.status).toBe(200)
+  expect(resolveGatewayBudget).toHaveBeenCalledWith("hold_1", expect.objectContaining({ tokensIn: 3, tokensOut: 0 }), true)
+})
+
+it("does not bill response retrieval again or create an unreserved usage write", async () => {
+  global.fetch = vi.fn(async () => Response.json({ model: "gpt-4o", usage: { input_tokens: 100, output_tokens: 200 } }))
+  const res = await gateway(req("openai", "v1/responses/response_1", { method: "GET" }), params("openai", "v1/responses/response_1"))
+  expect(res.status).toBe(200)
+  expect(reserveGatewayBudget).not.toHaveBeenCalled()
+  expect(resolveGatewayBudget).not.toHaveBeenCalled()
 })

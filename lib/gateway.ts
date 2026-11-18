@@ -112,8 +112,8 @@ export const GATEWAY_PROVIDERS: Record<
 
 // Endpoints the wallet's STORED provider key may be injected into: POST calls
 // whose responses carry usage the gateway meters. Anything else (batches,
-// files, fine-tuning, assistants…) would spend on the vaulted key with nothing
-// metered, so it is refused. Bring-your-own-key callers are not restricted.
+// files, fine-tuning, assistants…) cannot reserve its cost, so POST requests
+// to those endpoints are refused with either stored or caller-owned keys.
 // Paths are relative to the provider base URL, without the query string.
 export const METERED_PATHS: Record<string, RegExp[]> = {
   anthropic: [/^v1\/messages$/, /^v1\/messages\/count_tokens$/],
@@ -324,7 +324,9 @@ type StreamData = {
  * bytes unchanged — a proxy must not corrupt a request it does not understand.
  * Safe because the route strips `content-length` before forwarding.
  */
-export function forceStreamUsage(provider: string, body: ArrayBuffer | undefined): ArrayBuffer | undefined {
+export function forceStreamUsage(provider: string, body: ArrayBuffer | undefined, path?: string): ArrayBuffer | undefined {
+  // Responses reports usage in its terminal event and rejects this Chat-only option.
+  if (provider === "openai" && path === "v1/responses") return body
   if (!body || body.byteLength === 0) return body
   if (provider !== "openai" && provider !== "perplexity") return body
   try {
@@ -359,37 +361,54 @@ export function isUnmeteredBackgroundRequest(provider: string, path: string, bod
 
 export function makeStreamMeter(provider: string) {
   const acc: GatewayUsage = { model: "", tokensIn: 0, tokensOut: 0 }
+  let inputSeen = false
+  let outputSeen = false
+  const valid = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0
   return {
     feed(d: StreamData) {
       if (provider === "anthropic") {
         if (d.type === "message_start" && d.message) {
           acc.model = d.message.model ?? acc.model
-          if (d.message.usage) Object.assign(acc, anthropicInput(d.message.usage))
+          if (d.message.usage) {
+            Object.assign(acc, anthropicInput(d.message.usage))
+            inputSeen = valid(d.message.usage.input_tokens)
+          }
           acc.tokensOut = d.message.usage?.output_tokens ?? acc.tokensOut
         } else if (d.type === "message_delta" && d.usage) {
           // message_delta usage is cumulative; newer responses repeat the input
           // side here too, so take it when present.
           if (d.usage.input_tokens != null) Object.assign(acc, anthropicInput(d.usage))
           acc.tokensOut = d.usage.output_tokens ?? acc.tokensOut
+          outputSeen = valid(d.usage.output_tokens)
         }
       } else if (provider === "openai" || provider === "perplexity") {
         if (d.model) acc.model = d.model
         if (d.usage) {
+          inputSeen = valid(d.usage.prompt_tokens ?? d.usage.input_tokens)
+          outputSeen = valid(d.usage.completion_tokens ?? d.usage.output_tokens)
           acc.tokensIn = d.usage.prompt_tokens ?? d.usage.input_tokens ?? acc.tokensIn
           acc.tokensOut = d.usage.completion_tokens ?? d.usage.output_tokens ?? acc.tokensOut
         }
         // Responses API: usage arrives nested on the terminal event.
         if (d.response?.usage) {
+          inputSeen = valid(d.response.usage.input_tokens)
+          outputSeen = valid(d.response.usage.output_tokens)
           acc.model = d.response.model ?? acc.model
           acc.tokensIn = d.response.usage.input_tokens ?? acc.tokensIn
           acc.tokensOut = d.response.usage.output_tokens ?? acc.tokensOut
         }
       } else if (provider === "gemini") {
         if (d.modelVersion) acc.model = d.modelVersion
-        if (d.usageMetadata) Object.assign(acc, geminiTokens(d.usageMetadata))
+        if (d.usageMetadata) {
+          Object.assign(acc, geminiTokens(d.usageMetadata))
+          inputSeen = valid(d.usageMetadata.promptTokenCount)
+          outputSeen = valid(d.usageMetadata.candidatesTokenCount) &&
+            (d.usageMetadata.thoughtsTokenCount == null || valid(d.usageMetadata.thoughtsTokenCount))
+        }
       }
     },
     result: () => acc,
+    hasCompleteUsage: () => inputSeen && outputSeen,
   }
 }
 

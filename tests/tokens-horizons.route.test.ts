@@ -9,8 +9,9 @@ import { hashApiKey } from "../lib/apiKey"
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     agent: { findUnique: vi.fn(), update: vi.fn() },
-    wallet: { findUnique: vi.fn() },
+    wallet: { findUnique: vi.fn(), findFirst: vi.fn() },
     tokenLog: { create: vi.fn(), aggregate: vi.fn() },
+    gatewayReservation: { findMany: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
   },
@@ -57,6 +58,8 @@ beforeEach(() => {
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue({})
   dbMock.tokenLog.create.mockResolvedValue({ id: "tl_1" })
+  dbMock.gatewayReservation.findMany.mockResolvedValue([])
+  dbMock.wallet.findFirst.mockResolvedValue(null)
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
   vi.mocked(walletAncestorChain).mockImplementation(async (_tx: unknown, walletId: string) => [{ id: walletId, parentId: null, frozenAt: null, frozenReason: null, policy: null }] as never)
@@ -92,6 +95,7 @@ describe("/tokens — monthly horizon (opt-in)", () => {
 describe("/tokens — pooled subtree-daily horizon", () => {
   it("402s subtree-daily when the department pool cap would be crossed by siblings' combined spend", async () => {
     vi.mocked(walletAncestorChain).mockResolvedValue([
+      { id: WID, parentId: "org_1", policy: null },
       { id: "org_1", parentId: null, policy: { subtreeDailyTokenCapUsd: 50_000 } }, // $500 dept cap
     ] as never)
     vi.mocked(walletSubtreeIds).mockResolvedValue(["org_1", WID])
@@ -111,5 +115,72 @@ describe("/tokens — pooled subtree-daily horizon", () => {
     const res = await logTokens(reqTokens(USAGE))
     expect(res.status).toBe(200)
     expect(dbMock.tokenLog.create).toHaveBeenCalled()
+  })
+})
+
+describe("/tokens — reservations share the budget", () => {
+  it("counts an unresolved gateway call before accepting a self-reported log", async () => {
+    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 9 } })
+    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 1, observedUsd: 0.1 }])
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(402)
+    expect((await res.json()).spent_usd).toBe(10)
+    expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
+    expect(dbMock.gatewayReservation.findMany).toHaveBeenCalledWith({
+      where: { agentId: AGENT.id, status: { in: ["pending", "uncertain"] } },
+      select: { reservedUsd: true, observedUsd: true },
+    })
+  })
+
+  it("counts observed overruns instead of limiting a hold to its original estimate", async () => {
+    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
+    dbMock.gatewayReservation.findMany.mockResolvedValue([{ reservedUsd: 1, observedUsd: 10 }])
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(402)
+    expect((await res.json()).spent_usd).toBe(10)
+  })
+
+  it("enforces an ancestor cap even when the child has no local policy", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: null } })
+    vi.mocked(walletAncestorChain).mockResolvedValue([
+      { id: WID, parentId: "org_1", policy: null },
+      { id: "org_1", parentId: null, policy: { subtreeDailyTokenCapUsd: 100 } },
+    ] as never)
+    vi.mocked(walletSubtreeIds).mockResolvedValue(["org_1", WID])
+    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
+    dbMock.gatewayReservation.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ reservedUsd: 1, observedUsd: 0 }])
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(402)
+    expect((await res.json()).horizon).toBe("subtree-daily")
+    expect(dbMock.$executeRaw.mock.calls.map((call) => call[1])).toEqual([
+      "token-budget:wallet:org_1", "token-budget:wallet:wallet_1", AGENT.id,
+    ])
+  })
+
+  it("enforces an agent override even when its wallet has no policy", async () => {
+    dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, dailyTokenBudgetUsd: 1, wallet: { ...AGENT.wallet, policy: null } })
+    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
+    const res = await logTokens(reqTokens(USAGE))
+    expect(res.status).toBe(402)
+    expect((await res.json()).horizon).toBe("daily")
+  })
+
+  it("fails closed when the ancestry walk is truncated", async () => {
+    vi.mocked(walletAncestorChain).mockResolvedValue([{ id: WID, parentId: "unresolved", policy: null }] as never)
+    await expect(logTokens(reqTokens(USAGE))).rejects.toThrow("Incomplete wallet ancestry")
+    expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
+  })
+
+  it("fails closed when the subtree walk omitted a descendant", async () => {
+    vi.mocked(walletAncestorChain).mockResolvedValue([
+      { id: WID, parentId: null, policy: { subtreeDailyTokenCapUsd: 100_000 } },
+    ] as never)
+    vi.mocked(walletSubtreeIds).mockResolvedValue([WID])
+    dbMock.wallet.findFirst.mockResolvedValue({ id: "omitted-child" })
+    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
+    await expect(logTokens(reqTokens(USAGE))).rejects.toThrow("Incomplete token pool membership")
+    expect(dbMock.tokenLog.create).not.toHaveBeenCalled()
   })
 })
