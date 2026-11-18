@@ -252,6 +252,49 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     expect(await reservations([wallet.id])).toHaveLength(4)
   })
 
+  it("admits a complete 499-wallet pool and refuses the 500th member without undercounting", async () => {
+    const parent = await makeWallet({ pool: 500 })
+    const child = await makeWallet({ parentId: parent.id })
+    const ids = Array.from({ length: 498 }, () => randomUUID())
+    const data = ids.map((id) => ({ id, parentId: parent.id, name: "bounded pool fixture", ownerEmail: `${id}@example.test` }))
+    await db.wallet.createMany({ data: data.slice(0, 497) })
+    wallets.push(...ids.slice(0, 497))
+    await admitted(child)
+    await db.wallet.create({ data: data[497] })
+    wallets.push(ids[497])
+    await expect(reserve(child)).rejects.toThrow("traversal limit")
+    expect(await reservations([child.id])).toHaveLength(1)
+  })
+
+  it("detects descendants omitted beyond the subtree depth bound", async () => {
+    const root = await makeWallet({ pool: 500 })
+    const ids = Array.from({ length: 33 }, () => randomUUID())
+    const data = ids.map((id, i) => ({ id, parentId: i === 0 ? root.id : ids[i - 1], name: "deep pool fixture", ownerEmail: `${id}@example.test` }))
+    await db.wallet.createMany({ data: data.slice(0, 32) })
+    wallets.push(...ids.slice(0, 32))
+    await admitted(root)
+    await db.wallet.create({ data: data[32] })
+    wallets.push(ids[32])
+    await expect(reserve(root)).rejects.toThrow("Incomplete token pool")
+    expect(await reservations([root.id])).toHaveLength(1)
+  })
+
+  it("refuses truncated and cyclic ancestry rather than trusting a partial cap chain", async () => {
+    const chain = [await makeWallet()]
+    for (let i = 1; i < 16; i++) chain.push(await makeWallet({ parentId: chain[i - 1].id }))
+    await admitted(chain[15])
+    const tooDeep = await makeWallet({ parentId: chain[15].id })
+    await expect(reserve(tooDeep)).rejects.toThrow("Incomplete wallet ancestry")
+    expect(await reservations([tooDeep.id])).toHaveLength(0)
+    try {
+      await db.wallet.update({ where: { id: chain[0].id }, data: { parentId: chain[1].id } })
+      await expect(reserve(chain[1])).rejects.toThrow("Incomplete wallet ancestry")
+      expect(await reservations([chain[1].id])).toHaveLength(0)
+    } finally {
+      await db.wallet.update({ where: { id: chain[0].id }, data: { parentId: null } })
+    }
+  })
+
   it.each([
     ["gateway", "daily"], ["tokens", "daily"],
     ["gateway", "monthly"], ["tokens", "monthly"],
@@ -285,6 +328,24 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
       expect.objectContaining({ horizon: "monthly", spent: 1.5, budget: 1.5 }),
     ])
     expect(await reservations([wallet.id])).toHaveLength(1)
+  })
+
+  it("counts only today's logs daily and this month's logs monthly at a fixed midmonth date", async () => {
+    const wallet = await makeWallet({ daily: 200, monthly: 500 })
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 10, 15, 12))
+    try {
+      await db.tokenLog.createMany({ data: [
+        { createdAt: new Date(2026, 9, 31, 12), costUsd: 100 },
+        { createdAt: new Date(2026, 10, 14, 12), costUsd: 3.5 },
+        { createdAt: new Date(2026, 10, 15, 9), costUsd: 1.25 },
+      ].map((entry) => ({ agentId: wallet.agent.id, model, tokensIn: 1, tokensOut: 0, ...entry })) })
+      expect(await reserve(wallet, 0.25)).toMatchObject({ exhausted: false, spent: 1.25, budget: 2 })
+      expect(await reserve(wallet, 0.01)).toMatchObject({ exhausted: true, horizon: "monthly", spent: 5, budget: 5 })
+      expect(await reserve(wallet, 0.51)).toMatchObject({ exhausted: true, horizon: "daily", spent: 1.5, budget: 2 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("honors every nested pool without charging the parent for inner-pool denials", async () => {
