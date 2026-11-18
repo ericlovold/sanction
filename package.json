@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma generate && node scripts/migrate-deploy.mjs && next build",
+    "build": "prisma generate && node scripts/migrate-deploy.mjs && node scripts/eve-build.mjs && next build",
     "build:mcp": "npx esbuild mcp-server.ts --bundle --platform=node --outfile=packages/sanction-mcp/mcp-server.js --format=esm --external:@prisma/client --external:@prisma/adapter-pg --banner:js='import{createRequire}from\"module\";const require=createRequire(import.meta.url);'",
     "start": "next start",
     "lint": "eslint",
@@ -70,5 +70,8 @@
     "fast-uri": "^3.1.9",
     "source-map-js": "^1.2.2",
     "@hono/node-server": "^2.1.3"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -43,7 +43,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       # Lockfile-pinned runtime — no registry fetch-and-execute next to the keys.
       - run: npm ci --no-audit --no-fund

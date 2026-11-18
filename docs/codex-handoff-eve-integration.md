@@ -6,19 +6,20 @@ Wire eve as the conversational onboarding layer for Sanction, the authorization 
 
 The intended first-run conversation, from `agent/instructions.md`:
 
-1. Scan the organization through connectors the user has already granted.
-2. Submit a normalized roster snapshot with provenance and show shadow-AI findings.
-3. Preview a deterministic seat plan.
-4. Never apply a plan without explicit owner approval. Applying a plan is a provision action and must go through Sanction's approval loop.
+1. Call `sanction_wallet_status` to confirm the wallet connection and budget headroom.
+2. Explain that Sanction is ask-first, and honor `next_action` on every decision (`proceed` / `wait` / `retry_with_grant` / `stop`).
+3. Use only the shipped MCP tools listed below. Roster scan and seat-plan preview/apply are **not available** — future work, not tools to call.
 
-Hosted MCP lives at `https://getsanction.com/mcp`. The shipped tools are authorization and status (`sanction_authorize`, `sanction_authorize_provision`, `sanction_authorize_tool`, `sanction_authorize_capability`, `sanction_log_tokens`, `sanction_log_outcome`, `sanction_wallet_status`, `sanction_check_authorization`). Roster submission and seat-plan tools are not on that surface yet.
+Hosted MCP lives at `https://getsanction.com/mcp` (override with `SANCTION_MCP_URL`). Authenticate with `SANCTION_API_KEY` (`pxy_...`) as `x-api-key`. Unset or non-`pxy_` keys fail closed when the agent connects; never hardcode or log a key.
+
+Shipped wallet tools: `sanction_authorize`, `sanction_authorize_provision`, `sanction_authorize_tool`, `sanction_authorize_capability`, `sanction_log_tokens`, `sanction_log_outcome`, `sanction_request_execution`, `sanction_inject_credential`, `sanction_wallet_status`, `sanction_check_authorization`. Roster submission and seat-plan tools are not on that surface yet.
 
 ## Current implementation (main)
 
 - `/dashboard/eve` is a preview mockup. Example teams and spend are hardcoded. The page is labeled preview and is off the default sidebar until it runs on real connector state. The route stays reachable by URL.
-- `agent/` holds sanction-specific instructions and an MCP client pointed at `https://getsanction.com/mcp`.
-- `next.config.ts` mounts eve routes through `withEve`.
-- The eve runtime dependency is installed. Connector status is not persisted. Do not claim a connector is connected until status confirms it.
+- `agent/` holds sanction-specific instructions and an MCP client pointed at `https://getsanction.com/mcp`. The connection reads `SANCTION_API_KEY` at request time and sends it as `x-api-key`.
+- `next.config.ts` mounts eve routes through `withEve`. Off Vercel, `npm run build` runs `eve build` so `npm start` has a compiled agent; on Vercel that step is skipped because `VERCEL=1` would make a bare `eve build` write `.vercel/output` and collide with Next.js.
+- The eve runtime dependency is installed (`engines.node >= 24`, matching eve 1.0.0-rc.8). Connector status is not persisted. Do not claim a connector is connected until status confirms it.
 
 ## Important constraints
 

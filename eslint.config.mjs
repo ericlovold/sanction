@@ -26,6 +26,9 @@ const eslintConfig = defineConfig([
     "lib/generated/**",
     // Local Python virtualenvs (never source).
     "**/.venv/**",
+    // eve compiled artifacts (scripts/eve-build.mjs / withEve).
+    ".eve/**",
+    ".output/**",
   ]),
 ]);
 
