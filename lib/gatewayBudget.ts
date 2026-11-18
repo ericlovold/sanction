@@ -198,17 +198,28 @@ async function budgetOccupancy(tx: Tx, agentId: string, poolIds: string[], now: 
       ) AS holds
     FROM scopes s
     LEFT JOIN LATERAL (
-      SELECT SUM(l."costUsd") FILTER (WHERE l."createdAt" >= ${day}) AS daily, SUM(l."costUsd") AS monthly
-      FROM "TokenLog" l
-      LEFT JOIN "GatewayReservation" r ON r.id = l."gatewayReservationId"
-      LEFT JOIN "Agent" a ON a.id = l."agentId"
-      WHERE l."createdAt" >= CASE WHEN s.kind = 'agent' AND ${monthly}::boolean THEN ${month}::timestamp ELSE ${day}::timestamp END AND (
-        (s.kind = 'agent' AND l."agentId" = s."scopeId" AND (l."gatewayReservationId" IS NULL OR r.status = 'settled'))
-        OR (s.kind = 'pool' AND (
-          (l."gatewayReservationId" IS NULL AND a."walletId" = ANY(s."walletIds"))
-          OR (r.status = 'settled' AND r."walletId" = ANY(s."walletIds"))
-        ))
-      )
+      SELECT SUM(entries."costUsd") FILTER (WHERE entries."createdAt" >= ${day}) AS daily, SUM(entries."costUsd") AS monthly
+      FROM (
+        -- Keep each disjoint source separately indexable. Combining agent and
+        -- wallet predicates across joins makes even agent-only budgets scan
+        -- unrelated tenants' logs while holding the budget locks.
+        SELECT l."costUsd", l."createdAt"
+        FROM "TokenLog" l
+        LEFT JOIN "GatewayReservation" r ON r.id = l."gatewayReservationId"
+        WHERE s.kind = 'agent' AND l."agentId" = s."scopeId"
+          AND l."createdAt" >= CASE WHEN ${monthly}::boolean THEN ${month}::timestamp ELSE ${day}::timestamp END
+          AND (l."gatewayReservationId" IS NULL OR r.status = 'settled')
+        UNION ALL
+        SELECT l."costUsd", l."createdAt"
+        FROM "Agent" a JOIN "TokenLog" l ON l."agentId" = a.id
+        WHERE s.kind = 'pool' AND a."walletId" = ANY(s."walletIds")
+          AND l."gatewayReservationId" IS NULL AND l."createdAt" >= ${day}
+        UNION ALL
+        SELECT l."costUsd", l."createdAt"
+        FROM "GatewayReservation" r JOIN "TokenLog" l ON l."gatewayReservationId" = r.id
+        WHERE s.kind = 'pool' AND r.status = 'settled' AND r."walletId" = ANY(s."walletIds")
+          AND l."createdAt" >= ${day}
+      ) entries
     ) logs ON true
   `)
 }

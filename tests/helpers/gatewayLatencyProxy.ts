@@ -92,6 +92,7 @@ export async function gatewayLatencyProxy(connectionString: string) {
     connectionString: proxied.toString(),
     setRoundTripMs(ms: number) {
       if (!Number.isInteger(ms) || ms < 0 || ms > 200) throw new Error("Latency must be bounded to 0–200 ms RTT")
+      if (oneWayMs !== ms / 2 && timers.size) throw new Error("Cannot change latency while network deliveries are pending")
       oneWayMs = ms / 2
     },
     resetMetrics() { metrics = { queries: 0, byVerb: {} } },

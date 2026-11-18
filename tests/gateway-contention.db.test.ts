@@ -16,8 +16,9 @@ vi.mock("@/lib/thresholds", () => ({ notifyTokenBudgetThreshold: vi.fn() }))
 // Real route handlers, default lib/db factory and PostgreSQL transactions.
 // Only provider IO and notification delivery are stubbed. A TCP proxy adds
 // bounded network latency; no transaction/query deadline is extended.
-// Requires RUN_DB_TESTS=1 and a disposable LOCAL PostgreSQL database.
-const run = process.env.RUN_DB_TESTS === "1"
+// Requires RUN_DB_TESTS=1, RUN_GATEWAY_LATENCY_TESTS=1, and a disposable LOCAL
+// PostgreSQL database. Ordinary DB runs may use a remote disposable database.
+const run = process.env.RUN_DB_TESTS === "1" && process.env.RUN_GATEWAY_LATENCY_TESTS === "1"
 const created: string[] = []
 const model = "claude-opus-4-6"
 type GatewayDb = typeof import("@/lib/db").db

@@ -381,8 +381,8 @@ describe("durable gateway admission", () => {
       expect(dbMock.tokenLog.upsert.mock.calls[0][0].create.createdAt).toEqual(afterMidnight)
       expect(dbMock.tokenLog.upsert.mock.calls[0][0].update.createdAt).toEqual(afterMidnight)
       expect(statements.filter(({ kind }) => kind === "occupancy").map(({ values }) => values.filter((value) => value instanceof Date))).toEqual([
-        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19)],
-        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19)],
+        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19), new Date(2026, 10, 19), new Date(2026, 10, 19)],
+        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19), new Date(2026, 10, 19), new Date(2026, 10, 19)],
       ])
       expect(dbMock.$transaction.mock.calls.map((call) => call[1])).toEqual(Array(3).fill({ isolationLevel: "ReadCommitted" }))
     } finally {
