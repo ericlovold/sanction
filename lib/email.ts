@@ -1,7 +1,7 @@
 import { spendReturnPath } from "@/lib/returnPath"
 // Minimal transactional email via Resend's REST API (no SDK dependency).
-// If RESEND_API_KEY is unset, falls back to logging the message server-side so
-// flows are testable in dev without an email provider.
+// Non-sign-in messages retain a development logging fallback. Sign-in senders
+// require the provider so their credential URLs never reach that logger.
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "Sanction <no-reply@getsanction.com>"
@@ -69,6 +69,7 @@ export async function sendNewLeadEmail(lead: { email: string; source: string }):
 }
 
 export async function sendMagicLinkEmail(to: string, link: string): Promise<void> {
+  if (!RESEND_API_KEY) throw new Error("Recovery email delivery is not configured")
   const subject = "Your Sanction sign-in link"
   const text = [
     "Sign in to Sanction by opening this link (valid for 15 minutes):",

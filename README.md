@@ -113,10 +113,13 @@ Around the engine:
   Wallets can be frozen outright, and budget reallocated across the tree.
 - **LLM gateway.** Point your model SDK's base URL at
   `https://getsanction.com/api/gateway/<provider>` with `x-sanction-key` —
-  usage is metered and budget-capped with zero per-call instrumentation.
+  usage is metered and budget-capped with zero per-call instrumentation. Each
+  text-generation or embedding call reserves its estimated cost before it
+  reaches the provider, and the request is forwarded without an added output
+  limit ([guide](docs/GATEWAY.md)).
 
 Every security claim above maps to enforcing code and a regression test in
-[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 1,100+ tests behind a coverage
+[docs/TRACEABILITY.md](docs/TRACEABILITY.md) — 2,800+ tests behind a coverage
 gate of 90% statements/lines, 94% functions, and 83% branches, including
 concurrency and Postgres row-level-security suites.
 
@@ -160,7 +163,7 @@ agents wherever they run. Pick the shortest path to your stack:
 |---|---|---|
 | Govern any MCP host (Claude Desktop, Cursor, …) | MCP wallet | Paste `https://getsanction.com/mcp` or `npx sanction-mcp` |
 | Intercept tools/call and filter tools/list on an MCP server | MCP broker | Register the upstream, point the host at `/mcp/broker/<name>` |
-| Meter model spend with zero code changes | LLM gateway | Point the SDK base URL at `/api/gateway/<provider>` |
+| Meter text-model spend with no code changes | LLM gateway | Point the SDK base URL at `/api/gateway/<provider>` |
 | Govern agents in a TypeScript app | SDK | `npm install sanction-sdk` |
 | Call the engine from anything else | REST API | `POST /v1/authorize` with an `x-api-key` |
 | Plug into an AuthZEN enforcement point | PDP | Point it at `/api/access/v1/evaluation` |
@@ -173,7 +176,7 @@ The full menu:
 - **TypeScript SDK** — `npm install sanction-sdk` ([source](sdk/)): `SanctionClient` (agent plane) and `SanctionAdminClient` (management plane), plus framework adapters (`SanctionMiddleware`, `sanctionTool`)
 - **REST API** — direct integration, OpenAPI 3.0 spec at `/api/openapi.json` (Bedrock-compatible)
 - **AWS Bedrock Action Group** — enterprise agent orchestration ([setup guide](docs/BEDROCK.md))
-- **LLM gateway** — cross-provider metering with no code changes
+- **LLM gateway** — cross-provider metering and budget holds for text generation and embeddings, with no code changes ([guide](docs/GATEWAY.md))
 
 Fastest first decision: `bash examples/setup.sh` — wallet, agent, and a demo
 policy in one command, printing the env exports your agent needs
