@@ -522,17 +522,20 @@ describe("gateway reservation lifecycle", () => {
 describe("gateway output limits", () => {
   it("forwards a request with no output limit unchanged, reserving for the maximum", async () => {
     const request = { model: "gpt-4o", messages: [{ role: "user", content: "hi" }] }
+    const capped = { ...request, max_completion_tokens: 1024 }
+    const forwarded: unknown[] = []
+    // Record bodies and assert after the calls: an assertion thrown inside the
+    // stub would surface only as a 502 from the route.
     global.fetch = vi.fn(async (_url, init) => {
-      expect(JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer))).toEqual(request)
+      forwarded.push(JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer)))
       return Response.json({ model: "gpt-4o", usage: { prompt_tokens: 3, completion_tokens: 4 } })
     })
-    const res = await gateway(req("openai", "v1/chat/completions", { body: request }), params("openai", "v1/chat/completions"))
-    expect(res.status).toBe(200)
-    const reserved = vi.mocked(reserveGatewayBudget).mock.calls[0][1].reservedUsd
-    const capped = { ...request, max_completion_tokens: 1024 }
-    vi.mocked(reserveGatewayBudget).mockClear()
-    await gateway(req("openai", "v1/chat/completions", { body: capped }), params("openai", "v1/chat/completions"))
-    expect(reserved).toBeGreaterThan(vi.mocked(reserveGatewayBudget).mock.calls[0][1].reservedUsd)
+    const open = await gateway(req("openai", "v1/chat/completions", { body: request }), params("openai", "v1/chat/completions"))
+    const limited = await gateway(req("openai", "v1/chat/completions", { body: capped }), params("openai", "v1/chat/completions"))
+    expect([open.status, limited.status]).toEqual([200, 200])
+    expect(forwarded).toEqual([request, capped])
+    const [openHold, cappedHold] = vi.mocked(reserveGatewayBudget).mock.calls.map((call) => call[1].reservedUsd)
+    expect(openHold).toBeGreaterThan(cappedHold)
   })
 
   it("explains how to reserve less when an unlimited request does not fit the budget", async () => {
