@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto"
-import { mkdir, readFile, writeFile, rm, chmod } from "node:fs/promises"
+import { mkdir, readFile, writeFile, rm, chmod, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -30,13 +30,42 @@ function parseState(contents) {
   return state
 }
 
+// Claude Code stops a hook after 15 seconds, so a lock older than this has no owner.
+const STALE_LOCK_MS = 60_000
+
+const STOP = "\\s;&|<>()`"
+// A word boundary that also accepts a path: `/usr/bin/git push` runs git.
+const START = "(?:^|[^A-Za-z0-9_.-])"
+const END = `(?=$|[${STOP}])`
+// Options a program takes before its subcommand, each with at most one value:
+// `git -C dir push`, `kubectl -n prod delete`, `terraform -chdir=infra apply`.
+const OPTIONS = `(?:\\s+-[^${STOP}]*(?:\\s+[^-${STOP}][^${STOP}]*)?)*?`
+
+// `rm` with recursive and force in any spelling: -rf, -fr, -Rf, -r -f, --recursive --force.
+function removesRecursively(text) {
+  for (const [, flags] of text.matchAll(new RegExp(`${START}rm(?=\\s)([^;&|\\n()\`]*)`, "g"))) {
+    let recursive = false, force = false
+    for (const token of flags.split(/\s+/)) {
+      if (token === "--recursive") recursive = true
+      else if (token === "--force") force = true
+      else if (/^-[A-Za-z]+$/.test(token)) {
+        if (/[rR]/.test(token)) recursive = true
+        if (token.includes("f")) force = true
+      }
+    }
+    if (recursive && force) return true
+  }
+  return false
+}
+
 // Conservative text matching also gates quoted mentions of an entire prefix.
 export function mentions(command, prefix) {
   if (typeof command !== "string") return true
   // The shell deletes a backslash-newline outright, so `pu\<newline>sh` is `push`.
   const text = command.replace(/\\\r?\n/g, "").replace(/["'\\]/g, "")
-  const words = prefix.split(" ").map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+")
-  return new RegExp(`(?:^|[^A-Za-z0-9_./-])${words}(?=$|[\\s;&|)<>\`])`).test(text)
+  if (prefix === "rm -rf") return removesRecursively(text)
+  const words = prefix.split(" ").map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(`${OPTIONS}\\s+`)
+  return new RegExp(`${START}${words}${END}`).test(text)
 }
 
 export function parseArgs(argv) {
@@ -54,11 +83,16 @@ export async function runHook(input, env = process.env, request = fetch, options
     if (input.hook_event_name !== "PreToolUse" || typeof input.session_id !== "string" || !input.session_id ||
         typeof input.cwd !== "string" || !input.cwd || typeof input.tool_name !== "string" || !input.tool_name || !input.tool_input || typeof input.tool_input !== "object" || Array.isArray(input.tool_input)) throw Error("Invalid hook input")
     let approvalReason
+    let boundInput = input.tool_input
     if (options.gateBash) {
       if (input.tool_name !== "Bash" || typeof input.tool_input.command !== "string" || !input.tool_input.command.trim()) throw Error("Invalid Bash input")
       const matches = gatedPrefixes.filter(prefix => mentions(input.tool_input.command, prefix))
       if (!matches.length) return null
       approvalReason = `Claude Code rules: ${matches.join(", ")}`
+      // The description is Claude's note about the command, not part of what
+      // runs. Leaving it out lets a reworded retry redeem its own approval.
+      const { description: _note, ...executed } = input.tool_input
+      boundInput = executed
     }
     const origin = new URL(env.SANCTION_URL || "https://getsanction.com")
     if (origin.protocol !== "https:" && !(origin.protocol === "http:" && ["localhost", "127.0.0.1"].includes(origin.hostname))) throw Error("HTTPS required")
@@ -67,7 +101,7 @@ export async function runHook(input, env = process.env, request = fetch, options
     const key = env.SANCTION_AGENT_KEY || (origin.origin === "https://getsanction.com" && env.CLAUDE_PLUGIN_OPTION_SANCTION_AGENT_KEY)
     if (origin.username || origin.password || !key) throw Error("Missing configuration")
     const payload = {
-      tool: `claude-code.${input.tool_name}`, server: "claude-code", arguments: { cwd: input.cwd, input: input.tool_input },
+      tool: `claude-code.${input.tool_name}`, server: "claude-code", arguments: { cwd: input.cwd, input: boundInput },
       ...(approvalReason ? { require_approval: true, approval_reason: approvalReason } : {}),
     }
     const binding = createHash("sha256").update(JSON.stringify(canonical([origin.origin, createHash("sha256").update(key).digest("hex"), input.session_id, payload]))).digest("hex")
@@ -76,8 +110,18 @@ export async function runHook(input, env = process.env, request = fetch, options
     await chmod(directory, 0o700)
     const file = join(directory, `${binding}.json`)
     const lockPath = `${file}.lock`
-    // A killed hook leaves a lock: refuse rather than race another redemption.
-    await mkdir(lockPath, { mode: 0o700 })
+    // One check at a time per binding: refuse rather than race another
+    // redemption. A killed hook leaves its lock behind, so an old one is cleared.
+    try {
+      await mkdir(lockPath, { mode: 0o700 })
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error
+      if (Date.now() - (await stat(lockPath)).mtimeMs < STALE_LOCK_MS) {
+        return decision("deny", "Sanction is already checking this exact action. Wait a minute, then retry it.")
+      }
+      await rm(lockPath, { recursive: true, force: true })
+      await mkdir(lockPath, { mode: 0o700 })
+    }
     lock = lockPath
     let state
     try {
@@ -139,6 +183,9 @@ export async function runHook(input, env = process.env, request = fetch, options
     // so a retry after a policy change is evaluated fresh. Only a well-formed
     // machine code is echoed to the model, never free server text.
     await rm(file)
+    if (result.code === "TOOL_NOT_ALLOWED") {
+      return decision("deny", `Sanction refused this action (TOOL_NOT_ALLOWED). This wallet's policy has a tool allow-list without ${payload.tool}. Add it to the allowed tools in Sanction, then retry. Approval cannot override a policy denial.`)
+    }
     const code = typeof result.code === "string" && /^[A-Z][A-Z_]{0,39}$/.test(result.code) ? ` (${result.code})` : ""
     return decision("deny", `Sanction refused this action${code}. Approval cannot override a policy denial. Check the wallet's policy and connection settings.`)
   } catch {

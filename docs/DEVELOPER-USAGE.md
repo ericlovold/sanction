@@ -154,9 +154,10 @@ The hook uses an eight-second network timeout and does not wait for a human
 inside the hook. A rejected, timed-out or unredeemable request clears its own
 pending state; retrying opens a new request. Pending state contains only request IDs and idempotency keys,
 under `~/.local/state/sanction/hooks` (override with `SANCTION_HOOK_STATE_DIR`).
-For denied/expired requests or a lock left by a killed process, stop the relevant
-Claude session before removing that test session's pending state; retrying then
-starts a new approval. Never remove a lock while a hook is running.
+A lock left by a killed process clears itself after a minute; until then that
+exact action stays blocked. To discard a denied or expired test request, stop the
+relevant Claude session before removing its pending state; retrying then starts
+a new approval. Never remove a lock while a hook is running.
 
 ## Evidence and limits
 

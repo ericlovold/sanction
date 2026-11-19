@@ -126,7 +126,7 @@ export const POLICY_PACKS: PolicyPack[] = [
   {
     id: "coding-agent-seat",
     name: "Coding agent seat",
-    tagline: "Allow named reads, ask before new capability, and deny unlisted tools including shell execution.",
+    tagline: "Allow named reads, ask before new capability and Claude Code shell requests, and deny unlisted tools including generic shell execution.",
     audience: "Cursor, Claude Code, Codex, Cline, and OpenHands agents moving from sandbox to real repos.",
     maturity: "governance",
     channel: "coding-agent",
@@ -142,8 +142,10 @@ export const POLICY_PACKS: PolicyPack[] = [
       allowed_categories: ["software", "services", "research", "infrastructure"],
       // Tool lists match exact names, not globs. Owners adapt these to their
       // upstream's tools/list. Unknown tools (including shell aliases) deny.
-      allowed_tools: ["github.get_file_contents", "filesystem.read_file", "filesystem.list_directory"],
-      escalate_tools: [],
+      // claude-code.Bash is what the Claude Code plugin asks about. Listed and
+      // escalated, so its requests reach a person instead of the allow-list denial.
+      allowed_tools: ["github.get_file_contents", "filesystem.read_file", "filesystem.list_directory", "claude-code.Bash"],
+      escalate_tools: ["claude-code.Bash"],
       blocked_tools: ["shell.exec", "rm -rf /"],
       capability_rules: [
         { pattern: "skill:install:*", effect: "escalate" },
