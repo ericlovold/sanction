@@ -62,10 +62,13 @@ Streaming is metered and **stays live** — the gateway tees the SSE stream to y
 client untouched, so tokens arrive as the provider generates them, and settles the
 meter when the stream ends:
 - **Anthropic** & **Gemini** — usage is in the stream by default; metered automatically.
-- **OpenAI Chat Completions** — Sanction forces `stream_options.include_usage`.
+- **OpenAI Chat Completions** — Sanction forces `stream_options.include_usage`,
+  and renames a legacy `max_tokens` to `max_completion_tokens` (the limit that
+  includes reasoning tokens). Nothing else in the request is changed.
 - A final usage report and terminal event settle the reservation. Cancellation,
   an incomplete stream, or missing usage retains the hold; restarting the
-  gateway or crossing midnight does not free it.
+  gateway does not free it. After 15 minutes it is charged as spend dated at
+  admission (see Settlement below).
 
 ## Stored provider keys: metered endpoints only
 
@@ -90,8 +93,8 @@ Sanction sizes a hold from the forwarded UTF-8 request bytes, framing allowance,
 and the request's maximum output tokens using its model pricing table. Anthropic
 input reserves the highest supported prompt-cache write multiplier.
 
-**Requests are forwarded as you send them.** Sanction never writes an output
-limit into your request, so it never truncates an answer. If you set none,
+**Sanction adds no output limit to your request**, so it never truncates an
+answer (the only rewrites are the two Chat Completions fields noted above). If you set none,
 the hold covers a 131,072-token response, the largest the gateway accepts, and a budget
 too small for that returns a `402` with a `remediation` field explaining which
 limit to set. Setting `max_completion_tokens`, `max_output_tokens`,

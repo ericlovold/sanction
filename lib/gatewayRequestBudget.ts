@@ -75,6 +75,11 @@ function outputLimit(body: JsonObject, key: string): { output: number; defaulted
 
 const utf8Bytes = (value: string) => new TextEncoder().encode(value).byteLength
 
+/** Enum check on the value itself: String(["x"]) === "x" would admit an array. */
+function oneOf(value: unknown, allowed: readonly string[], fold = false): boolean {
+  return typeof value === "string" && allowed.includes(fold ? value.toLowerCase() : value)
+}
+
 function oneCandidate(value: unknown, at: string): void {
   if (value !== undefined && value !== 1) unsupported(`${at} must be 1. Submit separate requests for multiple candidates so each reserves its own budget.`)
 }
@@ -182,10 +187,10 @@ function anthropicRequest(body: JsonObject): Estimate {
     const thinking = object(body.thinking, "thinking")
     fields(thinking, "type budget_tokens display", "thinking")
     if (thinking.type === "enabled") limit(thinking.budget_tokens, "thinking.budget_tokens")
-    else if (!["adaptive", "disabled", "between_tools"].includes(String(thinking.type))) {
+    else if (!oneOf(thinking.type, ["adaptive", "disabled", "between_tools"])) {
       unsupported("thinking.type must be adaptive, enabled, between_tools, or disabled.")
     } else if (thinking.budget_tokens !== undefined) invalid("thinking.budget_tokens applies only to enabled thinking.")
-    if (thinking.display !== undefined && !["summarized", "omitted", "updates"].includes(String(thinking.display))) {
+    if (thinking.display !== undefined && !oneOf(thinking.display, ["summarized", "omitted", "updates"])) {
       unsupported("thinking.display must be summarized, omitted, or updates.")
     }
   }
@@ -411,8 +416,7 @@ function geminiRequest(body: JsonObject): Estimate {
     if (thinking.thinkingBudget !== undefined && thinking.thinkingBudget !== -1) {
       limit(thinking.thinkingBudget, "generationConfig.thinkingConfig.thinkingBudget", true)
     }
-    if (thinking.thinkingLevel !== undefined &&
-      !["minimal", "low", "medium", "high", "xhigh"].includes(String(thinking.thinkingLevel).toLowerCase())) {
+    if (thinking.thinkingLevel !== undefined && !oneOf(thinking.thinkingLevel, ["minimal", "low", "medium", "high", "xhigh"], true)) {
       invalid("generationConfig.thinkingConfig.thinkingLevel must be minimal, low, medium, high, or xhigh.")
     }
   }

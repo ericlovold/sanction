@@ -138,6 +138,7 @@ describe("finite request limits", () => {
       expect(decode(prepareGatewayRequest("gemini", geminiPath, encode(request)).body)).toEqual(JSON.parse(JSON.stringify(request)))
     }
     expectError("gemini", geminiPath, gemini({ generationConfig: { thinkingConfig: { thinkingLevel: "extreme" } } }), "thinkingLevel", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("gemini", geminiPath, gemini({ generationConfig: { thinkingConfig: { thinkingLevel: ["HIGH"] } } }), "thinkingLevel", "GATEWAY_RESERVATION_INVALID_REQUEST")
   })
 })
 
@@ -228,6 +229,9 @@ describe("counted client function and structured text shapes", () => {
     expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "turbo" } }), "thinking.type must be")
     expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive", budget_tokens: 1024 } }), "only to enabled", "GATEWAY_RESERVATION_INVALID_REQUEST")
     expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive", display: "raw" } }), "thinking.display")
+    // Arrays stringify to their element; they must not pass as the enum value.
+    expectError("anthropic", "v1/messages", anthropic({ thinking: { type: ["adaptive"] } }), "thinking.type must be")
+    expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive", display: ["omitted"] } }), "thinking.display")
   })
 
   it.each([
