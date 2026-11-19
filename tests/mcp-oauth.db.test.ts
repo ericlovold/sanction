@@ -20,6 +20,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
   let walletId: string
   let agentIds: string[]
   let clientId: string
+  const revocationClients: string[] = []
 
   async function post(path: string, body: Record<string, string>, authenticated = false) {
     return auth.handler(new Request(`${origin}/api/auth${path}`, {
@@ -29,10 +30,10 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
     }))
   }
 
-  async function authorization() {
+  async function authorization(oauthClientId = clientId) {
     const verifier = randomBytes(32).toString("base64url")
     const query = new URLSearchParams({
-      response_type: "code", client_id: clientId, redirect_uri: redirectUri,
+      response_type: "code", client_id: oauthClientId, redirect_uri: redirectUri,
       scope: "sanction:approvals offline_access", resource, state: randomUUID(),
       code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256",
     })
@@ -44,9 +45,9 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
     return { verifier, oauthQuery: location.searchParams.toString() }
   }
 
-  async function consent(agentId = agentIds[0]) {
-    const flow = await authorization()
-    const connection = await db.mcpOAuthConnection.create({ data: { userId, walletId, agentId, clientId } })
+  async function consent(agentId = agentIds[0], oauthClientId = clientId) {
+    const flow = await authorization(oauthClientId)
+    const connection = await db.mcpOAuthConnection.create({ data: { userId, walletId, agentId, clientId: oauthClientId } })
     const result = await context.run({ connectionId: connection.id, userId }, () => auth.api.oauth2Consent({
       asResponse: false,
       request: new Request(`${origin}/api/auth/oauth2/consent`, { method: "POST", headers: { cookie, origin } }),
@@ -60,6 +61,31 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
 
   async function exchange(code: string, verifier: string) {
     return post("/oauth2/token", { grant_type: "authorization_code", client_id: clientId, redirect_uri: redirectUri, code, code_verifier: verifier, resource })
+  }
+
+  async function revocationFixture(confidential = false) {
+    const response = await auth.handler(new Request(`${origin}/api/auth/oauth2/register`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ client_name: `Revocation ${randomUUID()}`, redirect_uris: [redirectUri],
+        token_endpoint_auth_method: confidential ? "client_secret_post" : "none", application_type: "native",
+        grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }),
+    }))
+    const client = await response.json()
+    expect(response.status).toBe(201)
+    revocationClients.push(client.client_id)
+    const credentials = { client_id: client.client_id as string,
+      ...(client.client_secret ? { client_secret: client.client_secret as string } : {}) }
+    const flow = await consent(agentIds[0], client.client_id)
+    const exchanged = await post("/oauth2/token", { ...credentials, grant_type: "authorization_code",
+      redirect_uri: redirectUri, code: flow.code, code_verifier: flow.verifier, resource })
+    expect(exchanged.status).toBe(200)
+    const tokens = await exchanged.json() as { refresh_token: string; access_token: string }
+    return { credentials, tokens,
+      refresh: (token = tokens.refresh_token) => post("/oauth2/token", {
+        ...credentials, grant_type: "refresh_token", refresh_token: token, resource,
+      }),
+      rows: () => db.oauthRefreshToken.findMany({ where: { userId, clientId: client.client_id }, orderBy: { id: "asc" } }),
+    }
   }
 
   async function verify(token: string) {
@@ -108,6 +134,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
   afterAll(async () => {
     if (db) {
       if (clientId) await db.oauthClient.deleteMany({ where: { clientId } })
+      if (revocationClients.length) await db.oauthClient.deleteMany({ where: { clientId: { in: revocationClients } } })
       await db.verification.deleteMany({ where: { value: { contains: userId } } })
       if (walletId) {
         await db.agent.deleteMany({ where: { walletId } })
@@ -259,5 +286,60 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("MCP OAuth provider integratio
     expect(revoked.status).toBe(200)
     const response = await post("/oauth2/token", { grant_type: "refresh_token", client_id: clientId, refresh_token: tokens.refresh_token, resource })
     expect(response.status).toBe(400)
+  })
+
+  it.each(["refresh_token", undefined])("keeps another client's family intact when revoking a rotated token (hint: %s)", async hint => {
+    const first = await revocationFixture()
+    const other = await revocationFixture()
+    const rotated = await first.refresh()
+    expect(rotated.status).toBe(200)
+    const current = await rotated.json()
+    const before = await other.rows()
+    const response = await post("/oauth2/revoke", { ...other.credentials, token: first.tokens.refresh_token,
+      ...(hint ? { token_type_hint: hint } : {}) })
+    expect(await other.rows()).toEqual(before)
+    expect(response.status).toBe(200)
+    expect((await other.refresh()).status).toBe(200)
+    expect((await first.refresh(current.refresh_token)).status).toBe(200)
+  })
+
+  it("leaves both clients usable after a mismatched active-token revocation", async () => {
+    const first = await revocationFixture()
+    const other = await revocationFixture()
+    const before = await other.rows()
+    const response = await post("/oauth2/revoke", { ...other.credentials, token: first.tokens.refresh_token, token_type_hint: "refresh_token" })
+    expect(response.status).toBe(200)
+    expect(await other.rows()).toEqual(before)
+    expect((await first.refresh()).status).toBe(200)
+    expect((await other.refresh()).status).toBe(200)
+  })
+
+  it("still invalidates the owning client's family on rotated-token revocation", async () => {
+    const first = await revocationFixture()
+    const other = await revocationFixture()
+    const rotated = await first.refresh()
+    expect(rotated.status).toBe(200)
+    const current = await rotated.json()
+    const response = await post("/oauth2/revoke", { ...first.credentials, token: first.tokens.refresh_token, token_type_hint: "refresh_token" })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ error: "invalid_request" })
+    expect(await first.rows()).toEqual([])
+    expect((await first.refresh(current.refresh_token)).status).toBe(400)
+    expect((await other.refresh()).status).toBe(200)
+  })
+
+  it("requires a confidential client's credentials before revocation", async () => {
+    const client = await revocationFixture(true)
+    const before = await client.rows()
+    for (const client_secret of [undefined, "incorrect-secret"]) {
+      const response = await post("/oauth2/revoke", { client_id: client.credentials.client_id,
+        ...(client_secret ? { client_secret } : {}), token: client.tokens.refresh_token, token_type_hint: "refresh_token" })
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({ error: "invalid_client" })
+      expect(await client.rows()).toEqual(before)
+    }
+    const response = await post("/oauth2/revoke", { ...client.credentials, token: client.tokens.refresh_token, token_type_hint: "refresh_token" })
+    expect(response.status).toBe(200)
+    expect((await client.refresh()).status).toBe(400)
   })
 })
