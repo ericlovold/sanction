@@ -43,6 +43,16 @@ Use another server name if `sanction` is already configured. Approve the
 intended agent on Sanction's consent screen, then restart or refresh the
 host's MCP connection if tools do not appear.
 
+Use Codex 0.147 or later. Check with `codex --version` and update with
+`codex update`. Codex 0.144.1 cannot finish sign-in against Sanction: after you
+approve, it stops with `Authorization server response missing required issuer`
+(reproduced 2026-11-19). Other MCP servers report the same failure for Codex
+0.143 through 0.146 and a fix in 0.147. Sanction has not yet recorded a
+completed sign-in on a newer Codex.
+
+`codex mcp add` may open the sign-in itself. If it does, skip
+`codex mcp login`; run it later to sign in again.
+
 These commands follow Codex's documented MCP flow. Sanction has not
 recorded a completed Codex approval-lifecycle test.
 
