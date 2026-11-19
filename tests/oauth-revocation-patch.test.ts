@@ -10,9 +10,11 @@ const mcpRequire = createRequire(require.resolve("@better-auth/mcp"))
 const installed = dirname(dirname(mcpRequire.resolve("@better-auth/oauth-provider")))
 const moduleName = readdirSync(join(installed, "dist")).find(name => /^authorize-.*\.mjs$/.test(name))!
 const patchedSource = readFileSync(join(installed, "dist", moduleName), "utf8")
+// The fixture claims the installed version, so it is pinned by that version's digests.
+const installedVersion: string = JSON.parse(readFileSync(join(installed, "package.json"), "utf8")).version
 const directories: string[] = []
 
-function fixture(source = patchedSource, version = "1.7.18") {
+function fixture(source = patchedSource, version = installedVersion) {
   const directory = mkdtempSync(join(tmpdir(), "sanction-oauth-patch-"))
   directories.push(directory)
   mkdirSync(join(directory, "dist"))
@@ -41,7 +43,7 @@ describe("OAuth revocation dependency patch", () => {
     expect(readFileSync(target, "utf8")).toBe(patchedSource)
   })
 
-  it.each(["1.7.19", "1.7.25"])("requires review before accepting provider %s", version => {
+  it.each(["1.7.19", "1.7.21", "1.7.25"])("requires review before accepting provider %s", version => {
     const { directory, target } = fixture(patchedSource, version)
     expect(() => patchOAuthRevocation(directory)).toThrow("Review the dependency")
     expect(readFileSync(target, "utf8")).toBe(patchedSource)
@@ -52,6 +54,13 @@ describe("OAuth revocation dependency patch", () => {
     const { directory, target } = fixture(changed)
     expect(() => patchOAuthRevocation(directory)).toThrow("Review the dependency")
     expect(readFileSync(target, "utf8")).toBe(changed)
+  })
+
+  it("pins each reviewed version to its own source: one version's file is refused under another", () => {
+    const other = installedVersion === "1.7.22" ? "1.7.18" : "1.7.22"
+    const { directory, target } = fixture(patchedSource, other)
+    expect(() => patchOAuthRevocation(directory)).toThrow("Review the dependency")
+    expect(readFileSync(target, "utf8")).toBe(patchedSource)
   })
 
   it("refuses an ambiguous module layout", () => {
