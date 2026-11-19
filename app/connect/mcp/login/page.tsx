@@ -9,11 +9,13 @@ export default async function McpLogin({ searchParams }: { searchParams: Promise
   if (!mcpOAuthEnabled()) notFound()
   const query = mcpOAuthQuery(await searchParams)
   const callbackURL = query ? `/api/auth/oauth2/authorize?${query}` : "/connect/mcp"
-  return <main className="dark mx-auto w-full max-w-md px-6 py-14">
-    <h1 className="text-3xl font-semibold">Sign in to connect Sanction</h1>
-    <p className="my-6 text-muted-foreground">Sign in with the account that owns or administers your wallet. Next, choose which agent this host can use.</p>
-    <SocialSignIn callbackURL={callbackURL} apple={!!process.env.APPLE_CLIENT_ID} />
-    <div className="my-7 flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or use email<span className="h-px flex-1 bg-border" /></div>
-    <IdentityEmailForm callbackURL={callbackURL} />
-  </main>
+  return <>
+    <h1>Sign in to connect Sanction</h1>
+    <p className="sn-connect-secondary">Sign in with the account that owns or administers your wallet. Next, choose which agent this tool can use.</p>
+    <div className="w-full max-w-md">
+      <SocialSignIn callbackURL={callbackURL} apple={!!process.env.APPLE_CLIENT_ID} />
+      <div className="my-7 flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or use email<span className="h-px flex-1 bg-border" /></div>
+      <IdentityEmailForm callbackURL={callbackURL} />
+    </div>
+  </>
 }

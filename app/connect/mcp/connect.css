@@ -1,0 +1,302 @@
+/* Connect screen: sign-in and consent for an AI tool. Brand tokens come from
+   app/brand.css (.sanction). The shadcn tokens are re-pointed at them so the
+   shared sign-in components match without a dark-mode class. */
+.sn-connect {
+  min-height: 100vh;
+  display: flex;
+  flex-wrap: wrap;
+  --background: var(--surface-card);
+  --foreground: var(--text-body);
+  --primary: var(--action-primary);
+  --primary-foreground: var(--text-on-action);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--text-secondary);
+  --border: var(--line-1);
+  --input: rgba(22, 24, 15, 0.3);
+  --ring: var(--signal-deep);
+  --destructive: var(--status-denied);
+}
+
+.sn-connect-story {
+  flex: 1 1 380px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 48px 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  background: var(--pine-9);
+  color: #f2f1ea;
+}
+.sn-connect-story h2 {
+  margin: 12px 0 0;
+  font: 600 36px/1.1 var(--font-sans);
+  letter-spacing: -0.02em;
+}
+.sn-connect-label {
+  margin: 0;
+  font: 600 13px/1.4 var(--font-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6fd3ac;
+}
+.sn-connect-steps {
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sn-connect-steps li {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  font-size: 17px;
+  line-height: 1.5;
+  color: #e3e6dc;
+}
+.sn-connect-steps li > span:first-child {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(242, 241, 234, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 14px var(--font-mono);
+}
+.sn-connect-tagline {
+  margin: 0;
+  font-size: 15px;
+  color: #c4c7bb;
+}
+
+.sn-connect-main {
+  flex: 999 1 520px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 48px 24px;
+  display: flex;
+  justify-content: center;
+}
+.sn-connect-column {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  font-size: 16px;
+  line-height: 1.55;
+}
+.sn-connect-column h1 {
+  margin: 0;
+  font: 600 38px/1.1 var(--font-sans);
+  letter-spacing: -0.02em;
+}
+.sn-connect-column h2 {
+  margin: 0;
+  font: 600 17px/1.3 var(--font-sans);
+}
+.sn-connect-column p {
+  margin: 0;
+}
+.sn-connect-column a:not(.sn-btn) {
+  color: var(--pine-8);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sn-connect-crumb {
+  font-size: 15px;
+}
+.sn-connect-secondary {
+  color: var(--text-secondary);
+}
+.sn-connect-small {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.sn-connect-id {
+  font: 400 13px/1.5 var(--font-mono);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.sn-connect-host {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.sn-connect-form,
+.sn-connect-field {
+  display: flex;
+  flex-direction: column;
+}
+.sn-connect-form {
+  gap: 26px;
+}
+.sn-connect-field {
+  gap: 8px;
+}
+.sn-connect-field label {
+  font-weight: 600;
+}
+.sn-connect-field select,
+.sn-connect-field input[type="text"] {
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-radius: var(--radius-m);
+  border: 1px solid rgba(22, 24, 15, 0.3);
+  background: var(--surface-card);
+  color: var(--text-body);
+  font: 500 16px var(--font-sans);
+}
+.sn-connect-field select:focus-visible,
+.sn-connect-field input:focus-visible,
+.sn-connect-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.sn-connect-link {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pine-8);
+  font: 500 15px var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sn-connect-create {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--surface-sunken);
+}
+.sn-connect-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.sn-connect-row > input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.sn-connect-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.sn-connect-card {
+  flex: 1 1 250px;
+  box-sizing: border-box;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-card);
+}
+.sn-connect-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15px;
+}
+.sn-connect-card li {
+  display: flex;
+  gap: 10px;
+}
+.sn-connect-card svg {
+  flex: none;
+  margin-top: 3px;
+}
+.sn-connect-caveat {
+  padding: 14px 16px;
+  border-radius: var(--radius-m);
+  background: var(--status-escalated-bg);
+  color: #4d380b;
+  font-size: 15px;
+}
+.sn-connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.sn-connect-actions .sn-btn {
+  font-weight: 600;
+}
+.sn-connect-actions .sn-btn-primary {
+  flex: 2 1 220px;
+}
+.sn-connect-actions .sn-btn-secondary {
+  flex: 1 1 140px;
+}
+.sn-connect .sn-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sn-connect-error {
+  font-size: 14px;
+  color: var(--status-denied);
+}
+.sn-connect-ok {
+  font-size: 14px;
+  color: var(--pine-7);
+}
+
+.sn-connect-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line-2);
+}
+.sn-connect-connection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface-card);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+}
+.sn-connect-connection > div {
+  min-width: 0;
+}
+
+/* On a phone the decision comes first in reach: keep the headline, drop the steps. */
+@media (max-width: 899px) {
+  .sn-connect-story {
+    flex-basis: 100%;
+    padding: 24px;
+    gap: 20px;
+  }
+  .sn-connect-story h2 {
+    font-size: 26px;
+  }
+  .sn-connect-steps,
+  .sn-connect-tagline {
+    display: none;
+  }
+  .sn-connect-main {
+    padding: 32px 16px;
+  }
+  .sn-connect-column h1 {
+    font-size: 30px;
+  }
+}
