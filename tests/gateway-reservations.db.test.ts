@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { generateApiKey } from "@/lib/apiKey"
-import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget } from "@/lib/gatewayBudget"
+import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget, GATEWAY_HOLD_LIFETIME_MS } from "@/lib/gatewayBudget"
 
 vi.mock("next/server", async (importOriginal) => {
   const original = await importOriginal<typeof import("next/server")>()
@@ -496,22 +496,108 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     expect(await reserve(gateway, 0.01)).toMatchObject({ exhausted: true, spent: 5 })
   })
 
-  it("retains active holds across day and month rollover in seat and pool budgets", async () => {
+  it("keeps a live hold across day and month rollover, then frees it when its lifetime ends", async () => {
     const parent = await makeWallet({ pool: 100 })
     const daily = await makeWallet({ parentId: parent.id, daily: 100 })
     const sibling = await makeWallet({ parentId: parent.id })
     const monthly = await makeWallet({ monthly: 100 })
     const ids = [await admitted(daily), await admitted(monthly)]
-    const beforeLastMonth = new Date()
-    beforeLastMonth.setMonth(beforeLastMonth.getMonth() - 2)
+    // Admitted five minutes before the next local month begins: one day and
+    // one month boundary separate admission from the checks below.
+    const real = new Date()
+    const boundary = new Date(real.getFullYear(), real.getMonth() + 1, 1)
+    const admittedAt = new Date(boundary.getTime() - 5 * 60_000)
     await db.gatewayReservation.updateMany({
       where: { id: { in: ids }, walletId: { in: [daily.id, monthly.id] } },
-      data: { createdAt: beforeLastMonth },
+      data: { createdAt: admittedAt },
     })
+    // Fake only Date: sockets and PostgreSQL keep real timers.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(boundary.getTime() + 2 * 60_000))
     expect(await reserve(daily, 0.01)).toMatchObject({ exhausted: true, horizon: "daily", spent: 1 })
     expect(await reserve(sibling, 0.01)).toMatchObject({ exhausted: true, horizon: "subtree-daily", spent: 1 })
     expect(await reserve(monthly, 0.01)).toMatchObject({ exhausted: true, horizon: "monthly", spent: 1 })
     expect((await logTokens(sibling, 0.01)).status).toBe(402)
+
+    // Unresolved past its lifetime: the covered call has ended, so the hold
+    // is spend dated at admission, before both boundaries. The new day and
+    // month start with that seat, monthly and pool capacity free.
+    vi.setSystemTime(new Date(admittedAt.getTime() + GATEWAY_HOLD_LIFETIME_MS + 1_000))
+    expect(await reserve(daily, 0.01)).toMatchObject({ exhausted: false, spent: 0 })
+    expect(await reserve(sibling, 0.01)).toMatchObject({ exhausted: false })
+    expect(await reserve(monthly, 0.01)).toMatchObject({ exhausted: false, spent: 0 })
+    expect((await logTokens(sibling, 0.01)).status).toBe(200)
+  })
+
+  it("charges a lapsed hold its full estimate in the day and month it was admitted", async () => {
+    const real = new Date()
+    // Fake only Date. Midmonth noon keeps "yesterday" in this month and every
+    // lapsed hold on the same side of midnight, whenever the suite runs.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(real.getFullYear(), real.getMonth(), 15, 12))
+    const parent = await makeWallet({ pool: 200 })
+    const today = await makeWallet({ parentId: parent.id, daily: 100 })
+    const yesterday = await makeWallet({ parentId: parent.id, daily: 100, monthly: 150 })
+    const sibling = await makeWallet({ parentId: parent.id })
+    const lapsedToday = await admitted(today)
+    const lapsedYesterday = await admitted(yesterday)
+    // Observed usage below the estimate: GREATEST charges the estimate, and the
+    // partial log is not added on top of it.
+    await resolveGatewayBudget(lapsedToday, { ...dollarUsage, tokensIn: 250_000 }, false)
+    const now = Date.now()
+    await db.gatewayReservation.updateMany({
+      where: { id: lapsedToday, walletId: today.id },
+      data: { createdAt: new Date(now - GATEWAY_HOLD_LIFETIME_MS - 60_000) },
+    })
+    await db.gatewayReservation.updateMany({
+      where: { id: lapsedYesterday, walletId: yesterday.id },
+      data: { createdAt: new Date(now - 24 * 60 * 60_000) },
+    })
+
+    // Lapsed today: still today's spend, at the full $1 estimate (not $1.25).
+    expect(await reserve(today, 0.01)).toMatchObject({ exhausted: true, horizon: "daily", spent: 1 })
+    // Lapsed yesterday: out of today's seat window, still in this month's.
+    expect(await reserve(yesterday, 0.6)).toMatchObject({ exhausted: true, horizon: "monthly", spent: 1 })
+    expect(await reserve(yesterday, 0.4)).toMatchObject({ exhausted: false, spent: 0 })
+    // Pool today: $1 lapsed today + the new $0.40 hold; yesterday's $1 is gone.
+    expect(await reserve(sibling, 0.7)).toMatchObject({
+      exhausted: true, horizon: "subtree-daily", spent: 1.4, capWalletId: parent.id,
+    })
+    expect(await reserve(sibling, 0.6)).toMatchObject({ exhausted: false })
+
+    // Expiry changes accounting only: the lapsed rows are not rewritten.
+    expect(await reservations([today.id, yesterday.id])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: lapsedToday, status: "uncertain", observedUsd: 0.25 }),
+      expect.objectContaining({ id: lapsedYesterday, status: "pending", observedUsd: 0 }),
+    ]))
+  })
+
+  it("replaces a lapsed hold's estimate with a late settlement, counted once", async () => {
+    const real = new Date()
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(real.getFullYear(), real.getMonth(), 15, 12))
+    const parent = await makeWallet({ pool: 100 })
+    const wallet = await makeWallet({ parentId: parent.id, daily: 100 })
+    const sibling = await makeWallet({ parentId: parent.id })
+    const id = await admitted(wallet)
+    await resolveGatewayBudget(id, { ...dollarUsage, tokensIn: 250_000 }, false)
+    await db.gatewayReservation.updateMany({
+      where: { id, walletId: wallet.id },
+      data: { createdAt: new Date(Date.now() - GATEWAY_HOLD_LIFETIME_MS - 60_000) },
+    })
+    expect(await reserve(wallet, 0.01)).toMatchObject({ exhausted: true, horizon: "daily", spent: 1 })
+
+    expect(await resolveGatewayBudget(id, { ...dollarUsage, tokensIn: 500_000 }, true)).toBe(0.5)
+    expect(await reserve(wallet, 0.6)).toMatchObject({ exhausted: true, horizon: "daily", spent: 0.5 })
+    expect(await reserve(wallet, 0.5)).toMatchObject({ exhausted: false, spent: 0.5 })
+    // Seat and pool each see the settled $0.50 once, plus the new $0.50 hold.
+    expect(await reserve(wallet, 0.01)).toMatchObject({ exhausted: true, horizon: "daily", spent: 1 })
+    expect(await reserve(sibling, 0.01)).toMatchObject({ exhausted: true, horizon: "subtree-daily", spent: 1 })
+    expect((await logs([wallet.id])).filter((row) => row.gatewayReservationId === id))
+      .toEqual([expect.objectContaining({ costUsd: 0.5, tokensIn: 500_000 })])
+    expect(await reservations([wallet.id])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id, status: "settled", observedUsd: 0.5 }),
+    ]))
   })
 
   it.each(["settlement", "tokens"] as const)("dates %s spend after its budget lock crosses a period boundary", async (writer) => {

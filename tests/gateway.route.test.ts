@@ -28,9 +28,9 @@ vi.mock("@/lib/gateway", async (orig) => {
   }
 })
 
-import { POST as gateway } from "../app/api/gateway/[provider]/[...path]/route"
+import { POST as gateway, maxDuration } from "../app/api/gateway/[provider]/[...path]/route"
 import { isBudgetExhausted } from "../lib/gateway"
-import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget, recordGatewayBudgetDenial, GatewayWalletFrozenError } from "../lib/gatewayBudget"
+import { reserveGatewayBudget, resolveGatewayBudget, releaseGatewayBudget, recordGatewayBudgetDenial, GatewayWalletFrozenError, GATEWAY_HOLD_LIFETIME_MS } from "../lib/gatewayBudget"
 
 vi.mock("@/lib/gatewayBudget", async (orig) => ({
   ...await orig<typeof import("@/lib/gatewayBudget")>(),
@@ -78,6 +78,14 @@ beforeEach(() => {
 
 afterEach(() => {
   global.fetch = realFetch
+})
+
+describe("gateway hold lifetime", () => {
+  it("outlasts the longest call the route can run, with settlement retries inside it", () => {
+    // A hold stops occupying capacity once this lifetime passes, so it must
+    // never end while the call it covers can still be streaming or settling.
+    expect(GATEWAY_HOLD_LIFETIME_MS).toBeGreaterThanOrEqual(maxDuration * 1000 * 3)
+  })
 })
 
 describe("gateway proxy — gates before the upstream call", () => {

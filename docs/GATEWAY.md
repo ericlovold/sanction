@@ -128,10 +128,17 @@ contradictory usage evidence release unused holds. Network failures, redirects, 
 streams, and missing usage remain charged conservatively. Partial usage is
 recorded without freeing the remaining hold. Database failure before reservation
 prevents dispatch; database failure after dispatch leaves the committed hold in
-place. There is deliberately no automatic timeout refund: the provider may have
-continued working. Uncertain reservations require reconciliation against provider
-evidence before capacity can be released; there is no automatic reconciliation
-or dashboard release control in this slice.
+place.
+
+A hold occupies every budget window while its call can still be running. Once
+it is still pending or uncertain **15 minutes after admission** (the gateway
+route runs for at most 300 seconds, with settlement retries inside that window),
+it is charged its full estimate, or its observed usage if that is higher, as
+spend dated when it was admitted. Daily seat and pool capacity come back at the
+next midnight; monthly capacity at the next month. The charge never drops below
+the estimate, so a client that disconnects before the final usage event cannot
+lower its own cost. A settlement that arrives later replaces the estimate with
+the actual cost, counted once. There is no dashboard release control in this slice.
 
 ## What the cap guarantees
 

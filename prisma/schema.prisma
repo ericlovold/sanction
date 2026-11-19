@@ -508,7 +508,8 @@ model TokenLog {
 }
 
 // Capacity committed before a provider call. Pending/uncertain reservations
-// never expire automatically: a missing final response is not proof of no cost.
+// occupy every window for GATEWAY_HOLD_LIFETIME_MS (lib/gatewayBudget.ts), then
+// count GREATEST(reserved, observed) as spend dated at admission. Not rewritten.
 model GatewayReservation {
   id          String   @id @default(cuid())
   agentId     String
