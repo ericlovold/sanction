@@ -10,7 +10,7 @@ vi.mock("@/lib/auth-config", () => ({ auth: mocks.auth }))
 vi.mock("@/lib/mcpOAuthProvider", () => ({ mcpOAuthResource: mocks.resource, MCP_APPROVALS_SCOPE: "sanction:approvals" }))
 vi.mock("@/lib/mcpOAuthAccess", () => ({ mcpConnectionIdentity: mocks.identity }))
 vi.mock("@/lib/mcpRemote", () => ({ handleAuthenticatedMcpRequest: mocks.handle }))
-vi.mock("@/lib/mcpApprovalDispatch", () => ({ dispatchMcpApprovalCall: mocks.dispatch }))
+vi.mock("@/lib/mcpDispatch", () => ({ dispatchMcpApprovalCall: mocks.dispatch }))
 vi.mock("@/lib/rateLimit", () => ({ rateLimit: mocks.rate, clientIp: mocks.ip }))
 import { handleOAuthMcpRequest } from "@/lib/mcpOAuthRemote"
 

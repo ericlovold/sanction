@@ -18,7 +18,7 @@ vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore, headers: async () => new Headers() }))
 vi.mock("@/lib/auth-config", () => ({ auth: { api: { getSession: sessionMock.getSession } } }))
 
-import { getSessionMember, getSessionWallet, getViewWallet, listSessionWallets } from "../lib/session"
+import { getSessionMember, getSessionWallet, getViewWallet, listSessionWallets, listViewWallets } from "../lib/session"
 
 const SK = "sk_ownertestkey"
 const WALLET = { id: "wallet_1", name: "Meridian", ownerEmail: "cto@meridian.com", userId: "user_owner" }
@@ -128,14 +128,14 @@ describe("getSessionMember — active-wallet preference", () => {
 
 
 describe("session availability", () => {
-  it.each(Object.entries({ getSessionWallet, getSessionMember, listSessionWallets, getViewWallet }))("does not interpret an auth failure as anonymous (%s)", async (_name, resolve) => {
+  it.each(Object.entries({ getSessionWallet, getSessionMember, listSessionWallets, getViewWallet, listViewWallets }))("does not interpret an auth failure as anonymous (%s)", async (_name, resolve) => {
     sessionMock.getSession.mockRejectedValue(new Error("database unavailable"))
     cookieStore.get.mockReturnValue(undefined)
     await expect(resolve()).rejects.toThrow("temporarily unavailable")
     expect(dbMock.wallet.findUnique).not.toHaveBeenCalled()
   })
 
-  it.each(Object.entries({ getSessionWallet, getSessionMember, listSessionWallets }))("preserves a valid legacy session during social auth failure (%s)", async (_name, resolve) => {
+  it.each(Object.entries({ getSessionWallet, getSessionMember, listSessionWallets, listViewWallets }))("preserves a valid legacy session during social auth failure (%s)", async (_name, resolve) => {
     sessionMock.getSession.mockRejectedValue(new Error("auth unavailable"))
     cookieStore.get.mockImplementation((name: string) => name === "sanction_session" ? { value: SK } : undefined)
     dbMock.wallet.findUnique.mockResolvedValue(WALLET)

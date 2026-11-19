@@ -1,4 +1,4 @@
-import { getViewWallet, listSessionWallets } from "@/lib/session"
+import { getViewWallet, listViewWallets } from "@/lib/session"
 import { db } from "@/lib/db"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { AccountControl } from "@/components/account-control"
@@ -29,7 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
     }),
     db.wallet.count({ where: { parentId: view.id } }),
-    view.isSession ? listSessionWallets() : Promise.resolve([]),
+    view.isSession ? listViewWallets() : Promise.resolve([]),
   ])
 
   return (

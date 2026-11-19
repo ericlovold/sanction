@@ -26,7 +26,7 @@ export const APPROVAL_MCP_TOOLS: readonly string[] = [
 
 export type SanctionMcpApiCall = (
   path: string, method: "GET" | "POST", body?: unknown, bearerToken?: string, trace?: TraceContext,
-) => Promise<Record<string, unknown>>
+) => Promise<Record<string, unknown> | Response>
 
 export type SanctionMcpOptions = {
   apiKey: string
@@ -36,6 +36,7 @@ export type SanctionMcpOptions = {
   toolProfile?: SanctionMcpToolProfile
 }
 
+export const MCP_API_TIMEOUT_MS = 15_000
 export const MCP_SERVER_VERSION = "0.10.0"
 
 /** Initialize instructions for chat hosts that will not parse structuredContent. */
@@ -88,13 +89,16 @@ async function callSanction(
   // timeouts, and non-JSON bodies (gateway 502 pages) into the same
   // { authorized:false, code, reason } contract every tool description promises.
   try {
-    if (opts.apiCall) return await opts.apiCall(path, method, body, bearerToken, trace)
-    const res = await fetch(`${opts.apiUrl}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(15_000),
-    })
+    const res = opts.apiCall
+      ? await opts.apiCall(path, method, body, bearerToken, trace)
+      : await fetch(`${opts.apiUrl}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: AbortSignal.timeout(MCP_API_TIMEOUT_MS),
+        })
+    // Both HTTP and key-backed route dispatch retain the REST status code.
+    if (!(res instanceof Response)) return res
     try {
       const result = await res.json()
       if ((path === "/tokens" || path === "/outcomes") && !res.ok) {

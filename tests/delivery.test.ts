@@ -338,16 +338,15 @@ describe("webhook delivery — fan-out to subscribed endpoints", () => {
 
 // ── email — dev fallback + Resend path ──────────────────────────────────────
 
-describe("email — builds every message; dev fallback logs instead of sending", () => {
-  it("all senders complete without a provider configured (RESEND_API_KEY unset)", async () => {
+describe("email — notification development fallback", () => {
+  it("notification senders complete without a provider configured (RESEND_API_KEY unset)", async () => {
     const email = await vi.importActual<typeof import("../lib/email")>("../lib/email")
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
     await email.sendLeadWelcomeEmail("a@x.com")
     await email.sendNewLeadEmail({ email: "a@x.com", source: "landing" })
-    await email.sendMagicLinkEmail("a@x.com", "https://getsanction.com/magic?t=x")
     await email.sendBudgetThresholdEmail("a@x.com", { walletId: "w", label: "tenet · daily spend budget", pctUsed: 85, spentUsd: 8.5, capUsd: 10 })
     await email.sendEscalationEmail("a@x.com", { agentName: "tenet", amountUsd: 60, merchant: "Vendor", category: "software", description: null, approveUrl: "https://x/approve" })
-    expect(logSpy).toHaveBeenCalledTimes(5) // every message hit the dev log, none threw
+    expect(logSpy).toHaveBeenCalledTimes(4) // every notification hit the dev log, none threw
     logSpy.mockRestore()
   })
 })

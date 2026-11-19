@@ -30,43 +30,49 @@ async function runDemoDecision(approvalId: string, decision: string, surface: st
 
   if (!approvalId || (decision !== "approve" && decision !== "reject")) return false
 
-  // Escalations sit on the demo wallet's department children — scope both the
-  // lookup and the authority set to the whole demo subtree (never wider). A
-  // forged id outside the demo's own tree still resolves to "not found".
-  const { ids: subtree } = await subtreeWalletIds(demoWalletId)
+  try {
+    // Escalations sit on the demo wallet's department children — scope both the
+    // lookup and the authority set to the whole demo subtree (never wider). A
+    // forged id outside the demo's own tree still resolves to "not found".
+    const { ids: subtree } = await subtreeWalletIds(demoWalletId)
 
-  // Snapshot the row before deciding — it is the template for the replenish.
-  const row = await db.pendingApproval.findFirst({
-    where: { id: approvalId, walletId: { in: subtree }, status: "pending" },
-  })
-  if (!row) return false
+    // Snapshot the row before deciding — it is the template for the replenish.
+    const row = await db.pendingApproval.findFirst({
+      where: { id: approvalId, walletId: { in: subtree }, status: "pending" },
+    })
+    if (!row) return false
 
-  const result = await resolveApproval(subtree, approvalId, decision, undefined, "demo visitor")
-  if (!result.ok) return false
+    const result = await resolveApproval(subtree, approvalId, decision, undefined, "demo visitor")
+    if (!result.ok) return false
 
-  // The funnel's engagement moment: a visitor governed a live agent. `surface`
-  // splits landing-hero decisions from demo-dashboard decisions in analytics.
-  void track(FUNNEL.demoDecision, { decision, surface }).catch(() => {})
+    // The funnel's engagement moment: a visitor governed a live agent. `surface`
+    // splits landing-hero decisions from demo-dashboard decisions in analytics.
+    void track(FUNNEL.demoDecision, { decision, surface }).catch(() => {})
 
-  // Replenish: the same agent raises the same request again, fresh timestamp.
-  // Never expires on its own — the queue is the demo's heartbeat.
-  await db.pendingApproval.create({
-    data: {
-      walletId: row.walletId,
-      agentId: row.agentId,
-      actionType: row.actionType,
-      status: "pending",
-      subjectJson: row.subjectJson ?? {},
-      resourceJson: row.resourceJson ?? {},
-      constraintsJson: row.constraintsJson ?? undefined,
-      reason: row.reason,
-      code: row.code,
-      sourceType: row.sourceType,
-      sourceId: row.sourceId ? `${row.sourceId}-r${Date.now().toString(36)}` : null,
-    },
-  })
+    // Replenish: the same agent raises the same request again, fresh timestamp.
+    // Never expires on its own — the queue is the demo's heartbeat.
+    await db.pendingApproval.create({
+      data: {
+        walletId: row.walletId,
+        agentId: row.agentId,
+        actionType: row.actionType,
+        status: "pending",
+        subjectJson: row.subjectJson ?? {},
+        resourceJson: row.resourceJson ?? {},
+        constraintsJson: row.constraintsJson ?? undefined,
+        reason: row.reason,
+        code: row.code,
+        sourceType: row.sourceType,
+        sourceId: row.sourceId ? `${row.sourceId}-r${Date.now().toString(36)}` : null,
+      },
+    })
 
-  return true
+    return true
+  } finally {
+    // Only valid, rate-limited attempts can refresh the public snapshot. Lost
+    // races and failed replenishment must not leave a decided card cached.
+    revalidatePath("/platform")
+  }
 }
 
 // Demo dashboard: form-submitted decision, revalidates the dashboard views.

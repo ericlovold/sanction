@@ -20,7 +20,7 @@ vi.mock("@/app/api/v1/authorize/[id]/route", () => ({ GET: routes.authorization 
 
 import { authenticateAgent } from "@/lib/auth"
 import { bindInternalAgentIdentity, internalAgentIdentity } from "@/lib/internalAgentAuth"
-import { dispatchMcpApprovalCall } from "@/lib/mcpApprovalDispatch"
+import { dispatchMcpApprovalCall, dispatchMcpCall } from "@/lib/mcpDispatch"
 import { hashApiKey } from "@/lib/apiKey"
 
 const identity = { agentId: "agent_internal", walletId: "wallet_internal" }
@@ -94,6 +94,16 @@ describe("approval MCP internal dispatcher", () => {
     expect(result).toMatchObject({ authorized: false, code: "MCP_APPROVAL_ROUTE_NOT_ALLOWED" })
     expect(dbMock.agent.findFirst).not.toHaveBeenCalled()
     for (const handler of Object.values(routes)) expect(handler).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it.each(["/exec", "/credentials/inject"])("also refuses wallet-only %s for a key-backed approvals caller", async path => {
+    const response = await dispatchMcpCall({
+      apiKey: "pxy_fixture", origin: "https://sanction.test", walletId: identity.walletId, profile: "approvals",
+    }, path, "POST", {})
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ authorized: false, code: "MCP_APPROVAL_ROUTE_NOT_ALLOWED" })
+    expect(dbMock.agent.findUnique).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

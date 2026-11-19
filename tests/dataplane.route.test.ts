@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
 import { hashApiKey } from "../lib/apiKey"
 import { replayEvidence } from "../lib/evidence"
+import type { Prisma } from "../lib/generated/prisma/client"
 
 // Route-handler tests (mocked Prisma) for the remaining untested data-plane and
 // management surfaces: tool authorization, token logging + daily token budget,
@@ -16,12 +17,14 @@ const { dbMock } = vi.hoisted(() => ({
     wallet: { findUnique: vi.fn() },
     policy: { findUnique: vi.fn() },
     tokenLog: { create: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    gatewayReservation: { findMany: vi.fn() },
     walletDecisionCounter: { upsert: vi.fn(async () => ({})), aggregate: vi.fn(async () => ({ _sum: { count: 0 } })) },
     authorizationRequest: { findUnique: vi.fn(), aggregate: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     grant: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     pendingApproval: { count: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }))
 vi.mock("@/lib/credentialCrypto", async (orig) => {
@@ -122,6 +125,7 @@ beforeEach(() => {
   dbMock.agent.findUnique.mockResolvedValue(AGENT)
   dbMock.agent.update.mockResolvedValue({})
   dbMock.wallet.findUnique.mockResolvedValue(OWNER_WALLET)
+  dbMock.gatewayReservation.findMany.mockResolvedValue([])
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
 })
@@ -577,6 +581,27 @@ describe("authorize/tool — explicit human approval", () => {
 
 describe("tokens — usage logging under the daily token budget", () => {
   const USAGE = { model: "claude-sonnet-5", tokens_in: 1000, tokens_out: 500, cost_usd: 0.05 }
+  let snapshot: {
+    id: string; parentId: null; policyId: string | null; perTransactionMaxUsd: number
+    subtreeDailyCapUsd: null; subtreeDailyTokenCapUsd: null; policyDaily: number | null; policyMonthly: null
+    seatId: string; seatWalletId: string; seatActive: boolean; seatExpiresAt: null; seatDaily: number | null; seatMonthly: null
+  }
+  let occupiedUsd: number
+
+  beforeEach(() => {
+    snapshot = {
+      id: WID, parentId: null, policyId: POLICY.id, perTransactionMaxUsd: POLICY.perTransactionMaxUsd,
+      subtreeDailyCapUsd: null, subtreeDailyTokenCapUsd: null, policyDaily: POLICY.dailyTokenBudgetUsd, policyMonthly: null,
+      seatId: AID, seatWalletId: WID, seatActive: true, seatExpiresAt: null, seatDaily: null, seatMonthly: null,
+    }
+    occupiedUsd = 0
+    dbMock.$queryRaw.mockImplementation(async (query: Prisma.Sql | TemplateStringsArray) => {
+      const sql = "sql" in query ? query.sql : query.join("?")
+      if (sql.includes("WITH RECURSIVE ancestors AS")) return [{ ...snapshot }]
+      if (sql.includes("WITH scopes AS")) return [{ scopeId: AID, kind: "agent", walletIds: [], incomplete: false, dailyLogs: occupiedUsd, monthlyLogs: occupiedUsd, holds: [] }]
+      throw new Error(`Unexpected token budget SQL: ${sql}`)
+    })
+  })
 
   it("401 without an API key", async () => {
     expect((await logTokens(req("POST", "/api/v1/tokens", { body: USAGE }))).status).toBe(401)
@@ -586,8 +611,10 @@ describe("tokens — usage logging under the daily token budget", () => {
     expect((await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: { ...USAGE, tokens_in: -1 } }))).status).toBe(400)
   })
 
-  it("logs directly when the wallet has no policy (nothing to enforce)", async () => {
+  it("logs when neither the wallet nor its ancestors impose a token cap", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, wallet: { ...AGENT.wallet, policy: null } })
+    snapshot.policyId = null
+    snapshot.policyDaily = null
     dbMock.tokenLog.create.mockResolvedValue({ id: "tl_1" })
     const res = await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: USAGE }))
     expect(res.status).toBe(200)
@@ -595,7 +622,7 @@ describe("tokens — usage logging under the daily token budget", () => {
   })
 
   it("records usage under budget, serialized inside the per-agent lock", async () => {
-    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 1 } }) // $1 of a $10 budget
+    occupiedUsd = 1 // $1 of a $10 budget
     dbMock.tokenLog.create.mockResolvedValue({ id: "tl_2" })
     const res = await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: USAGE }))
     expect(res.status).toBe(200)
@@ -604,7 +631,7 @@ describe("tokens — usage logging under the daily token budget", () => {
   })
 
   it("402s when the call would overshoot the daily token budget, and writes nothing", async () => {
-    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 9.99 } })
+    occupiedUsd = 9.99
     const res = await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: USAGE })) // 9.99 + 0.05 > 10
     expect(res.status).toBe(402)
     expect((await res.json()).daily_limit_usd).toBe(10)
@@ -613,7 +640,7 @@ describe("tokens — usage logging under the daily token budget", () => {
 
   it("lets a per-agent budget override win over the wallet policy", async () => {
     dbMock.agent.findUnique.mockResolvedValue({ ...AGENT, dailyTokenBudgetUsd: 1 }) // $0.01/day
-    dbMock.tokenLog.aggregate.mockResolvedValue({ _sum: { costUsd: 0 } })
+    snapshot.seatDaily = 1
     const res = await logTokens(req("POST", "/api/v1/tokens", { headers: agentH, body: USAGE }))
     expect(res.status).toBe(402)
   })

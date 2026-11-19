@@ -5,7 +5,7 @@ const m = vi.hoisted(() => ({
   view: vi.fn(), wallets: vi.fn(), subtree: vi.fn(), pending: vi.fn(), focus: vi.fn(), org: vi.fn(), count: vi.fn(), agent: vi.fn(),
   wallet: vi.fn(), aggregate: vi.fn(),
 }))
-vi.mock("@/lib/session", () => ({ getViewWallet: m.view, listSessionWallets: m.wallets }))
+vi.mock("@/lib/session", () => ({ getViewWallet: m.view, listViewWallets: m.wallets }))
 vi.mock("@/lib/walletSubtree", () => ({ subtreeWalletIds: m.subtree }))
 vi.mock("@/lib/approvals", () => ({ listPendingApprovals: m.pending }))
 vi.mock("@/lib/rls", () => ({ withTenant: async () => [] }))

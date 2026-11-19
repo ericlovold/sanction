@@ -60,6 +60,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanction"
+      RUN_GATEWAY_LATENCY_TESTS: "1"
       # Deterministic non-production secrets; the DB tests need these to encrypt
       # seed credentials and sign execution JWTs.
       SANCTION_CREDENTIAL_ENCRYPTION_KEY: "Y2ktdGVzdC1lbmNyeXB0aW9uLWtleS1ub3QtcHJvZA=="

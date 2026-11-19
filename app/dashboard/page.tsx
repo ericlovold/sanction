@@ -113,13 +113,6 @@ export default async function Dashboard() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
-  if (!view.isSession && process.env.SANCTION_WALLET_ID === view.id) {
-    await db.policy.updateMany({
-      where: { walletId: view.id, monthlyTokenBudgetUsd: null },
-      data: { monthlyTokenBudgetUsd: 100_000, monthlySpendBudgetUsd: 1_000_000 },
-    })
-  }
-
   const brokerProof = await db.brokerWalkthrough.findFirst({
     where: { ownerWalletId: view.id, completedAt: { not: null }, executionCount: 1, initialStopped: true, changedStopped: true, reuseStopped: true },
     select: { id: true },

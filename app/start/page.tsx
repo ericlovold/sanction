@@ -11,8 +11,6 @@ export const metadata: Metadata = {
   description: "Create your Sanction account, connect your AI tool, and request a human approval. Free for individuals, no card.",
 }
 
-export const dynamic = "force-dynamic"
-
 export default function StartPage() {
   return (
     <div className={`sanction ${brandFontVars}`} style={{ minHeight: "100vh", background: "var(--surface-page)", color: "var(--text-body)" }}>

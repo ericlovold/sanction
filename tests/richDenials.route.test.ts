@@ -18,6 +18,7 @@ const { dbMock } = vi.hoisted(() => ({
     consumedBindingToken: { create: vi.fn(async () => ({})), findUnique: vi.fn(async () => null), deleteMany: vi.fn(async () => ({ count: 0 })) },
     $transaction: vi.fn(),
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
@@ -139,6 +140,7 @@ beforeEach(() => {
   dbMock.pendingApproval.findFirst.mockResolvedValue({ id: "pa_1", actionType: "spend.purchase", resourceJson: {}, reason: "r" })
   dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => unknown) => fn(dbMock))
   dbMock.$executeRaw.mockResolvedValue(undefined)
+  dbMock.$queryRaw.mockResolvedValue([{ dailySpentUsd: 0, monthlySpentUsd: 0 }])
 })
 
 describe("native spend denials answer the four questions", () => {
@@ -153,7 +155,7 @@ describe("native spend denials answer the four questions", () => {
   })
 
   it("daily-budget denial carries used/remaining and resets_at", async () => {
-    dbMock.authorizationRequest.aggregate.mockResolvedValue({ _sum: { amountUsd: 9_999 } })
+    dbMock.$queryRaw.mockResolvedValue([{ dailySpentUsd: 9_999, monthlySpentUsd: 9_999 }])
     const res = await authorize(spendReq(50))
     const body = await res.json()
     expect(body.code).toBe("DAILY_BUDGET_EXCEEDED")

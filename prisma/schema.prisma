@@ -83,6 +83,7 @@ model Wallet {
   frozenReason String?
 
   agents           Agent[]
+  gatewayReservations GatewayReservation[]
   policy           Policy?
   credentials      CredentialVault[]
   clearances       AgentClearance[]
@@ -255,6 +256,7 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+  @@index([expiresAt])
   @@map("verification")
 }
 
@@ -274,6 +276,7 @@ model MagicLink {
   wallet    Wallet    @relation(fields: [walletId], references: [id])
 
   @@index([walletId])
+  @@index([expiresAt])
 }
 
 // Owner-registered HTTP endpoint notified on events (escalations, budget trips).
@@ -344,6 +347,7 @@ model Agent {
 
   wallet          Wallet                 @relation(fields: [walletId], references: [id])
   tokenLogs       TokenLog[]
+  gatewayReservations GatewayReservation[]
   usageObservations UsageObservation[]
   authRequests    AuthorizationRequest[]
   clearance       AgentClearance?
@@ -495,10 +499,38 @@ model TokenLog {
   costUsd   Float
   taskLabel String?
   createdAt DateTime @default(now())
+  gatewayReservationId String? @unique
 
   agent Agent @relation(fields: [agentId], references: [id])
+  gatewayReservation GatewayReservation? @relation(fields: [gatewayReservationId], references: [id])
 
   @@index([agentId, createdAt])
+}
+
+// Capacity committed before a provider call. Pending/uncertain reservations
+// occupy every window for GATEWAY_HOLD_LIFETIME_MS (lib/gatewayBudget.ts), then
+// count GREATEST(reserved, observed) as spend dated at admission. Not rewritten.
+model GatewayReservation {
+  id          String   @id @default(cuid())
+  agentId     String
+  walletId    String
+  provider    String
+  model       String
+  reservedUsd Float
+  inputRateUsdPerMillion Float
+  outputRateUsdPerMillion Float
+  observedUsd Float    @default(0)
+  status      String   @default("pending") // pending | uncertain | settled | released
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  settledAt   DateTime?
+
+  agent    Agent     @relation(fields: [agentId], references: [id])
+  wallet   Wallet    @relation(fields: [walletId], references: [id])
+  tokenLog TokenLog?
+
+  @@index([agentId, status])
+  @@index([walletId, status])
 }
 
 // Encrypted credential stored in vault — raw value never exposed directly
@@ -585,7 +617,9 @@ model ExecutionToken {
   injections CredentialInjection[]
 
   @@index([agentId])
+  @@index([walletId, status])
   @@index([status, expiresAt])
+  @@index([expiresAt])
 }
 
 // Audit record of every credential injection — what was accessed, when, by whom
@@ -626,6 +660,7 @@ model AuthorizationRequest {
 
   @@unique([agentId, idempotencyKey])
   @@index([agentId, createdAt])
+  @@index([agentId, status, decidedAt])
   @@index([status])
 }
 
