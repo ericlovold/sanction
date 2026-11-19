@@ -7,7 +7,8 @@ vi.mock("../lib/db", () => ({ db: {} }))
 const encode = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).buffer
 const decode = (body: ArrayBuffer) => JSON.parse(new TextDecoder().decode(body))
 const chat = (extra: Record<string, unknown> = {}) => ({ model: "gpt-4o", messages: [{ role: "user", content: "Hello" }], ...extra })
-const anthropic = (extra: Record<string, unknown> = {}) => ({ model: "claude-sonnet-5", messages: [{ role: "user", content: "Hello" }], ...extra })
+const anthropic = (extra: Record<string, unknown> = {}) => ({ model: "claude-sonnet-5", max_tokens: 1024, messages: [{ role: "user", content: "Hello" }], ...extra })
+const MAX_OUTPUT = 131_072
 const gemini = (extra: Record<string, unknown> = {}) => ({ contents: [{ role: "user", parts: [{ text: "Hello" }] }], generationConfig: { thinkingConfig: { thinkingBudget: 0 } }, ...extra })
 const geminiPath = "v1beta/models/gemini-2.5-pro:generateContent"
 
@@ -20,14 +21,21 @@ function expectError(provider: string, path: string, body: unknown, message: str
 
 describe("gateway request reservation sizing", () => {
   it.each([
-    ["anthropic", "v1/messages", anthropic(), "max_tokens"],
-    ["openai", "v1/chat/completions", chat(), "max_completion_tokens"],
-    ["openai", "v1/responses", { model: "gpt-4o", input: "Hello" }, "max_output_tokens"],
-    ["openai", "v1/completions", { model: "gpt-4o", prompt: "Hello" }, "max_tokens"],
-  ])("injects a finite default output cap for %s/%s", (provider, path, request, key) => {
+    ["openai", "v1/chat/completions", chat()],
+    ["openai", "v1/responses", { model: "gpt-4o", input: "Hello" }],
+    ["openai", "v1/completions", { model: "gpt-4o", prompt: "Hello" }],
+  ])("forwards %s/%s without an output limit unchanged and reserves the maximum", (provider, path, request) => {
     const result = prepareGatewayRequest(provider as string, path as string, encode(request))
-    expect(decode(result.body)[key as string]).toBe(1024)
-    expect(result.reservedUsd).toBeGreaterThan(0)
+    // Writing a default into the body would silently truncate the answer.
+    expect(decode(result.body)).toEqual(request)
+    expect(result.defaultedOutput).toBe(true)
+    expect(result.reservedUsd).toBe(costUsd("gpt-4o", result.body.byteLength + 1024 + 256, MAX_OUTPUT))
+  })
+
+  it("requires max_tokens for Anthropic, as the provider does", () => {
+    const { max_tokens: _omitted, ...request } = anthropic()
+    expectError("anthropic", "v1/messages", request, "max_tokens is required", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expect(prepareGatewayRequest("anthropic", "v1/messages", encode(anthropic())).defaultedOutput).toBe(false)
   })
 
   it("normalizes the legacy chat limit to a cap that includes reasoning", () => {
@@ -74,11 +82,14 @@ describe("gateway request reservation sizing", () => {
     expect(prepareGatewayRequest("openai", "v1/embeddings", encode({ model: "gpt-4o", input: "hello" })).reservedUsd).toBeGreaterThan(0)
   })
 
-  it("accounts for Gemini thinking separately from candidate output and injects the output cap", () => {
-    const result = prepareGatewayRequest("gemini", geminiPath, encode(gemini({ generationConfig: { thinkingConfig: { thinkingBudget: 300 } } })))
-    expect(result.model).toBe("gemini-2.5-pro")
-    expect(decode(result.body).generationConfig).toEqual({ maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 300 } })
-    expect(result.reservedUsd).toBe(costUsd(result.model, result.body.byteLength + 1024 + 256, 1324))
+  it("bounds Gemini thinking by maxOutputTokens, which covers thinking and answer together", () => {
+    const capped = prepareGatewayRequest("gemini", geminiPath, encode(gemini({ generationConfig: { maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 300 } } })))
+    expect(capped.model).toBe("gemini-2.5-pro")
+    expect(capped.reservedUsd).toBe(costUsd(capped.model, capped.body.byteLength + 1024 + 256, 400))
+    const open = prepareGatewayRequest("gemini", geminiPath, encode(gemini({ generationConfig: { thinkingConfig: { thinkingBudget: 300 } } })))
+    expect(decode(open.body).generationConfig).toEqual({ thinkingConfig: { thinkingBudget: 300 } })
+    expect(open.defaultedOutput).toBe(true)
+    expect(open.reservedUsd).toBe(costUsd(open.model, open.body.byteLength + 1024 + 256, MAX_OUTPUT))
   })
 
   it("uses the existing positive fallback estimate for an unknown model", () => {
@@ -101,7 +112,7 @@ describe("finite request limits", () => {
     ["openai", "v1/responses", { model: "gpt-4o", input: "Hi", max_output_tokens: 0 }, "max_output_tokens"],
     ["openai", "v1/completions", { model: "gpt-4o", prompt: "Hi", max_tokens: 0 }, "max_tokens"],
     ["gemini", geminiPath, gemini({ generationConfig: { maxOutputTokens: 0, thinkingConfig: { thinkingBudget: 0 } } }), "maxOutputTokens"],
-    ["gemini", geminiPath, gemini({ generationConfig: { thinkingConfig: { thinkingBudget: -1 } } }), "thinkingBudget"],
+    ["gemini", geminiPath, gemini({ generationConfig: { thinkingConfig: { thinkingBudget: -2 } } }), "thinkingBudget"],
   ])("rejects an invalid provider limit for %s/%s", (provider, path, body, field) => {
     expectError(provider as string, path as string, body, field as string, "GATEWAY_RESERVATION_INVALID_LIMIT")
   })
@@ -118,12 +129,15 @@ describe("finite request limits", () => {
     expectError("openai", "v1/completions", { model: "gpt-4o", prompt: "Hi", best_of: 2 }, "best_of must be 1")
     expectError("openai", "v1/completions", { model: "gpt-4o", prompt: ["Hi", "Bye"] }, "one text prompt")
     expectError("gemini", geminiPath, gemini({ generationConfig: { candidateCount: 2 } }), "candidateCount must be 1")
-    expect(decode(prepareGatewayRequest("openai", "v1/completions", encode({ model: "gpt-4o", prompt: ["Hi"], best_of: 1, n: 1 })).body).max_tokens).toBe(1024)
+    expect(decode(prepareGatewayRequest("openai", "v1/completions", encode({ model: "gpt-4o", prompt: ["Hi"], best_of: 1, n: 1 })).body)).not.toHaveProperty("max_tokens")
   })
 
-  it("requires explicit Gemini thinking instead of automatic or level-based thinking", () => {
-    expectError("gemini", geminiPath, gemini({ generationConfig: undefined }), "thinkingBudget")
-    expectError("gemini", geminiPath, gemini({ generationConfig: { thinkingConfig: { thinkingLevel: "high" } } }), "thinkingLevel")
+  it("accepts automatic, dynamic, and level-based Gemini thinking", () => {
+    for (const generationConfig of [undefined, { maxOutputTokens: 64 }, { thinkingConfig: { thinkingBudget: -1 } }, { thinkingConfig: { thinkingLevel: "high" } }, { thinkingConfig: { thinkingLevel: "XHIGH", includeThoughts: true } }]) {
+      const request = gemini({ generationConfig })
+      expect(decode(prepareGatewayRequest("gemini", geminiPath, encode(request)).body)).toEqual(JSON.parse(JSON.stringify(request)))
+    }
+    expectError("gemini", geminiPath, gemini({ generationConfig: { thinkingConfig: { thinkingLevel: "extreme" } } }), "thinkingLevel", "GATEWAY_RESERVATION_INVALID_REQUEST")
   })
 })
 
@@ -195,22 +209,56 @@ describe("counted client function and structured text shapes", () => {
     expect(prepareGatewayRequest("anthropic", "v1/messages", encode(anthropic({ thinking: { type: "disabled" } }))).reservedUsd).toBeGreaterThan(0)
   })
 
-  it("supports bounded Anthropic thinking without tools but rejects the tool workflow upfront", () => {
-    const firstTurn = anthropic({ max_tokens: 2000, thinking: { type: "enabled", budget_tokens: 1024 } })
-    expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(firstTurn)).body)).toEqual(firstTurn)
-    expect(prepareGatewayRequest("anthropic", "v1/messages", encode({ ...firstTurn, tools: [] })).reservedUsd).toBeGreaterThan(0)
-    expectError("anthropic", "v1/messages", { ...firstTurn, tools: [{ name: "lookup", input_schema: parameters }] }, "Set thinking.type to disabled")
+  it.each([
+    { type: "adaptive" },
+    { type: "adaptive", display: "omitted" },
+    { type: "enabled", budget_tokens: 1024 },
+    { type: "enabled", budget_tokens: 8000 }, // interleaved thinking may exceed max_tokens across a turn
+    { type: "between_tools" },
+    { type: "disabled" },
+  ])("admits Claude thinking %o with tools, reserving no more than max_tokens of output", (thinking) => {
+    const request = anthropic({ max_tokens: 2000, thinking, tools: [{ name: "lookup", input_schema: parameters }], output_config: { effort: "high" } })
+    const result = prepareGatewayRequest("anthropic", "v1/messages", encode(request))
+    expect(decode(result.body)).toEqual(request)
+    const tokensIn = result.body.byteLength + 1024 + 256
+    expect(result.reservedUsd).toBe(costUsd(result.model, tokensIn, 2000, { cacheWriteTokens: tokensIn, cacheWrite1hTokens: tokensIn }))
+  })
+
+  it("rejects unknown thinking modes and a budget outside enabled thinking", () => {
+    expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "turbo" } }), "thinking.type must be")
+    expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive", budget_tokens: 1024 } }), "only to enabled", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive", display: "raw" } }), "thinking.display")
   })
 
   it.each([
     { type: "thinking", thinking: "Visible summary", signature: "opaque-signed-full-reasoning" },
     { type: "thinking", thinking: "", signature: "opaque-signed-full-reasoning" },
     { type: "redacted_thinking", data: "opaque-encrypted-reasoning" },
-  ])("rejects encrypted Anthropic replay even when it contains visible text %#", (block) => {
-    expectError("anthropic", "v1/messages", anthropic({ messages: [
+  ])("admits replayed Claude reasoning and reserves its sealed bytes once more %#", (block) => {
+    const request = anthropic({ thinking: { type: "adaptive" }, messages: [
+      { role: "user", content: "Look it up" },
       { role: "assistant", content: [block, { type: "tool_use", id: "call-1", name: "lookup", input: {} }] },
       { role: "user", content: [{ type: "tool_result", tool_use_id: "call-1", content: "Result" }] },
-    ] }), "encrypted reasoning")
+    ] })
+    const result = prepareGatewayRequest("anthropic", "v1/messages", encode(request))
+    expect(decode(result.body)).toEqual(request)
+    // The signature or data is the encrypted full reasoning, billed as input
+    // on models that keep prior thinking: its bytes count twice.
+    const sealed = new TextEncoder().encode("signature" in block ? block.signature : block.data).byteLength
+    const tokensIn = result.body.byteLength + 1024 + 3 * 256 + sealed
+    expect(result.reservedUsd).toBe(costUsd(result.model, tokensIn, 1024, { cacheWriteTokens: tokensIn, cacheWrite1hTokens: tokensIn }))
+  })
+
+  it.each([
+    [{ role: "user", content: [{ type: "thinking", thinking: "x", signature: "sig" }] }, "assistant messages"],
+    [{ role: "assistant", content: [{ type: "thinking", thinking: "x", signature: "" }] }, "must be non-empty"],
+    [{ role: "assistant", content: [{ type: "thinking", thinking: "x" }] }, "signature must be text"],
+    [{ role: "assistant", content: [{ type: "redacted_thinking", data: "x", extra: 1 }] }, "redacted_thinking.extra"],
+  ])("rejects malformed replayed reasoning %#", (message, error) => {
+    let caught: unknown
+    try { prepareGatewayRequest("anthropic", "v1/messages", encode(anthropic({ messages: [message] }))) } catch (e) { caught = e }
+    expect(caught).toBeInstanceOf(GatewayReservationRequestError)
+    expect((caught as Error).message).toContain(error)
   })
 
   it("preserves chat client functions and JSON schema output", () => {
@@ -314,8 +362,6 @@ describe("counted client function and structured text shapes", () => {
   it("rejects external schema references and unsupported cache or thinking settings", () => {
     expectError("anthropic", "v1/messages", anthropic({ tools: [{ name: "lookup", input_schema: { $ref: "https://example.com/schema" } }] }), "local schema")
     expectError("anthropic", "v1/messages", anthropic({ cache_control: { type: "ephemeral", ttl: "24h" } }), "5m or 1h")
-    expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive" } }), "explicit budget_tokens")
-    expectError("anthropic", "v1/messages", anthropic({ max_tokens: 20, thinking: { type: "enabled", budget_tokens: 20 } }), "less than max_tokens", "GATEWAY_RESERVATION_INVALID_REQUEST")
   })
 })
 

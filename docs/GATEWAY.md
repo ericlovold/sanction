@@ -87,10 +87,23 @@ second time for usage already reported by an earlier generation.
 ## Reservation sizing and supported requests
 
 Sanction sizes a hold from the forwarded UTF-8 request bytes, framing allowance,
-and enforced maximum output tokens using its model pricing table. Anthropic
-input reserves the highest supported prompt-cache write multiplier. A missing
-output limit gets a server-supplied default of 1,024 tokens. Gemini requires an
-explicit `thinkingBudget` (zero is allowed), which is also reserved.
+and the request's maximum output tokens using its model pricing table. Anthropic
+input reserves the highest supported prompt-cache write multiplier.
+
+**Requests are forwarded as you send them.** Sanction never writes an output
+limit into your request, so it never truncates an answer. If you set none,
+the hold covers a 131,072-token response, the largest the gateway accepts, and a budget
+too small for that returns a `402` with a `remediation` field explaining which
+limit to set. Setting `max_completion_tokens`, `max_output_tokens`,
+`max_tokens`, or `generationConfig.maxOutputTokens` reserves only what you ask
+for. Anthropic requires `max_tokens`, as its API does.
+
+Thinking is bounded by the same limit. Anthropic documents `max_tokens` as the
+ceiling on all output, thinking included, and Google documents
+`maxOutputTokens` as covering thinking and answer together, so every thinking
+setting is admitted: Claude `adaptive`, `enabled` (with or without interleaved
+thinking), `between_tools`, and `disabled`; Gemini automatic thinking,
+`thinkingBudget` (including `-1`), and `thinkingLevel`.
 
 This first reservation adapter supports bounded text generation and text
 embeddings. Hidden or unbounded inputs are rejected before dispatch: media,
@@ -100,10 +113,11 @@ currently rejected because its search work cannot be bounded from the request.
 A `400` response explains which input needs to change. Function definitions and
 ordinary local tool results are supported where their text is in the request.
 Responses assistant messages and function calls can be replayed inline, including
-their validated metadata. Anthropic thinking combined with client tools is
-rejected before dispatch: its required signed continuation can contain encrypted
-reasoning whose input cost cannot be bounded from the visible text. Thinking
-without tools and tools without thinking remain supported.
+their validated metadata. Claude tool loops with thinking are supported,
+including replayed `thinking` and `redacted_thinking` blocks. Models that keep
+prior reasoning bill it as input; Anthropic documents the `signature` (and
+redacted `data`) as an encrypted copy of the full reasoning, so the hold counts
+those bytes twice to bound it.
 
 **Compatibility change:** requests that previously passed through a metered
 endpoint may now need an explicit bound or a supported text-only shape. The
