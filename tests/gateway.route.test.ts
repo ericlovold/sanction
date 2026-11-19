@@ -60,7 +60,7 @@ function req(provider: string, path: string, opts: { key?: string | null; body?:
   return new NextRequest(`https://test.local/api/gateway/${provider}/${path}`, {
     method: opts.method ?? "POST",
     headers,
-    body: opts.method === "GET" ? undefined : JSON.stringify(opts.body ?? { model: "claude-sonnet-5", messages: [{ role: "user", content: "hi" }] }),
+    body: opts.method === "GET" ? undefined : JSON.stringify(opts.body ?? { model: "claude-sonnet-5", max_tokens: 1024, messages: [{ role: "user", content: "hi" }] }),
   })
 }
 const params = (provider: string, path: string) => ({ params: Promise.resolve({ provider, path: path.split("/") }) })
@@ -318,7 +318,7 @@ describe("gateway proxy — abandoned streams and header hygiene", () => {
         "x-real-ip": "203.0.113.9",
         forwarded: "for=203.0.113.9",
       },
-      body: JSON.stringify({ model: "claude-sonnet-5", messages: [{ role: "user", content: "hi" }] }),
+      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 1024, messages: [{ role: "user", content: "hi" }] }),
     })
     const res = await gateway(r, params("anthropic", "v1/messages"))
 
@@ -439,7 +439,8 @@ describe("gateway reservation lifecycle", () => {
     global.fetch = vi.fn(async (_url, init) => {
       expect(held).toBe(true)
       const sent = JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer))
-      expect(sent.max_tokens).toBe(1024)
+      // The caller's own limit is forwarded as sent; nothing is added.
+      expect(sent).toEqual({ model: "claude-sonnet-5", max_tokens: 1024, messages: [{ role: "user", content: "hi" }] })
       return Response.json({ model: "claude-sonnet-5", usage: { input_tokens: 3, output_tokens: 4 } })
     })
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
@@ -518,12 +519,42 @@ describe("gateway reservation lifecycle", () => {
   })
 })
 
+describe("gateway output limits", () => {
+  it("forwards a request with no output limit unchanged, reserving for the maximum", async () => {
+    const request = { model: "gpt-4o", messages: [{ role: "user", content: "hi" }] }
+    global.fetch = vi.fn(async (_url, init) => {
+      expect(JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer))).toEqual(request)
+      return Response.json({ model: "gpt-4o", usage: { prompt_tokens: 3, completion_tokens: 4 } })
+    })
+    const res = await gateway(req("openai", "v1/chat/completions", { body: request }), params("openai", "v1/chat/completions"))
+    expect(res.status).toBe(200)
+    const reserved = vi.mocked(reserveGatewayBudget).mock.calls[0][1].reservedUsd
+    const capped = { ...request, max_completion_tokens: 1024 }
+    vi.mocked(reserveGatewayBudget).mockClear()
+    await gateway(req("openai", "v1/chat/completions", { body: capped }), params("openai", "v1/chat/completions"))
+    expect(reserved).toBeGreaterThan(vi.mocked(reserveGatewayBudget).mock.calls[0][1].reservedUsd)
+  })
+
+  it("explains how to reserve less when an unlimited request does not fit the budget", async () => {
+    vi.mocked(reserveGatewayBudget).mockResolvedValue({ exhausted: true, spent: 9.5, budget: 10, horizon: "daily", decisionId: "denial_1" })
+    global.fetch = vi.fn()
+    const unlimited = await gateway(req("openai", "v1/chat/completions", { body: { model: "gpt-4o", messages: [{ role: "user", content: "hi" }] } }), params("openai", "v1/chat/completions"))
+    expect(unlimited.status).toBe(402)
+    expect((await unlimited.json()).remediation).toMatch(/max_completion_tokens/)
+    const limited = await gateway(req("openai", "v1/chat/completions", { body: { model: "gpt-4o", max_completion_tokens: 50, messages: [{ role: "user", content: "hi" }] } }), params("openai", "v1/chat/completions"))
+    expect(limited.status).toBe(402)
+    expect(await limited.json()).not.toHaveProperty("remediation")
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+})
+
 describe("gateway final usage evidence", () => {
   it("reserves streamed Responses without injecting a Chat-Completions-only field", async () => {
     global.fetch = vi.fn(async (_url, init) => {
       const body = JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer))
       expect(body.stream_options).toBeUndefined()
-      expect(body.max_output_tokens).toBe(1024)
+      // No limit set: forwarded without one, never truncated by Sanction.
+      expect(body).not.toHaveProperty("max_output_tokens")
       return new Response('data: {"type":"response.completed","response":{"model":"gpt-4o","usage":{"input_tokens":3,"output_tokens":4}}}\n\n', { headers: { "content-type": "text/event-stream" } })
     })
     const res = await gateway(req("openai", "v1/responses", { body: { model: "gpt-4o", input: "hi", stream: true } }), params("openai", "v1/responses"))

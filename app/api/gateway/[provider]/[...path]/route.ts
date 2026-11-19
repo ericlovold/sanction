@@ -18,6 +18,11 @@ export const dynamic = "force-dynamic"
 // tokens then time out at 60s with nothing delivered).
 export const maxDuration = 300
 
+const OUTPUT_LIMIT_REMEDIATION =
+  "This request set no output limit, so Sanction reserved budget for the largest possible response. " +
+  "Set max_completion_tokens (Chat Completions), max_output_tokens (Responses), max_tokens (Completions), " +
+  "or generationConfig.maxOutputTokens (Gemini) to reserve only what you need."
+
 const log = logger("gateway")
 
 // Headers we must not forward upstream (Sanction auth and dashboard session,
@@ -244,6 +249,9 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
           limit_usd: held.budget,
           spent_usd: held.spent,
           requested_reservation_usd: prepared.reservedUsd,
+          // No output limit means the reservation covers the largest possible
+          // response. Say so, and how to reserve less.
+          ...(prepared.defaultedOutput ? { remediation: OUTPUT_LIMIT_REMEDIATION } : {}),
           daily_limit_usd: held.horizon === "daily" ? held.budget : undefined,
           daily_spent_usd: held.horizon === "daily" ? held.spent : undefined,
           cap_wallet_id: held.capWalletId,

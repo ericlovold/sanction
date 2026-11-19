@@ -731,6 +731,40 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     ])
   })
 
+  it("admits a Claude tool loop with adaptive thinking and replayed reasoning, forwarding it unchanged", async () => {
+    const wallet = await makeWallet({ daily: 100 })
+    const loop = {
+      model: gatewayBody.model, max_tokens: 4000, thinking: { type: "adaptive" }, output_config: { effort: "medium" },
+      tools: [{ name: "lookup", input_schema: { type: "object", properties: { q: { type: "string" } } } }],
+      messages: [
+        { role: "user", content: "Find the report" },
+        { role: "assistant", content: [
+          { type: "thinking", thinking: "", signature: "c2lnbmVkLWZ1bGwtcmVhc29uaW5n".repeat(40) },
+          { type: "tool_use", id: "call-1", name: "lookup", input: { q: "report" } },
+        ] },
+        { role: "user", content: [{ type: "tool_result", tool_use_id: "call-1", content: "report.pdf" }] },
+      ],
+    }
+    let forwarded: unknown
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      forwarded = JSON.parse(new TextDecoder().decode(init.body as ArrayBuffer))
+      return Response.json({ model: gatewayBody.model, usage: { input_tokens: 900, output_tokens: 120 } })
+    }))
+    const { POST } = await import("@/app/api/gateway/[provider]/[...path]/route")
+    const response = await POST(new NextRequest("https://test.local/api/gateway/anthropic/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json", "x-sanction-key": wallet.key,
+        "x-api-key": "test-provider-key", "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(loop),
+    }), { params: Promise.resolve({ provider: "anthropic", path: ["v1", "messages"] }) })
+    expect(response.status).toBe(200)
+    expect(forwarded).toEqual(loop)
+    expect(await reservations([wallet.id])).toEqual([expect.objectContaining({ status: "settled" })])
+    expect(await logs([wallet.id])).toEqual([expect.objectContaining({ tokensIn: 900, tokensOut: 120 })])
+  })
+
   it("never exposes a hold-to-spend gap and allows independent-wallet progress during settlement", async () => {
     const parent = await makeWallet({ pool: 100 })
     const first = await makeWallet({ parentId: parent.id })

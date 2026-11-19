@@ -1,6 +1,9 @@
 import { costUsd } from "./gateway"
 
-const DEFAULT_OUTPUT_TOKENS = 1024
+// Upper bound for one response, and the reservation when a caller sets no
+// output limit. The request is forwarded unchanged: a default written into the
+// body would silently truncate answers, and a small estimate without one would
+// let a governed agent buy large outputs against a tiny hold.
 const MAX_OUTPUT_TOKENS = 131_072
 const MAX_REQUEST_BYTES = 8 * 1024 * 1024
 const FIXED_INPUT_OVERHEAD = 1024
@@ -62,10 +65,15 @@ function limit(value: unknown, at: string, allowZero = false): number {
   return value
 }
 
-function outputLimit(body: JsonObject, key: string): number {
-  if (!Object.hasOwn(body, key)) body[key] = DEFAULT_OUTPUT_TOKENS
-  return limit(body[key], key)
+type Estimate = { output: number; messages: number; defaultedOutput?: boolean; hiddenInputTokens?: number }
+
+/** The caller's own output limit, or the maximum when it set none. Never written back. */
+function outputLimit(body: JsonObject, key: string): { output: number; defaultedOutput: boolean } {
+  if (!Object.hasOwn(body, key)) return { output: MAX_OUTPUT_TOKENS, defaultedOutput: true }
+  return { output: limit(body[key], key), defaultedOutput: false }
 }
+
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).byteLength
 
 function oneCandidate(value: unknown, at: string): void {
   if (value !== undefined && value !== 1) unsupported(`${at} must be 1. Submit separate requests for multiple candidates so each reserves its own budget.`)
@@ -107,9 +115,13 @@ function anthropicText(value: unknown, at: string): void {
   }
 }
 
-function anthropicRequest(body: JsonObject): { output: number; messages: number } {
+function anthropicRequest(body: JsonObject): Estimate {
   fields(body, "model messages max_tokens system metadata stop_sequences stream temperature top_p top_k tools tool_choice thinking output_config cache_control service_tier", "request")
-  const output = outputLimit(body, "max_tokens")
+  // Anthropic requires max_tokens and documents it as the hard ceiling on all
+  // output, thinking included, so it bounds every thinking mode below.
+  if (!Object.hasOwn(body, "max_tokens")) invalid("max_tokens is required for Anthropic messages.")
+  const output = limit(body.max_tokens, "max_tokens")
+  let hiddenInputTokens = 0
   const messages = list(body.messages, "messages")
   for (const entry of messages) {
     const message = object(entry, "messages[]")
@@ -119,12 +131,19 @@ function anthropicRequest(body: JsonObject): { output: number; messages: number 
     for (const value of list(message.content, "messages[].content")) {
       const block = object(value, "messages[].content[]")
       if (block.type === "thinking" || block.type === "redacted_thinking") {
-        // Claude reconstructs full reasoning from opaque signature/data, not
-        // necessarily the visible thinking summary. Its decoded input is not
-        // covered by this explicit-text estimator.
-        unsupported("Thinking-block replay cannot be reserved because its signature or data carries encrypted reasoning. Use a tool conversation with thinking disabled.")
-      }
-      if (block.type === "tool_use") {
+        // Replayed reasoning is billed as input on models that keep prior
+        // turns' thinking. Anthropic documents the signature (and redacted
+        // data) as an encrypted copy of the full reasoning, so its encoded
+        // size bounds the hidden tokens. Those bytes are already in the body
+        // estimate; count them once more for margin over encoding overhead.
+        if (message.role !== "assistant") invalid("Thinking blocks may only appear in assistant messages.")
+        const sealed = block.type === "thinking" ? "signature" : "data"
+        fields(block, block.type === "thinking" ? "type thinking signature" : "type data", block.type)
+        if (block.type === "thinking") text(block.thinking, "thinking.thinking")
+        text(block[sealed], `${block.type}.${sealed}`)
+        if (!(block[sealed] as string).length) invalid(`${block.type}.${sealed} must be non-empty.`)
+        hiddenInputTokens += utf8Bytes(block[sealed] as string)
+      } else if (block.type === "tool_use") {
         fields(block, "type id name input cache_control", "tool_use")
         text(block.id, "tool_use.id")
         text(block.name, "tool_use.name")
@@ -157,15 +176,17 @@ function anthropicRequest(body: JsonObject): { output: number; messages: number 
     if (!["auto", "any", "tool", "none"].includes(String(choice.type))) unsupported("tool_choice must select a client function tool.")
   }
   if (body.thinking !== undefined) {
+    // Every mode, with or without tools, is bounded by max_tokens above. The
+    // provider validates budget placement (interleaved thinking may exceed
+    // max_tokens across a turn); the reservation does not need to.
     const thinking = object(body.thinking, "thinking")
-    fields(thinking, "type budget_tokens", "thinking")
-    if (thinking.type === "enabled") {
-      if (limit(thinking.budget_tokens, "thinking.budget_tokens") >= output) invalid("thinking.budget_tokens must be less than max_tokens.")
-      if (Array.isArray(body.tools) && body.tools.length > 0) {
-        unsupported("Enabled thinking with tools requires encrypted thinking-block replay, which gateway reservations cannot size. Set thinking.type to disabled for tool conversations, or omit tools.")
-      }
-    } else if (thinking.type !== "disabled") {
-      unsupported("thinking.type must be enabled with an explicit budget_tokens, or disabled.")
+    fields(thinking, "type budget_tokens display", "thinking")
+    if (thinking.type === "enabled") limit(thinking.budget_tokens, "thinking.budget_tokens")
+    else if (!["adaptive", "disabled", "between_tools"].includes(String(thinking.type))) {
+      unsupported("thinking.type must be adaptive, enabled, between_tools, or disabled.")
+    } else if (thinking.budget_tokens !== undefined) invalid("thinking.budget_tokens applies only to enabled thinking.")
+    if (thinking.display !== undefined && !["summarized", "omitted", "updates"].includes(String(thinking.display))) {
+      unsupported("thinking.display must be summarized, omitted, or updates.")
     }
   }
   if (body.output_config !== undefined) {
@@ -179,7 +200,7 @@ function anthropicRequest(body: JsonObject): { output: number; messages: number 
     }
   }
   cacheControl(body.cache_control, "cache_control")
-  return { output, messages: messages.length + (body.system === undefined ? 0 : 1) }
+  return { output, messages: messages.length + (body.system === undefined ? 0 : 1), hiddenInputTokens }
 }
 
 function openaiText(value: unknown, at: string, responses: boolean): void {
@@ -265,7 +286,7 @@ function responseFormat(value: unknown, at: string, responses = false): void {
   }
 }
 
-function openaiRequest(body: JsonObject, path: string): { output: number; messages: number } {
+function openaiRequest(body: JsonObject, path: string): Estimate {
   if (path === "v1/embeddings") {
     fields(body, "model input encoding_format dimensions user", "request")
     const inputs = typeof body.input === "string" ? [body.input] : list(body.input, "input")
@@ -279,7 +300,7 @@ function openaiRequest(body: JsonObject, path: string): { output: number; messag
     const prompts = typeof body.prompt === "string" ? [body.prompt] : list(body.prompt, "prompt")
     if (prompts.length !== 1) unsupported("prompt must contain one text prompt. Submit separate completion requests for multiple prompts.")
     text(prompts[0], "prompt")
-    return { output: outputLimit(body, "max_tokens"), messages: 1 }
+    return { ...outputLimit(body, "max_tokens"), messages: 1 }
   }
   const responses = path === "v1/responses"
   fields(body, responses
@@ -294,7 +315,7 @@ function openaiRequest(body: JsonObject, path: string): { output: number; messag
     body.max_completion_tokens = limit(body.max_tokens, "max_tokens")
     delete body.max_tokens
   }
-  const output = outputLimit(body, responses ? "max_output_tokens" : "max_completion_tokens")
+  const { output, defaultedOutput } = outputLimit(body, responses ? "max_output_tokens" : "max_completion_tokens")
   const input = responses ? body.input : body.messages
   const messages = responses && typeof input === "string" ? [{ role: "user", content: input }] : list(input, responses ? "input" : "messages")
   for (const entry of messages) {
@@ -342,7 +363,7 @@ function openaiRequest(body: JsonObject, path: string): { output: number; messag
     if (config.format !== undefined) responseFormat(config.format, "text.format", true)
   }
   if (body.reasoning !== undefined) fields(object(body.reasoning, "reasoning"), "effort summary", "reasoning")
-  return { output, messages: messages.length + (body.instructions === undefined ? 0 : 1) }
+  return { output, defaultedOutput, messages: messages.length + (body.instructions === undefined ? 0 : 1) }
 }
 
 function geminiContent(value: unknown, at: string): void {
@@ -367,26 +388,34 @@ function geminiContent(value: unknown, at: string): void {
   }
 }
 
-function geminiRequest(body: JsonObject): { output: number; messages: number } {
+function geminiRequest(body: JsonObject): Estimate {
   fields(body, "contents systemInstruction generationConfig tools toolConfig safetySettings labels", "request")
   const contents = list(body.contents, "contents")
   contents.forEach((content) => geminiContent(content, "contents[]"))
   if (body.systemInstruction !== undefined) geminiContent(body.systemInstruction, "systemInstruction")
   const config = body.generationConfig === undefined ? {} : object(body.generationConfig, "generationConfig")
-  body.generationConfig = config
   fields(config, "maxOutputTokens temperature topP topK stopSequences candidateCount presencePenalty frequencyPenalty seed responseMimeType responseSchema responseJsonSchema thinkingConfig responseModalities logprobs responseLogprobs", "generationConfig")
   oneCandidate(config.candidateCount, "generationConfig.candidateCount")
-  const output = outputLimit(config, "maxOutputTokens")
+  // Google documents maxOutputTokens as the cap on thinking and answer tokens
+  // combined (ai.google.dev/gemini-api/docs/thinking), so it bounds every
+  // thinking setting, including dynamic thinking and thinking levels.
+  const { output, defaultedOutput } = outputLimit(config, "maxOutputTokens")
   if (config.responseModalities !== undefined && (!Array.isArray(config.responseModalities) || config.responseModalities.length !== 1 || config.responseModalities[0] !== "TEXT")) unsupported("generationConfig.responseModalities must contain only TEXT.")
   if (config.responseMimeType !== undefined && config.responseMimeType !== "text/plain" && config.responseMimeType !== "application/json") unsupported("generationConfig.responseMimeType must be text/plain or application/json.")
   if (config.responseSchema !== undefined) schema(config.responseSchema, "generationConfig.responseSchema")
   if (config.responseJsonSchema !== undefined) schema(config.responseJsonSchema, "generationConfig.responseJsonSchema")
-  // Automatic thinking can add output tokens outside candidatesTokenCount.
-  // Require a client-selected finite budget rather than guessing by model name.
-  if (config.thinkingConfig === undefined) unsupported("Set generationConfig.thinkingConfig.thinkingBudget to a finite token budget (0 disables thinking); automatic thinking cannot be reserved.")
-  const thinking = object(config.thinkingConfig, "generationConfig.thinkingConfig")
-  fields(thinking, "thinkingBudget includeThoughts", "generationConfig.thinkingConfig")
-  const thinkingOutput = limit(thinking.thinkingBudget, "generationConfig.thinkingConfig.thinkingBudget", true)
+  if (config.thinkingConfig !== undefined) {
+    const thinking = object(config.thinkingConfig, "generationConfig.thinkingConfig")
+    fields(thinking, "thinkingBudget includeThoughts thinkingLevel", "generationConfig.thinkingConfig")
+    // -1 selects dynamic thinking; otherwise a finite budget, 0 turns it off.
+    if (thinking.thinkingBudget !== undefined && thinking.thinkingBudget !== -1) {
+      limit(thinking.thinkingBudget, "generationConfig.thinkingConfig.thinkingBudget", true)
+    }
+    if (thinking.thinkingLevel !== undefined &&
+      !["minimal", "low", "medium", "high", "xhigh"].includes(String(thinking.thinkingLevel).toLowerCase())) {
+      invalid("generationConfig.thinkingConfig.thinkingLevel must be minimal, low, medium, high, or xhigh.")
+    }
+  }
   if (body.tools !== undefined) {
     if (!Array.isArray(body.tools)) invalid("tools must be an array.")
     for (const value of body.tools) {
@@ -406,7 +435,7 @@ function geminiRequest(body: JsonObject): { output: number; messages: number } {
     fields(toolConfig, "functionCallingConfig", "toolConfig")
     fields(object(toolConfig.functionCallingConfig, "toolConfig.functionCallingConfig"), "mode allowedFunctionNames", "toolConfig.functionCallingConfig")
   }
-  return { output: output + thinkingOutput, messages: contents.length + (body.systemInstruction === undefined ? 0 : 1) }
+  return { output, defaultedOutput, messages: contents.length + (body.systemInstruction === undefined ? 0 : 1) }
 }
 
 /** Prepare an estimated-token budget reservation, not a provider invoice quote.
@@ -418,6 +447,8 @@ export function prepareGatewayRequest(provider: string, path: string, rawBody: A
   body: ArrayBuffer
   model: string
   reservedUsd: number
+  /** True when the caller set no output limit and the maximum was reserved. */
+  defaultedOutput: boolean
 } {
   const geminiModel = path.match(/^v1(?:alpha|beta)?\/models\/([^/:]+):(?:generateContent|streamGenerateContent)$/)?.[1]
   if (provider === "perplexity") {
@@ -444,7 +475,10 @@ export function prepareGatewayRequest(provider: string, path: string, rawBody: A
   const estimate = provider === "anthropic" ? anthropicRequest(request)
     : provider === "gemini" ? geminiRequest(request) : openaiRequest(request, path)
   const encoded = new TextEncoder().encode(JSON.stringify(request))
-  const tokensIn = encoded.byteLength + FIXED_INPUT_OVERHEAD + MESSAGE_INPUT_OVERHEAD * estimate.messages
+  const tokensIn = encoded.byteLength + FIXED_INPUT_OVERHEAD + MESSAGE_INPUT_OVERHEAD * estimate.messages + (estimate.hiddenInputTokens ?? 0)
   const cache = provider === "anthropic" ? { cacheWriteTokens: tokensIn, cacheWrite1hTokens: tokensIn } : {}
-  return { body: encoded.buffer, model, reservedUsd: costUsd(model, tokensIn, estimate.output, cache) }
+  return {
+    body: encoded.buffer, model, reservedUsd: costUsd(model, tokensIn, estimate.output, cache),
+    defaultedOutput: estimate.defaultedOutput === true,
+  }
 }
