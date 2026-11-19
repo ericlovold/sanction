@@ -91,7 +91,9 @@ codex mcp add sanction --url https://getsanction.com/mcp/approvals
 codex mcp login sanction
 ```
 
-Use an unused server name if `sanction` is already configured. Approve the intended
+Use Codex 0.147 or later; older versions can fail at sign-in with a missing-issuer
+error ([details](/docs/chatgpt-codex)). Use an unused server name if `sanction` is
+already configured. Approve the intended
 agent in Sanction, then restart or refresh the host's MCP connection as needed.
 Local Codex clients share MCP configuration; ChatGPT web does not read it.
 

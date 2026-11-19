@@ -44,6 +44,7 @@ const surfaces = [
     href: "/docs/chatgpt-codex",
     linkLabel: "Codex setup and disconnect →",
     steps: [
+      "Use Codex 0.147 or later; older versions can stop at sign-in with a missing-issuer error. Update with codex update.",
       "With an active Sanction agent, run the following commands. Choose an unused server name if sanction is already taken.",
       "`codex mcp add sanction --url https://getsanction.com/mcp/approvals`",
       "`codex mcp login sanction`",
