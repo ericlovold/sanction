@@ -15,6 +15,90 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-18",
+    title: "The gateway holds budget before it calls the model",
+    tags: ["gateway", "budgets", "enforcement"],
+    body: "Concurrent gateway calls used to pass the same budget check before any usage arrived, so a burst could overshoot a cap. Every metered call now commits an **estimated hold** before the provider is contacted. Seat daily and monthly budgets, every ancestor pool cap, and `/v1/tokens` share the same admission locks and count outstanding holds. A completed call replaces its hold with one idempotent token log; prices are pinned at admission, and usage above the estimate is recorded in full, never clamped. A refused call returns `402` with a `request_id` for its audit record.\n\nA hold still unresolved **15 minutes** after admission (a cancelled stream, a provider 5xx, a network failure) is charged its full estimate, or its observed usage if higher, as spend dated when it was admitted. Daily and pool capacity return at the next midnight, monthly capacity at the next month, and an agent that disconnects early cannot lower its own charge. Honest scope: the guarantee covers estimated capacity, not the provider's invoice.",
+  },
+  {
+    date: "2026-11-18",
+    title: "The gateway forwards what you send",
+    tags: ["gateway", "compatibility"],
+    body: "The gateway no longer writes an output limit into your request, so it never truncates an answer. A request with no limit reserves budget for a 131,072-token response, the largest the gateway accepts; if that does not fit, the `402` carries a `remediation` naming the field to set. The only rewrites are on Chat Completions: `stream_options.include_usage` on streams, and a legacy `max_tokens` renamed to `max_completion_tokens`.\n\nCurrent Claude and Gemini thinking now passes. Claude `adaptive`, `enabled` (including interleaved budgets), `between_tools` and `disabled` work with or without tools, and tool loops can replay `thinking` and `redacted_thinking` blocks. Gemini accepts automatic thinking, `thinkingBudget` (including `-1`) and `thinkingLevel`. Each is bounded by the request's own output limit, which Anthropic and Google document as covering thinking. Anthropic still requires `max_tokens`, as its API does.\n\nStill refused before dispatch: media and file inputs, provider-stored context, server-side tools, Perplexity generation, Gemini 3 thought-signature replay, and request fields outside the reviewed set. Details in the [gateway guide](/docs/gateway).",
+  },
+  {
+    date: "2026-11-18",
+    title: "Two sign-in hardening fixes",
+    tags: ["security", "oauth", "sign-in"],
+    body: "**OAuth revocation is bound to its owner.** In the OAuth provider behind `/mcp/approvals`, revoking an already-rotated refresh token invalidated that user's tokens for the calling client before checking the client owned the token, so anyone holding one rotated token could revoke a user's sessions on a different client. Sanction now patches the provider at install and build so the ownership check runs first. The patch is pinned to reviewed versions (1.7.18 and 1.7.22) by exact file digest, and any other version fails the build until it is reviewed.\n\n**Recovery links stay private.** The sign-in recovery page is excluded from analytics and sends `Referrer-Policy: no-referrer` and `no-store`, and a failed send logs a generic message rather than provider error text that could echo the link.",
+  },
+  {
+    date: "2026-11-17",
+    title: "Expired records clean themselves up",
+    tags: ["operations", "security"],
+    body: "A daily job removes records that have outlived their purpose, at most 1,000 per table per run: execution tokens 30 days past expiry that never spent or released a credential, sign-in links and verification values 24 hours past expiry, and rate-limit counters 24 hours after their window. Tokens with spend or credential-access evidence keep their history. A removed token leaves token history, and verifying a mandate that referenced it returns `invalid` rather than `expired`. The job authenticates with the cron secret and refuses to run without one.",
+  },
+  {
+    date: "2026-11-17",
+    title: "Faster decisions and lighter pages",
+    tags: ["performance"],
+    body: "Hosted `/mcp` tool calls run the REST handlers in process instead of calling Sanction's own API over HTTP; each handler still authenticates its request. A spend authorization reads its daily and monthly totals in one statement under its lock, backed by a new spend-window index, and revoking a wallet's execution tokens has its own index. The Seats page aggregates lifetime activity and the Spend page its daily charts in PostgreSQL, so the server sends one row per seat or day rather than every log. `/start` is static, `/platform` and `/roadmap` are cached, markdown pages render on the server instead of shipping a parser to the browser, and dashboard pages resolve the session once per render.",
+  },
+  {
+    date: "2026-11-13",
+    title: "Usage, plans and connectors are easier to find",
+    tags: ["dashboard", "onboarding"],
+    body: "Individuals get a permanent **Developer usage** page on the dashboard with source-specific setup, Sanction pricing, governed spend, and a link to each provider's own usage page. The tool you picked survives sign-in and first-time social account setup. The public home has a connector entry point and individual terms, and the install guide links to the Claude and Cursor community listings.",
+  },
+  {
+    date: "2026-11-10",
+    title: "Preview: eve onboarding",
+    tags: ["preview"],
+    body: "`/dashboard/eve` shows an onboarding preview for eve-powered agents. It uses example data, is not in the sidebar, and does not run a live agent yet.",
+  },
+  {
+    date: "2026-10-31",
+    title: "One page per install surface",
+    tags: ["install", "distribution"],
+    body: "`/install` lists each surface Sanction connects to (Claude, Cursor, Codex, Grok, Slack and ChatGPT) with its setup, how to disconnect, and what the connection does not do. ChatGPT shows current availability rather than an install flow it does not support yet.",
+  },
+  {
+    date: "2026-10-29",
+    title: "One conformance suite for every entry point",
+    tags: ["testing", "mcp"],
+    body: "Authorization behavior is pinned by a shared, versioned set of synthetic cases run against HTTP-backed MCP, the in-process dispatcher, the published stdio package, broker classification, and encrypted tool-grant validation: all four authorizers, exact argument preservation, identity binding, expiry, replay, and fail-closed responses. A drift between entry points now fails CI. The governed-call walkthrough can also restart after its approval expires: the old records stay, the old test agent is disabled, and the fresh run needs a fresh approval.",
+  },
+  {
+    date: "2026-10-28",
+    title: "Connect your AI host in three steps",
+    tags: ["onboarding", "mcp"],
+    body: "Signup opens with a local approve-or-deny preview, then workspace creation and one connection step; the homepage's *Try one approval* opens that preview. The connection guide starts with a host chooser and three steps (connect, check, request one synthetic approval), with the full reference underneath. Onboarding progress recognizes MCP connections and refreshes on demand, completed setup collapses while keeping the approvals inbox one click away, and a copyable prompt helps you follow up on an approval. Copying keys at signup, on the roster and for batch seats is reliable and recoverable.",
+  },
+  {
+    date: "2026-10-27",
+    title: "Sign-in recovers instead of stranding you",
+    tags: ["sign-in"],
+    body: "Returning users who try to sign up again get a direct path to sign in. After requesting an email link you can correct the address or resend without refreshing. Failed social sign-ins explain what happened and how to retry. If the auth service fails to start, the next request recovers rather than leaving a broken instance that showed the demo wallet.",
+  },
+  {
+    date: "2026-10-24",
+    title: "Atomic rate limits and verified database TLS",
+    tags: ["security", "hardening"],
+    body: "Every rate-limit check is one atomic database statement, so concurrent first requests and window resets can no longer overwrite each other's counts. Database URLs using `sslmode=require`, `prefer` or `verify-ca` are normalized to `verify-full`, keeping certificate-chain and hostname verification as the driver's defaults change. Next.js moved to 16.4.2 for three security advisories, and is now on 16.4.6.",
+  },
+  {
+    date: "2026-10-22",
+    title: "Grok Bot can connect to the approvals MCP over OAuth",
+    tags: ["mcp", "oauth"],
+    body: "Hosts that probe `/.well-known/oauth-authorization-server` get the issuer document, dynamic client registration accepts the Grok Bot and Cursor redirect URIs, and decision text labels `authorized` and `next_action` for chat hosts. This is the connect path only: it does not claim a Grok Bot directory listing or a verified end-to-end approval inside Grok.",
+  },
+  {
+    date: "2026-10-18",
+    title: "Slack shows the result of every click",
+    tags: ["slack", "approvals"],
+    body: "Approve and Deny clicks publish their outcome through Slack's response webhook, so a stale or refused card says so instead of looking unchanged. Callback URLs are restricted to Slack's HTTPS webhook hosts with redirects disabled and a five-second timeout, and a failed delivery never retries the decision. Reinstalling into a channel the app has not joined now joins it (new `channels:join` scope), and `/slack/review` walks a reviewer through installing and testing the app.",
+  },
+  {
     date: "2026-10-14",
     title: "Keep old Slack approval buttons invalid after reconnect",
     tags: ["slack", "approvals", "security"],

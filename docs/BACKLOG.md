@@ -141,7 +141,10 @@ as fact here.
       shape. A future session reading the repo gets the pre-reposition story.
       Run `/truthsync` as its own docs-only pass — deliberately not bundled
       with the home-page layout fix. (docs)
-- [ ] 2026-08-15 — Stand up the Slack app so Add to Slack goes live: create
+- [x] 2026-08-15 — shipped: the Slack app is live (Add to Slack installs
+      per workspace, SLACK-1; installation-bound buttons #378; response-webhook
+      feedback #380; `channels:join` on reinstall #381; reviewer walkthrough at
+      `/slack/review` #387). — Stand up the Slack app so Add to Slack goes live: create
       the app, scopes `chat:write` + `incoming-webhook`, Redirect URL
       `/api/slack/oauth/callback`, Interactivity Request URL
       `/api/slack/interactive`, then set `SANCTION_SLACK_CLIENT_ID` /
@@ -511,6 +514,10 @@ as fact here.
       default discovery entrypoint. Follow-up: A/B MCP-first vs
       channel-picker-first onboarding; ICE-score the experiment backlog and
       set per-channel success thresholds. (idea, from distribution review)
+      · 2026-11-18: `/install` lists each surface (Claude, Cursor, Codex,
+      Grok, Slack, ChatGPT) with setup, disconnect and limits, and onboarding
+      opens with a host chooser (#390). Remaining: per-channel setup-time
+      estimates, first-success checklists, and the A/B.
 - [ ] 2026-07-08 — Consulting/services discoverability: the services page lives
       at /about ("Work with Eric") but its only entry point is a footer link
       labeled "Consulting" — external reviewers concluded the services offer
@@ -611,7 +618,9 @@ as fact here.
       · 2026-07-10: **shipped** across channels (coding-agent-seat, mcp-tool-
       governance, gateway-token-budget, agency-*, payment-agent-mandate) plus
       **no-egress** for Sanction Local (`channel: local`). LOCAL-1.
-- [ ] 2026-07-05 — Hosted remote MCP endpoint: today sanction-mcp is stdio/npx
+- [x] 2026-07-05 — shipped: the last remainder, OAuth onboarding, is live
+      for the approvals profile at `/mcp/approvals` (SANCTION-S1, #388); the
+      full wallet `/mcp` stays API-key by design. — Hosted remote MCP endpoint: today sanction-mcp is stdio/npx
       only; a hosted remote endpoint with OAuth/API-key onboarding is the
       enterprise on-ramp. Bigger infra scope. (idea, from distribution review)
       · 2026-07-08: promoted — this is also the Sanction-owned enforcement
