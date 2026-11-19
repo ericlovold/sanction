@@ -14,7 +14,7 @@ const { dbMock, warn } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/log", () => ({ logger: () => ({ warn }) }))
 
-import { GatewayWalletFrozenError, recordGatewayBudgetDenial, recordTokenUsageUnderBudget, releaseGatewayBudget, reserveGatewayBudget, resolveGatewayBudget } from "../lib/gatewayBudget"
+import { GatewayWalletFrozenError, recordGatewayBudgetDenial, recordTokenUsageUnderBudget, releaseGatewayBudget, reserveGatewayBudget, resolveGatewayBudget, GATEWAY_HOLD_LIFETIME_MS } from "../lib/gatewayBudget"
 import { decisionCode } from "../lib/decisions"
 import type { Prisma } from "../lib/generated/prisma/client"
 
@@ -203,7 +203,8 @@ describe("durable gateway admission", () => {
     currentAgent!.monthlyTokenBudgetUsd = seat
     currentAgent!.policyMonthly = policy
     await reserveGatewayBudget(AGENT, INPUT)
-    expect(statements.at(-1)?.values.filter((value) => typeof value === "boolean")).toEqual([monthly])
+    // Seat logs and lapsed seat holds share the monthly-or-daily window.
+    expect(statements.at(-1)?.values.filter((value) => typeof value === "boolean")).toEqual([monthly, monthly])
   })
 
   it("checks an ancestor pool even when the seat and its wallet have no local policy", async () => {
@@ -380,9 +381,15 @@ describe("durable gateway admission", () => {
       expect(dbMock.tokenLog.create.mock.calls[0][0].data.createdAt).toEqual(afterMidnight)
       expect(dbMock.tokenLog.upsert.mock.calls[0][0].create.createdAt).toEqual(afterMidnight)
       expect(dbMock.tokenLog.upsert.mock.calls[0][0].update.createdAt).toEqual(afterMidnight)
+      // Hold lifetime is measured from the post-lock clock too, so a lock wait
+      // can never keep an expired hold occupying capacity.
+      const cutoff = new Date(afterMidnight.getTime() - GATEWAY_HOLD_LIFETIME_MS)
+      const day = new Date(2026, 10, 19)
+      const month = new Date(2026, 10, 1)
       expect(statements.filter(({ kind }) => kind === "occupancy").map(({ values }) => values.filter((value) => value instanceof Date))).toEqual([
-        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19), new Date(2026, 10, 19), new Date(2026, 10, 19)],
-        [new Date(2026, 10, 19), new Date(2026, 10, 1), new Date(2026, 10, 19), new Date(2026, 10, 19), new Date(2026, 10, 19)],
+        // live holds, logs (daily filter, seat, pool, pool settled), lapsed seat holds, lapsed pool holds
+        [cutoff, day, month, day, day, day, cutoff, month, day, cutoff, day],
+        [cutoff, day, month, day, day, day, cutoff, month, day, cutoff, day],
       ])
       expect(dbMock.$transaction.mock.calls.map((call) => call[1])).toEqual(Array(3).fill({ isolationLevel: "ReadCommitted" }))
     } finally {

@@ -28,6 +28,16 @@ type Tx = Prisma.TransactionClient
 const log = logger("gateway-budget")
 const MICROS_PER_USD = 1_000_000
 
+/** How long an unresolved hold occupies every budget window. The gateway
+ * route's maxDuration is 300s and settlement retries run inside it, so a hold
+ * still pending or uncertain after this has outlived the call it covered. It
+ * is then charged GREATEST(reserved, observed) in the day and month it was
+ * admitted, like spend dated at admission: daily and pool capacity return at
+ * the next midnight, monthly capacity at the next month. Never less than the
+ * estimate: a governed agent that disconnects before final usage must not
+ * lower its own charge. A late settlement replaces the charge, counted once. */
+export const GATEWAY_HOLD_LIFETIME_MS = 15 * 60_000
+
 /** A verified freeze is a policy denial, not an unavailable budget store. */
 export class GatewayWalletFrozenError extends Error {
   readonly code = "WALLET_FROZEN"
@@ -164,9 +174,13 @@ type OccupancyRow = {
 
 /** One statement for all horizons/scopes. Each pool's traversal stops at 500
  * nodes, then verifies completeness. Logs and holds never join each other,
- * preventing duplicated usage. Holds retain their individual micro rounding. */
+ * preventing duplicated usage. Holds retain their individual micro rounding.
+ * A hold is live (every window) until GATEWAY_HOLD_LIFETIME_MS after
+ * admission; after that its estimate is spend dated at admission. Its partial
+ * log stays excluded, since GREATEST already includes observed usage. */
 async function budgetOccupancy(tx: Tx, agentId: string, poolIds: string[], now: Date, monthly: boolean): Promise<OccupancyRow[]> {
   const { day, month } = periods(now)
+  const holdCutoff = new Date(now.getTime() - GATEWAY_HOLD_LIFETIME_MS)
   const poolArray = poolIds.length ? Prisma.sql`ARRAY[${Prisma.join(poolIds)}]::text[]` : Prisma.sql`ARRAY[]::text[]`
   return tx.$queryRaw<OccupancyRow[]>(Prisma.sql`
     WITH scopes AS (
@@ -192,7 +206,7 @@ async function budgetOccupancy(tx: Tx, agentId: string, poolIds: string[], now: 
       COALESCE(logs.daily, 0)::float8 AS "dailyLogs", COALESCE(logs.monthly, 0)::float8 AS "monthlyLogs",
       ARRAY(
         SELECT GREATEST(r."reservedUsd", r."observedUsd") FROM "GatewayReservation" r
-        WHERE r.status IN ('pending', 'uncertain') AND (
+        WHERE r.status IN ('pending', 'uncertain') AND r."createdAt" >= ${holdCutoff}::timestamp AND (
           (s.kind = 'agent' AND r."agentId" = s."scopeId") OR (s.kind = 'pool' AND r."walletId" = ANY(s."walletIds"))
         )
       ) AS holds
@@ -219,6 +233,18 @@ async function budgetOccupancy(tx: Tx, agentId: string, poolIds: string[], now: 
         FROM "GatewayReservation" r JOIN "TokenLog" l ON l."gatewayReservationId" = r.id
         WHERE s.kind = 'pool' AND r.status = 'settled' AND r."walletId" = ANY(s."walletIds")
           AND l."createdAt" >= ${day}
+        UNION ALL
+        -- Lapsed holds: their estimate is spend dated at admission.
+        SELECT GREATEST(r."reservedUsd", r."observedUsd"), r."createdAt"
+        FROM "GatewayReservation" r
+        WHERE s.kind = 'agent' AND r."agentId" = s."scopeId" AND r.status IN ('pending', 'uncertain')
+          AND r."createdAt" < ${holdCutoff}::timestamp
+          AND r."createdAt" >= CASE WHEN ${monthly}::boolean THEN ${month}::timestamp ELSE ${day}::timestamp END
+        UNION ALL
+        SELECT GREATEST(r."reservedUsd", r."observedUsd"), r."createdAt"
+        FROM "GatewayReservation" r
+        WHERE s.kind = 'pool' AND r."walletId" = ANY(s."walletIds") AND r.status IN ('pending', 'uncertain')
+          AND r."createdAt" < ${holdCutoff}::timestamp AND r."createdAt" >= ${day}
       ) entries
     ) logs ON true
   `)
