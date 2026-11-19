@@ -1,0 +1,19 @@
+{
+  "description": "Pauses a short list of risky shell commands until a person approves the exact command in Sanction.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-hook.mjs\" --gate-bash",
+            "timeout": 15,
+            "onFailure": "block",
+            "statusMessage": "Checking with Sanction"
+          }
+        ]
+      }
+    ]
+  }
+}

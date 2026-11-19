@@ -78,7 +78,27 @@ time; future timestamps beyond five minutes are rejected. Old exports do not
 become today's usage. A valid active key may report past activity even when its
 wallet is frozen or over budget; revoked or expired keys cannot ingest.
 
+## Install the Claude Code plugin
+
+The [Claude Code plugin](../claude-plugin/README.md) installs the hook for you
+and pauses a short list of risky shell commands (`git push`, `npm publish`,
+`rm -rf` and others) until a person approves the exact command. It asks for a
+human decision on each one, so it needs no policy pack.
+
+```bash
+claude plugin marketplace add ericlovold/sanction
+```
+
+```bash
+claude plugin install sanction@sanction
+```
+
+Claude Code asks for a dedicated seat's key and keeps it in the platform's
+secure store. The limits below apply to the plugin too.
+
 ## Prove one Claude Code action is governed
+
+This is the manual path, for a tool the plugin does not cover.
 
 Use a **dedicated test wallet and seat**, then apply the **Claude Code approval
 test** policy pack in Policy. It escalates `claude-code.Read` and denies unlisted
@@ -87,7 +107,7 @@ restrictive; it is not a general coding policy.
 
 1. Create a harmless local file containing a short note.
 2. Set `SANCTION_AGENT_KEY` to that test seat's key in the terminal launching
-   Claude Code. Use Node 20 or newer.
+   Claude Code. Use Node 20+ and Claude Code 2.1.295+.
 3. Merge this hook into your private Claude settings, replacing the script path
    with the absolute path in your Sanction checkout. Do not replace other hooks.
 
@@ -98,8 +118,9 @@ restrictive; it is not a general coding policy.
       "matcher": "Read",
       "hooks": [{
         "type": "command",
-        "command": "node /absolute/path/to/sanction/scripts/developer/claude-hook.mjs",
-        "timeout": 15
+        "command": "node \"/absolute/path/to/sanction/claude-plugin/hooks/claude-hook.mjs\"",
+        "timeout": 15,
+        "onFailure": "block"
       }]
     }]
   }
@@ -112,6 +133,10 @@ restrictive; it is not a general coding policy.
    input, and approve it.
 6. Retry the identical read in the **same Claude session**. The hook retrieves
    and consumes the one-use grant before permitting the tool.
+
+Existing settings can keep `scripts/developer/claude-hook.mjs`. Add
+`"onFailure": "block"` so Claude Code blocks the tool if the hook cannot start
+or times out.
 
 Changing the working directory or tool input requires another approval. An
 expired or consumed grant never authorizes execution. A successful later read
@@ -126,11 +151,13 @@ this a tamper-proof sandbox. Telemetry delivery does not attest that hooks run.
 
 Network/configuration failures and observe-mode responses produce a denial.
 The hook uses an eight-second network timeout and does not wait for a human
-inside the hook. Pending state contains only request IDs and idempotency keys,
+inside the hook. A rejected, timed-out or unredeemable request clears its own
+pending state; retrying opens a new request. Pending state contains only request IDs and idempotency keys,
 under `~/.local/state/sanction/hooks` (override with `SANCTION_HOOK_STATE_DIR`).
-For denied/expired requests or a lock left by a killed process, stop the relevant
-Claude session before removing that test session's pending state; retrying then
-starts a new approval. Never remove a lock while a hook is running.
+A lock left by a killed process clears itself after a minute; until then that
+exact action stays blocked. To discard a denied or expired test request, stop the
+relevant Claude session before removing its pending state; retrying then starts
+a new approval. Never remove a lock while a hook is running.
 
 ## Evidence and limits
 

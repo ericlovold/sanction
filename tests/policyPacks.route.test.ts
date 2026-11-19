@@ -159,6 +159,10 @@ describe("coding-agent pack decisions", () => {
   it.each(["rm -rf /", "shell.exec", "shell:exec", "bash", "github.delete_repository", "unknown", "filesystem.read_file; rm -rf /"])("denies %s", (tool) => {
     expect(decideTool({ tool, allowedTools: policy.allowed_tools!, blockedTools: policy.blocked_tools!, escalateTools: policy.escalate_tools! }).status).toBe("denied")
   })
+  it("sends a Claude Code shell request to a person instead of denying it", () => {
+    expect(decideTool({ tool: "claude-code.Bash", allowedTools: policy.allowed_tools!, blockedTools: policy.blocked_tools!, escalateTools: policy.escalate_tools! }))
+      .toMatchObject({ status: "escalated", code: "TOOL_ESCALATION_REQUIRED" })
+  })
   it("allows a named read through the real ladder", () => {
     expect(decideTool({ tool: "filesystem.read_file", allowedTools: policy.allowed_tools!, blockedTools: policy.blocked_tools!, escalateTools: policy.escalate_tools! }).status).toBe("allowed")
   })
@@ -179,7 +183,7 @@ describe("coding-agent pack decisions", () => {
 // those lists would let a broken template silently redefine its own contract.
 const toolPackCases = [
   { id: "claude-code-approval-test", allow: [], escalate: ["claude-code.Read"], block: [], deny: ["claude-code.Write", "claude-code.ReadFile", "unknown"] },
-  { id: "coding-agent-seat", allow: ["github.get_file_contents", "filesystem.read_file", "filesystem.list_directory"], escalate: [], block: ["shell.exec", "rm -rf /"], deny: ["filesystem.read_secret", "github.create_pr", "unknown"] },
+  { id: "coding-agent-seat", allow: ["github.get_file_contents", "filesystem.read_file", "filesystem.list_directory"], escalate: ["claude-code.Bash"], block: ["shell.exec", "rm -rf /"], deny: ["filesystem.read_secret", "github.create_pr", "unknown"] },
   { id: "mcp-tool-governance", allow: ["github.search", "github.get_file_contents", "filesystem.read_file", "filesystem.list_directory"], escalate: ["filesystem.write_file", "github.create_pr", "shell.exec", "browser.submit", "email.send", "github.create_deployment"], block: ["secrets:read_raw", "cloud:delete_vm", "payments:charge"], deny: ["filesystem.read_secret", "filesystem.write_other", "cloud:delete_other", "unknown"] },
   { id: "gateway-token-budget", allow: ["github.create_deployment", "unknown"], escalate: [], block: [], deny: [] },
   { id: "fleet-channel-envelope", allow: ["github.get_file_contents", "filesystem.read_file"], escalate: ["provision:vm"], block: ["payments:charge", "secrets:export_all"], deny: ["payments:transfer", "secrets:export_other", "provision:other", "unknown"] },
