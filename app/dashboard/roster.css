@@ -1,15 +1,6 @@
-/* Roster surface — scoped. Dark credential case, one brass stamp. */
+/* Legacy roster helpers. Colors come from the dashboard tokens in glass.css. */
 .roster {
-  --roster-ink: #0b0c0e;
-  --roster-paper: #14161a;
-  --roster-rule: #2a2d33;
-  --roster-brass: #c4a35a;
-  --roster-fog: #8b9099;
-  --roster-signal: #e8e4d9;
-  --roster-paused: #d4a017;
-  --roster-blocked: #6b7078;
   min-height: 100%;
-  background: var(--roster-ink);
   color: var(--roster-signal);
 }
 

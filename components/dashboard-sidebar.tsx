@@ -5,58 +5,88 @@ import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-// Console shell sidebar. Active state is derived from the path, so pages no longer
-// pass an `active` prop. AccountControl is rendered server-side and passed in via
-// `account` so this client component never imports a server component.
+// Dashboard navigation: a floating glass rail on desktop, a top bar plus a
+// floating tab bar on phones. Active state is derived from the path.
+// AccountControl is rendered server-side and passed in via `account` so this
+// client component never imports a server component.
 
-type Item = { href: string; label: string; icon: ReactNode }
-
-function Icon({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0">
-      <path d={d} />
-    </svg>
-  )
+type Item = {
+  href: string
+  label: string
+  icon: string
+  // Other paths that belong to this item (pages reached from its hub).
+  also?: string[]
+  // Shown in the phone tab bar, which has room for five.
+  tab?: boolean
 }
 
 // Minimal inline icons (no icon-lib dependency).
 const ICON = {
-  overview: "M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z",
-  usage: "M4 4v16h16M8 16v-4m5 4V7m5 9v-6",
+  home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z",
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
-  credentials: "M5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5zM12 15v2",
+  agents: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  usage: "M4 4v16h16M8 16v-4m5 4V7m5 9v-6",
+  spend: "M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM3 10h18M7 15h3",
+  policy: "M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3ZM9 12l2 2 4-4",
+  activity: "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  settings: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4",
 }
 
-const items: Item[] = [
-  { href: "/dashboard", label: "Roster", icon: <Icon d={ICON.overview} /> },
-  { href: "/dashboard/usage", label: "Developer usage", icon: <Icon d={ICON.usage} /> },
-  { href: "/dashboard/approvals", label: "Approvals", icon: <Icon d={ICON.approvals} /> },
-  { href: "/dashboard/vault", label: "Vault", icon: <Icon d={ICON.credentials} /> },
+// Two groups: what you decide and who acts, then money, rules and the record.
+const primary: Item[] = [
+  { href: "/dashboard", label: "Home", icon: ICON.home, tab: true },
+  { href: "/dashboard/approvals", label: "Approvals", icon: ICON.approvals, tab: true },
+  { href: "/dashboard/agents", label: "Agents", icon: ICON.agents, tab: true },
 ]
 
-function isActive(pathname: string, href: string): boolean {
-  return href === "/dashboard" ? pathname === href : pathname.startsWith(href)
+const secondary: Item[] = [
+  { href: "/dashboard/usage", label: "Usage", icon: ICON.usage, also: ["/dashboard/connect"] },
+  { href: "/dashboard/spend", label: "Spend", icon: ICON.spend },
+  { href: "/dashboard/policy", label: "Policy", icon: ICON.policy },
+  { href: "/dashboard/audit", label: "Activity", icon: ICON.activity, tab: true },
+]
+
+const settings: Item = {
+  href: "/dashboard/vault",
+  label: "Settings",
+  icon: ICON.settings,
+  also: ["/dashboard/credentials", "/dashboard/providers", "/dashboard/team", "/dashboard/pools"],
+  tab: true,
 }
 
-function NavLink({ item, active, pending, onNavigate }: { item: Item; active: boolean; pending: number; onNavigate?: () => void }) {
-  const showBadge = item.href === "/dashboard/approvals" && pending > 0
+function isActive(pathname: string, item: Item): boolean {
+  if (item.href === "/dashboard") return pathname === item.href
+  return [item.href, ...(item.also ?? [])].some((p) => pathname.startsWith(p))
+}
+
+function NavLink({ item, active, pending }: { item: Item; active: boolean; pending: number }) {
+  const showCount = item.href === "/dashboard/approvals" && pending > 0
   return (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      onClick={onNavigate}
       data-tour={item.href.replace("/dashboard/", "nav-").replace("/dashboard", "nav-overview")}
-      className={`group flex items-center gap-3 whitespace-nowrap border-l-2 px-2 py-2 text-sm transition-colors max-[359px]:px-1.5 max-[359px]:text-xs md:px-3 ${
-        active
-          ? "border-sidebar-primary bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-          : "border-transparent text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-      }`}
+      className="dash-link"
     >
-      <span className={`hidden md:inline-flex ${active ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"}`}>{item.icon}</span>
-      <span className="flex-1">{item.label}</span>
-      {showBadge && (
-        <span className="rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[oklch(0.82_0.11_85)]">{pending}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={item.icon} />
+      </svg>
+      <span>{item.label}</span>
+      {showCount && (
+        <span className="dash-count">
+          {pending}
+          <span className="sr-only"> waiting</span>
+        </span>
       )}
+    </Link>
+  )
+}
+
+function Brand() {
+  return (
+    <Link href="/dashboard" className="dash-brand" aria-label="Sanction home">
+      <img src="/brand/sanction-wordmark.svg" alt="" className="dash-logo-light" />
+      <img src="/brand/sanction-wordmark-white.svg" alt="" className="dash-logo-dark" />
     </Link>
   )
 }
@@ -70,7 +100,7 @@ export function DashboardSidebar({
 }: {
   view: { name: string; isSession: boolean }
   pendingCount: number
-  // Kept so the layout does not change. Pools are group cards on the roster.
+  // Kept so the layout does not change. Groups are sections on the home page.
   hasPools?: boolean
   account: ReactNode
   // WALLET-MEMBERS part 2: rendered instead of the static name line when the
@@ -78,51 +108,42 @@ export function DashboardSidebar({
   switcher?: ReactNode
 }) {
   const pathname = usePathname()
-  const visible = items
+  const link = (item: Item) => (
+    <NavLink key={item.href} item={item} active={isActive(pathname, item)} pending={pendingCount} />
+  )
   return (
     <>
-      {/* Desktop: the deep-pine control rail framing the light workpaper */}
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-0 text-sidebar-foreground md:flex">
-        <div className="border-b border-sidebar-border px-4 py-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="size-1.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_var(--sidebar-primary)]" />
-            <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[16px] w-auto" />
-          </Link>
-          {switcher ?? (
-            <p className="mt-2 truncate font-mono text-[11px] text-sidebar-foreground/45">
-              {view.name}
-              {!view.isSession && <span className="ml-1.5 rounded-sm border border-sidebar-border px-1 py-px text-[9px]">demo</span>}
-            </p>
-          )}
-        </div>
-        <nav className="flex flex-1 flex-col py-2">
-          {visible.map((it) => (
-            <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
-          ))}
+      <aside className="dash-rail g-glass">
+        <Brand />
+        {switcher ?? (
+          <p className="dash-wallet">
+            {view.name}
+            {!view.isSession && <span className="dash-wallet-tag">demo</span>}
+          </p>
+        )}
+        <nav className="dash-nav" aria-label="Dashboard">
+          {primary.map(link)}
+          <div className="dash-nav-gap" aria-hidden />
+          {secondary.map(link)}
+          <div style={{ flex: 1 }} />
+          {link(settings)}
         </nav>
-        <div className="flex items-center justify-between border-t border-sidebar-border px-3 py-3">
-          <span className="flex items-center gap-1.5 font-display text-[8.5px] uppercase tracking-[0.1em] text-[oklch(0.78_0.11_85)]">
-            <span className="size-1.5 rounded-full bg-[oklch(0.78_0.11_85)]" /> Signed ledger
-          </span>
-          <div className="flex items-center gap-1 text-sidebar-foreground">{account}<ThemeToggle collapsed /></div>
+        <div className="dash-foot">
+          {account}
+          <ThemeToggle collapsed />
         </div>
       </aside>
 
-      {/* Mobile: top bar with a horizontally scrollable nav */}
-      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground backdrop-blur md:hidden">
-        <div className="flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="size-1.5 rounded-full bg-sidebar-primary" />
-            <img src="/brand/sanction-wordmark-white.svg" alt="Sanction" className="h-[16px] w-auto" />
-          </Link>
-          <div className="flex items-center gap-1">{account}<ThemeToggle collapsed /></div>
+      <header className="dash-top g-glass md:hidden">
+        <Brand />
+        <div className="flex items-center gap-1">
+          {account}
+          <ThemeToggle collapsed />
         </div>
-        <nav className="-mx-1 flex gap-1 overflow-x-auto">
-          {visible.map((it) => (
-            <NavLink key={it.href} item={it} active={isActive(pathname, it.href)} pending={pendingCount} />
-          ))}
-        </nav>
       </header>
+      <nav className="dash-tabs g-glass md:hidden" aria-label="Dashboard">
+        {[...primary, ...secondary, settings].filter((item) => item.tab).map(link)}
+      </nav>
     </>
   )
 }

@@ -17,8 +17,8 @@ import { slackClientId } from "@/lib/slackOAuth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
-import { fmtUsd } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
+import { actionLabel, asRecord, resourceTitle } from "@/lib/approvalTitle"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -26,49 +26,6 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = "force-dynamic"
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null
-}
-
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null
-}
-
-function actionLabel(actionType: string) {
-  return actionType
-    .split(".")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
-}
-
-function resourceTitle(resource: Record<string, unknown>, actionType: string) {
-  if (resource.kind === "spend") {
-    const amount = numberValue(resource.amount_usd)
-    const merchant = stringValue(resource.merchant) ?? "Unknown merchant"
-    return amount === null ? merchant : `${fmtUsd(amount)} ${merchant}`
-  }
-  if (resource.kind === "provision") {
-    const quantity = numberValue(resource.quantity)
-    const lineItem = stringValue(resource.line_item) ?? "Unknown item"
-    const amount = numberValue(resource.amount_usd)
-    const res = stringValue(resource.resource)
-    const head = quantity === null ? lineItem : `${quantity} × ${lineItem}`
-    return `${head}${amount === null ? "" : ` — ${fmtUsd(amount)}`}${res ? ` (${res})` : ""}`
-  }
-  return (
-    stringValue(resource.label) ??
-    stringValue(resource.tool) ??
-    stringValue(resource.tool_name) ??
-    stringValue(resource.credential_label) ??
-    stringValue(resource.name) ??
-    actionLabel(actionType)
-  )
-}
 
 const statusClasses: Record<string, string> = {
   approved: "border-emerald-600/30 bg-emerald-500/[0.07] text-emerald-700 dark:border-emerald-500/25 dark:text-emerald-400",

@@ -19,24 +19,24 @@ type Step = {
 
 const STEPS: Step[] = [
   {
-    target: "roster-root",
-    title: "1 · The roster",
-    body: "This is the group. Agents live on it. Child groups nest under it. Spend and the mandate stamp sit on the card — not on a report of zeros.",
-  },
-  {
     target: "roster-add",
-    title: "2 · Add an agent",
-    body: "Name it. Create. Copy the key once. The card appears in this group.",
+    title: "Add an agent",
+    body: "Name it and copy its key. The key is shown once; paste it into the tool the agent runs in.",
   },
   {
     target: "nav-approvals",
-    title: "3 · Approve",
-    body: "When a request crosses the line it pauses here. Approve mints a single-use grant. The stamp on the agent card reads paused until you decide.",
+    title: "Decide what is waiting",
+    body: "When an agent asks for something that needs a person, it waits here. Approving lets that one action through, once.",
+  },
+  {
+    target: "roster-root",
+    title: "See every agent",
+    body: "Each agent is listed under its group with what it spent this month. Search by name, person or group.",
   },
   {
     target: "nav-vault",
-    title: "4 · Vault",
-    body: "Credentials, providers, people, policy, spend, and the signed record. Properties of the wallet — not nine icons on the rail.",
+    title: "Settings",
+    body: "Credentials, model providers and the people who can approve.",
   },
 ]
 
@@ -107,13 +107,24 @@ export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: 
   const card = useMemo(() => {
     if (step === null || !rect) return null
     const s = STEPS[step]
-    // Place the card to the right of the target when there's room, else below.
+    // Beside the target when there is room, else below it, else above it. The
+    // card is always clamped inside the viewport: a target taller than the
+    // screen (a long list) used to push the card off the bottom, leaving a
+    // dimmed page with no way forward.
+    const CARD_W = 340
+    const CARD_H = 190
     const spaceRight = window.innerWidth - rect.right
-    const side: "right" | "below" = spaceRight > 360 ? "right" : "below"
+    const spaceBelow = window.innerHeight - rect.bottom
+    const side: "right" | "below" | "above" =
+      spaceRight > CARD_W + 36 ? "right" : spaceBelow > CARD_H + 24 ? "below" : "above"
+    const clampTop = (top: number) => Math.max(16, Math.min(top, window.innerHeight - CARD_H - 16))
+    const clampLeft = (left: number) => Math.max(16, Math.min(left, window.innerWidth - CARD_W - 16))
     const style: React.CSSProperties =
       side === "right"
-        ? { top: Math.max(16, Math.min(rect.top, window.innerHeight - 240)), left: rect.right + 18 }
-        : { top: rect.bottom + 18, left: Math.max(16, Math.min(rect.left, window.innerWidth - 356)) }
+        ? { top: clampTop(rect.top), left: rect.right + 18 }
+        : side === "below"
+          ? { top: clampTop(rect.bottom + 18), left: clampLeft(rect.left) }
+          : { top: clampTop(rect.top - CARD_H - 18), left: clampLeft(rect.left) }
     return { s, side, style }
   }, [step, rect])
 
@@ -126,17 +137,22 @@ export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: 
       {rect && (
         <div
           aria-hidden
-          className="absolute rounded-lg ring-2 ring-emerald-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] transition-all duration-200"
-          style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12 }}
+          className="absolute rounded-2xl ring-2 ring-emerald-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] transition-all duration-200"
+          style={{
+            top: Math.max(8, rect.top - 6),
+            left: rect.left - 6,
+            width: rect.width + 12,
+            height: Math.min(rect.bottom + 6, window.innerHeight - 8) - Math.max(8, rect.top - 6),
+          }}
         />
       )}
       {card && (
-        <div className="absolute w-[340px] rounded-lg border border-border bg-card p-4 shadow-xl" style={card.style}>
+        <div className="g-glass absolute w-[340px] rounded-2xl p-4" style={{ ...card.style, position: "absolute", background: "var(--d-surface-solid)" }}>
           {/* Arrow toward the target */}
           <div
             aria-hidden
-            className={`absolute h-3 w-3 rotate-45 border-border bg-card ${
-              card.side === "right" ? "-left-1.5 top-6 border-b border-l" : "-top-1.5 left-8 border-l border-t"
+            className={`absolute h-3 w-3 rotate-45 border-border bg-[var(--d-surface-solid)] ${
+              card.side === "right" ? "-left-1.5 top-6 border-b border-l" : "hidden"
             }`}
           />
           <p className="text-sm font-semibold">{card.s.title}</p>
@@ -162,7 +178,7 @@ export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: 
                 </Link>
               ) : (
                 <button onClick={complete} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
-                  Done — it&apos;s yours
+                  Done
                 </button>
               )}
             </span>
@@ -182,9 +198,9 @@ export function TourLauncher() {
         url.searchParams.set("tour", "1")
         window.location.href = url.toString()
       }}
-      className="rounded-full border border-emerald-500/40 px-3 py-1 text-xs text-emerald-500 hover:bg-emerald-500/[0.08]"
+      className="g-btn g-btn-quiet"
     >
-      Tour
+      Take the tour
     </button>
   )
 }
