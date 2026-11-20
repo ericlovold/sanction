@@ -1,0 +1,77 @@
+/* Homepage sections added with the one-story layout. Shared homepage rules
+   (nav, hero, approval card, steps, closing, footer) stay in brand.css. */
+
+.sn-home.sn-hp { --home-accent: var(--pine-7); --home-accent-light: #6fd3ac; }
+.sn-home.sn-hp .sn-home-hero { background: radial-gradient(ellipse at 85% 25%, var(--pine-tint) 0%, transparent 55%); }
+.sn-home.sn-hp .sn-review-example { border-color: var(--line-1); box-shadow: var(--shadow-card); }
+.sn-home.sn-hp .sn-home-steps li { border-top: 2px solid var(--pine-8); }
+.sn-home.sn-hp .sn-home-closing { background: var(--pine-tint); border-color: var(--line-2); }
+.sn-home.sn-hp .sn-home-lead { max-width: 54ch; }
+
+.sn-hp-band { background: var(--paper-1); border-block: 1px solid var(--line-2); }
+.sn-hp-pill { display: inline-block; align-self: flex-start; padding: 4px 10px; border-radius: var(--radius-pill); font-size: 13px; line-height: 1.4; }
+.sn-hp-pill[data-tone="verified"], .sn-hp-pill[data-tone="allowed"] { background: var(--signal-tint); color: var(--pine-9); }
+.sn-hp-pill[data-tone="partial"], .sn-hp-pill[data-tone="pending"] { background: var(--ochre-tint); color: #6f5010; }
+.sn-hp-pill[data-tone="refused"] { background: var(--brick-tint); color: #7d2f1f; }
+
+/* Hosts */
+.sn-hp-hosts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; list-style: none; margin: 0; padding: 0; }
+.sn-hp-hosts li { display: flex; flex-direction: column; gap: 10px; padding: 18px; background: var(--surface-card); border: 1px solid var(--line-1); border-radius: 12px; }
+.sn-hp-hosts strong { font-size: 18px; font-weight: 600; }
+.sn-hp-hosts .sn-hp-pill { border-radius: 8px; }
+.sn-hp-note { margin: 24px 0 0; font-size: 15px; color: var(--text-secondary); }
+.sn-hp-note a, .sn-hp-takeaway a { color: var(--pine-8); text-decoration: underline; text-underline-offset: 4px; }
+
+/* What a yes means */
+.sn-hp-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.sn-hp-card { display: flex; flex-direction: column; gap: 12px; padding: 24px; background: var(--surface-card); border: 1px solid var(--line-1); border-radius: var(--radius-card); }
+.sn-hp-card h3 { margin: 0; }
+.sn-hp-card p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--text-secondary); }
+.sn-hp-card .sn-hp-pill { font-weight: 600; }
+.sn-hp-request { margin: 0; padding: 12px; border-radius: 8px; background: var(--paper-1); font: 14px/1.6 var(--font-mono); color: var(--text-body); white-space: pre-line; }
+.sn-hp-request mark { background: var(--brick-tint); color: #7d2f1f; }
+
+/* Does and doesn't */
+.sn-hp-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.sn-hp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.sn-hp-list li { display: flex; gap: 12px; font-size: 16px; line-height: 1.55; color: var(--text-body); }
+.sn-hp-list svg { flex: none; margin-top: 3px; }
+.sn-hp-takeaway { margin: 28px 0 0; font-size: 18px; line-height: 1.5; font-weight: 600; }
+
+/* For teams */
+.sn-hp-teams { display: grid; grid-template-columns: .9fr 1.1fr; gap: 48px; align-items: start; }
+.sn-hp-teams .sn-home-section-heading { margin-bottom: 0; }
+.sn-hp-teams .sn-home-section-heading .sn-btn { margin-top: 24px; }
+.sn-hp-stack { display: flex; flex-direction: column; gap: 12px; }
+.sn-hp-stack article { padding: 18px 20px; background: var(--surface-card); border: 1px solid var(--line-1); border-radius: 12px; }
+.sn-hp-stack h3 { margin: 0 0 4px; font-size: 18px; }
+.sn-hp-stack p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--text-secondary); }
+
+/* Why Sanction exists: rendered only when the founder's note is written */
+.sn-hp-why { background: var(--surface-inverse); color: #f2f1ea; }
+.sn-hp-why > div { max-width: 860px; margin-inline: auto; padding: 88px 32px; }
+.sn-home .sn-hp-why .sn-home-label { color: var(--home-accent-light); }
+.sn-home .sn-hp-why h2 { font-size: clamp(30px, 4vw, 44px); }
+.sn-hp-why p:not(.sn-home-label) { margin: 22px 0 0; font-size: 19px; line-height: 1.55; color: #c4c7bb; }
+.sn-hp-why a { display: inline-block; margin-top: 26px; color: var(--home-accent-light); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+
+/* Pricing */
+.sn-hp-pricing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 860px; }
+.sn-hp-pricing article { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 28px; background: var(--surface-card); border: 1px solid var(--line-1); border-radius: var(--radius-card); }
+.sn-hp-pricing h3 { margin: 0; }
+.sn-hp-price { margin: 0; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -.02em; }
+.sn-hp-pricing p:not(.sn-hp-price) { margin: 0; font-size: 16px; line-height: 1.55; color: var(--text-secondary); }
+
+@media (max-width: 1100px) {
+  .sn-hp-hosts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .sn-hp-cards { grid-template-columns: 1fr; }
+  .sn-hp-teams { grid-template-columns: 1fr; gap: 28px; }
+}
+@media (max-width: 640px) {
+  .sn-hp-hosts, .sn-hp-pair, .sn-hp-pricing { grid-template-columns: 1fr 1fr; }
+  .sn-hp-pair, .sn-hp-pricing { grid-template-columns: 1fr; }
+  .sn-hp-why > div { padding: 56px 22px; }
+  .sn-hp-takeaway { font-size: 17px; }
+}
