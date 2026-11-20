@@ -15,6 +15,24 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-20",
+    title: "The homepage and About page say what Sanction is",
+    tags: ["site"],
+    body: "The [homepage](/) now tells one story in order: one approval inbox for the AI tools you use, what a yes covers, how the loop works, what Sanction does and does not do, governing your company's own AI use, and pricing. Each tool carries its tested status next to its name: Claude's full approval loop is verified, Grok is sign-in and status only, and Codex and Cursor are marked pending. A test fails CI if the page calls a tool verified while the [connection guide](/docs/connect) says its test is pending.\n\n[`/about`](/about) is now about the product: what it is, the three rules it is built on, and where to check each claim (source, changelog, roadmap, dated test status). Consulting moved to the founder's own site.\n\nThe use cases and platform detail left the homepage and remain at [`/use-cases`](/use-cases) and [`/platform`](/platform).",
+  },
+  {
+    date: "2026-11-19",
+    title: "Connecting an AI tool: one branded flow, and a Codex version floor",
+    tags: ["connect", "oauth", "codex"],
+    body: "The sign-in, confirmation and consent pages a person sees when connecting an AI tool now share the site's design and one layout: what the connection is for on one side, the decision on the other. The consent page asks which agent the tool acts as, lists what the tool will and will not be able to do, then offers **Allow connection** or **Deny**. A tool's name comes from its own registration, so it appears only beside the decision, capped at 80 characters. The consent and agent-creation actions are unchanged.\n\n**Codex:** use Codex 0.147 or later. Codex 0.144.1 stops after you approve with a missing-issuer error (reproduced 2026-11-19); the [install page](/install) and the connection guide now say so.\n\n**Honest boundaries:** Sanction has not yet recorded a completed sign-in on a newer Codex, and the Codex approval loop is still untested.",
+  },
+  {
+    date: "2026-11-19",
+    title: "A Claude Code plugin that asks before risky shell commands",
+    tags: ["claude-code", "approvals", "plugin"],
+    body: "Sanction now has a [Claude Code plugin](https://github.com/ericlovold/sanction/tree/main/claude-plugin). It pauses seven shell commands (`git push`, `npm publish`, `gh pr merge`, `rm -rf`, `terraform apply`, `terraform destroy`, `kubectl delete`) until a person approves the exact command. Everything else runs as usual, with no network call.\n\nThe hook blocks the command and asks Sanction for one human decision, with no policy edit. The reviewer sees the working directory, the full command and every rule it matched. Retrying the same command in the same session and directory redeems the approval once; a changed command, another session or a second run needs a new one. Claude Code's own permission rules still apply afterwards. A wallet policy that denies `claude-code.Bash` cannot be approved around, and the **Coding agent seat** pack now lists that tool.\n\nInstall from this repository with `claude plugin marketplace add ericlovold/sanction`, then `claude plugin install sanction@sanction`. It needs Claude Code 2.1.295 or newer, Node 20 or newer, and a dedicated seat key.\n\n**Honest boundaries:** the plugin is not listed in any Anthropic marketplace. It guards against mistakes, not a hostile operator: whoever controls the host's settings can disable it. Matching is best-effort, so aliases, variables and wrapper scripts are not caught. A Sanction outage blocks the listed commands. The installed plugin was tested on Claude Code 2.1.314 against a local Sanction service with synthetic identities, not against production, and the OS keychain prompt for the key is unverified.",
+  },
+  {
     date: "2026-11-18",
     title: "v0.10.0 — an agent asks, a person answers where they work",
     version: "0.10.0",
