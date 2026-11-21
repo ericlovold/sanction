@@ -225,8 +225,14 @@ function ApprovalRow({
                 <X className="size-4" />
                 Reject
               </button>
+              {/* The two buttons carry different keys on purpose. Without them React
+                  reuses one DOM button and flips its type to "submit" while the
+                  first click is still being handled, so the browser submits the
+                  form and a single click approves. Distinct keys make React swap
+                  the element, and the first click only arms. */}
               {armed ? (
                 <button
+                  key="confirm"
                   type="submit"
                   name="decision"
                   value="approve"
@@ -238,6 +244,7 @@ function ApprovalRow({
                 </button>
               ) : (
                 <button
+                  key="arm"
                   type="button"
                   onClick={arm}
                   disabled={pending}
