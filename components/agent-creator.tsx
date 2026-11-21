@@ -43,7 +43,7 @@ function Copy({ value, label, disabled, start, finish }: {
         onClick={copy}
         disabled={disabled}
         aria-label={`Copy ${label}`}
-        className="shrink-0 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        className="g-btn g-btn-quiet g-btn-sm"
       >
         {status === "pending" ? "copying…" : status === "copied" ? "copied" : "copy"}
       </button>
@@ -89,29 +89,29 @@ export function AgentCreator() {
 
   return (
     <div className="space-y-3">
-      <div className="inline-flex rounded-md border border-border bg-muted p-1 text-xs">
+      <div className="g-seg" role="group" aria-label="How many">
         <button
           type="button"
           disabled={busy}
           onClick={() => { if (!copyLock.current && !pending && !batchPending) setMode("single") }}
-          className={`rounded px-2 py-1 transition-colors ${mode === "single" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-muted-foreground"}`}
+          aria-pressed={mode === "single"}
         >
-          Single seat
+          One agent
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => { if (!copyLock.current && !pending && !batchPending) setMode("batch") }}
-          className={`rounded px-2 py-1 transition-colors ${mode === "batch" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-muted-foreground"}`}
+          aria-pressed={mode === "batch"}
         >
-          Batch seats
+          Several at once
         </button>
       </div>
 
       {state.ok && state.agentKey && (
         <div className="space-y-3 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
           <p className="text-sm font-semibold text-primary">
-            {state.agentName}{" "}created — copy the key now, it&apos;s shown once.
+            {state.agentName} is ready. Copy its key now; it is shown only once.
           </p>
           <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
             <div className="min-w-0 flex-1">
@@ -156,43 +156,46 @@ export function AgentCreator() {
 
       {mode === "single" ? (
         <>
-          <form action={formAction} onSubmit={(event) => { if (copyLock.current || pending || batchPending) event.preventDefault() }} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <form action={formAction} onSubmit={(event) => { if (copyLock.current || pending || batchPending) event.preventDefault() }} className="seat-create">
             <input
               name="name"
               required
               maxLength={64}
-              placeholder={state.ok ? "Name another seat…" : "New seat name — e.g. nightly-coder"}
-              className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
+              placeholder={state.ok ? "Name another agent" : "Name, for example: nightly-coder"}
+              aria-label="Agent name"
+              className="g-input"
             />
             <input
               name="holder"
               maxLength={120}
               placeholder="Holder (optional)"
-              title="Who holds this seat — audit only, never auth"
-              className="min-w-0 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border sm:w-44"
+              aria-label="Holder"
+              title="Who holds this agent. For the record only; it is never used to sign in."
+              className="g-input"
             />
             <input
               name="expires_at"
               type="date"
-              title="Auto-shutoff: the key fails closed after this day (contractors)"
-              className="min-w-0 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground outline-none focus:border-border sm:w-40"
+              aria-label="Expires"
+              title="Optional. The key stops working after this day."
+              className="g-input"
             />
             <button
               type="submit"
               disabled={busy}
-              className="shrink-0 rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
+              className="g-btn g-btn-primary"
             >
-              {pending ? "Creating…" : state.ok ? "Create another" : "Create seat"}
+              {pending ? "Adding…" : state.ok ? "Add another" : "Add agent"}
             </button>
           </form>
-          {!state.ok && state.error && <p className="text-sm text-red-400">{state.error}</p>}
+          {!state.ok && state.error && <p className="add-pop-error">{state.error}</p>}
         </>
       ) : (
         <>
           {batchState.ok && (batchState.seats?.length ?? 0) > 0 && (
             <div className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
               <p className="text-sm font-semibold text-primary">
-                Created {batchState.seats!.length} seats ({batchState.templateName}) — copy keys now, they are shown once.
+                Added {batchState.seats!.length} agents ({batchState.templateName}). Copy their keys now; they are shown only once.
               </p>
               <p className="text-xs text-muted-foreground">Select a field to copy the full key manually.</p>
               <div className="max-h-56 overflow-y-auto rounded border border-border bg-muted">
@@ -217,27 +220,27 @@ export function AgentCreator() {
             </div>
           )}
 
-          <form action={batchAction} onSubmit={(event) => { if (copyLock.current || pending || batchPending) event.preventDefault() }} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          <form action={batchAction} onSubmit={(event) => { if (copyLock.current || pending || batchPending) event.preventDefault() }} className="seat-form-grid seat-form-grid-5">
+            <label>
               Name prefix
               <input
                 name="name_prefix"
                 required
                 maxLength={48}
                 placeholder="contractor"
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
+                className="g-input"
               />
             </label>
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+            <label>
               Holder prefix
               <input
                 name="holder_prefix"
                 maxLength={100}
                 placeholder="Contractor"
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
+                className="g-input"
               />
             </label>
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+            <label>
               Count
               <input
                 name="count"
@@ -245,40 +248,40 @@ export function AgentCreator() {
                 min={1}
                 max={50}
                 defaultValue={5}
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
+                className="g-input"
               />
             </label>
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+            <label>
               Template
               <select
                 name="template_id"
                 defaultValue="contractor"
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-border"
+                className="g-input"
               >
                 <option value="contractor">contractor</option>
                 <option value="sandbox">sandbox</option>
                 <option value="prod-runner">prod-runner</option>
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+            <label>
               Expires
               <input
                 name="expires_at"
                 type="date"
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground outline-none focus:border-border"
+                className="g-input"
               />
             </label>
-            <div className="sm:col-span-2 lg:col-span-5">
+            <div className="seat-form-wide">
               <button
                 type="submit"
                 disabled={busy}
-                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                className="g-btn g-btn-primary"
               >
-                {batchPending ? "Creating seats…" : "Create seat batch"}
+                {batchPending ? "Adding agents…" : "Add agents"}
               </button>
             </div>
           </form>
-          {!batchState.ok && batchState.error && <p className="text-sm text-red-400">{batchState.error}</p>}
+          {!batchState.ok && batchState.error && <p className="add-pop-error">{batchState.error}</p>}
         </>
       )}
     </div>
