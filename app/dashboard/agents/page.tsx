@@ -8,14 +8,14 @@ import { NoWallet } from "@/components/no-wallet"
 import { AgentCreator } from "@/components/agent-creator"
 import { ApiKeysTable, type ConsoleAgent } from "@/components/api-keys-table"
 import { ExecutionTokensSection } from "@/components/execution-tokens-section"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AgentsHeader } from "@/components/agents-header"
 import { hasRole } from "@/lib/roles"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Seats — Sanction",
-  description: "Manage agent identities, capability keys, and live authorization posture.",
+  title: "Agents — Sanction",
+  description: "Every agent on this wallet: its key, limits, holder and recent decisions.",
 }
 
 async function walletScopeIds(rootWalletId: string, scope: "wallet" | "subtree"): Promise<string[]> {
@@ -169,112 +169,67 @@ export default async function AgentsPage({
   const activeGrants = agents.reduce((sum, a) => sum + a.activeGrants, 0)
   const pendingApprovals = agents.reduce((sum, a) => sum + a.pendingApprovals, 0)
 
+  const canEdit = hasRole(view.role, "admin")
+  const off = inactiveAgents + expiredAgents
+  // One sentence instead of a row of stat boxes. Zero counts are left out.
+  const summary = [
+    agents.length === 0
+      ? "No agents yet."
+      : `${activeAgents} active${off > 0 ? `, ${off} off or expired` : ""}.`,
+    pendingApprovals > 0 ? `${pendingApprovals} waiting on you.` : "",
+    expiringSoon > 0 ? `${expiringSoon} ${expiringSoon === 1 ? "expires" : "expire"} within 7 days.` : "",
+    activeGrants > 0 ? `${activeGrants} active ${activeGrants === 1 ? "grant" : "grants"}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+  const stateHref = (state: string) => `/dashboard/agents?scope=${scope}${state === "all" ? "" : `&state=${state}`}`
+  const scopeHref = (next: string) => `/dashboard/agents?scope=${next}${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`
+  const STATES = [
+    ["all", "All", agents.length],
+    ["inactive", "Off", inactiveAgents],
+    ["expiring", "Expiring", expiringSoon],
+    ["expired", "Expired", expiredAgents],
+  ] as const
+
   return (
-    <div className="mx-auto min-h-screen max-w-6xl space-y-6 p-6">
-      <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Seats</h1>
-      <p className="-mt-4 text-sm text-muted-foreground">
-        Each seat is an agent identity with its own key, limits, and audit trail. The key is the runtime identity; seat
-        holder and expiry are operator controls.
-      </p>
-      <div className="flex flex-wrap gap-2 text-xs">
-        <Link
-          href={`/dashboard/agents?scope=wallet${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`}
-          className={`rounded border px-2 py-1 ${scope === "wallet" ? "border-emerald-500/30 bg-emerald-500/10 text-primary" : "border-border text-muted-foreground hover:text-muted-foreground"}`}
-        >
-          Current wallet
-        </Link>
-        <Link
-          href={`/dashboard/agents?scope=subtree${stateFilter !== "all" ? `&state=${stateFilter}` : ""}`}
-          className={`rounded border px-2 py-1 ${scope === "subtree" ? "border-emerald-500/30 bg-emerald-500/10 text-primary" : "border-border text-muted-foreground hover:text-muted-foreground"}`}
-        >
-          Hierarchy (wallet + pools)
-        </Link>
-        {(["all", "inactive", "expiring", "expired"] as const).map((state) => (
-          <Link
-            key={state}
-            href={`/dashboard/agents?scope=${scope}${state === "all" ? "" : `&state=${state}`}`}
-            className={`rounded border px-2 py-1 ${stateFilter === state ? "border-border bg-muted text-foreground" : "border-border text-muted-foreground hover:text-muted-foreground"}`}
-          >
-            {state}
-          </Link>
-        ))}
-      </div>
+    <div className="home">
+      <AgentsHeader summary={summary} startOpen={canEdit && agents.length === 0}>
+        {canEdit ? <AgentCreator /> : null}
+      </AgentsHeader>
 
-      {/* Zero-noise: Active seats is the page's headline and always shows;
-          the health counters (grants, pending, expiring, inactive) only exist
-          while they're non-zero — a healthy fleet shows one number, not five. */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="border-border bg-card">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Active seats</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold">{activeAgents}</p>
-            <p className="text-xs text-muted-foreground">{agents.length} registered</p>
-          </CardContent>
-        </Card>
-        {activeGrants > 0 && (
-          <Card className="border-border bg-card">
-            <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-muted-foreground">Active grants</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <p className="font-mono text-2xl font-semibold">{activeGrants}</p>
-            </CardContent>
-          </Card>
-        )}
-        {pendingApprovals > 0 && (
-          <Card className="border-border bg-card">
-            <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-muted-foreground">Pending approvals</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <p className="font-mono text-2xl font-semibold">{pendingApprovals}</p>
-            </CardContent>
-          </Card>
-        )}
-        {expiringSoon > 0 && (
-          <Card className="border-border bg-card">
-            <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 7d</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <p className="font-mono text-2xl font-semibold">{expiringSoon}</p>
-            </CardContent>
-          </Card>
-        )}
-        {inactiveAgents + expiredAgents > 0 && (
-          <Card className="border-border bg-card">
-            <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-muted-foreground">Inactive / expired</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <p className="font-mono text-2xl font-semibold">{inactiveAgents + expiredAgents}</p>
-              <p className="text-xs text-muted-foreground">{inactiveAgents} inactive · {expiredAgents} expired</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {hasRole(view.role, "admin") ? (
-        <div className="rounded-lg border border-border bg-muted p-4">
-          <AgentCreator />
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
+      {!canEdit && (
+        <p className="appr-lede">
           {view.isSession ? (
-            "Your role can view seats but not create or edit them — ask the wallet owner for admin access."
+            "Your role can view agents but not add or edit them. Ask the wallet owner for admin access."
           ) : (
             <>
-              <Link href="/login" className="text-emerald-400 hover:text-primary">Log in</Link> to create and manage agents.
+              <Link href="/login" className="home-link">Log in</Link> to add and manage agents.
             </>
           )}
         </p>
       )}
 
-      <ApiKeysTable agents={filteredAgents} editable={hasRole(view.role, "admin")} />
+      <section className="home-section" aria-label="Agents">
+        <div className="seat-filters">
+          <nav className="g-seg" aria-label="Which agents">
+            {STATES.map(([state, label, count]) => (
+              <Link key={state} href={stateHref(state)} aria-current={stateFilter === state ? "true" : undefined}>
+                {label}
+                <span className="g-seg-n">{count}</span>
+              </Link>
+            ))}
+          </nav>
+          <nav className="g-seg" aria-label="Which groups">
+            <Link href={scopeHref("subtree")} aria-current={scope === "subtree" ? "true" : undefined}>All groups</Link>
+            <Link href={scopeHref("wallet")} aria-current={scope === "wallet" ? "true" : undefined}>This wallet only</Link>
+          </nav>
+        </div>
+        <ApiKeysTable agents={filteredAgents} editable={canEdit} />
+      </section>
 
-      <ExecutionTokensSection rootWalletId={view.id} editable={hasRole(view.role, "admin")} />
+      <div className="home-section">
+        <ExecutionTokensSection rootWalletId={view.id} editable={canEdit} />
+      </div>
     </div>
   )
 }

@@ -50,7 +50,14 @@ export function HomeAgents({ groups, total }: { groups: HomeGroup[]; total: numb
   // Small wallets open everything. Large ones open the top group and any group
   // with something waiting, so the page starts short.
   const [open, setOpen] = useState<Set<string>>(
-    () => new Set(groups.filter((g, i) => total <= 24 || i === 0 || g.waiting > 0).map((g) => g.id)),
+    () => {
+      // If the top group has no agents of its own, open the first group that
+      // does, so the page never starts as a list of closed groups.
+      const firstWithAgents = groups.find((g) => g.agents.length > 0)?.id
+      return new Set(
+        groups.filter((g, i) => total <= 24 || i === 0 || g.waiting > 0 || g.id === firstWithAgents).map((g) => g.id),
+      )
+    },
   )
   const [full, setFull] = useState<Set<string>>(() => new Set())
 
@@ -164,7 +171,7 @@ export function HomeAgents({ groups, total }: { groups: HomeGroup[]; total: numb
                   {rows.map((agent) => (
                     <Link
                       key={agent.id}
-                      href="/dashboard/agents"
+                      href={`/dashboard/agents#seat-${agent.id}`}
                       data-tour="roster-agent"
                       className={`g-row${agent.stamp === "blocked" ? " g-row-off" : ""}`}
                     >

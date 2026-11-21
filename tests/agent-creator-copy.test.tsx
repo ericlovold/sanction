@@ -88,7 +88,7 @@ describe("agent creator clipboard controls", () => {
     }
     const buttons = findAll(tree(), node => node.type === "button")
     expect(buttons.every(control => control.props.disabled)).toBe(true)
-    const modeButton = buttons.find(control => control.props.children === "Single seat")!
+    const modeButton = buttons.find(control => control.props.children === "One agent")!
     ;(modeButton.props.onClick as () => void)()
     expect(fixture.mode).toBe("batch")
     resolve()
