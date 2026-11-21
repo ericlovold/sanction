@@ -1,79 +1,116 @@
 import { cumulative, monthlyPace } from "@/lib/burn"
 import { fmtUsd } from "@/lib/format"
 
-// Month runway drawn, not just numbered: cumulative burn day by day, the
-// monthly cap as a line, and the linear projection to month end — so "budget
-// hit ~Aug 24" is visible before it's news. Pure SVG, no chart library.
+// The month so far, drawn: the running total day by day and a straight-line
+// projection to the end of the month. Pure SVG plus HTML overlays, no chart
+// library. Rendered on the server, so every date string uses the server's
+// zone and nothing can differ at hydration.
+//
+// `capUsd` draws a limit line. Pass it only for a limit that really applies to
+// the total being drawn: a policy's monthly limits are per agent, so a total
+// for several agents has no such line.
 
 const W = 100
-const H = 36
-const PAD_TOP = 3
+const H = 40
+const PAD_TOP = 4
 
 export function RunwayChart({
   label,
   dailyTotals,
-  capUsd,
+  capUsd = null,
   now,
 }: {
   label: string
   /** Per-day totals (dollars) for this calendar month, index 0 = the 1st. */
   dailyTotals: number[]
-  capUsd: number | null
+  capUsd?: number | null
   now: Date
 }) {
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const dayOfMonth = now.getDate()
-  const cum = cumulative(dailyTotals.slice(0, dayOfMonth))
+  const days = dailyTotals.slice(0, dayOfMonth)
+  const cum = cumulative(days)
   const spent = cum[cum.length - 1] ?? 0
-  const pace = monthlyPace(spent, capUsd, now)
+  const cap = capUsd != null && capUsd > 0 ? capUsd : null
+  const pace = monthlyPace(spent, cap, now)
+  const month = now.toLocaleDateString("en-US", { month: "short" })
 
   const projectedEnd = pace.onPace ?? spent
-  const maxY = Math.max(capUsd ?? 0, projectedEnd, spent, 0.01) * 1.08
-  const x = (day: number) => (day / (daysInMonth - 1)) * W
-  const y = (v: number) => H - ((v / maxY) * (H - PAD_TOP))
+  const maxY = Math.max(cap ?? 0, projectedEnd, spent, 0.01) * 1.1
+  // Each day owns an equal column; its point sits at the column's center so
+  // the hover columns laid over the plot line up with the line.
+  const x = (index: number) => ((index + 0.5) / daysInMonth) * W
+  const y = (value: number) => H - (value / maxY) * (H - PAD_TOP)
+  const last = cum.length - 1
 
-  const actualPoints = cum.map((v, i) => `${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ")
-  const capY = capUsd && capUsd > 0 ? y(capUsd) : null
-  const exhausting = pace.willExhaust || (capUsd != null && capUsd > 0 && spent >= capUsd)
+  const points = cum.map((value, i) => `${x(i).toFixed(2)},${y(value).toFixed(2)}`)
+  const area = cum.length > 1 ? `${x(0).toFixed(2)},${H} ${points.join(" ")} ${x(last).toFixed(2)},${H}` : null
+  const atCap = cap !== null && spent >= cap
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="font-mono text-xs text-muted-foreground">
-          {fmtUsd(spent)}
-          {capUsd != null && capUsd > 0 ? ` / ${fmtUsd(capUsd)}` : " · no monthly cap"}
+    <figure className="sp-run">
+      <figcaption className="sp-run-head">
+        <span className="sp-run-label">{label}</span>
+        <span className="sp-run-val">
+          <b>{fmtUsd(spent)}</b> so far{cap !== null ? ` of ${fmtUsd(cap)}` : ""}
         </span>
+      </figcaption>
+
+      <div className="sp-plot">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`${label}: ${fmtUsd(spent)} so far in ${month}`}
+        >
+          {cap !== null && <line x1="0" y1={y(cap)} x2={W} y2={y(cap)} className="sp-line-cap" vectorEffect="non-scaling-stroke" />}
+          {area && <polygon points={area} className="sp-area" />}
+          {pace.onPace !== null && last >= 0 && (
+            <line
+              x1={x(last)} y1={y(spent)} x2={x(daysInMonth - 1)} y2={y(projectedEnd)}
+              className="sp-line-pace" vectorEffect="non-scaling-stroke"
+            />
+          )}
+          {cum.length > 1 && <polyline points={points.join(" ")} className="sp-line" vectorEffect="non-scaling-stroke" />}
+        </svg>
+        {cap !== null && <span className="sp-cap-tag" style={{ top: `${(y(cap) / H) * 100}%` }}>limit</span>}
+        {last >= 0 && spent > 0 && (
+          <span className="sp-dot" style={{ left: `${x(last)}%`, top: `${(y(spent) / H) * 100}%` }} aria-hidden />
+        )}
+        {/* One column per day that has happened: hover shows that day. */}
+        <div className="sp-hits" aria-hidden>
+          {Array.from({ length: daysInMonth }, (_, i) =>
+            i <= last ? (
+              <span key={i} className={`sp-hit${i > daysInMonth / 2 ? " sp-hit-r" : ""}`}>
+                <span className="sp-tip">
+                  <b>{month} {i + 1}</b>
+                  {fmtUsd(cum[i])} so far
+                  <span>{fmtUsd(days[i] ?? 0)} that day</span>
+                </span>
+              </span>
+            ) : (
+              <span key={i} />
+            ),
+          )}
+        </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mt-2 h-24 w-full" role="img" aria-label={`${label}: ${fmtUsd(spent)} spent this month`}>
-        {capY != null && (
-          <line x1="0" y1={capY} x2={W} y2={capY} className="stroke-red-400/50" strokeWidth="0.6" strokeDasharray="1.5 1.5" vectorEffect="non-scaling-stroke" />
-        )}
-        {pace.onPace !== null && (
-          <line
-            x1={x(dayOfMonth - 1)} y1={y(spent)} x2={W} y2={y(projectedEnd)}
-            className={exhausting ? "stroke-amber-400/70" : "stroke-muted-foreground/40"}
-            strokeWidth="0.8" strokeDasharray="2 2" vectorEffect="non-scaling-stroke"
-          />
-        )}
-        {cum.length > 1 && (
-          <polyline points={actualPoints} fill="none" className="stroke-emerald-500" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-        )}
-        {cum.length > 0 && <circle cx={x(dayOfMonth - 1)} cy={y(spent)} r="1.4" className="fill-emerald-400" />}
-      </svg>
-      {spent <= 0 ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">No activity yet this month</p>
-      ) : capUsd != null && capUsd > 0 && spent >= capUsd ? (
-        <p className="mt-1 text-[11px] text-red-400">Monthly budget exhausted — new requests are being denied.</p>
-      ) : pace.onPace !== null ? (
-        <p className={`mt-1 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-muted-foreground"}`}>
-          on pace for {fmtUsd(pace.onPace)} this month
-          {pace.exhaustAt &&
-            ` · budget hit ~${pace.exhaustAt.toLocaleDateString([], { month: "short", day: "numeric" })}`}
-        </p>
-      ) : (
-        <p className="mt-1 text-[11px] text-muted-foreground">Too early in the month to project</p>
-      )}
-    </div>
+      <div className="sp-axis" aria-hidden>
+        <span>{month} 1</span>
+        <span>{month} {Math.ceil(daysInMonth / 2)}</span>
+        <span>{month} {daysInMonth}</span>
+      </div>
+
+      <p className={`sp-run-note${atCap || pace.willExhaust ? " sp-run-warn" : ""}`}>
+        {spent <= 0
+          ? "Nothing yet this month."
+          : atCap
+            ? "At the monthly limit. New requests are refused until next month."
+            : pace.onPace === null
+              ? "Too early in the month to project."
+              : pace.exhaustAt
+                ? `At this pace the limit is reached around ${pace.exhaustAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}.`
+                : `At this pace, about ${fmtUsd(pace.onPace)} by the end of ${month}.`}
+      </p>
+    </figure>
   )
 }
