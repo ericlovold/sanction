@@ -1,7 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useActionState, useState, useTransition } from "react"
 import {
   simulateDraftAction,
   updatePolicyAction,
@@ -34,47 +33,48 @@ type PolicyDollars = {
 }
 
 // Every hint states what the engine actually does (verified against
-// lib/rules/spend.ts) — what the field governs and what happens at the line.
+// lib/rules/spend.ts): what the field governs and what happens at the line.
+// Field names are the server contract; only the words a person reads changed.
 const budgetFields = [
   {
-    name: "daily_token_budget_usd",
-    label: "Daily token budget",
-    hint: "Model-token spend per day, all agents combined. Over budget, gateway calls are refused until the day resets.",
-  },
-  {
     name: "daily_spend_budget_usd",
-    label: "Daily spend budget",
-    hint: "Total purchases per day. A request that would cross this is denied.",
+    label: "Purchases per day",
+    hint: "All agents together. A purchase that would cross this is refused.",
   },
   {
     name: "monthly_spend_budget_usd",
-    label: "Monthly spend budget",
+    label: "Purchases per month",
     optional: true,
-    hint: "Calendar-month ceiling on purchases. Blank = no monthly cap.",
+    hint: "Calendar month. Leave blank for no monthly limit.",
+  },
+  {
+    name: "daily_token_budget_usd",
+    label: "Model spend per day",
+    hint: "All agents together. Over this, model calls through the gateway are refused until the day resets.",
   },
   {
     name: "subtree_daily_cap_usd",
-    label: "Subtree daily cap",
+    label: "Daily cap including groups below",
     optional: true,
-    hint: "Hard daily ceiling for this wallet plus every pool beneath it. Blank = no cap.",
-  },
-  {
-    name: "per_transaction_max_usd",
-    label: "Per-transaction max",
-    hint: "The most one request may spend. Above this is denied outright — it can't even ask for approval.",
+    hint: "A hard ceiling for this wallet plus every group under it. Leave blank for none.",
   },
 ] as const
 
 const approvalFields = [
   {
     name: "auto_approve_under_usd",
-    label: "Auto-approve under",
-    hint: "At or under this, spend is approved silently — it never waits on a human.",
+    label: "Always approve up to",
+    hint: "At or under this, a purchase is approved without asking, even when it is above the ask line.",
   },
   {
     name: "escalate_over_usd",
-    label: "Escalate over",
-    hint: "Above this, spend pauses in your approvals inbox until you decide.",
+    label: "Ask a person above",
+    hint: "Above this, a purchase waits in Approvals until someone decides.",
+  },
+  {
+    name: "per_transaction_max_usd",
+    label: "Largest single purchase",
+    hint: "Above this, a purchase is refused outright. It cannot even ask for approval.",
   },
 ] as const
 
@@ -95,6 +95,7 @@ function toRules(value: unknown): CapabilityRule[] {
 export function PolicyEditor({ policy, editable, readOnlyNote }: { policy: PolicyDollars; editable: boolean; readOnlyNote?: string }) {
   const [state, formAction, pending] = useActionState(updatePolicyAction, initial)
   const [simState, simAction, simulating] = useActionState(simulateDraftAction, simInitial)
+  const [, startSimulation] = useTransition()
   const [perTxn, setPerTxn] = useState(policy.per_transaction_max_usd)
   const [escalate, setEscalate] = useState(policy.escalate_over_usd)
   const [rules, setRules] = useState<CapabilityRule[]>(() => toRules(policy.capability_rules))
@@ -104,10 +105,10 @@ export function PolicyEditor({ policy, editable, readOnlyNote }: { policy: Polic
     setRules((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
 
   const moneyField = (f: MoneyField) => (
-    <label key={f.name} className="block">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.label}</span>
-      <div className="mt-1 flex items-center rounded-md border border-border bg-card focus-within:border-border">
-        <span className="pl-2.5 font-mono text-sm text-muted-foreground">$</span>
+    <label key={f.name}>
+      {f.label}
+      <span className="pol-money">
+        <span aria-hidden>$</span>
         <input
           type="number"
           name={f.name}
@@ -115,7 +116,7 @@ export function PolicyEditor({ policy, editable, readOnlyNote }: { policy: Polic
           min="0"
           disabled={!editable}
           defaultValue={policy[f.name] ?? ""}
-          placeholder={"optional" in f && f.optional ? "No cap" : undefined}
+          placeholder={"optional" in f && f.optional ? "No limit" : undefined}
           onChange={
             f.name === "per_transaction_max_usd"
               ? (e) => setPerTxn(Number(e.target.value))
@@ -123,250 +124,210 @@ export function PolicyEditor({ policy, editable, readOnlyNote }: { policy: Polic
                 ? (e) => setEscalate(Number(e.target.value))
                 : undefined
           }
-          className="w-full bg-transparent px-2 py-1.5 font-mono text-sm text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
-      </div>
-      <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">{f.hint}</span>
+      </span>
+      <span className="pol-hint">{f.hint}</span>
     </label>
   )
 
-  const listInput = (name: string, label: string, value: string[], hint: string, danger?: boolean) => (
-    <label className="block">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <input
-        name={name}
-        disabled={!editable}
-        defaultValue={value.join(", ")}
-        className={`mt-1 w-full rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm outline-none focus:border-border ${danger ? "text-red-300" : "text-foreground"}`}
-      />
-      <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">{hint}</span>
+  const listInput = (name: string, label: string, value: string[], hint: string) => (
+    <label>
+      {label}
+      <input name={name} disabled={!editable} defaultValue={value.join(", ")} placeholder="None" className="g-input pol-mono" />
+      <span className="pol-hint">{hint}</span>
     </label>
   )
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="px-5 pt-5 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Policy</CardTitle>
-      </CardHeader>
-      <CardContent className="px-5 pb-5">
-        <form action={formAction} className="space-y-5">
-          {/* Serialized capability rules — one hidden JSON input; the server's
-              capabilityRules zod is the single validator. */}
-          <input type="hidden" name="capability_rules" value={JSON.stringify(rules)} />
+    <div>
+      <form action={formAction}>
+        {/* Serialized capability rules: one hidden JSON input; the server's
+            capabilityRules zod is the single validator. */}
+        <input type="hidden" name="capability_rules" value={JSON.stringify(rules)} />
 
-          {/* Budgets — the hard money lines. */}
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Budgets</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Hard spending lines, checked before every action.</p>
-            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-              {budgetFields.map(moneyField)}
+        <section className="home-section" aria-labelledby="pol-limits">
+          <h2 id="pol-limits" className="home-h2">Spending limits</h2>
+          <p className="pol-lede">Hard lines, checked before every action.</p>
+          <div className="g-panel pol-panel">
+            <div className="seat-form-grid pol-grid">{budgetFields.map(moneyField)}</div>
+          </div>
+        </section>
+
+        <section className="home-section" aria-labelledby="pol-purchase">
+          <h2 id="pol-purchase" className="home-h2">One purchase</h2>
+          <p className="pol-lede">Small purchases go through, larger ones wait for a person, and the largest are refused.</p>
+          <div className="g-panel pol-panel">
+            <div className="seat-form-grid pol-grid">{approvalFields.map(moneyField)}</div>
+            {escalationDead && (
+              <p className="pol-warn">
+                A person will never be asked about a purchase: anything above &ldquo;Largest single purchase&rdquo; is
+                refused first. Set &ldquo;Ask a person above&rdquo; lower than it to make approval reachable.
+              </p>
+            )}
+            <div className="seat-form-grid pol-grid pol-gap">
+              <label>
+                How long to wait for an answer (minutes)
+                <input
+                  type="number"
+                  name="escalation_timeout_mins"
+                  step="1"
+                  min="0"
+                  max="10080"
+                  disabled={!editable}
+                  defaultValue={policy.escalation_timeout_mins}
+                  className="g-input"
+                />
+                <span className="pol-hint">Applies to every request that waits for a person. 0 means no time limit.</span>
+              </label>
+              <label>
+                If nobody answers in time
+                <select name="escalation_timeout_action" disabled={!editable} defaultValue={policy.escalation_timeout_action} className="g-input">
+                  <option value="deny">Refuse it</option>
+                  <option value="approve">Approve it</option>
+                </select>
+                <span className="pol-hint">Refusing is the safe default.</span>
+              </label>
             </div>
-          </section>
-
-          {/* Human approval — where spend pauses for a person. */}
-          <section className="border-t border-border pt-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Human approval</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              The escalation window: silent below one line, paused for a person above the other.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4">
-              {approvalFields.map(moneyField)}
-            </div>
-
-          {escalationDead && (
-            <p className="mt-4 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
-              Escalation will never trigger: a charge has to clear &ldquo;Per-transaction max&rdquo; before it can
-              escalate, so set &ldquo;Escalate over&rdquo; below it for human approval to be reachable.
-            </p>
-          )}
-
-          {/* Escalation timeout */}
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Escalation timeout (min)</span>
-              <input
-                type="number"
-                name="escalation_timeout_mins"
-                step="1"
-                min="0"
-                max="10080"
-                disabled={!editable}
-                defaultValue={policy.escalation_timeout_mins}
-                className="mt-1 w-full rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm text-foreground outline-none focus:border-border [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <span className="mt-1 block text-[10px] leading-snug text-muted-foreground">
-                How long an escalated request waits for a human before the timeout action applies. 0 = waits forever.
-              </span>
-            </label>
-            <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">On timeout</span>
-              <select
-                name="escalation_timeout_action"
-                disabled={!editable}
-                defaultValue={policy.escalation_timeout_action}
-                className="mt-1 w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-border"
-              >
-                <option value="deny">Deny (fail closed)</option>
-                <option value="approve">Approve</option>
-              </select>
-            </label>
           </div>
-          </section>
+        </section>
 
-          {/* Categories & tools — what agents may buy and call. */}
-          <section className="border-t border-border pt-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Categories &amp; tools</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              What agents may buy and which tools they may call — blocked always wins.
-            </p>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            {listInput(
-              "allowed_categories",
-              "Allowed categories",
-              policy.allowed_categories,
-              "Comma-separated. Empty = every category allowed. If set, spend outside these is denied.",
-            )}
-            {listInput(
-              "blocked_categories",
-              "Blocked categories",
-              policy.blocked_categories,
-              "Always denied — blocked wins, even over the allow list.",
-              true,
-            )}
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            {listInput(
-              "allowed_tools",
-              "Allowed tools",
-              policy.allowed_tools,
-              "Empty = every tool allowed. If set, unlisted tools are denied. Case-sensitive.",
-            )}
-            {listInput(
-              "blocked_tools",
-              "Blocked tools",
-              policy.blocked_tools,
-              "Always denied — blocked wins.",
-              true,
-            )}
-            {listInput(
-              "escalate_tools",
-              "Escalate tools",
-              policy.escalate_tools,
-              "These tools pause for your approval on every call.",
-            )}
-          </div>
-          </section>
-
-          {/* Capability rules — ordered block → allow-list → escalate */}
-          <section className="border-t border-border pt-5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Capability rules ({rules.length}/{MAX_CAPABILITY_RULES})
-              </span>
-              {editable && rules.length < MAX_CAPABILITY_RULES && (
-                <button
-                  type="button"
-                  onClick={() => setRules((rs) => [...rs, { pattern: "", effect: "escalate" }])}
-                  className="text-[11px] font-medium text-emerald-400 hover:text-primary"
-                >
-                  + Add rule
-                </button>
+        <section className="home-section" aria-labelledby="pol-what">
+          <h2 id="pol-what" className="home-h2">What agents may buy and use</h2>
+          <p className="pol-lede">Lists are separated by commas. A blocked entry always wins.</p>
+          <div className="g-panel pol-panel">
+            <div className="seat-form-grid pol-grid pol-grid-wide">
+              {listInput(
+                "allowed_categories",
+                "Allowed purchase categories",
+                policy.allowed_categories,
+                "Empty means every category. If set, purchases outside these are refused.",
               )}
+              {listInput("blocked_categories", "Blocked purchase categories", policy.blocked_categories, "Always refused.")}
             </div>
-            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-              Governs what agents may <em>acquire</em> — installing skills, adding plugins, reaching new APIs. Patterns
-              prefix-match with <span className="font-mono">*</span>; block wins, then the allow list, then escalate.
-            </p>
-            <div className="mt-2 space-y-2">
-              {rules.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  No capability rules — acquiring skills/plugins/APIs is ungoverned. Add a rule like{" "}
-                  <span className="font-mono">skill:install:*</span> → escalate.
-                </p>
+            <div className="seat-form-grid pol-grid pol-gap">
+              {listInput(
+                "allowed_tools",
+                "Allowed tools",
+                policy.allowed_tools,
+                "Empty means every tool. If set, any tool not listed is refused. Names are case-sensitive.",
               )}
+              {listInput("blocked_tools", "Blocked tools", policy.blocked_tools, "Always refused.")}
+              {listInput("escalate_tools", "Tools that ask a person", policy.escalate_tools, "These wait for approval on every call.")}
+            </div>
+          </div>
+        </section>
+
+        <section className="home-section" aria-labelledby="pol-caps">
+          <div className="home-section-head" style={{ marginBottom: 0 }}>
+            <h2 id="pol-caps" className="home-h2">
+              New capabilities
+              <span>{rules.length} of {MAX_CAPABILITY_RULES}</span>
+            </h2>
+            {editable && rules.length < MAX_CAPABILITY_RULES && (
+              <button type="button" onClick={() => setRules((rs) => [...rs, { pattern: "", effect: "escalate" }])} className="g-btn g-btn-quiet g-btn-sm">
+                Add rule
+              </button>
+            )}
+          </div>
+          <p className="pol-lede">
+            What agents may take on: installing skills, adding plugins, reaching new APIs. A pattern ending in{" "}
+            <span className="pol-mono">*</span> matches everything that starts with it. Block wins, then the allow list, then ask.
+          </p>
+          <div className="g-panel pol-panel">
+            {rules.length === 0 && (
+              <p className="pol-hint" style={{ margin: 0 }}>
+                No rules, so taking on skills, plugins and APIs is not governed. A common first rule is{" "}
+                <span className="pol-mono">skill:install:*</span> set to ask a person.
+              </p>
+            )}
+            <div className="pol-rules">
               {rules.map((r, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="pol-rule">
                   <input
                     value={r.pattern}
                     disabled={!editable}
                     maxLength={MAX_CAPABILITY_PATTERN_LEN}
                     onChange={(e) => setRule(i, { pattern: e.target.value })}
                     placeholder="skill:install:*"
-                    className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm text-foreground outline-none focus:border-border"
+                    aria-label={`Rule ${i + 1} pattern`}
+                    className="g-input pol-mono"
                   />
                   <select
                     value={r.effect}
                     disabled={!editable}
                     onChange={(e) => setRule(i, { effect: e.target.value as CapabilityRule["effect"] })}
-                    className="rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-border"
+                    aria-label={`Rule ${i + 1} outcome`}
+                    className="g-input"
                   >
-                    <option value="block">block</option>
-                    <option value="allow">allow</option>
-                    <option value="escalate">escalate</option>
+                    <option value="block">Block</option>
+                    <option value="allow">Allow</option>
+                    <option value="escalate">Ask a person</option>
                   </select>
                   {editable && (
                     <button
                       type="button"
                       onClick={() => setRules((rs) => rs.filter((_, j) => j !== i))}
-                      className="shrink-0 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-red-400"
-                      aria-label="Remove rule"
+                      className="g-btn g-btn-quiet g-btn-sm"
+                      aria-label={`Remove rule ${i + 1}`}
                     >
-                      ✕
+                      Remove
                     </button>
                   )}
                 </div>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {editable ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-end gap-2">
-                {/* Overrides the form's save action for this button only (React 19):
-                    same 15-field FormData, but replays it over history instead of writing. */}
-                <button
-                  type="submit"
-                  formAction={simAction}
-                  disabled={simulating}
-                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border disabled:opacity-50"
-                >
-                  {simulating ? "Simulating…" : "Simulate before saving"}
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50"
-                >
-                  {pending ? "Saving…" : "Save policy"}
-                </button>
-              </div>
-              {/* Saving is the completed task — announce it, then revert to default. */}
+        {editable ? (
+          // Sticks to the bottom of the window so Save is always in reach on a
+          // long form.
+          <div className="pol-save g-glass">
+            <div className="pol-save-flash">
+              {/* Saving is the completed task: announce it, then revert to default. */}
               <ActionFlash state={state} />
             </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">
-                {readOnlyNote ?? "Viewing the demo — log in to edit your own policy."}
-              </span>
-              {!readOnlyNote && (
-                <a href="/login" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-                  Log in
-                </a>
-              )}
-            </div>
-          )}
-        </form>
-
-        {simState.message && !simState.ok && (
-          <p className="mt-4 text-xs text-red-400" aria-live="polite">{simState.message}</p>
-        )}
-        {simState.ok && simState.report && (
-          <div className="mt-4">
-            <SimulationReport report={simState.report} title="Draft simulation — your last 7 days" />
+            {/* Not a submit button on purpose. React resets a form's fields after
+                a form action runs, so submitting the draft to the simulation
+                wiped the edits being tried, and the next Save wrote the old
+                values. Sending the same FormData by hand leaves the fields alone. */}
+            <button
+              type="button"
+              disabled={simulating}
+              onClick={(event) => {
+                const form = event.currentTarget.form
+                if (!form || !form.reportValidity()) return
+                const draft = new FormData(form)
+                startSimulation(() => simAction(draft))
+              }}
+              className="g-btn g-btn-quiet"
+            >
+              {simulating ? "Trying it…" : "Try on past requests"}
+            </button>
+            <button type="submit" disabled={pending} className="g-btn g-btn-primary">
+              {pending ? "Saving…" : "Save policy"}
+            </button>
+          </div>
+        ) : (
+          <div className="pol-readonly">
+            <span>{readOnlyNote ?? "Viewing the demo. Log in to edit your own policy."}</span>
+            {!readOnlyNote && (
+              <a href="/login" className="g-btn g-btn-quiet">
+                Log in
+              </a>
+            )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </form>
+
+      {simState.message && !simState.ok && (
+        <p className="add-pop-error" aria-live="polite">{simState.message}</p>
+      )}
+      {simState.ok && simState.report && (
+        <div className="home-section">
+          <SimulationReport report={simState.report} title="This draft against your last 7 days" />
+        </div>
+      )}
+    </div>
   )
 }
