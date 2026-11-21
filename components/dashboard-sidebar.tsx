@@ -137,6 +137,7 @@ export function DashboardSidebar({
       <header className="dash-top g-glass md:hidden">
         <Brand />
         <div className="flex items-center gap-1">
+          {switcher}
           {account}
           <ThemeToggle collapsed />
         </div>

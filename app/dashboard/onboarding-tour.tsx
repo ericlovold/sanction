@@ -111,7 +111,7 @@ export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: 
     // card is always clamped inside the viewport: a target taller than the
     // screen (a long list) used to push the card off the bottom, leaving a
     // dimmed page with no way forward.
-    const CARD_W = 340
+    const CARD_W = Math.min(340, window.innerWidth - 32)
     const CARD_H = 190
     const spaceRight = window.innerWidth - rect.right
     const spaceBelow = window.innerHeight - rect.bottom
@@ -125,6 +125,7 @@ export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: 
         : side === "below"
           ? { top: clampTop(rect.bottom + 18), left: clampLeft(rect.left) }
           : { top: clampTop(rect.top - CARD_H - 18), left: clampLeft(rect.left) }
+    style.width = CARD_W
     return { s, side, style }
   }, [step, rect])
 
@@ -147,7 +148,7 @@ export function OnboardingTour({ autoStart, canRunProof = false }: { autoStart: 
         />
       )}
       {card && (
-        <div className="g-glass absolute w-[340px] rounded-2xl p-4" style={{ ...card.style, position: "absolute", background: "var(--d-surface-solid)" }}>
+        <div className="g-glass absolute rounded-2xl p-4" style={{ ...card.style, position: "absolute", background: "var(--d-surface-solid)" }}>
           {/* Arrow toward the target */}
           <div
             aria-hidden

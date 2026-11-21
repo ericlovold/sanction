@@ -245,6 +245,12 @@
   outline: none;
 }
 
+.dash-top .dash-wallet-select {
+  width: auto;
+  max-width: 42vw;
+  margin: 0;
+}
+
 .dash-wallet-select:focus-visible {
   box-shadow: var(--d-focus);
 }
@@ -379,8 +385,8 @@
   flex: 1;
   flex-direction: column;
   gap: 3px;
-  min-width: 62px;
-  padding: 7px 6px;
+  min-width: 0;
+  padding: 7px 2px;
   border-radius: 20px;
   font-size: 11px;
 }
@@ -971,6 +977,9 @@
     left: 16px;
     right: 16px;
     width: auto;
+    /* Short screens: scroll inside the panel so its buttons stay reachable. */
+    max-height: calc(100dvh - 92px);
+    overflow-y: auto;
   }
 }
 

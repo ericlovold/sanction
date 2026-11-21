@@ -137,7 +137,7 @@ export default async function Dashboard() {
         <div className="home-actions">
           <TourLauncher />
           {canAdd ? (
-            <RosterAddAgent walletId={roster.root.id} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
+            <RosterAddAgent key={view.id} walletId={roster.root.id} groups={groups.map((g) => ({ id: g.id, name: g.name }))} />
           ) : (
             <Link href="/login" data-tour="roster-add" className="g-btn g-btn-primary">Log in to add agents</Link>
           )}
