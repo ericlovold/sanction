@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { actionLabel, asRecord, numberValue, resourceTitle, stringValue } from "../lib/approvalTitle"
+import { actionLabel, asRecord, kindLabel, numberValue, resourceTitle, stringValue } from "../lib/approvalTitle"
 
 describe("approval titles", () => {
   it("names a spend by amount and merchant", () => {
@@ -30,5 +30,13 @@ describe("approval titles", () => {
     expect(numberValue(Number.NaN)).toBeNull()
     expect(numberValue(3)).toBe(3)
     expect(actionLabel("tool.invoke")).toBe("Tool Invoke")
+  })
+
+  it("names the kind of request in plain words", () => {
+    expect(kindLabel({ kind: "spend" }, "spend.purchase")).toBe("Purchase")
+    expect(kindLabel({ kind: "provision" }, "provision.allocate")).toBe("Provision")
+    expect(kindLabel({ kind: "tool" }, "tool.invoke")).toBe("Tool call")
+    expect(kindLabel({ kind: "capability" }, "capability.use")).toBe("New capability")
+    expect(kindLabel({}, "credential.inject")).toBe("Credential Inject")
   })
 })

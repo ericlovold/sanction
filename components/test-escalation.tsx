@@ -26,13 +26,13 @@ export function TestEscalationControl({
         disabled={pending}
         className={
           variant === "slack"
-            ? "inline-flex items-center rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 disabled:opacity-60"
+            ? "inline-flex items-center rounded-md border border-border bg-muted px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-ring disabled:opacity-60"
             : "inline-flex items-center rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-ring disabled:opacity-60"
         }
       >
         {pending ? "Sending…" : "Send a test escalation"}
       </button>
-      <p className={variant === "slack" ? "text-[11px] text-zinc-500" : "text-[11px] text-muted-foreground"}>
+      <p className={variant === "slack" ? "text-[11px] text-muted-foreground" : "text-[11px] text-muted-foreground"}>
         {variant === "slack"
           ? "Raises a real $30 escalation on one of your agents so the Approve / Deny card lands in your channel. Anyone in that channel can decide — pick a private channel for approvals."
           : "Raises a real $30 escalation on one of your agents. It emails you and lands in this inbox. Slack is optional."}

@@ -4,7 +4,6 @@ import { switchWalletAction } from "@/app/dashboard/actions"
 import type { Metadata } from "next"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { NoWallet } from "@/components/no-wallet"
 import { ApprovalQueue, type PendingApproval } from "@/components/approval-queue"
 import { TestEscalationControl } from "@/components/test-escalation"
@@ -18,7 +17,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { hasRole } from "@/lib/roles"
-import { actionLabel, asRecord, resourceTitle } from "@/lib/approvalTitle"
+import { asRecord, kindLabel, resourceTitle } from "@/lib/approvalTitle"
 
 export const metadata: Metadata = {
   title: "Sanction — Approvals",
@@ -27,10 +26,13 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic"
 
-const statusClasses: Record<string, string> = {
-  approved: "border-emerald-600/30 bg-emerald-500/[0.07] text-emerald-700 dark:border-emerald-500/25 dark:text-emerald-400",
-  denied: "border-red-600/30 bg-red-500/[0.07] text-red-700 dark:border-red-500/25 dark:text-red-400",
-  expired: "border-border bg-muted text-muted-foreground",
+const STATUS_LABEL: Record<string, string> = { approved: "Approved", denied: "Denied", expired: "Expired" }
+
+function waited(mins: number): string {
+  if (mins < 1) return "under a minute"
+  if (mins < 60) return `${mins} min`
+  const hours = Math.round(mins / 60)
+  return hours < 48 ? `${hours} hr` : `${Math.round(hours / 24)} days`
 }
 
 export default async function ApprovalsPage({
@@ -251,15 +253,26 @@ export default async function ApprovalsPage({
   }
 
   return (
-    <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
+    <div className="home appr-page">
+      <header>
+        <h1 className="home-title">Approvals</h1>
+        <p className="home-sub">
+          {totalPending === 0
+            ? "Nothing is waiting for you."
+            : `${totalPending} waiting. The oldest has waited ${waited(oldestPendingMinutes)}.`}
+          {expiringSoon > 0 ? ` ${expiringSoon} ${expiringSoon === 1 ? "expires" : "expire"} within 15 minutes.` : ""}
+        </p>
+        {walkthroughReturn && <p className="appr-lede">
+          Running the tool-call walkthrough? After reviewing its request, <Link href="/dashboard/walkthrough" className="home-link">return to verify the result</Link>.
+        </p>}
+        <p className="appr-lede">
+          Requests from your agents, in this wallet or any group under it, that need a person. Approving issues a
+          single-use grant the agent redeems when it retries.
+        </p>
+      </header>
+
       {focus && (
-        <Card
-          className={
-            focus.kind === "pending"
-              ? "border-emerald-600/40 bg-emerald-500/[0.06]"
-              : "bg-card border-border"
-          }
-        >
+        <Card className={`home-section ${focus.kind === "pending" ? "appr-banner-live" : "bg-card border-border"}`}>
           <CardContent className="px-4 py-4">
             {focus.kind === "pending" && (
               <>
@@ -311,67 +324,19 @@ export default async function ApprovalsPage({
         </Card>
       )}
       {orgPendingCount > 50 && (
-        <nav aria-label="Approval pages" className="flex flex-wrap items-center gap-4 text-sm">
+        <nav aria-label="Approval pages" className="home-section flex flex-wrap items-center gap-4 text-sm">
           <span>Showing {allPending.length} of {totalPending} pending requests. A linked request is included even outside this page.</span>
           {pageNumber > 1 && <Link className="underline" href={`/dashboard/approvals?${new URLSearchParams({ page: String(pageNumber - 1), ...(review ? { review } : {}) })}`}>Previous page</Link>}
           {pageNumber * 50 < orgPendingCount && <Link className="underline" href={`/dashboard/approvals?${new URLSearchParams({ page: String(pageNumber + 1), ...(review ? { review } : {}) })}`}>Next page</Link>}
         </nav>
       )}
-      <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Approvals</h1>
-        {walkthroughReturn && <p className="mt-2 text-sm">
-          Running the tool-call walkthrough? After reviewing its request, <Link href="/dashboard/walkthrough" className="underline">return to verify the result</Link>.
-        </p>}
-        <p className="mt-1 text-sm text-muted-foreground">
-          Requests that crossed an escalation line — on your wallet or any pool beneath it — awaiting a decision.
-          Approving one issues a single-use grant the agent redeems on retry.
-        </p>
-      </div>
-
-      {/* Zero-noise: Pending and Recently resolved are the page's pulse and
-          always show; Expiring-in-15m only exists while something is actually
-          about to expire. Webhook count lives on the webhook card below, not
-          in a stat. */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className={`font-mono text-2xl font-semibold tabular-nums ${allPending.length > 0 ? "text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]" : ""}`}>{totalPending}</p>
-            {allPending.length > 0 && <p className="text-xs text-muted-foreground">oldest shown: {oldestPendingMinutes}m</p>}
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-1">
-            <CardTitle className="text-xs font-normal text-muted-foreground">Recently resolved</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="font-mono text-2xl font-semibold tabular-nums">{resolved.length}</p>
-          </CardContent>
-        </Card>
-        {expiringSoon > 0 && (
-          <Card className="bg-card border-border">
-            <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-muted-foreground">Expiring in 15m</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <p className="font-mono text-2xl font-semibold tabular-nums text-[oklch(0.55_0.1_85)] dark:text-[oklch(0.82_0.11_85)]">{expiringSoon}</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <h2 className="text-sm font-medium text-foreground">Pending</h2>
-        {allPending.length > 0 && (
-          <Badge className="bg-[oklch(0.55_0.1_85)]/10 text-[oklch(0.5_0.1_85)] dark:text-[oklch(0.82_0.11_85)] border border-[oklch(0.55_0.1_85)]/25 font-mono">{totalPending}</Badge>
-        )}
-      </div>
+      <section aria-labelledby="appr-waiting" className="home-section">
+        <h2 id="appr-waiting" className="sr-only">Waiting</h2>
       <ApprovalQueue
         pending={allPending}
         editable={hasRole(view.role, "admin")}
         focusId={review}
+        now={nowMs}
         empty={{
           ...approvalsEmptyCopy({ hasAgent: agentCount > 0, editable: hasRole(view.role, "admin") }),
           action: hasRole(view.role, "admin")
@@ -379,54 +344,54 @@ export default async function ApprovalsPage({
               ? <TestEscalationControl />
               : (
                 <Link href="/dashboard" className="text-xs font-medium text-foreground underline underline-offset-2">
-                  Add an agent on the roster →
+                  Add an agent on Home
                 </Link>
               )
             : undefined,
         }}
       />
 
-      <Card className="bg-card border-border">
-        <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-foreground">Resolved — issued authority</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          {resolved.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Decisions land here with the grant they issued — the audit trail of every approval.
-            </p>
-          )}
-          <div className="space-y-2">
-            {resolved.map((r) => (
-              <div key={r.id} className="flex items-center justify-between text-sm">
-                <div className="min-w-0">
-                  <p className="truncate text-foreground">
-                    {r.wallet.id !== walletId && (
-                      <span className="mr-1.5 rounded-sm border border-primary/25 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary">
-                        {r.wallet.name}
-                      </span>
-                    )}
-                    {resourceTitle(asRecord(r.resourceJson), r.actionType)} <span className="text-muted-foreground">· {r.agent.name}</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {actionLabel(r.actionType)} · {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : ""}
-                  </p>
-                </div>
-                <div className="ml-3 flex shrink-0 items-center gap-2">
-                  {r.grants[0] ? (
-                    <span
-                      className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary"
-                      title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
-                    >
-                      grant {effectiveGrantStatus(r.grants[0], now)}
-                    </span>
-                  ) : null}
-                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusClasses[r.status] ?? statusClasses.expired}`}>{r.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      </section>
 
+      <section aria-labelledby="appr-decided" className="home-section">
+        <div className="home-section-head">
+          <h2 id="appr-decided" className="home-h2">Decided</h2>
+        </div>
+        <div className="g-panel">
+          {resolved.length === 0 && (
+            <p className="g-empty">Decisions land here with the grant they issued: the record of every approval.</p>
+          )}
+          {resolved.map((r) => (
+            <div key={r.id} className="dec-row">
+              <div style={{ minWidth: 0 }}>
+                <p className="dec-what">
+                  {resourceTitle(asRecord(r.resourceJson), r.actionType)}
+                  <span> {r.agent.name}{r.wallet.id !== walletId ? ` in ${r.wallet.name}` : ""}</span>
+                </p>
+                <p className="dec-when">
+                  {kindLabel(asRecord(r.resourceJson), r.actionType)}{r.resolvedAt ? `, ${new Date(r.resolvedAt).toLocaleString()}` : ""}
+                </p>
+              </div>
+              <div className="dec-state">
+                {r.grants[0] ? (
+                  <span
+                    className="dec-grant"
+                    title={r.grants[0].consumedAt ? "Grant consumed" : r.grants[0].expiresAt ? `Grant expires ${new Date(r.grants[0].expiresAt).toLocaleString()}` : "Grant"}
+                  >
+                    grant {effectiveGrantStatus(r.grants[0], now)}
+                  </span>
+                ) : null}
+                <span className={`dec-pill dec-${STATUS_LABEL[r.status] ? r.status : "expired"}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="appr-notify" className="home-section">
+        <div className="home-section-head">
+          <h2 id="appr-notify" className="home-h2">Where requests reach you</h2>
+        </div>
       <WebhookSettings
         webhooks={webhooks}
         slackInstalls={slackInstalls}
@@ -434,6 +399,7 @@ export default async function ApprovalsPage({
         slackStatus={slack}
         editable={hasRole(view.role, "admin")}
       />
+      </section>
     </div>
   )
 }

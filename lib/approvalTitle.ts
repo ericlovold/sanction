@@ -46,3 +46,12 @@ export function resourceTitle(resource: Record<string, unknown>, actionType: str
     actionLabel(actionType)
   )
 }
+
+// What kind of request this is, in a person's words.
+export function kindLabel(resource: Record<string, unknown>, actionType: string) {
+  if (resource.kind === "spend") return "Purchase"
+  if (resource.kind === "provision") return "Provision"
+  if (resource.kind === "tool") return "Tool call"
+  if (resource.kind === "capability") return "New capability"
+  return actionLabel(actionType)
+}
