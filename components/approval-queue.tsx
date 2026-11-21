@@ -5,6 +5,8 @@ import { useOptimistic, useActionState, useEffect, useRef, useState } from "reac
 import { Check, Plus, X } from "lucide-react"
 import { reviewToolRequestAction, resolveApprovalAction, type ApprovalActionState } from "@/app/dashboard/approvals/actions"
 import { EmptyState } from "@/components/ui/empty-state"
+import { kindLabel, numberValue, resourceTitle, stringValue } from "@/lib/approvalTitle"
+import { fmtUsd } from "@/lib/format"
 
 export type PendingApproval = {
   id: string
@@ -27,48 +29,20 @@ export type PendingApproval = {
 
 const initial: ApprovalActionState = { ok: false, message: "" }
 
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null
-}
-
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null
-}
-
-function labelActionType(actionType: string) {
-  return actionType
-    .split(".")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
-}
-
 function money(value: unknown) {
   const n = numberValue(value)
-  return n === null ? null : `$${n.toFixed(2)}`
+  return n === null ? null : fmtUsd(n)
 }
 
-function approvalTitle(a: PendingApproval) {
-  if (a.resource.kind === "spend") {
-    const amount = money(a.resource.amount_usd)
-    const merchant = stringValue(a.resource.merchant) ?? "Unknown merchant"
-    return amount ? `${amount} ${merchant}` : merchant
-  }
-  if (a.resource.kind === "provision") {
-    const quantity = numberValue(a.resource.quantity)
-    const lineItem = stringValue(a.resource.line_item) ?? "Unknown item"
-    const amount = money(a.resource.amount_usd)
-    const resource = stringValue(a.resource.resource)
-    const head = quantity === null ? lineItem : `${quantity} × ${lineItem}`
-    return `${head}${amount ? ` — ${amount}` : ""}${resource ? ` (${resource})` : ""}`
-  }
-  return (
-    stringValue(a.resource.label) ??
-    stringValue(a.resource.tool) ??
-    stringValue(a.resource.tool_name) ??
-    stringValue(a.resource.credential_label) ??
-    stringValue(a.resource.name) ??
-    labelActionType(a.actionType)
-  )
+// "3 hr ago" / "in 11 min", measured from the server's clock (`now`) so the
+// server render and the browser agree.
+function span(ms: number) {
+  const mins = Math.max(0, Math.round(Math.abs(ms) / 60_000))
+  if (mins < 1) return "under a minute"
+  if (mins < 60) return `${mins} min`
+  const hours = Math.round(mins / 60)
+  if (hours < 48) return `${hours} hr`
+  return `${Math.round(hours / 24)} days`
 }
 
 function approvalDetails(a: PendingApproval) {
@@ -78,9 +52,8 @@ function approvalDetails(a: PendingApproval) {
     stringValue(a.resource.action),
     unitPrice ? `${unitPrice}/unit` : null,
     stringValue(a.resource.description),
-    a.expiresAt ? `expires ${new Date(a.expiresAt).toLocaleString()}` : null,
   ]
-  return details.filter(Boolean).join(" · ")
+  return details.filter(Boolean).join(", ")
 }
 
 // One plain-language sentence: what approving DOES. Replaces the escalation-code
@@ -118,10 +91,12 @@ function confirmLabel(a: PendingApproval) {
 function ApprovalRow({
   a,
   editable,
+  now,
   onResolve,
 }: {
   a: PendingApproval
   editable: boolean
+  now: number
   onResolve: (id: string) => void
 }) {
   const [state, formAction, pending] = useActionState(resolveApprovalAction, initial)
@@ -147,37 +122,52 @@ function ApprovalRow({
     disarmTimer.current = setTimeout(() => setArmed(false), 3000)
   }
 
+  const leftMs = a.expiresAt ? new Date(a.expiresAt).getTime() - now : null
+  const urgent = leftMs !== null && leftMs <= 15 * 60_000
+
   return (
-    <div className="rounded-md border border-border bg-card p-4">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-            {labelActionType(a.actionType)}
-          </span>
-          {a.poolName ? (
-            <span className="rounded-sm border border-primary/25 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary">
-              {a.poolName}
+    <article className="appr g-glass">
+      <div className="appr-body">
+        <div className="appr-top">
+          <h3 className="appr-title">
+            <span className="wait-dot" aria-hidden />
+            <span>{resourceTitle(a.resource, a.actionType)}</span>
+          </h3>
+          {leftMs !== null && (
+            <span className={`appr-deadline${urgent ? " appr-deadline-soon" : ""}`}>
+              {leftMs <= 0 ? "Deadline passed" : `Expires in ${span(leftMs)}`}
             </span>
-          ) : null}
-          <span className="min-w-0 truncate text-sm font-medium text-foreground">{approvalTitle(a)}</span>
+          )}
         </div>
-        <p className="mt-1 font-mono text-xs text-muted-foreground">
-          {a.agentName} · {a.reason ?? "Needs approval"} · {new Date(a.createdAt).toLocaleString()}
+        <p className="appr-who">
+          {kindLabel(a.resource, a.actionType)} asked by {a.agentName}
+          {a.poolName ? ` in ${a.poolName}` : ""}, {span(now - new Date(a.createdAt).getTime())} ago
         </p>
+        <dl className="appr-facts">
+          <div>
+            <dt>Why it stopped</dt>
+            <dd>{a.reason ?? "Needs approval"}</dd>
+          </div>
+          {details && (
+            <div>
+              <dt>Details</dt>
+              <dd>{details}</dd>
+            </div>
+          )}
+        </dl>
         {editable && a.resource.kind === "tool" ? (
-          <div className="mt-3">
-            <button type="button" disabled={reviewing} className="text-sm underline disabled:opacity-50" onClick={async () => {
+          <div className="appr-exact">
+            <button type="button" disabled={reviewing} className="home-link" onClick={async () => {
               setReviewing(true)
               try { setReview(await reviewToolRequestAction(a.id)) }
               catch { setReview({ error: "Request review failed. Try again." }) }
               finally { setReviewing(false) }
             }}>{reviewing ? "Loading request…" : "Review exact request"}</button>
-            {review.request ? <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded border border-border p-3 text-xs">{JSON.stringify(JSON.parse(review.request), null, 2)}</pre> : null}
-            {review.error ? <p className="mt-2 text-sm text-destructive">{review.error}</p> : null}
+            {review.request ? <pre className="appr-pre">{JSON.stringify(JSON.parse(review.request), null, 2)}</pre> : null}
+            {review.error ? <p className="add-pop-error">{review.error}</p> : null}
           </div>
         ) : null}
-        {details && <p className="mt-1 text-xs text-muted-foreground">{details}</p>}
-        <p className="mt-2 text-xs text-muted-foreground">{consequence(a)}</p>
+        <p className="appr-effect">{consequence(a)}</p>
       </div>
 
       {editable ? (
@@ -189,60 +179,39 @@ function ApprovalRow({
             onResolve(a.id)
             formAction(fd)
           }}
-          className="mt-4 flex flex-col gap-3 border-t border-border pt-3"
+          className="appr-actions"
         >
           <input type="hidden" name="approval_id" value={a.id} />
           {noteOpen ? (
-            <input
-              name="note"
-              autoFocus
-              placeholder="Approval note"
-              className="min-h-11 rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring"
-            />
+            <input name="note" autoFocus placeholder="Add a note to the record" aria-label="Note" className="g-input appr-note" />
           ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="appr-buttons">
+            <div className="appr-left">
               {!noteOpen ? (
-                <button
-                  type="button"
-                  onClick={() => setNoteOpen(true)}
-                  className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <Plus className="size-3" />
+                <button type="button" onClick={() => setNoteOpen(true)} className="g-btn g-btn-quiet g-btn-sm">
+                  <Plus className="size-3.5" />
                   Add note
                 </button>
               ) : null}
-              {state.message && !state.ok ? <span className="text-xs text-destructive">{state.message}</span> : null}
+              {state.message && !state.ok ? <span className="add-pop-error" style={{ margin: 0 }}>{state.message}</span> : null}
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                name="decision"
-                value="reject"
-                disabled={pending}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:opacity-50"
-              >
+            <div className="appr-right">
+              <button type="submit" name="decision" value="reject" disabled={pending} className="g-btn g-btn-quiet">
                 <X className="size-4" />
                 Reject
               </button>
+              {/* The two buttons carry different keys on purpose. Without them React
+                  reuses one DOM button and flips its type to "submit" while the
+                  first click is still being handled, so the browser submits the
+                  form and a single click approves. Distinct keys make React swap
+                  the element, and the first click only arms. */}
               {armed ? (
-                <button
-                  type="submit"
-                  name="decision"
-                  value="approve"
-                  disabled={pending}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
+                <button key="confirm" type="submit" name="decision" value="approve" disabled={pending} className="g-btn g-btn-primary">
                   <Check className="size-4" />
                   {pending ? "..." : confirmLabel(a)}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={arm}
-                  disabled={pending}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
+                <button key="arm" type="button" onClick={arm} disabled={pending} className="g-btn g-btn-primary">
                   <Check className="size-4" />
                   Approve
                 </button>
@@ -251,14 +220,13 @@ function ApprovalRow({
           </div>
         </form>
       ) : (
-        <a
-          href="/login"
-          className="mt-4 inline-flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-        >
-          Log in to manage
-        </a>
+        <div className="appr-actions">
+          <a href="/login" className="g-btn g-btn-quiet" style={{ alignSelf: "flex-start" }}>
+            Log in to decide
+          </a>
+        </div>
       )}
-    </div>
+    </article>
   )
 }
 
@@ -266,11 +234,14 @@ export function ApprovalQueue({
   pending,
   editable,
   focusId,
+  now,
   empty,
 }: {
   pending: PendingApproval[]
   editable: boolean
   focusId?: string
+  // The server's clock at render, so "3 hr ago" matches on both sides.
+  now?: number
   empty?: { title: string; hint: string; action?: ReactNode }
 }) {
   // Optimistic list: a submitted decision removes its card immediately; the
@@ -288,6 +259,10 @@ export function ApprovalQueue({
     document.getElementById(`approval-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
   }, [focusId, pending])
 
+  // Fallback for callers that do not pass the server clock: fixed at mount.
+  const [mountedAt] = useState(() => Date.now())
+  const clock = now ?? mountedAt
+
   if (visible.length === 0) {
     const title = empty?.title ?? "Nothing waiting"
     const hint =
@@ -296,14 +271,14 @@ export function ApprovalQueue({
     return <EmptyState title={title} hint={hint} action={empty?.action} />
   }
   return (
-    <div className="space-y-3">
+    <div className="appr-list">
       {visible.map((a) => (
         <div
           key={a.id}
           id={`approval-${a.id}`}
-          className={focusId && (a.id === focusId || a.sourceId === focusId) ? "rounded-md ring-2 ring-emerald-500/70 ring-offset-2 ring-offset-background" : undefined}
+          className={focusId && (a.id === focusId || a.sourceId === focusId) ? "appr-focus" : undefined}
         >
-          <ApprovalRow a={a} editable={editable} onResolve={removeOptimistic} />
+          <ApprovalRow a={a} editable={editable} now={clock} onResolve={removeOptimistic} />
         </div>
       ))}
     </div>
