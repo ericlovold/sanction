@@ -1,7 +1,7 @@
 "use client"
 
-import { useActionState, useState } from "react"
-import { Activity, CheckCircle2, ChevronDown, Clipboard, Clock3, KeyRound, Power, RotateCw, Shield, SlidersHorizontal } from "lucide-react"
+import { useActionState, useEffect, useMemo, useState } from "react"
+import { CheckCircle2, ChevronRight, Clipboard, KeyRound, Power, RotateCw, Search, SlidersHorizontal } from "lucide-react"
 import {
   rotateKeyAction,
   setAgentActiveAction,
@@ -79,10 +79,10 @@ function Copy({ value }: { value: string }) {
         setDone(true)
         setTimeout(() => setDone(false), 1200)
       }}
-      className="inline-flex shrink-0 items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+      className="g-btn g-btn-quiet g-btn-sm"
     >
-      <Clipboard className="size-3" />
-      {done ? "copied" : "copy"}
+      <Clipboard className="size-3.5" />
+      {done ? "Copied" : "Copy key"}
     </button>
   )
 }
@@ -99,18 +99,11 @@ function hasOverrides(agent: ConsoleAgent) {
   )
 }
 
-function statusClass(value: number, tone: "amber" | "emerald" | "red" | "zinc") {
-  if (tone === "amber" && value > 0) return "border-amber-500/25 bg-amber-500/10 text-amber-300"
-  if (tone === "emerald" && value > 0) return "border-emerald-500/25 bg-emerald-500/10 text-primary"
-  if (tone === "red" && value > 0) return "border-red-500/25 bg-red-500/10 text-red-300"
-  return "border-border bg-muted text-muted-foreground"
-}
-
-function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean }) {
+function KeyRow({ agent, editable, startOpen }: { agent: ConsoleAgent; editable: boolean; startOpen: boolean }) {
   const [rotate, rotateAction, rotating] = useActionState(rotateKeyAction, rotateInit)
   const [limits, limitsFormAction, savingLimits] = useActionState(updateLimitsAction, limitsInit)
   const [open, setOpen] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(startOpen)
   const [connectOpen, setConnectOpen] = useState(false)
   const [handoffOpen, setHandoffOpen] = useState(false)
   const justRotated = rotate.ok && rotate.agentId === agent.id && rotate.newKey
@@ -118,267 +111,223 @@ function KeyRow({ agent, editable }: { agent: ConsoleAgent; editable: boolean })
   const act = agent.activity
 
   const state = seatState(agent)
-  const stateDot = state === "active" ? "bg-emerald-400" : state === "expired" ? "bg-amber-400" : "bg-red-400"
+  const expired = agent.expiresAt ? new Date(agent.expiresAt) <= new Date() : false
 
   return (
-    <div className="rounded-lg border border-border bg-muted">
-      {/* Compact row — the fleet scans as a list; anything non-zero surfaces as
-          a chip here, and one click opens the seat's full controls. */}
-      <button
-        type="button"
-        onClick={() => setExpanded((o) => !o)}
-        aria-expanded={expanded}
-        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-4 py-2.5 text-left transition-colors hover:bg-card/60"
-      >
-        <span className={`size-1.5 shrink-0 rounded-full ${stateDot}`} title={state} />
-        <span className="min-w-0 truncate font-medium text-foreground">{agent.name}</span>
-        {agent.holder ? <span className="hidden text-xs text-muted-foreground sm:inline">{agent.holder}</span> : null}
-        <span className="hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline">
-          {agent.walletName}
-        </span>
-        <span className="hidden font-mono text-[11px] text-muted-foreground lg:inline">{agent.apiKeyPrefix}••••••••</span>
-        <span className="hidden text-[11px] text-muted-foreground lg:inline">last used {rel(agent.lastUsedAt)}</span>
-        <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          {state !== "active" && (
-            <span className={`rounded-full px-2 py-0.5 text-[11px] ${state === "expired" ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
-              {state}
-            </span>
-          )}
-          {agent.pendingApprovals > 0 && (
-            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.pendingApprovals, "amber")}`}>{agent.pendingApprovals} pending</span>
-          )}
-          {agent.escalatedMonth > 0 && (
-            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.escalatedMonth, "amber")}`}>{agent.escalatedMonth} escalated</span>
-          )}
-          {agent.deniedMonth > 0 && (
-            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.deniedMonth, "red")}`}>{agent.deniedMonth} denied</span>
-          )}
+    <div id={`seat-${agent.id}`} className="seat">
+      {/* Compact row: the list scans quickly; anything non-zero surfaces as a
+          chip, and one click opens the agent's full controls. */}
+      <button type="button" onClick={() => setExpanded((o) => !o)} aria-expanded={expanded} className="seat-row">
+        <ChevronRight className="g-chev" aria-hidden />
+        <span className={`g-status seat-dot-${state}`} aria-hidden />
+        <span className="seat-name">{agent.name}</span>
+        <span className="sr-only">, {state === "active" ? "active" : state === "expired" ? "expired" : "turned off"}</span>
+        <span className="seat-holder">{agent.holder ?? ""}</span>
+        <span className="seat-group">{agent.walletName}</span>
+        <span className="seat-seen">{agent.lastUsedAt ? `Used ${rel(agent.lastUsedAt)}` : "Not used yet"}</span>
+        <span className="seat-chips">
+          {state !== "active" && <span className={`seat-chip seat-chip-${state}`}>{state === "expired" ? "Expired" : "Off"}</span>}
+          {agent.pendingApprovals > 0 && <span className="seat-chip seat-chip-wait">{agent.pendingApprovals} waiting</span>}
+          {agent.escalatedMonth > 0 && <span className="seat-chip seat-chip-wait">{agent.escalatedMonth} escalated</span>}
+          {agent.deniedMonth > 0 && <span className="seat-chip seat-chip-revoked">{agent.deniedMonth} denied</span>}
           {agent.activeGrants > 0 && (
-            <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${statusClass(agent.activeGrants, "emerald")}`}>{agent.activeGrants} grant{agent.activeGrants === 1 ? "" : "s"}</span>
+            <span className="seat-chip seat-chip-live">{agent.activeGrants} grant{agent.activeGrants === 1 ? "" : "s"}</span>
           )}
-          <ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
         </span>
       </button>
 
       {expanded && (
-      <div className="border-t border-border p-4">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1 font-mono">
-          <KeyRound className="size-3" />
-          {agent.apiKeyPrefix}••••••••
-        </span>
-        <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          {agent.walletName}
-        </span>
-        <span title={new Date(agent.createdAt).toLocaleString()}>created {rel(agent.createdAt)}</span>
-        <span>last used {rel(agent.lastUsedAt)}</span>
-        {agent.expiresAt ? (
-          <span
-            className={new Date(agent.expiresAt) <= new Date() ? "text-amber-400" : undefined}
-            title={new Date(agent.expiresAt).toLocaleString()}
-          >
-            {new Date(agent.expiresAt) <= new Date() ? "expired" : "expires"} {relFuture(agent.expiresAt)}
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-lg">
-        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.pendingApprovals, "amber")}`}>
-          <p className="text-[10px] uppercase tracking-wide opacity-70">Pending</p>
-          <p className="mt-0.5 font-mono text-sm">{agent.pendingApprovals}</p>
-        </div>
-        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.activeGrants, "emerald")}`}>
-          <p className="text-[10px] uppercase tracking-wide opacity-70">Grants</p>
-          <p className="mt-0.5 font-mono text-sm">{agent.activeGrants}</p>
-        </div>
-        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.deniedMonth, "red")}`}>
-          <p className="text-[10px] uppercase tracking-wide opacity-70">Denied</p>
-          <p className="mt-0.5 font-mono text-sm">{agent.deniedMonth}</p>
-        </div>
-        <div className={`rounded-md border px-2 py-1.5 ${statusClass(agent.escalatedMonth, "amber")}`}>
-          <p className="text-[10px] uppercase tracking-wide opacity-70">Escalated</p>
-          <p className="mt-0.5 font-mono text-sm">{agent.escalatedMonth}</p>
-        </div>
-      </div>
+        <div className="seat-body">
+          <p className="seat-meta">
+            <span className="seat-key">
+              <KeyRound className="size-3.5" aria-hidden />
+              {agent.apiKeyPrefix}••••••••
+            </span>
+            <span title={new Date(agent.createdAt).toLocaleString()}>Created {rel(agent.createdAt)}</span>
+            <span>{agent.lastUsedAt ? `Last used ${rel(agent.lastUsedAt)}` : "Not used yet"}</span>
+            {agent.expiresAt ? (
+              <span style={expired ? { color: "var(--d-wait)" } : undefined} title={new Date(agent.expiresAt).toLocaleString()}>
+                {expired ? "Expired" : "Expires"} {relFuture(agent.expiresAt)}
+              </span>
+            ) : null}
+          </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-muted-foreground">
-          <Shield className="size-3" />
-          clearance {agent.clearance ?? 1}
-        </span>
-        <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 ${overrides ? "border-emerald-500/25 bg-emerald-500/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
-          <SlidersHorizontal className="size-3" />
-          {overrides ? "custom limits" : "inherits wallet policy"}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-muted-foreground">
-          <Activity className="size-3" />
-          {agent.approvedMonth} approved this month
-        </span>
-      </div>
+          <dl className="seat-facts">
+            <div><dt>Waiting on you</dt><dd className={agent.pendingApprovals > 0 ? "seat-fact-wait" : undefined}>{agent.pendingApprovals}</dd></div>
+            <div><dt>Active grants</dt><dd>{agent.activeGrants}</dd></div>
+            <div><dt>Approved this month</dt><dd>{agent.approvedMonth}</dd></div>
+            <div><dt>Denied this month</dt><dd>{agent.deniedMonth}</dd></div>
+            <div><dt>Escalated this month</dt><dd>{agent.escalatedMonth}</dd></div>
+            <div><dt>Clearance</dt><dd>{agent.clearance ?? 1}</dd></div>
+            <div><dt>Limits</dt><dd>{overrides ? "Custom" : "Wallet policy"}</dd></div>
+          </dl>
 
-      {act && act.totalCalls > 0 ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          seen{" "}
-          {act.topModel && <span className="font-mono text-muted-foreground">{act.topModel}</span>}
-          {act.topModel && " · "}
-          <span className="text-muted-foreground">{act.totalCalls.toLocaleString()}</span> call{act.totalCalls === 1 ? "" : "s"}
-          {act.lastTask && (
-            <>
-              {" · "}task <span className="text-muted-foreground">{act.lastTask}</span>
-            </>
+          {act && act.totalCalls > 0 ? (
+            <p className="seat-activity">
+              {act.totalCalls.toLocaleString()} model call{act.totalCalls === 1 ? "" : "s"}
+              {act.topModel ? <>, mostly <span className="seat-mono">{act.topModel}</span></> : null}
+              {act.lastTask ? <>. Last task: {act.lastTask}</> : null}
+              {act.lastSeen ? <>, {rel(act.lastSeen)}</> : null}
+            </p>
+          ) : (
+            <p className="seat-activity">No model calls yet. Use Connect to put this key into a tool.</p>
           )}
-          {act.lastSeen && <> · {rel(act.lastSeen)}</>}
-        </p>
-      ) : (
-        <p className="mt-2 text-[11px] text-muted-foreground">No calls yet — use Connect to wire this key into an agent.</p>
-      )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setConnectOpen((o) => !o)}
-          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {connectOpen ? "Hide connect" : "Connect"}
-        </button>
-        {editable && (
-          <>
-          <form action={rotateAction} className="flex items-center gap-2">
-            <input type="hidden" name="agent_id" value={agent.id} />
-            <input type="hidden" name="change_holder" value={handoffOpen ? "true" : "false"} />
-            {handoffOpen && (
-              <input
-                name="holder"
-                maxLength={120}
-                placeholder={agent.holder ?? "new holder"}
-                className="w-36 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
-              />
+          <div className="seat-actions">
+            <button type="button" onClick={() => setConnectOpen((o) => !o)} className="g-btn g-btn-quiet g-btn-sm">
+              {connectOpen ? "Hide connect" : "Connect"}
+            </button>
+            {editable && (
+              <>
+                <button type="button" onClick={() => setOpen((o) => !o)} className="g-btn g-btn-quiet g-btn-sm">
+                  <SlidersHorizontal className="size-3.5" />
+                  {open ? "Hide limits" : "Limits and holder"}
+                </button>
+                <form action={rotateAction} className="seat-inline">
+                  <input type="hidden" name="agent_id" value={agent.id} />
+                  <input type="hidden" name="change_holder" value={handoffOpen ? "true" : "false"} />
+                  {handoffOpen && (
+                    <input name="holder" maxLength={120} placeholder={agent.holder ?? "New holder"} aria-label="New holder" className="g-input seat-input-sm" />
+                  )}
+                  <button type="submit" disabled={rotating} className="g-btn g-btn-quiet g-btn-sm">
+                    <RotateCw className="size-3.5" />
+                    {rotating ? "Rotating…" : handoffOpen ? "Rotate and hand off" : "Rotate key"}
+                  </button>
+                </form>
+                <button type="button" onClick={() => setHandoffOpen((o) => !o)} className="g-btn g-btn-quiet g-btn-sm">
+                  {handoffOpen ? "Cancel hand-off" : "Hand off on rotate"}
+                </button>
+                <form action={setAgentActiveAction} className="seat-inline seat-push">
+                  <input type="hidden" name="agent_id" value={agent.id} />
+                  <input type="hidden" name="active" value={agent.isActive ? "false" : "true"} />
+                  <button type="submit" className={`g-btn g-btn-quiet g-btn-sm${agent.isActive ? " seat-danger" : ""}`}>
+                    <Power className="size-3.5" />
+                    {agent.isActive ? "Turn off" : "Turn back on"}
+                  </button>
+                </form>
+              </>
             )}
-            <button type="submit" disabled={rotating} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50">
-              <RotateCw className="size-3" />
-              {rotating ? "Rotating…" : handoffOpen ? "Rotate + handoff" : "Rotate key"}
-            </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => setHandoffOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {handoffOpen ? "Cancel handoff" : "Handoff on rotate"}
-          </button>
-          <form action={setAgentActiveAction}>
-            <input type="hidden" name="agent_id" value={agent.id} />
-            <input type="hidden" name="active" value={agent.isActive ? "false" : "true"} />
-            <button type="submit" className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
-              <Power className="size-3" />
-              {agent.isActive ? "Revoke" : "Reactivate"}
-            </button>
-          </form>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
-            <SlidersHorizontal className="size-3" />
-            {open ? "Hide seat policy" : "Seat policy"}
-          </button>
-          </>
-        )}
-      </div>
-
-      {connectOpen && <KeyConnect agentKey={justRotated ? rotate.newKey! : "pxy_YOUR_KEY"} hasRealKey={!!justRotated} />}
-
-      {justRotated && (
-        <div className="mt-3 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.05] p-3">
-          <p className="text-xs font-semibold text-primary">New key — copy it now, it&apos;s shown once.</p>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{rotate.newKey}</code>
-            <Copy value={rotate.newKey!} />
           </div>
-        </div>
-      )}
 
-      {editable && open && (
-        <form action={limitsFormAction} className="mt-3 space-y-3 rounded-md border border-border bg-muted p-3">
-          <input type="hidden" name="agent_id" value={agent.id} />
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Per-agent overrides — blank inherits the wallet policy</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {([
-              ["daily_token_budget_usd", "Daily tokens $", agent.dailyTokenBudgetUsd],
-              ["daily_spend_budget_usd", "Daily spend $", agent.dailySpendBudgetUsd],
-              ["per_transaction_max_usd", "Per-txn max $", agent.perTransactionMaxUsd],
-              ["escalate_over_usd", "Escalate over $", agent.escalateOverUsd],
-            ] as const).map(([name, label, val]) => (
-              <label key={name} className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                {label}
-                <input
-                  name={name}
-                  defaultValue={dollars(val)}
-                  inputMode="decimal"
-                  placeholder="inherit"
-                  className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
-                />
-              </label>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-              Holder — audit only
-              <input
-                name="holder"
-                defaultValue={agent.holder ?? ""}
-                maxLength={120}
-                placeholder="unassigned"
-                className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-              Expires — key fails closed after
-              <input
-                name="expires_at"
-                type="date"
-                defaultValue={agent.expiresAt ? agent.expiresAt.slice(0, 10) : ""}
-                className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border"
-              />
-            </label>
-          </div>
-          <div className="flex items-end justify-between gap-3">
-            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-              Clearance
-              <select name="clearance" defaultValue={agent.clearance ?? 1} className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground outline-none focus:border-border">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </label>
-            <div className="flex items-center gap-2">
-              {!limits.ok && limits.error && (
-                <span className="text-[11px] text-red-400">{limits.error}</span>
-              )}
-              {limits.ok && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
-                  <CheckCircle2 className="size-3" />
-                  saved
-                </span>
-              )}
-              <button type="submit" disabled={savingLimits} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-emerald-400 disabled:opacity-50">
-                <Clock3 className="size-3" />
-                {savingLimits ? "Saving…" : "Save limits"}
-              </button>
+          {connectOpen && <KeyConnect agentKey={justRotated ? rotate.newKey! : "pxy_YOUR_KEY"} hasRealKey={!!justRotated} />}
+
+          {justRotated && (
+            <div className="add-pop-key">
+              <p className="seat-newkey">New key. Copy it now; it is shown only once.</p>
+              <div className="seat-newkey-row">
+                <code className="seat-mono seat-newkey-code">{rotate.newKey}</code>
+                <Copy value={rotate.newKey!} />
+              </div>
             </div>
-          </div>
-        </form>
-      )}
-      </div>
+          )}
+
+          {editable && open && (
+            <form action={limitsFormAction} className="seat-form">
+              <input type="hidden" name="agent_id" value={agent.id} />
+              <p className="seat-form-note">Limits for this agent only. Leave a field blank to use the wallet policy.</p>
+              <div className="seat-form-grid">
+                {([
+                  ["daily_token_budget_usd", "Daily model spend ($)", agent.dailyTokenBudgetUsd],
+                  ["daily_spend_budget_usd", "Daily purchases ($)", agent.dailySpendBudgetUsd],
+                  ["per_transaction_max_usd", "Largest single purchase ($)", agent.perTransactionMaxUsd],
+                  ["escalate_over_usd", "Ask a person above ($)", agent.escalateOverUsd],
+                ] as const).map(([name, label, val]) => (
+                  <label key={name}>
+                    {label}
+                    <input name={name} defaultValue={dollars(val)} inputMode="decimal" placeholder="Wallet policy" className="g-input" />
+                  </label>
+                ))}
+                <label>
+                  Holder (for the record only)
+                  <input name="holder" defaultValue={agent.holder ?? ""} maxLength={120} placeholder="Unassigned" className="g-input" />
+                </label>
+                <label>
+                  Expires (the key stops working after)
+                  <input name="expires_at" type="date" defaultValue={agent.expiresAt ? agent.expiresAt.slice(0, 10) : ""} className="g-input" />
+                </label>
+                <label>
+                  Clearance
+                  <select name="clearance" defaultValue={agent.clearance ?? 1} className="g-input">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="add-pop-row">
+                {!limits.ok && limits.error && <span className="add-pop-error" style={{ margin: 0 }}>{limits.error}</span>}
+                {limits.ok && (
+                  <span className="seat-saved">
+                    <CheckCircle2 className="size-3.5" />
+                    Saved
+                  </span>
+                )}
+                <button type="submit" disabled={savingLimits} className="g-btn g-btn-primary g-btn-sm">
+                  {savingLimits ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
 export function ApiKeysTable({ agents, editable }: { agents: ConsoleAgent[]; editable: boolean }) {
+  const [query, setQuery] = useState("")
+  // A link such as /dashboard/agents#seat-<id> (the rows on Home) opens that
+  // agent. Read after mount: the hash never reaches the server.
+  const [target, setTarget] = useState<string | null>(null)
+  useEffect(() => {
+    const read = () => {
+      const id = window.location.hash.startsWith("#seat-") ? window.location.hash.slice(6) : null
+      setTarget(id)
+      if (id) document.getElementById(`seat-${id}`)?.scrollIntoView({ block: "center" })
+    }
+    read()
+    window.addEventListener("hashchange", read)
+    return () => window.removeEventListener("hashchange", read)
+  }, [])
+
+  const needle = query.trim().toLowerCase()
+  const shown = useMemo(
+    () =>
+      needle === ""
+        ? agents
+        : agents.filter(
+            (a) =>
+              a.name.toLowerCase().includes(needle) ||
+              (a.holder ?? "").toLowerCase().includes(needle) ||
+              a.walletName.toLowerCase().includes(needle) ||
+              a.apiKeyPrefix.toLowerCase().includes(needle),
+          ),
+    [agents, needle],
+  )
+
   if (agents.length === 0) {
-    return <p className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">No agents registered yet.</p>
+    return <p className="g-panel g-empty">No agents here yet.</p>
   }
   return (
-    <div className="space-y-3">
-      {agents.map((a) => (
-        <KeyRow key={a.id} agent={a} editable={editable} />
-      ))}
+    <div>
+      <label className="agents-search seat-search">
+        <span className="sr-only">Search agents</span>
+        <Search aria-hidden />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search by name, person, group or key"
+          className="g-input"
+        />
+      </label>
+      <div className="g-panel">
+        {shown.length === 0 && <p className="g-empty">No agents match “{query.trim()}”.</p>}
+        {shown.map((a) => (
+          // Keyed with the target so a hash link re-mounts that one row open.
+          <KeyRow key={a.id === target ? `${a.id}-open` : a.id} agent={a} editable={editable} startOpen={a.id === target} />
+        ))}
+      </div>
     </div>
   )
 }
