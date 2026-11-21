@@ -14,7 +14,7 @@ const { dbMock, viewMock, rosterMock } = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/session", () => ({ getViewWallet: viewMock }))
-vi.mock("@/lib/roster", () => ({ getRoster: rosterMock }))
+vi.mock("@/lib/roster", () => ({ getRoster: rosterMock, getWaiting: vi.fn(async () => []) }))
 vi.mock("@/lib/rls", () => ({ withTenant: (_id: string, fn: (tx: typeof dbMock) => unknown) => fn(dbMock) }))
 vi.mock("@/lib/firstHourConnection", () => ({ hasActiveMcpConnection: vi.fn(async () => false) }))
 vi.mock("@/components/roster-add-agent", () => ({ RosterAddAgent: () => null }))

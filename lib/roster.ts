@@ -1,5 +1,6 @@
 import { db } from "@/lib/db"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
+import { asRecord, resourceTitle } from "@/lib/approvalTitle"
 
 export type AgentStamp = "live" | "paused" | "blocked"
 
@@ -12,6 +13,7 @@ export type RosterAgent = {
   monthUsd: number
   pending: number
   stamp: AgentStamp
+  lastUsedAt: Date | null
 }
 
 export type RosterGroup = {
@@ -53,7 +55,7 @@ export async function getRoster(rootId: string): Promise<{
     }),
     db.agent.findMany({
       where: { walletId: { in: walletIds } },
-      select: { id: true, name: true, holder: true, isActive: true, walletId: true },
+      select: { id: true, name: true, holder: true, isActive: true, walletId: true, lastUsedAt: true },
       orderBy: { createdAt: "asc" },
     }),
     db.policy.findMany({
@@ -62,7 +64,9 @@ export async function getRoster(rootId: string): Promise<{
     }),
     db.pendingApproval.groupBy({
       by: ["agentId"],
-      where: { walletId: { in: walletIds }, status: "pending" },
+      // The live set only, the same one the nav badge counts: a request past
+      // its deadline can no longer be decided, so it is not "waiting".
+      where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
       _count: { _all: true },
     }),
   ])
@@ -103,6 +107,7 @@ export async function getRoster(rootId: string): Promise<{
       monthUsd: monthByAgent.get(a.id) ?? 0,
       pending,
       stamp: agentStamp(a, pending),
+      lastUsedAt: a.lastUsedAt ?? null,
     }
     const list = agentsByWallet.get(a.walletId) ?? []
     list.push(row)
@@ -157,4 +162,41 @@ export async function getRoster(rootId: string): Promise<{
   rollup(root)
 
   return { root, pendingTotal: root.pending, agentCount: agents.length }
+}
+
+export type WaitingItem = {
+  id: string
+  title: string
+  agentName: string
+  groupName: string
+  reason: string | null
+  createdAt: Date
+}
+
+// The requests a person can still decide, oldest first. Read-only: deadlines
+// are settled on the Approvals page, never by loading the home page.
+export async function getWaiting(rootId: string, take = 5): Promise<WaitingItem[]> {
+  const { ids: walletIds } = await subtreeWalletIds(rootId)
+  const rows = await db.pendingApproval.findMany({
+    where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    orderBy: { createdAt: "asc" },
+    take,
+    select: {
+      id: true,
+      actionType: true,
+      resourceJson: true,
+      reason: true,
+      createdAt: true,
+      agent: { select: { name: true } },
+      wallet: { select: { name: true } },
+    },
+  })
+  return rows.map((r) => ({
+    id: r.id,
+    title: resourceTitle(asRecord(r.resourceJson), r.actionType),
+    agentName: r.agent.name,
+    groupName: r.wallet.name,
+    reason: r.reason,
+    createdAt: r.createdAt,
+  }))
 }

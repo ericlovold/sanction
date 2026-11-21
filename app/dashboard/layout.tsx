@@ -5,6 +5,12 @@ import { AccountControl } from "@/components/account-control"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { WalletSwitcher } from "@/components/wallet-switcher"
 import { SwRegister } from "@/components/sw-register"
+import { Instrument_Sans } from "next/font/google"
+import "./glass.css"
+
+// The dashboard's one typeface: the same family the marketing site uses, so
+// the product and the site read as one company.
+const dashFont = Instrument_Sans({ variable: "--font-dash", subsets: ["latin"] })
 
 export const dynamic = "force-dynamic"
 
@@ -33,7 +39,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   ])
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className={`dash ${dashFont.variable}`}>
+      <div className="dash-shell flex-col md:flex-row">
       <DashboardSidebar
         view={{ name: view.name, isSession: view.isSession }}
         pendingCount={pendingCount}
@@ -41,7 +48,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         account={<AccountControl view={view} />}
         switcher={sessionWallets.length > 1 ? <WalletSwitcher wallets={sessionWallets} activeId={view.id} /> : undefined}
       />
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="dash-main dash-main-pad">{children}</main>
+      </div>
       <SwRegister />
       {process.env.NODE_ENV !== "production" && (
         // Dev-only self-heal for a browser poisoned by the (production) service

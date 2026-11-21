@@ -21,11 +21,11 @@ export function WalletSwitcher({
         defaultValue={activeId}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
         aria-label="Switch wallet"
-        className="mt-2 w-full truncate rounded border border-sidebar-border bg-transparent px-1 py-0.5 font-mono text-[11px] text-sidebar-foreground/70 outline-none hover:text-sidebar-foreground"
+        className="dash-wallet-select"
       >
         {wallets.map((w) => (
-          <option key={w.id} value={w.id} className="bg-sidebar text-sidebar-foreground">
-            {w.name} · {w.role}
+          <option key={w.id} value={w.id}>
+            {w.name} ({w.role})
           </option>
         ))}
       </select>
