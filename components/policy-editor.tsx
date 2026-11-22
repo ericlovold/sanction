@@ -39,7 +39,7 @@ const budgetFields = [
   {
     name: "daily_spend_budget_usd",
     label: "Purchases per agent, per day",
-    hint: "Counted for each agent on its own. A purchase that would take an agent over this is refused.",
+    hint: "The default for each agent, counted on its own. An agent with its own daily limit uses that instead. A purchase that would take an agent over its limit is refused.",
   },
   {
     name: "monthly_spend_budget_usd",
@@ -50,7 +50,7 @@ const budgetFields = [
   {
     name: "daily_token_budget_usd",
     label: "Model spend per agent, per day",
-    hint: "Counted for each agent on its own. At this, that agent's model calls through the gateway are refused until the day resets.",
+    hint: "The default for each agent, counted on its own. An agent with its own limit uses that instead. At its limit, that agent's model calls through the gateway are refused until the day resets.",
   },
   {
     name: "subtree_daily_cap_usd",

@@ -45,13 +45,17 @@ export function policySummary(p: SummaryPolicy): string[] {
   // Daily and monthly limits are counted for each agent on its own
   // (app/api/v1/authorize/route.ts sums one agent's approved spend; the gateway
   // sums one agent's model cost). Only the two caps below pool agents together.
+  // This summary sees the wallet's policy only, so it cannot name an agent's
+  // own limit; it says that one may exist.
   const monthlyModel = p.monthly_token_budget_usd ?? null
   out.push(
     `Each agent's purchases stop at ${fmtUsd(p.daily_spend_budget_usd)} a day` +
       (p.monthly_spend_budget_usd !== null ? ` and ${fmtUsd(p.monthly_spend_budget_usd)} a month` : "") +
       `. Each agent's model spend stops at ${fmtUsd(p.daily_token_budget_usd)} a day` +
       (monthlyModel !== null ? ` and ${fmtUsd(monthlyModel)} a month` : "") +
-      ".",
+      // The wallet's numbers are defaults: /authorize and the gateway read the
+      // agent's own limit first (agent.dailySpendBudgetUsd ?? policy...).
+      ". These are defaults: an agent with its own limit uses that instead.",
   )
 
   const pooledPurchases = p.subtree_daily_cap_usd ?? null

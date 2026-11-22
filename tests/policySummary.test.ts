@@ -21,7 +21,7 @@ const base: SummaryPolicy = {
 describe("policySummary", () => {
   it("describes the default ladder", () => {
     expect(policySummary(base)).toEqual([
-      "Each agent's purchases stop at $50.00 a day. Each agent's model spend stops at $10.00 a day.",
+      "Each agent's purchases stop at $50.00 a day. Each agent's model spend stops at $10.00 a day. These are defaults: an agent with its own limit uses that instead.",
       "This wallet sets no cap on all agents together, so the total grows with every agent added.",
       "Inside those limits, a purchase up to $25.00 goes through on its own. Above that, up to $50.00, a person is asked. Anything larger is refused.",
       "Any tool may be used unless it is listed below.",
@@ -66,7 +66,7 @@ describe("policySummary", () => {
       escalation_timeout_action: "approve",
     })
     expect(lines[0]).toContain("Observe mode is on")
-    expect(lines[1]).toBe("Each agent's purchases stop at $50.00 a day and $1,000.00 a month. Each agent's model spend stops at $10.00 a day.")
+    expect(lines[1]).toBe("Each agent's purchases stop at $50.00 a day and $1,000.00 a month. Each agent's model spend stops at $10.00 a day. These are defaults: an agent with its own limit uses that instead.")
     expect(lines[4]).toBe("Purchases are limited to 1 category. 2 categories are blocked.")
     expect(lines[5]).toBe("Only 2 named tools may be used; any other tool is refused. 1 tool is blocked. 1 tool asks a person every time.")
     expect(lines[6]).toBe("1 rule governs new capabilities (skills, plugins, new APIs).")
@@ -82,7 +82,7 @@ describe("policySummary", () => {
       subtree_daily_cap_usd: 500,
       subtree_daily_token_cap_usd: 80,
     })
-    expect(lines[0]).toBe("Each agent's purchases stop at $50.00 a day. Each agent's model spend stops at $10.00 a day and $200.00 a month.")
+    expect(lines[0]).toBe("Each agent's purchases stop at $50.00 a day. Each agent's model spend stops at $10.00 a day and $200.00 a month. These are defaults: an agent with its own limit uses that instead.")
     expect(lines[1]).toBe("All agents in this wallet and the groups below it, together, stop at $500.00 a day in purchases and $80.00 a day in model spend.")
     expect(policySummary({ ...base, subtree_daily_token_cap_usd: 80 })[1]).toBe(
       "All agents in this wallet and the groups below it, together, stop at $80.00 a day in model spend.",
