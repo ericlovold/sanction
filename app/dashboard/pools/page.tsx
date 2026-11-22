@@ -239,7 +239,16 @@ async function getPools(walletId: string) {
     if (agent.isActive) {
       bucket.activeAgentCount += 1
       bucket.delegatedDailyUsd += (agent.dailySpendBudgetUsd ?? wallet.policy?.dailySpendBudgetUsd ?? 0) / 100
-      bucket.delegatedTokenDailyUsd += (agent.dailyTokenBudgetUsd ?? wallet.policy?.dailyTokenBudgetUsd ?? 0) / 100
+      // A group with no policy takes per-agent model defaults from the nearest
+      // wallet above it (inheritedTokenDefaults in lib/cascadeBudget.ts). The
+      // walk stops at the top of this view.
+      let ruling = wallet
+      for (let depth = 0; !ruling.policy && ruling.parentId && depth < 16; depth++) {
+        const parent = walletById.get(ruling.parentId)
+        if (!parent) break
+        ruling = parent
+      }
+      bucket.delegatedTokenDailyUsd += (agent.dailyTokenBudgetUsd ?? ruling.policy?.dailyTokenBudgetUsd ?? 0) / 100
     }
   }
 
