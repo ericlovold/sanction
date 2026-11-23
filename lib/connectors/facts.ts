@@ -16,7 +16,8 @@ export type FactInput = {
   provider: string
   surface: "ide" | "agent" | "api" | "chat" | "claude_code"
   rawIdentity: string
-  identityType: "user" | "service_account" | "api_key"
+  // "unattributed" is usage the provider could not tie to any identity.
+  identityType: "user" | "service_account" | "api_key" | "unattributed"
   model: string
   sessionRef: string | null
   automationRef: string | null

@@ -39,13 +39,17 @@ const RULE: Record<string, string> = {
 
 // Every figure names where it came from and how old it is. A number that
 // looks live but is a day stale is worse than no number.
+// The oldest "as of" among the connected tools: a combined figure is only as
+// current as its stalest source. The per-tool times are listed once, up top.
 function Source({ view }: { view: AiSpendView }) {
-  const pulled = view.connections.map((c) => c.lastSuccessAt).filter((d): d is Date => !!d)
-  const latest = pulled.length ? new Date(Math.max(...pulled.map((d) => d.getTime()))) : null
-  const names = [...new Set(view.connections.map((c) => usageProvider(c.provider)?.name ?? c.provider))].join(", ")
+  const times = view.connections.map((c) => c.dataAsOf).filter((d): d is Date => !!d)
+  if (!view.connections.length) return <p className="mt-1 text-[11px] text-muted-foreground">No tool connected</p>
+  if (!times.length) return <p className="mt-1 text-[11px] text-muted-foreground">Waiting for the first pull</p>
+  const oldest = new Date(Math.min(...times.map((d) => d.getTime())))
   return (
     <p className="mt-1 text-[11px] text-muted-foreground">
-      {names || "No tool connected"} · data as of {stamp(latest)}
+      data as of {stamp(oldest)}
+      {view.connections.length > 1 && " (oldest of the connected tools)"}
     </p>
   )
 }
@@ -121,7 +125,11 @@ export default async function AiSpendPage() {
   // Per-person spend is for admins. Everyone else, and the public demo view,
   // gets the totals without names.
   const view = await aiSpendView(wallet.id)
-  const included = view.monthToDate - view.monthBilled
+  const included = view.monthToDate - view.monthBilled - view.monthEstimated
+  const billedNote = [
+    included > BigInt(0) ? `${usdOf(included)} more was covered by plans` : null,
+    view.monthEstimated > BigInt(0) ? `${usdOf(view.monthEstimated)} is an estimate, not billed yet` : null,
+  ].filter(Boolean).join(" · ")
 
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
@@ -132,15 +140,25 @@ export default async function AiSpendPage() {
           tool&apos;s own reporting, so they run behind real time. Sanction watches them for runaway jobs and tells you; it cannot stop
           a tool that does not route through it.
         </p>
+        {view.connections.length > 0 && (
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {view.connections.map((c) => (
+              <span key={c.id} className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-2 w-2 rounded-[2px]" style={{ background: usageProvider(c.provider)?.color ?? "#71717a" }} />
+                {usageProvider(c.provider)?.name ?? c.provider} as of <span className="font-mono">{stamp(c.dataAsOf)}</span>
+              </span>
+            ))}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
           { label: "Month to date", value: usdOf(view.monthToDate), sub: `since ${dayLabel(view.monthStart)} UTC` },
           {
-            label: "Billed on top of plans",
+            label: "Billed so far",
             value: usdOf(view.monthBilled),
-            sub: included > BigInt(0) ? `${usdOf(included)} more was covered by plans` : "usage the tools charged for",
+            sub: billedNote || "usage the tools charged for",
           },
           {
             label: "Forecast to month end",
@@ -176,7 +194,7 @@ export default async function AiSpendPage() {
           {view.alerts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No guardrail has fired. Sanction checks every pull for an hour far above a person&apos;s normal, background work that keeps
-              spending, and anyone past $50 in a day.
+              spending, and any person past $50 in a day.
             </p>
           ) : (
             <ul className="space-y-3">
@@ -231,7 +249,7 @@ export default async function AiSpendPage() {
 
       {view.hasData && (
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="bg-card border-border lg:col-span-2">
+          <Card className="bg-card border-border lg:col-span-3">
             <CardHeader className="px-5 pt-5 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">People · this month</CardTitle>
               <Source view={view} />
@@ -241,29 +259,37 @@ export default async function AiSpendPage() {
                 <p className="text-sm text-muted-foreground">Per-person spend is visible to wallet admins.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left text-sm">
+                  <table className="w-full min-w-[720px] text-left text-sm">
                     <thead className="text-xs text-muted-foreground">
                       <tr>
-                        <th className="py-2 font-normal">Who</th>
-                        <th className="py-2 font-normal">Tool</th>
-                        <th className="py-2 font-normal">Most-used model</th>
-                        <th className="py-2 text-right font-normal">Tokens</th>
-                        <th className="py-2 text-right font-normal">Billed</th>
-                        <th className="py-2 text-right font-normal">Total</th>
+                        <th className="py-2 pr-4 font-normal">Who</th>
+                        <th className="py-2 pr-4 font-normal">Tools</th>
+                        <th className="py-2 pr-4 font-normal whitespace-nowrap">Most-used model</th>
+                        <th className="py-2 pl-4 text-right font-normal">Tokens</th>
+                        <th className="py-2 pl-4 text-right font-normal">Billed</th>
+                        <th className="py-2 pl-4 text-right font-normal">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {view.people.slice(0, 10).map((p) => (
-                        <tr key={`${p.provider}:${p.identity}`} className="border-t border-border/60">
-                          <td className="py-2">
+                        <tr key={p.identity} className="border-t border-border/60 align-top">
+                          <td className="py-2 pr-4">
                             {p.identity}
                             {p.identityType !== "user" && <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">Automation</span>}
                           </td>
-                          <td className="py-2 text-muted-foreground">{usageProvider(p.provider)?.name ?? p.provider}</td>
-                          <td className="py-2 font-mono text-xs">{p.topModel}</td>
-                          <td className="py-2 text-right font-mono">{fmtCount(Number(p.tokens))}</td>
-                          <td className="py-2 text-right font-mono">{usdOf(p.billed)}</td>
-                          <td className="py-2 text-right font-mono">{usdOf(p.cost)}</td>
+                          <td className="py-2 pr-4 text-xs text-muted-foreground">
+                            {p.tools.map(([tool, cost]) => (
+                              <span key={tool} className="mr-3 inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span aria-hidden className="h-2 w-2 rounded-[2px]" style={{ background: usageProvider(tool)?.color ?? "#71717a" }} />
+                                {usageProvider(tool)?.name ?? tool}
+                                {p.tools.length > 1 && <span className="font-mono">{usdOf(cost)}</span>}
+                              </span>
+                            ))}
+                          </td>
+                          <td className="py-2 pr-4 font-mono text-xs whitespace-nowrap">{p.topModel}</td>
+                          <td className="py-2 pl-4 text-right font-mono">{fmtCount(Number(p.tokens))}</td>
+                          <td className="py-2 pl-4 text-right font-mono">{usdOf(p.billed)}</td>
+                          <td className="py-2 pl-4 text-right font-mono">{usdOf(p.cost)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -332,19 +358,38 @@ export default async function AiSpendPage() {
                   {c && (
                     <div className="rounded-md bg-muted/60 p-3 space-y-1">
                       <p>Last successful pull: <span className="font-mono">{stamp(c.lastSuccessAt)}</span></p>
+                      {c.dataAsOf && c.lastSuccessAt && c.dataAsOf.getTime() < c.lastSuccessAt.getTime() && (
+                        <p>{p.name} says its data is current to: <span className="font-mono">{stamp(c.dataAsOf)}</span></p>
+                      )}
                       {c.lastRun && (
                         <p className="text-muted-foreground">
                           Last attempt {stamp(c.lastRun.startedAt)}: {c.lastRun.status === "ok" ? `${fmtCount(c.lastRun.factsWritten)} rows in ${c.lastRun.httpCalls} calls` : "failed"}
                         </p>
                       )}
                       {c.statusDetail && <p className="text-amber-400">{c.statusDetail}</p>}
-                      {c.health === "stale" && <p className="text-amber-400">No successful pull in over two hours. Figures above are older than they should be.</p>}
+                      {c.health === "stale" && <p className="text-amber-400">No successful pull in twice the usual interval. Figures above are older than they should be.</p>}
                       <p className="text-muted-foreground">Key stored {c.keyAgeDays} day{c.keyAgeDays === 1 ? "" : "s"} ago{c.connectedByEmail && isAdmin ? ` by ${c.connectedByEmail}` : ""}.</p>
                       {c.keyIsOld && (
                         <p className="text-amber-400">
                           This key is over 90 days old. <a className="underline underline-offset-2" href={p.rotationUrl} rel="noreferrer" target="_blank">Create a new one in {p.name}</a>, then replace it below.
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {p.routes && (
+                    <div>
+                      <p className="text-muted-foreground">How does your team use {p.name}?</p>
+                      <ul className="mt-1 space-y-1">
+                        {p.routes.map((r) => (
+                          <li key={r.label} className="flex gap-2">
+                            <span className={`mt-0.5 shrink-0 rounded border px-1.5 text-[10px] leading-4 ${r.available ? "border-emerald-500/30 text-emerald-500" : "border-border text-muted-foreground"}`}>
+                              {r.available ? "Available" : "Not yet"}
+                            </span>
+                            <span><span className="font-medium">{r.label}.</span> <span className="text-muted-foreground">{r.note}</span></span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
@@ -387,7 +432,7 @@ export default async function AiSpendPage() {
         </div>
         <p className="text-xs text-muted-foreground">
           Sanction reads usage metadata only: tokens, cost, model, and the account that used them. It never requests prompts or responses.
-          Claude and OpenAI connections are next.
+          Figures marked as estimates are replaced by billed amounts once the tool reports them.
         </p>
       </div>
     </div>

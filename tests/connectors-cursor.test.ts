@@ -4,9 +4,10 @@
 import { describe, expect, it, vi } from "vitest"
 import docs from "./fixtures/cursor/usage-events.docs.json"
 import {
-  CURSOR_API, CURSOR_USAGE_EVENTS_PATH, createRateLimiter, fetchCursorUsageEvents,
+  CURSOR_API, CURSOR_USAGE_EVENTS_PATH, fetchCursorUsageEvents,
   normalizeCursorEvents, parseCursorUsageEventsPage, type CursorUsageEvent,
 } from "../lib/connectors/cursor"
+import { createRateLimiter } from "../lib/connectors/pace"
 import { ConnectorError, factDedupeKey, needsReconnect } from "../lib/connectors/facts"
 import { sumNanos, toNanos } from "../lib/connectors/money"
 

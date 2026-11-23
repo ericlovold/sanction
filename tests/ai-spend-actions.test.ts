@@ -25,7 +25,7 @@ vi.mock("@/lib/db", () => ({ db: m.db }))
 vi.mock("@/lib/rls", () => ({ withTenant: (_w: string, fn: (tx: unknown) => unknown) => fn(m.tx) }))
 vi.mock("@/lib/session", () => ({ getSessionMember: m.member }))
 vi.mock("@/lib/credentialCrypto", () => ({ encryptCredentialEnvelope: m.encrypt }))
-vi.mock("@/lib/connectors/cursor", () => ({ fetchCursorUsageEvents: m.probe }))
+vi.mock("@/lib/connectors/adapters", () => ({ adapterFor: (id: string) => (id === "cursor" || id === "anthropic" || id === "openai" ? { probe: m.probe } : undefined) }))
 vi.mock("@/lib/connectors/sync", () => ({ syncConnection: m.sync }))
 vi.mock("next/cache", () => ({ revalidatePath: m.revalidate }))
 
@@ -65,7 +65,7 @@ describe("connectUsageToolAction", () => {
   })
 
   it("rejects unknown tools and things that are not a key", async () => {
-    expect((await connectUsageToolAction(idle, form({ provider: "openai", api_key: KEY }))).message).toBe("Unknown tool.")
+    expect((await connectUsageToolAction(idle, form({ provider: "gemini", api_key: KEY }))).message).toBe("Unknown tool.")
     for (const bad of ["short", "has a space in the middle of the key value", ""]) {
       expect((await connectUsageToolAction(idle, form({ provider: "cursor", api_key: bad }))).ok).toBe(false)
     }
@@ -111,6 +111,15 @@ describe("connectUsageToolAction", () => {
     expect(m.sync.mock.calls[0][1].actorEmail).toBe("owner@example.test")
     m.sync.mockResolvedValue({ ok: true, factsWritten: 0, alertsRaised: 0 })
     expect((await connectUsageToolAction(idle, form({ provider: "cursor", api_key: KEY }))).message).toBe("Connected. Last 7 days: $0.00 across 1 person.")
+  })
+
+  it("connects Claude through the same path, with its own label and error wording", async () => {
+    const result = await connectUsageToolAction(idle, form({ provider: "anthropic", api_key: KEY }))
+    expect(result.ok).toBe(true)
+    expect(m.encrypt).toHaveBeenCalledWith(KEY, "w_1", "usage:anthropic:conn_1")
+    expect(m.db.usageConnection.upsert.mock.calls[0][0].where).toEqual({ walletId_provider: { walletId: "w_1", provider: "anthropic" } })
+    m.probe.mockRejectedValue(new Error("network"))
+    expect((await connectUsageToolAction(idle, form({ provider: "anthropic", api_key: KEY }))).message).toBe("Could not reach Claude to check the key. Try again.")
   })
 })
 

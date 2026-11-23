@@ -54,7 +54,10 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     orderBy: { connectedAt: "asc" },
   })
 
-  const { hourly, people, alerts, runs } = await withTenant(walletId, async (tx) => ({
+  const { hourly, people, alerts, runs, refreshed } = await withTenant(walletId, async (tx) => ({
+    // How current each connection's data is by the provider's own account
+    // (Anthropic states it; for Cursor it is our pull time).
+    refreshed: await tx.usageFact.groupBy({ by: ["connectionId"], where: { walletId }, _max: { sourceRefreshedAt: true } }),
     // Hour x provider x basis is small (30 days is 720 hours a provider) and
     // folds into days, months and the split in one pass.
     hourly: await tx.usageFact.groupBy({
@@ -73,6 +76,7 @@ export async function aiSpendView(walletId: string, now = new Date()) {
 
   let monthToDate = ZERO
   let monthBilled = ZERO
+  let monthEstimated = ZERO
   let lastMonth = ZERO
   const days = Array.from({ length: CHART_DAYS }, (_, i) => ({
     date: new Date(chartStart.getTime() + i * DAY_MS),
@@ -86,6 +90,7 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     if (t >= monthStart.getTime()) {
       monthToDate += cost
       if (row.costBasis === "billed") monthBilled += cost
+      if (row.costBasis === "estimated") monthEstimated += cost
       monthByProvider.set(row.provider, (monthByProvider.get(row.provider) ?? ZERO) + cost)
     } else if (t >= lastMonthStart.getTime()) {
       lastMonth += cost
@@ -97,37 +102,37 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     }
   }
 
-  type Person = { provider: string; identity: string; identityType: string; cost: bigint; billed: bigint; tokens: bigint; requests: number; topModel: string; topModelCost: bigint }
+  // One row per identity across every tool. The same email on two tools is
+  // the same person; ids that only one provider knows (an OpenAI user id, an
+  // API key) stay their own row until someone maps them.
+  type Person = { identity: string; identityType: string; cost: bigint; billed: bigint; tokens: bigint; requests: number; topModel: string; tools: [string, bigint][] }
   const byPerson = new Map<string, Person>()
   const byModel = new Map<string, bigint>()
+  const personModel = new Map<string, Map<string, bigint>>()
+  const personTools = new Map<string, Map<string, bigint>>()
+  const bump = (outer: Map<string, Map<string, bigint>>, who: string, key: string, cost: bigint) => {
+    const inner = outer.get(who) ?? new Map<string, bigint>()
+    inner.set(key, (inner.get(key) ?? ZERO) + cost)
+    outer.set(who, inner)
+  }
   for (const row of people) {
     const cost = row._sum.costNanos ?? ZERO
-    const key = JSON.stringify([row.provider, row.rawIdentity])
-    const p = byPerson.get(key) ?? {
-      provider: row.provider, identity: row.rawIdentity, identityType: row.identityType,
-      cost: ZERO, billed: ZERO, tokens: ZERO, requests: 0, topModel: row.model, topModelCost: BigInt(-1),
-    }
+    const who = row.rawIdentity
+    const p = byPerson.get(who) ?? { identity: who, identityType: row.identityType, cost: ZERO, billed: ZERO, tokens: ZERO, requests: 0, topModel: row.model, tools: [] }
     p.cost += cost
     if (row.costBasis === "billed") p.billed += cost
     p.tokens += (row._sum.inputTokens ?? ZERO) + (row._sum.outputTokens ?? ZERO) + (row._sum.cacheReadTokens ?? ZERO) + (row._sum.cacheWriteTokens ?? ZERO)
     p.requests += row._sum.requests ?? 0
+    byPerson.set(who, p)
+    bump(personModel, who, row.model, cost)
+    bump(personTools, who, row.provider, cost)
     const modelKey = JSON.stringify([row.provider, row.model])
     byModel.set(modelKey, (byModel.get(modelKey) ?? ZERO) + cost)
-    byPerson.set(key, p)
   }
-  // Top model per person needs the per-model totals across both cost bases.
-  const personModel = new Map<string, bigint>()
-  for (const row of people) {
-    const key = JSON.stringify([row.provider, row.rawIdentity, row.model])
-    personModel.set(key, (personModel.get(key) ?? ZERO) + (row._sum.costNanos ?? ZERO))
-  }
-  for (const [key, cost] of personModel) {
-    const [provider, identity, model] = JSON.parse(key) as [string, string, string]
-    const p = byPerson.get(JSON.stringify([provider, identity]))!
-    if (cost > p.topModelCost) {
-      p.topModel = model
-      p.topModelCost = cost
-    }
+  const byCostDesc = (a: [string, bigint], b: [string, bigint]) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : a[0].localeCompare(b[0]))
+  for (const [who, p] of byPerson) {
+    p.topModel = [...personModel.get(who)!.entries()].sort(byCostDesc)[0][0]
+    p.tools = [...personTools.get(who)!.entries()].sort(byCostDesc)
   }
   const desc = <T,>(of: (x: T) => bigint) => (a: T, b: T) => (of(a) < of(b) ? 1 : of(a) > of(b) ? -1 : 0)
 
@@ -136,6 +141,8 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     monthStart,
     monthToDate,
     monthBilled,
+    // Not billed yet: a provider that prices by the day has not priced it.
+    monthEstimated,
     lastMonth,
     // Last month is only whole if a connection was pulling before it began.
     lastMonthPartial: !connections.some((c) => c.connectedAt.getTime() - 30 * DAY_MS <= lastMonthStart.getTime()),
@@ -156,6 +163,9 @@ export async function aiSpendView(walletId: string, now = new Date()) {
         connectedAt: c.connectedAt,
         connectedByEmail: c.connectedByEmail,
         lastSuccessAt: c.lastSuccessAt,
+        // "Data as of": the provider's refresh time when it reports one that
+        // is older than our last pull, never newer than what we hold.
+        dataAsOf: refreshed.find((r) => r.connectionId === c.id)?._max.sourceRefreshedAt ?? c.lastSuccessAt,
         lastAttemptAt: c.lastAttemptAt,
         statusDetail: c.statusDetail,
         health: connectionHealth(c, provider?.expectedFreshnessMs ?? 3_600_000, now),

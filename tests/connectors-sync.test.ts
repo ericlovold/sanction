@@ -76,7 +76,7 @@ beforeEach(() => {
 describe("syncConnection", () => {
   it("re-reads a trailing overlap, replaces the window atomically, then records and notifies", async () => {
     const fetchMock = serving(incidentEvents())
-    const result = await syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: fetchMock as never, ...fast } })
+    const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: fetchMock as never, ...fast } })
     expect(result).toMatchObject({ ok: true, factsWritten: INCIDENT_HOURS, alertsRaised: 3 })
 
     // 48 hours back from the last pull, aligned to the hour.
@@ -105,7 +105,7 @@ describe("syncConnection", () => {
 
   it("the decrypted key goes to the provider and nowhere else", async () => {
     const fetchMock = serving([])
-    await syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: fetchMock as never, ...fast } })
+    await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: fetchMock as never, ...fast } })
     expect((fetchMock.mock.calls[0][1].headers as Record<string, string>).Authorization).toBe(`Basic ${Buffer.from("crsr_plaintext_key:").toString("base64")}`)
     const persisted = JSON.stringify([m.db.usageConnection.update.mock.calls, m.tx.usageSyncRun.create.mock.calls, (console.error as never as { mock: { calls: unknown[] } }).mock.calls])
     expect(persisted).not.toContain("crsr_plaintext_key")
@@ -114,7 +114,7 @@ describe("syncConnection", () => {
   it("a first pull reads 30 days", async () => {
     m.db.usageConnection.findUnique.mockResolvedValue({ ...connection, syncedThrough: null })
     const fetchMock = serving([])
-    await syncConnection("conn_1", { trigger: "connect_test", actorEmail: "a@example.test", now, cursor: { fetch: fetchMock as never, ...fast } })
+    await syncConnection("conn_1", { trigger: "connect_test", actorEmail: "a@example.test", now, http: { fetch: fetchMock as never, ...fast } })
     expect(fetchMock).toHaveBeenCalledTimes(30)
     expect(m.tx.usageSyncRun.create.mock.calls[0][0].data).toMatchObject({ trigger: "connect_test", actorEmail: "a@example.test", httpCalls: 30 })
     expect(m.tx.usageFact.createMany).not.toHaveBeenCalled()
@@ -122,7 +122,7 @@ describe("syncConnection", () => {
 
   it("alerts already on record are not raised or emailed again", async () => {
     m.tx.usageAlert.findMany.mockImplementation(async ({ where }: { where: { dedupeKey: { in: string[] } } }) => where.dedupeKey.in.map((dedupeKey) => ({ dedupeKey })))
-    const result = await syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: serving(incidentEvents()) as never, ...fast } })
+    const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: serving(incidentEvents()) as never, ...fast } })
     expect(result).toMatchObject({ ok: true, alertsRaised: 0 })
     expect(m.tx.usageAlert.createMany).not.toHaveBeenCalled()
     expect(m.email).not.toHaveBeenCalled()
@@ -131,7 +131,7 @@ describe("syncConnection", () => {
   it("alerts found in old history are recorded but not emailed", async () => {
     m.db.usageConnection.findUnique.mockResolvedValue({ ...connection, syncedThrough: null })
     const later = new Date(now.getTime() + 5 * DAY)
-    const result = await syncConnection("conn_1", { trigger: "connect_test", now: later, cursor: { fetch: serving(incidentEvents()) as never, ...fast } })
+    const result = await syncConnection("conn_1", { trigger: "connect_test", now: later, http: { fetch: serving(incidentEvents()) as never, ...fast } })
     expect(result).toMatchObject({ ok: true, alertsRaised: 3 })
     expect(m.tx.usageAlert.createMany).toHaveBeenCalledOnce()
     expect(m.email).not.toHaveBeenCalled()
@@ -139,17 +139,17 @@ describe("syncConnection", () => {
 
   it("a failed email does not fail a pull whose data is stored", async () => {
     m.email.mockRejectedValue(new Error("resend down"))
-    const result = await syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: serving(incidentEvents()) as never, ...fast } })
+    const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: serving(incidentEvents()) as never, ...fast } })
     expect(result.ok).toBe(true)
     expect(m.tx.usageAlert.updateMany).not.toHaveBeenCalled()
     m.email.mockResolvedValue(undefined)
     m.db.wallet.findUnique.mockResolvedValue(null)
-    expect((await syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: serving(incidentEvents()) as never, ...fast } })).ok).toBe(true)
+    expect((await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: serving(incidentEvents()) as never, ...fast } })).ok).toBe(true)
   })
 
   it("a provider failure is recorded on the connection and the run, and returned, never thrown", async () => {
     const rejected = vi.fn(async () => new Response("{}", { status: 401 }))
-    const result = await syncConnection("conn_1", { trigger: "manual", actorEmail: "a@example.test", now, cursor: { fetch: rejected as never, ...fast } })
+    const result = await syncConnection("conn_1", { trigger: "manual", actorEmail: "a@example.test", now, http: { fetch: rejected as never, ...fast } })
     expect(result).toMatchObject({ ok: false, code: "bad_key" })
     expect(m.db.$transaction).not.toHaveBeenCalled()
     expect(m.db.usageConnection.update.mock.calls[0][0].data).toMatchObject({ status: "error", statusCode: "bad_key", lastAttemptAt: now })
@@ -161,14 +161,14 @@ describe("syncConnection", () => {
     m.db.$transaction.mockRejectedValue(new Error("connection reset: postgres://user:pw@host"))
     m.db.usageConnection.update.mockRejectedValue(new Error("still down"))
     m.tx.usageSyncRun.create.mockRejectedValue(new Error("still down"))
-    const result = await syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: serving([]) as never, ...fast } })
+    const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: serving([]) as never, ...fast } })
     expect(result).toMatchObject({ ok: false, code: "provider_unavailable" })
     expect(JSON.stringify(result)).not.toContain("postgres://")
   })
 
   it("refuses without calling the provider: no connection, disconnected, unknown provider, no credential", async () => {
     const fetchMock = vi.fn()
-    const attempt = () => syncConnection("conn_1", { trigger: "cron", now, cursor: { fetch: fetchMock as never, ...fast } })
+    const attempt = () => syncConnection("conn_1", { trigger: "cron", now, http: { fetch: fetchMock as never, ...fast } })
     m.db.usageConnection.findUnique.mockResolvedValue(null)
     expect(await attempt()).toMatchObject({ ok: false, code: "missing_credential" })
     m.db.usageConnection.findUnique.mockResolvedValue({ ...connection, status: "disconnected" })
@@ -244,7 +244,9 @@ describe("read model", () => {
     const at = new Date(Date.UTC(2026, 10, 20, 12))
     m.db.usageConnection.findMany.mockResolvedValue([{ ...connection, connectedAt: new Date(Date.UTC(2026, 7, 1)), lastSuccessAt: at }])
     m.tx.usageFact.groupBy.mockImplementation(async ({ by }: { by: string[] }) =>
-      by.includes("bucketStart")
+      by.includes("connectionId")
+        ? [{ connectionId: "conn_1", _max: { sourceRefreshedAt: new Date(Date.UTC(2026, 10, 20, 8)) } }]
+        : by.includes("bucketStart")
         ? [
             { bucketStart: new Date(Date.UTC(2026, 10, 19, 3)), provider: "cursor", costBasis: "billed", _sum: { costNanos: usd(40) } },
             { bucketStart: new Date(Date.UTC(2026, 10, 19, 4)), provider: "cursor", costBasis: "included", _sum: { costNanos: usd(10) } },
@@ -255,6 +257,8 @@ describe("read model", () => {
             { provider: "cursor", rawIdentity: "a@x.test", identityType: "user", model: "big", costBasis: "billed", _sum: { costNanos: usd(30), inputTokens: BigInt(10), outputTokens: BigInt(5), cacheReadTokens: BigInt(1), cacheWriteTokens: BigInt(1), requests: 4 } },
             { provider: "cursor", rawIdentity: "a@x.test", identityType: "user", model: "small", costBasis: "included", _sum: { costNanos: usd(10), inputTokens: null, outputTokens: null, cacheReadTokens: null, cacheWriteTokens: null, requests: null } },
             { provider: "cursor", rawIdentity: "bot@x.test", identityType: "service_account", model: "big", costBasis: "billed", _sum: { costNanos: usd(10), inputTokens: BigInt(1), outputTokens: BigInt(1), cacheReadTokens: BigInt(0), cacheWriteTokens: BigInt(0), requests: 1 } },
+            // The same email on a second tool is the same person.
+            { provider: "anthropic", rawIdentity: "a@x.test", identityType: "user", model: "opus", costBasis: "billed", _sum: { costNanos: usd(5), inputTokens: BigInt(3), outputTokens: BigInt(0), cacheReadTokens: BigInt(0), cacheWriteTokens: BigInt(0), requests: 1 } },
           ],
     )
     m.tx.usageAlert.findMany.mockResolvedValue([{ id: "al_1", evidence: { identity: "a@x.test", billedNanos: "1", top: [] } }])
@@ -266,12 +270,14 @@ describe("read model", () => {
     expect(view.days).toHaveLength(30)
     expect(view.days.reduce((s, d) => s + d.total, BigInt(0))).toBe(usd(57)) // Oct 2 is outside the 30-day chart
     expect(view.days[view.days.length - 2].byProvider.get("cursor")).toBe(usd(50))
-    expect(view.people.map((p) => [p.identity, p.cost, p.billed, p.topModel, p.tokens, p.requests])).toEqual([
-      ["a@x.test", usd(40), usd(30), "big", BigInt(17), 4],
-      ["bot@x.test", usd(10), usd(10), "big", BigInt(2), 1],
+    expect(view.people.map((p) => [p.identity, p.cost, p.billed, p.topModel, p.tokens, p.requests, p.tools])).toEqual([
+      ["a@x.test", usd(45), usd(35), "big", BigInt(20), 5, [["cursor", usd(40)], ["anthropic", usd(5)]]],
+      ["bot@x.test", usd(10), usd(10), "big", BigInt(2), 1, [["cursor", usd(10)]]],
     ])
-    expect(view.models).toEqual([{ provider: "cursor", model: "big", cost: usd(40) }, { provider: "cursor", model: "small", cost: usd(10) }])
-    expect(view.connections[0]).toMatchObject({ health: "ok", keyIsOld: true, lastRun: { status: "ok" } })
+    expect(view.models).toEqual([
+      { provider: "cursor", model: "big", cost: usd(40) }, { provider: "cursor", model: "small", cost: usd(10) }, { provider: "anthropic", model: "opus", cost: usd(5) },
+    ])
+    expect(view.connections[0]).toMatchObject({ health: "ok", keyIsOld: true, lastRun: { status: "ok" }, dataAsOf: new Date(Date.UTC(2026, 10, 20, 8)) })
     expect(view.alerts[0].evidence.identity).toBe("a@x.test")
   })
 
@@ -283,5 +289,7 @@ describe("read model", () => {
     const view = await aiSpendView("w_1", now)
     expect(view).toMatchObject({ hasData: false, monthToDate: BigInt(0), lastMonthPartial: true, people: [], models: [] })
     expect(view.connections[0].lastRun).toBeNull()
+    // No facts yet: fall back to the last successful pull.
+    expect(view.connections[0].dataAsOf).toEqual(connection.lastSuccessAt)
   })
 })

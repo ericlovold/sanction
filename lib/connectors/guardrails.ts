@@ -20,6 +20,14 @@ export type GuardFact = {
   sessionRef: string | null
   automationRef: string | null
   headless: boolean
+  // A person, as opposed to a service account or API key. The daily line is
+  // for people: a production key is supposed to spend all day, and its
+  // runaways are caught by the rate rule against its own baseline.
+  human: boolean
+  // False for a day-long row (a provider that prices some usage per day
+  // only). Those count toward the daily line and are left out of the hourly
+  // rules, where a day of spend in one bucket would read as a spike.
+  hourly: boolean
   bucketStartMs: number // hour-aligned UTC
   costNanos: bigint
   billed: boolean
@@ -32,7 +40,7 @@ export type GuardThresholds = {
   baselineDays: number
   // headless_burn: background work above this in any two consecutive hours.
   headlessBurnNanos: bigint
-  // daily_cap: one identity above this in a UTC day.
+  // daily_cap: one person (not an automation) above this in a UTC day.
   dailyCapNanos: bigint
 }
 
@@ -154,7 +162,7 @@ export function evaluateGuardrails(
   for (const personFacts of byPerson.values()) {
     const { provider, rawIdentity } = personFacts[0]
     const hourly = new Map<number, GuardFact[]>()
-    for (const f of personFacts) hourly.set(f.bucketStartMs, [...(hourly.get(f.bucketStartMs) ?? []), f])
+    for (const f of personFacts) if (f.hourly) hourly.set(f.bucketStartMs, [...(hourly.get(f.bucketStartMs) ?? []), f])
     const hours = [...hourly.keys()].sort((a, b) => a - b)
     const hourCost = new Map(hours.map((h) => [h, total(hourly.get(h)!)]))
 
@@ -191,7 +199,7 @@ export function evaluateGuardrails(
     // else the identity running it.
     const headless = new Map<string, { subjectType: AlertSubject; subjectKey: string; facts: GuardFact[] }>()
     for (const f of personFacts) {
-      if (!f.headless) continue
+      if (!f.headless || !f.hourly) continue
       const subjectType: AlertSubject = f.automationRef ? "automation" : f.sessionRef ? "conversation" : "person"
       const subjectKey = f.automationRef ?? f.sessionRef ?? rawIdentity
       const group = headless.get(subjectKey) ?? { subjectType, subjectKey, facts: [] }
@@ -219,9 +227,10 @@ export function evaluateGuardrails(
       }
     }
 
-    // daily_cap: one identity's total for a UTC day.
+    // daily_cap: one person's total for a UTC day.
     const daily = new Map<number, GuardFact[]>()
     for (const f of personFacts) {
+      if (!f.human) continue
       const day = utcDay(f.bucketStartMs)
       daily.set(day, [...(daily.get(day) ?? []), f])
     }

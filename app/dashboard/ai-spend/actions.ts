@@ -9,8 +9,8 @@ import { getSessionMember } from "@/lib/session"
 import { hasRole } from "@/lib/roles"
 import { fmtUsd } from "@/lib/format"
 import { GATEWAY_ONLY_SENTINEL } from "@/lib/providers"
-import { fetchCursorUsageEvents } from "@/lib/connectors/cursor"
-import { ConnectorError, DAY_MS, HOUR_MS } from "@/lib/connectors/facts"
+import { adapterFor } from "@/lib/connectors/adapters"
+import { ConnectorError, DAY_MS } from "@/lib/connectors/facts"
 import { nanosToUsd } from "@/lib/connectors/money"
 import { usageProvider, usageVaultLabel } from "@/lib/connectors/registry"
 import { syncConnection } from "@/lib/connectors/sync"
@@ -18,7 +18,7 @@ import { syncConnection } from "@/lib/connectors/sync"
 export type ConnectState = { ok: boolean; message: string }
 
 const PATH = "/dashboard/ai-spend"
-const providerId = z.enum(["cursor"])
+const providerId = z.enum(["cursor", "anthropic", "openai"])
 // A key is one unbroken token. Reject anything with whitespace before it gets
 // near the provider or the vault.
 const apiKey = z.string().trim().min(20).max(500).regex(/^\S+$/)
@@ -42,15 +42,16 @@ export async function connectUsageToolAction(_prev: ConnectState, form: FormData
   if (!admin) return { ok: false, message: "Only a wallet admin can connect a tool." }
   const parsedProvider = providerId.safeParse(form.get("provider"))
   const provider = parsedProvider.success ? usageProvider(parsedProvider.data) : undefined
-  if (!provider) return { ok: false, message: "Unknown tool." }
+  const adapter = provider ? adapterFor(provider.id) : undefined
+  if (!provider || !adapter) return { ok: false, message: "Unknown tool." }
   const key = apiKey.safeParse(form.get("api_key"))
   if (!key.success) return { ok: false, message: `That does not look like an API key. ${provider.keyHint}` }
 
   const now = new Date()
   try {
-    await fetchCursorUsageEvents(key.data, { startMs: now.getTime() - HOUR_MS, endMs: now.getTime() })
+    await adapter.probe(key.data, now)
   } catch (error) {
-    return { ok: false, message: error instanceof ConnectorError ? error.message : "Could not reach Cursor to check the key. Try again." }
+    return { ok: false, message: error instanceof ConnectorError ? error.message : `Could not reach ${provider.name} to check the key. Try again.` }
   }
 
   const walletId = admin.wallet.id
@@ -130,8 +131,9 @@ export async function disconnectUsageToolAction(form: FormData): Promise<void> {
   revalidatePath(PATH)
 }
 
-// Cursor's data changes hourly and it asks for at most one poll an hour. A
-// manual pull is for "I just fixed something", not a refresh button to lean on.
+// Provider reporting changes hourly at best (Cursor asks for at most one poll
+// an hour). A manual pull is for "I just fixed something", not a refresh
+// button to lean on.
 const MANUAL_PULL_GAP_MS = 10 * 60_000
 
 export async function syncUsageToolNowAction(_prev: ConnectState, form: FormData): Promise<ConnectState> {

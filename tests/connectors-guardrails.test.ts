@@ -15,13 +15,13 @@ const T0 = Date.UTC(2026, 10, 10)
 function guardFacts(facts: FactInput[]): GuardFact[] {
   return facts.map((f) => ({
     provider: f.provider, rawIdentity: f.rawIdentity, model: f.model, sessionRef: f.sessionRef, automationRef: f.automationRef,
-    headless: f.headless, bucketStartMs: f.bucketStart.getTime(), costNanos: f.costNanos, billed: f.costBasis === "billed",
+    headless: f.headless, human: f.identityType === "user", hourly: true, bucketStartMs: f.bucketStart.getTime(), costNanos: f.costNanos, billed: f.costBasis === "billed",
   }))
 }
 function fact(over: Partial<GuardFact> & { hour: number; dollars: string }): GuardFact {
   const { hour, dollars, ...rest } = over
   return {
-    provider: "cursor", rawIdentity: "a@example.test", model: "m", sessionRef: null, automationRef: null, headless: false,
+    provider: "cursor", rawIdentity: "a@example.test", model: "m", sessionRef: null, automationRef: null, headless: false, human: true, hourly: true,
     bucketStartMs: T0 + hour * HOUR, costNanos: toNanos(dollars, "usd"), billed: true, ...rest,
   }
 }
@@ -166,6 +166,14 @@ describe("daily_cap", () => {
     expect(alert.observedNanos).toBe(toNanos("50.01", "usd"))
     expect(alert.evidence.billedNanos).toBe(toNanos("26.01", "usd").toString())
     expect(alert.evidence.top).toHaveLength(5)
+  })
+
+  it("is for people: a service account or API key spending all day is not a daily-cap alert", () => {
+    const facts = Array.from({ length: 20 }, (_, i) => fact({ hour: i, dollars: "4.9", human: false, rawIdentity: "apikey_prod" }))
+    expect(evaluateGuardrails(facts, T0)).toEqual([])
+    // The same automation is still caught when it jumps far above its own normal.
+    facts.push(fact({ hour: 21, dollars: "40", human: false, rawIdentity: "apikey_prod" }))
+    expect(evaluateGuardrails(facts, T0).map((a) => a.rule)).toEqual(["runaway_rate"])
   })
 
   it("does not carry spend across midnight UTC", () => {

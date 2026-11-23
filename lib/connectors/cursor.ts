@@ -19,6 +19,7 @@
 import { z } from "zod"
 import { ConnectorError, DAY_MS, HOUR_MS, hourStart, type FactInput } from "./facts"
 import { toNanos } from "./money"
+import { createRateLimiter, defaultClock, type FetchDeps } from "./pace"
 
 export const CURSOR_API = "https://api.cursor.com"
 export const CURSOR_USAGE_EVENTS_PATH = "/teams/filtered-usage-events"
@@ -75,44 +76,7 @@ export function parseCursorUsageEventsPage(body: unknown) {
   return parsed.data
 }
 
-/**
- * Cursor allows 60 requests a minute on this endpoint. The bucket starts with
- * 30 and refills one every two seconds, so the first minute is 60 at most and
- * a sustained pull settles at 30 a minute. A 30-day backfill (one call per
- * day when quiet) goes through at full speed.
- */
-export function createRateLimiter(
-  { capacity = 30, refillMs = 2000 }: { capacity?: number; refillMs?: number } = {},
-  clock: { now: () => number; sleep: (ms: number) => Promise<void> } = defaultClock,
-) {
-  let tokens = capacity
-  let last = clock.now()
-  return async function take(): Promise<void> {
-    const now = clock.now()
-    const refilled = Math.floor((now - last) / refillMs)
-    if (refilled > 0) {
-      tokens = Math.min(capacity, tokens + refilled)
-      last += refilled * refillMs
-    }
-    if (tokens === 0) {
-      await clock.sleep(last + refillMs - now)
-      last += refillMs
-      tokens = 1
-    }
-    tokens--
-  }
-}
-
-const defaultClock = {
-  now: () => Date.now(),
-  sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
-}
-
-export type CursorFetchDeps = {
-  fetch?: typeof fetch
-  sleep?: (ms: number) => Promise<void>
-  take?: () => Promise<void>
-}
+export type CursorFetchDeps = FetchDeps
 
 async function postEventsPage(apiKey: string, body: Record<string, number>, deps: Required<CursorFetchDeps>): Promise<unknown> {
   // One wait on a 429, for as long as Cursor asks (capped), then give up: the

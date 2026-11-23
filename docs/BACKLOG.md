@@ -17,17 +17,21 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-11-23 — AI spend connectors, after the Cursor slice (`lib/connectors/`,
-      `/dashboard/ai-spend`). Next slices, one connector each: Anthropic Usage
-      and Cost API, then OpenAI usage + costs. Deferred from the first slice on
-      purpose: encrypted raw-payload archive with 90-day retention (a storage
-      cost decision), per-org editable thresholds (defaults live in
-      `guardrails.ts`), weekly reconciliation against the provider's own total
-      (`/teams/spend`), Cursor daily output metrics, identity mapping and teams,
-      budgets, Slack delivery, the Cursor per-user limit push. Open facts to
-      confirm on a real account: whether the Admin API works below Enterprise,
-      whether a `read:*` key can read usage events, and which spend total
-      `chargedCents` on non-chargeable events reconciles to.
+- [ ] 2026-11-23 — AI spend connectors (`lib/connectors/`, `/dashboard/ai-spend`):
+      Cursor, Claude (Anthropic Admin API) and OpenAI are built against the
+      providers' published docs and have never run against a live account.
+      Confirm on real keys: Cursor below Enterprise and with a `read:*` key,
+      and which Cursor total `chargedCents` on non-chargeable events
+      reconciles to; that OpenAI attributes the same user or key on its usage
+      and costs endpoints, how it encodes `group_by` arrays, and how late its
+      numbers run; Anthropic's rate limit for the analytics endpoints.
+      Deferred on purpose: Claude Enterprise analytics key, Claude Team CSV
+      upload, OpenAI user id to email lookup and the non-completions usage
+      endpoints, exact per-model OpenAI cost (line items), list price next to
+      charged price, encrypted raw-payload archive with 90-day retention,
+      per-org editable thresholds, weekly reconciliation against provider
+      totals, output metrics, the identity mapping queue and teams, budgets,
+      Slack delivery, the Cursor per-user limit push.
 
 - [ ] 2026-11-23 — `next dev` no longer starts in a cloud session: the `eve`
       wrapper in `next.config.ts` needs Node 24 and a reachable AI Gateway, and

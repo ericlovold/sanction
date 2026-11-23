@@ -9,9 +9,10 @@ import { scopeTenant, withTenant } from "@/lib/rls"
 import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { sendUsageAlertEmail } from "@/lib/email"
 import { logger } from "@/lib/log"
-import { CURSOR_USAGE_EVENTS_PATH, fetchCursorUsageEvents, normalizeCursorEvents, type CursorFetchDeps } from "./cursor"
-import { ConnectorError, DAY_MS, HOUR_MS, factDedupeKey, hourStart, needsReconnect, type FactInput } from "./facts"
+import { adapterFor } from "./adapters"
+import { ConnectorError, DAY_MS, HOUR_MS, factDedupeKey, hourStart, needsReconnect } from "./facts"
 import { DEFAULT_THRESHOLDS, evaluateGuardrails, type AlertInput, type GuardFact } from "./guardrails"
+import type { FetchDeps } from "./pace"
 import { usageProvider } from "./registry"
 
 const log = logger("usage-sync")
@@ -26,26 +27,12 @@ export type SyncOptions = {
   trigger: SyncTrigger
   actorEmail?: string | null
   now?: Date
-  cursor?: CursorFetchDeps
+  http?: FetchDeps
 }
 
 // An alert about something older than this is recorded but not emailed: the
 // first pull reads 30 days, and nobody needs a page about three weeks ago.
 const NOTIFY_WITHIN_MS = 48 * HOUR_MS
-
-type Pulled = { facts: FactInput[]; httpCalls: number; endpoint: string }
-
-async function pull(provider: string, apiKey: string, window: { startMs: number; endMs: number }, opts: SyncOptions): Promise<Pulled> {
-  if (provider === "cursor") {
-    const { events, httpCalls } = await fetchCursorUsageEvents(apiKey, window, opts.cursor)
-    return { facts: normalizeCursorEvents(events), httpCalls, endpoint: CURSOR_USAGE_EVENTS_PATH }
-  }
-  throw new ConnectorError("unexpected_response", "This connector is not available.")
-}
-
-function endpointOf(provider: string): string {
-  return provider === "cursor" ? CURSOR_USAGE_EVENTS_PATH : "unknown"
-}
 
 /**
  * Pull one connection up to `now`. Never throws: every outcome, including a
@@ -59,7 +46,8 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
     return { ok: false, code: "missing_credential", message: "This connection no longer exists." }
   }
   const provider = usageProvider(connection.provider)
-  if (!provider) return { ok: false, code: "unexpected_response", message: "This connector is not available." }
+  const adapter = adapterFor(connection.provider)
+  if (!provider || !adapter) return { ok: false, code: "unexpected_response", message: "This connector is not available." }
   const walletId = connection.walletId
 
   // Whole hours only, so a replaced window never cuts an hourly bucket in two.
@@ -78,8 +66,11 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
     if (!credential) throw new ConnectorError("missing_credential", "The stored key for this connection is gone. Connect it again.")
     const apiKey = await decryptCredentialEnvelope(credential)
 
-    const pulled = await pull(connection.provider, apiKey, { startMs: windowStartMs, endMs: now.getTime() }, opts)
+    const pulled = await adapter.pull(apiKey, { startMs: windowStartMs, endMs: now.getTime() }, opts.http)
     httpCalls = pulled.httpCalls
+    // The provider's own "data as of" when it gives one, else our pull time.
+    const sourceRefreshedAt = pulled.refreshedAt ?? now
+    const replaceFrom = new Date(pulled.fromMs)
 
     const { factsWritten, fresh } = await db.$transaction(
       async (tx) => {
@@ -91,24 +82,24 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
         // Replace, not merge: the window is re-read from the provider in full,
         // so deleting it and writing what came back is idempotent and also
         // picks up rows the provider revised or withdrew.
-        await tx.usageFact.deleteMany({ where: { walletId, connectionId, bucketStart: { gte: windowStart } } })
+        await tx.usageFact.deleteMany({ where: { walletId, connectionId, bucketStart: { gte: replaceFrom } } })
         for (let i = 0; i < pulled.facts.length; i += 1000) {
           await tx.usageFact.createMany({
             data: pulled.facts.slice(i, i + 1000).map((f) => ({
               ...f,
               walletId,
               connectionId,
-              sourceRefreshedAt: now,
+              sourceRefreshedAt,
               dedupeKey: factDedupeKey(connectionId, f),
             })),
           })
         }
 
         // Guardrails see the new window plus the history baselines need.
-        const baselineFrom = new Date(windowStartMs - DEFAULT_THRESHOLDS.baselineDays * DAY_MS)
+        const baselineFrom = new Date(pulled.fromMs - DEFAULT_THRESHOLDS.baselineDays * DAY_MS)
         const rows = await tx.usageFact.findMany({
           where: { walletId, connectionId, bucketStart: { gte: baselineFrom } },
-          select: { provider: true, rawIdentity: true, model: true, sessionRef: true, automationRef: true, headless: true, bucketStart: true, costNanos: true, costBasis: true },
+          select: { provider: true, rawIdentity: true, identityType: true, model: true, sessionRef: true, automationRef: true, headless: true, bucketStart: true, bucketEnd: true, costNanos: true, costBasis: true },
         })
         const guardFacts: GuardFact[] = rows.map((r) => ({
           provider: r.provider,
@@ -117,11 +108,13 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
           sessionRef: r.sessionRef,
           automationRef: r.automationRef,
           headless: r.headless,
+          human: r.identityType === "user",
+          hourly: r.bucketEnd.getTime() - r.bucketStart.getTime() === HOUR_MS,
           bucketStartMs: r.bucketStart.getTime(),
           costNanos: r.costNanos,
           billed: r.costBasis === "billed",
         }))
-        const alerts = evaluateGuardrails(guardFacts, windowStartMs)
+        const alerts = evaluateGuardrails(guardFacts, pulled.fromMs)
         const known = new Set(
           (await tx.usageAlert.findMany({ where: { walletId, dedupeKey: { in: alerts.map((a) => a.dedupeKey) } }, select: { dedupeKey: true } })).map((a) => a.dedupeKey),
         )
@@ -142,7 +135,7 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
       data: { status: "active", statusCode: null, statusDetail: null, lastAttemptAt: now, lastSuccessAt: now, syncedThrough: now },
     })
     await record(walletId, connectionId, opts, {
-      endpoint: pulled.endpoint, windowStart, windowEnd: now, status: "ok", httpCalls, factsWritten, alertsRaised: fresh.length,
+      endpoint: adapter.endpoint, windowStart, windowEnd: now, status: "ok", httpCalls, factsWritten, alertsRaised: fresh.length,
     })
     await notify(walletId, connectionId, fresh, now)
     return { ok: true, factsWritten, alertsRaised: fresh.length, windowStart, windowEnd: now }
@@ -157,7 +150,7 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
       .update({ where: { id: connectionId }, data: { status: "error", statusCode: code, statusDetail: message, lastAttemptAt: now } })
       .catch(() => undefined)
     await record(walletId, connectionId, opts, {
-      endpoint: endpointOf(connection.provider), windowStart, windowEnd: now, status: "failed", errorCode: code, httpCalls, factsWritten: 0, alertsRaised: 0,
+      endpoint: adapter.endpoint, windowStart, windowEnd: now, status: "failed", errorCode: code, httpCalls, factsWritten: 0, alertsRaised: 0,
     }).catch(() => undefined)
     return { ok: false, code, message }
   }
