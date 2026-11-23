@@ -11,7 +11,7 @@ import { listSessionWallets, requireSessionRole, setActiveWallet } from "@/lib/s
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { withTenant } from "@/lib/rls"
 
-export type CreateAgentState = { ok: boolean; error: string; agentKey?: string; agentName?: string }
+export type CreateAgentState = { ok: boolean; error: string; agentKey?: string; agentName?: string; agentId?: string }
 export type BatchSeatResult = { id: string; name: string; holder: string | null; agentKey: string; apiKeyPrefix: string }
 export type CreateBatchAgentState = { ok: boolean; error: string; seats?: BatchSeatResult[]; templateName?: string }
 
@@ -70,7 +70,7 @@ export async function createAgentAction(_prev: CreateAgentState, form: FormData)
   }
 
   const key = generateApiKey()
-  await db.agent.create({
+  const agent = await db.agent.create({
     data: {
       walletId,
       name: parsed.data,
@@ -83,7 +83,7 @@ export async function createAgentAction(_prev: CreateAgentState, form: FormData)
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/agents")
-  return { ok: true, error: "", agentKey: key.raw, agentName: parsed.data }
+  return { ok: true, error: "", agentKey: key.raw, agentName: parsed.data, agentId: agent.id }
 }
 
 // Batch-create seat agents for single-owner operators. Mirrors /api/v1/agents/batch

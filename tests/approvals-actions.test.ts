@@ -149,6 +149,27 @@ describe("sendTestEscalationAction — SLACK-2, prove the loop", () => {
     expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
   })
 
+  it("raises the test as a named seat, scoped to the session wallet", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    const res = await sendTestEscalationAction(state, form({ agent_id: "agent_cc" }))
+    expect(res.ok).toBe(true)
+    expect(dbMock.agent.findFirst.mock.calls[0][0].where).toEqual({ walletId: "wallet_1", isActive: true, id: "agent_cc" })
+  })
+
+  it("raises nothing when the named seat is not active in this wallet", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    dbMock.agent.findFirst.mockResolvedValue(null)
+    const res = await sendTestEscalationAction(state, form({ agent_id: "agent_elsewhere" }))
+    expect(res).toEqual({ ok: false, message: "That seat is not active in this wallet." })
+    expect(dbMock.authorizationRequest.create).not.toHaveBeenCalled()
+  })
+
+  it("leaves the default lookup unscoped by seat", async () => {
+    sessionMock.requireSessionRole.mockResolvedValue(WALLET)
+    await sendTestEscalationAction(state, form({}))
+    expect(dbMock.agent.findFirst.mock.calls[0][0].where).toEqual({ walletId: "wallet_1", isActive: true })
+  })
+
   it("raises a real, labeled escalation and fans it out like the route does", async () => {
     sessionMock.requireSessionRole.mockResolvedValue(WALLET)
     const res = await sendTestEscalationAction(state, form({}))

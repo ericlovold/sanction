@@ -10,8 +10,11 @@ const initial: ApprovalActionState = { ok: false, message: "" }
 /** One-click proof of the approval loop — email, Slack if connected, this inbox. */
 export function TestEscalationControl({
   variant = "inbox",
+  agentId,
 }: {
   variant?: "inbox" | "slack"
+  /** Raise the test as this seat instead of the wallet's oldest active one. */
+  agentId?: string
 }) {
   const [state, action, pending] = useActionState(sendTestEscalationAction, initial)
 
@@ -21,6 +24,7 @@ export function TestEscalationControl({
 
   return (
     <form id={variant === "inbox" ? "test-escalation" : undefined} action={action} className="space-y-1">
+      {agentId && <input type="hidden" name="agent_id" value={agentId} />}
       <button
         type="submit"
         disabled={pending}
@@ -35,7 +39,9 @@ export function TestEscalationControl({
       <p className={variant === "slack" ? "text-[11px] text-muted-foreground" : "text-[11px] text-muted-foreground"}>
         {variant === "slack"
           ? "Raises a real $30 escalation on one of your agents so the Approve / Deny card lands in your channel. Anyone in that channel can decide — pick a private channel for approvals."
-          : "Raises a real $30 escalation on one of your agents. It emails you and lands in this inbox. Slack is optional."}
+          : agentId
+            ? "Raises a real $30 escalation as this seat. It emails you and lands in Approvals. Slack is optional."
+            : "Raises a real $30 escalation on one of your agents. It emails you and lands in this inbox. Slack is optional."}
       </p>
       {state.message && (
         <p className={`text-xs ${state.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{state.message}</p>

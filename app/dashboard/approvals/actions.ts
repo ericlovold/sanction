@@ -112,15 +112,18 @@ const TEST_ESCALATION = {
   description: "Test escalation sent from the dashboard. Approve or deny it where it reached you.",
 } as const
 
-export async function sendTestEscalationAction(_prev: ApprovalActionState, _form: FormData): Promise<ApprovalActionState> {
+export async function sendTestEscalationAction(_prev: ApprovalActionState, form: FormData): Promise<ApprovalActionState> {
   const wallet = await requireSessionRole("admin")
   if (!wallet) return { ok: false, message: "Log in as an admin to send a test escalation." }
 
+  // An optional agent_id raises the test as that seat. It only narrows the
+  // lookup inside the session wallet; it can never reach another wallet's seat.
+  const requested = String(form.get("agent_id") ?? "").trim()
   const [agent, policy] = await Promise.all([
-    db.agent.findFirst({ where: { walletId: wallet.id, isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }),
+    db.agent.findFirst({ where: { walletId: wallet.id, isActive: true, ...(requested ? { id: requested } : {}) }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }),
     db.policy.findUnique({ where: { walletId: wallet.id }, select: { escalationTimeoutMins: true, escalationTimeoutAction: true } }),
   ])
-  if (!agent) return { ok: false, message: "Add an agent first — the test escalation is raised by one of your agents." }
+  if (!agent) return { ok: false, message: requested ? "That seat is not active in this wallet." : "Add an agent first — the test escalation is raised by one of your agents." }
   if (!policy) return { ok: false, message: "This wallet has no policy yet." }
 
   const { amountUsd, merchant, category, description } = TEST_ESCALATION
