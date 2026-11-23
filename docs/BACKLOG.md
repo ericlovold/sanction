@@ -17,6 +17,27 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-11-23 — AI spend connectors, after the Cursor slice (`lib/connectors/`,
+      `/dashboard/ai-spend`). Next slices, one connector each: Anthropic Usage
+      and Cost API, then OpenAI usage + costs. Deferred from the first slice on
+      purpose: encrypted raw-payload archive with 90-day retention (a storage
+      cost decision), per-org editable thresholds (defaults live in
+      `guardrails.ts`), weekly reconciliation against the provider's own total
+      (`/teams/spend`), Cursor daily output metrics, identity mapping and teams,
+      budgets, Slack delivery, the Cursor per-user limit push. Open facts to
+      confirm on a real account: whether the Admin API works below Enterprise,
+      whether a `read:*` key can read usage events, and which spend total
+      `chargedCents` on non-chargeable events reconciles to.
+
+- [ ] 2026-11-23 — `next dev` no longer starts in a cloud session: the `eve`
+      wrapper in `next.config.ts` needs Node 24 and a reachable AI Gateway, and
+      exits otherwise. `/render-check` and the 2026-07-04 ops note predate it.
+      Decide: an opt-out env flag for local rendering, or document the hosts.
+
+- [ ] 2026-11-23 — The Perplexity chart color (`#953c41`, also `OTHER_COLOR`)
+      fails the dataviz validator in dark mode (lightness band, 2.49:1
+      contrast). Found while validating the Cursor color; not changed.
+
 - [x] 2026-10-03 — Today’s docket: discuss and refresh website/content around one-off human approvals and the current connector feature set. Lead with the user problem and a concrete approval flow; distinguish available connections from accepted marketplace listings and cooperative requests from enforced broker routing. (founder request; after Claude readiness). Closed 2026-10-11: #361/#365/#368 shipped the oversight positioning, full use-case stories and accurate approval boundaries. Activation remains gated on connector completion.
 
 - [ ] 2026-08-22 — GTM launch arc (Eric: "timing is everything"): platform

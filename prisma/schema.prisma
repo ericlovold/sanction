@@ -99,6 +99,7 @@ model Wallet {
   reallocationsFrom BudgetReallocation[] @relation("ReallocFrom")
   reallocationsTo   BudgetReallocation[] @relation("ReallocTo")
   members          WalletMember[]
+  usageConnections UsageConnection[]
 
   @@index([parentId])
   @@index([userId])
@@ -1041,4 +1042,151 @@ model McpOAuthConnection {
   @@index([walletId, userId])
   @@index([agentId])
   @@index([userId, clientId])
+}
+
+// ── AI spend connectors (observe layer) ─────────────────────────────────────
+// A provider admin credential the wallet connected so Sanction can PULL usage
+// and cost from that provider's own reporting API. Retrospective by nature:
+// nothing here is in the authorization path, and nothing here is authority to
+// spend. The credential itself lives in CredentialVault under the reserved
+// `usage:<provider>` label (envelope-encrypted, FORCE RLS); this row carries
+// only non-secret metadata, which is why it is NOT under RLS: the hourly
+// poller has to enumerate connections across tenants (same shape as Webhook
+// for the digest cron). Every app query filters by walletId.
+model UsageConnection {
+  id       String @id @default(cuid())
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  provider     String // "cursor" (lib/connectors/registry.ts)
+  authKind     String // "admin_api_key"
+  // CredentialVault row holding the key. Null once disconnected: disconnect
+  // hard-deletes the vault row, so no ciphertext outlives the connection.
+  credentialId String?
+  // "active" | "error" | "disconnected". "error" keeps polling (a provider
+  // outage heals itself); a rejected key stops until the owner reconnects.
+  status       String  @default("active")
+  statusCode   String? // ConnectorErrorKind of the last failed pull
+  statusDetail String? // operator-facing sentence, never a provider payload
+
+  connectedByEmail String?
+  connectedAt      DateTime  @default(now())
+  disconnectedAt   DateTime?
+  lastAttemptAt    DateTime?
+  lastSuccessAt    DateTime?
+  // Exclusive upper bound of provider time already pulled; the next pull
+  // re-reads a trailing overlap below this (provider data settles late).
+  syncedThrough    DateTime?
+
+  facts  UsageFact[]
+  runs   UsageSyncRun[]
+  alerts UsageAlert[]
+
+  // One connection per provider per wallet. Reconnecting reuses the row, so
+  // the re-read history replaces the old facts instead of doubling them.
+  @@unique([walletId, provider])
+  @@index([status, lastAttemptAt])
+}
+
+// One normalized grain every provider maps into: usage and cost for one
+// identity, one model, one attribution (session / automation), in one UTC
+// bucket. Money is integer NANO-dollars (1e-9 USD) end to end: providers
+// report sub-micro precision (Cursor: fractional cents; Anthropic: cents to
+// six decimals), so micro-dollars would round every row. Never a float.
+model UsageFact {
+  id           String          @id @default(cuid())
+  walletId     String
+  connectionId String
+  connection   UsageConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  provider String // cursor | anthropic | openai | ...
+  surface  String // ide | agent | api | chat | claude_code
+
+  rawIdentity  String // email | actor id | user id | api key id, as the provider names it
+  identityType String // user | service_account | api_key
+  model        String
+
+  // Attribution within the identity, where the provider gives it. These are
+  // what make a runaway visible: one conversation or automation burning alone.
+  sessionRef    String? // provider conversation / session id
+  automationRef String? // provider automation or background-agent run id
+  headless      Boolean @default(false) // no connected client (background work)
+
+  bucketStart DateTime // UTC, inclusive
+  bucketEnd   DateTime // UTC, exclusive
+
+  inputTokens      BigInt @default(0)
+  outputTokens     BigInt @default(0)
+  cacheReadTokens  BigInt @default(0)
+  cacheWriteTokens BigInt @default(0)
+  requests         Int    @default(0)
+
+  costNanos BigInt // integer USD nano-dollars
+  costBasis String // billed | estimated | list
+
+  // When the provider says this data was current, or our pull time when it
+  // does not say. The UI's "data as of".
+  sourceRefreshedAt DateTime
+  // sha256(connection, bucket, every dimension above): the idempotency guard.
+  dedupeKey         String
+
+  @@unique([connectionId, dedupeKey])
+  @@index([walletId, bucketStart])
+  @@index([connectionId, bucketStart])
+  @@index([walletId, rawIdentity, bucketStart])
+}
+
+// Every use of a connector credential, one row per pull: which endpoint, what
+// window, how it ended. This is the credential-use audit trail AND the
+// connection-health record the "stale connection" rule reads.
+model UsageSyncRun {
+  id           String          @id @default(cuid())
+  walletId     String
+  connectionId String
+  connection   UsageConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  trigger      String // cron | connect_test | manual
+  actorEmail   String? // human who triggered it; null for cron
+  endpoint     String // provider endpoint the credential was sent to
+  windowStart  DateTime
+  windowEnd    DateTime
+  status       String // ok | failed
+  errorCode    String?
+  httpCalls    Int       @default(0)
+  factsWritten Int       @default(0)
+  alertsRaised Int       @default(0)
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  @@index([walletId, startedAt])
+  @@index([connectionId, startedAt])
+}
+
+// A guardrail rule that fired, with the evidence behind it. Observe-layer
+// alerts never block anything by themselves.
+model UsageAlert {
+  id           String           @id @default(cuid())
+  walletId     String
+  connectionId String?
+  connection   UsageConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  rule           String // runaway_rate | headless_burn | daily_cap
+  provider       String
+  subjectType    String // person | automation | conversation
+  subjectKey     String
+  windowStart    DateTime
+  windowEnd      DateTime
+  observedNanos  BigInt
+  thresholdNanos BigInt
+  // The buckets that tripped the rule (model, session, cost), so the alert can
+  // show its work. Metadata only, never prompt or completion content.
+  evidence       Json
+  // sha256(rule, subject, windowStart): re-evaluating the same data on the
+  // next poll must not raise the same alert twice.
+  dedupeKey      String
+  createdAt      DateTime  @default(now())
+  notifiedAt     DateTime?
+
+  @@unique([walletId, dedupeKey])
+  @@index([walletId, createdAt])
 }

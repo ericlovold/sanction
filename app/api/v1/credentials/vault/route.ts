@@ -11,7 +11,7 @@ const schema = z.object({
     .string()
     .min(1)
     .max(64)
-    .refine((l) => !isReservedVaultLabel(l), "provider:* and mcp:* labels are reserved for Providers and the MCP broker"),
+    .refine((l) => !isReservedVaultLabel(l), "provider:*, mcp:* and usage:* labels are reserved for Providers, the MCP broker and usage connectors"),
   type: z.enum(["api_key", "oauth_token", "certificate", "license", "password"]),
   value: z.string().min(1),
   allowed_agent_ids: z.array(z.string()).default([]),
@@ -85,7 +85,7 @@ const patchSchema = z.object({
     .string()
     .min(1)
     .max(64)
-    .refine((l) => !isReservedVaultLabel(l), "provider:* and mcp:* labels are reserved for Providers and the MCP broker")
+    .refine((l) => !isReservedVaultLabel(l), "provider:*, mcp:* and usage:* labels are reserved for Providers, the MCP broker and usage connectors")
     .optional(),
   allowed_agent_ids: z.array(z.string()).optional(),
   scopes: z.array(z.string()).optional(),

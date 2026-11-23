@@ -205,6 +205,60 @@ export async function sendEscalationEmail(to: string, e: Escalation): Promise<vo
   await send({ to, subject, html, text })
 }
 
+type UsageAlertEmail = {
+  walletName: string
+  alerts: {
+    rule: string
+    provider: string
+    subjectType: string
+    subjectKey: string
+    windowStart: Date
+    windowEnd: Date
+    observedNanos: bigint
+    thresholdNanos: bigint
+    evidence: { identity: string; billedNanos: string }
+  }[]
+}
+
+const USAGE_RULE_LABEL: Record<string, string> = {
+  runaway_rate: "Spend spiked far above this person's normal hour",
+  headless_burn: "Background work kept spending with nobody at the keyboard",
+  daily_cap: "One person passed the daily spend line",
+}
+
+// One email per pull, listing every guardrail that newly fired. The numbers
+// come from provider reporting, so the email says how old they are and that
+// nothing was stopped: an alert implying Sanction blocked the spend would be
+// false. Best-effort; the sync never fails on a send error.
+export async function sendUsageAlertEmail(to: string, a: UsageAlertEmail): Promise<void> {
+  const url = "https://getsanction.com/dashboard/ai-spend"
+  const dollars = (nanos: bigint) => `$${(Number(nanos) / 1e9).toFixed(2)}`
+  const hour = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`
+  const lines = a.alerts.map((x) => ({
+    title: USAGE_RULE_LABEL[x.rule] ?? x.rule,
+    who: x.subjectType === "person" ? x.evidence.identity : `${x.subjectType} ${x.subjectKey} (${x.evidence.identity})`,
+    amount: `${dollars(x.observedNanos)} in ${x.provider} usage between ${hour(x.windowStart)} and ${hour(x.windowEnd)}, against a line of ${dollars(x.thresholdNanos)}. Billed so far: ${dollars(BigInt(x.evidence.billedNanos))}.`,
+  }))
+  const subject = lines.length === 1 ? `AI spend alert: ${lines[0].title}` : `${lines.length} AI spend alerts for ${a.walletName}`
+  const note =
+    "These numbers come from the provider's own reporting, which runs about an hour behind. Sanction has not stopped anything: this tool is connected for visibility, so stopping the job happens in the tool itself."
+  const text = [...lines.flatMap((l) => [l.title, l.who, l.amount, ""]), note, "", `See the evidence: ${url}`].join("\n")
+  const html = `<!doctype html><html><body style="margin:0;background:#09090b;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e4e4e7">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:18px;font-weight:600;letter-spacing:-0.01em;margin:0 0 24px">Sanction</p>
+    ${lines
+      .map(
+        (l) => `<p style="font-size:15px;line-height:1.6;margin:0 0 4px"><strong>${escapeHtml(l.title)}</strong></p>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 4px">${escapeHtml(l.who)}</p>
+    <p style="font-size:14px;line-height:1.6;color:#a1a1aa;margin:0 0 20px">${escapeHtml(l.amount)}</p>`,
+      )
+      .join("\n    ")}
+    <p style="font-size:13px;line-height:1.6;color:#a1a1aa;margin:8px 0 24px">${escapeHtml(note)}</p>
+    <a href="${url}" style="display:inline-block;background:#10b981;color:#09090b;font-weight:600;font-size:14px;text-decoration:none;padding:12px 20px;border-radius:8px">See the evidence</a>
+  </div></body></html>`
+  await send({ to, subject, html, text })
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 }
