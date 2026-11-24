@@ -215,6 +215,17 @@ describe("normalizeCursorEvents", () => {
     expect(included.inputTokens).toBe(BigInt(0))
   })
 
+  it("excludes explicit non-Cursor products and preserves missing vs zero token counts", () => {
+    const base = events[0]
+    const facts = normalizeCursorEvents([
+      { ...base, product: "grok" },
+      { ...base, product: undefined, tokenUsage: undefined },
+      { ...base, tokenUsage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } },
+    ])
+    expect(facts).toHaveLength(1)
+    expect(facts[0]).toMatchObject({ requests: 2, tokenReportedRequests: 1, inputTokens: BigInt(0) })
+  })
+
   it("conserves money: the facts sum to exactly the events' chargedCents", () => {
     const facts = normalizeCursorEvents(events)
     expect(sumNanos(facts.map((f) => f.costNanos))).toBe(sumNanos(events.map((e) => toNanos(e.chargedCents, "cents"))))
@@ -228,6 +239,8 @@ describe("normalizeCursorEvents", () => {
     expect(auto).toMatchObject({ automationRef: "7fc64f90", surface: "agent" })
     const [cloud] = normalizeCursorEvents([{ ...base, cloudAgentId: "bc-1" }])
     expect(cloud.automationRef).toBe("cloud-agent:bc-1")
+    const [prefixed] = normalizeCursorEvents([{ ...base, automationId: "cloud-agent:bc-1" }])
+    expect(prefixed.automationRef).toBe("automation:cloud-agent:bc-1")
   })
 
   it("folds email case and whitespace into one identity", () => {

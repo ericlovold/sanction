@@ -6,6 +6,7 @@ import { usd } from "@/lib/connectors/money"
 const m = vi.hoisted(() => ({ wallet: vi.fn(), view: vi.fn() }))
 vi.mock("@/lib/session", () => ({ getViewWallet: m.wallet }))
 vi.mock("@/lib/connectors/spendView", () => ({ aiSpendView: m.view }))
+vi.mock("@/app/dashboard/ai-spend/cursor-sources", () => ({ CursorSources: () => null }))
 vi.mock("@/app/dashboard/ai-spend/actions", () => ({ disconnectUsageToolAction: vi.fn() }))
 vi.mock("@/app/dashboard/ai-spend/connect-form", () => ({ ConnectToolForm: () => null, SyncNowForm: () => null }))
 
@@ -25,7 +26,7 @@ it.each([
       },
     }],
   })
-  const html = renderToStaticMarkup(await AiSpendPage())
+  const html = renderToStaticMarkup(await AiSpendPage({ searchParams: Promise.resolve({}) }))
   expect(html).toContain("One person passed the daily spend line")
   expect(html).toContain("$100.00")
   for (const value of ["person@example.test", "$72.00", "$50.00", "$63.00", "$11.00"]) {

@@ -33,6 +33,7 @@ export type FactInput = {
   outputTokens: bigint
   cacheReadTokens: bigint
   cacheWriteTokens: bigint
+  tokenReportedRequests?: number
   requests: number
   costNanos: bigint
   costBasis: CostBasis

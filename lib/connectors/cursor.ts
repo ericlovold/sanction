@@ -38,6 +38,7 @@ const count = z.number().int().nonnegative()
 // later passes through untouched. A field we DO read changing type fails the
 // pull (and the contract test in CI) instead of corrupting stored numbers.
 const usageEvent = z.looseObject({
+  product: z.string().optional(),
   timestamp: z.string().regex(/^\d{10,16}$/),
   userEmail: z.string().min(1).max(320),
   serviceAccountId: z.string().max(200).optional(),
@@ -177,15 +178,19 @@ export async function fetchCursorUsageEvents(
  * finance can separate new charges from quota burn.
  */
 export function normalizeCursorEvents(events: CursorUsageEvent[]): FactInput[] {
-  const buckets = new Map<string, FactInput>()
+  const buckets = new Map<string, FactInput & { tokenReportedRequests: number }>()
   for (const e of events) {
+    if (e.product !== undefined && e.product !== "cursor") continue
     const bucket = hourStart(Number(e.timestamp))
     const rawIdentity = e.userEmail.trim().toLowerCase()
     const identityType = e.serviceAccountId ? "service_account" : "user"
-    const sessionRef = e.conversationId ?? null
+    const sessionRef = e.conversationId || null
     // An automation is the durable thing that keeps firing; a cloud agent run
     // without one is attributed to the run itself.
-    const automationRef = e.automationId ?? (e.cloudAgentId ? `cloud-agent:${e.cloudAgentId}` : null)
+    // Protect the fallback namespace when an automation ID itself uses a reserved prefix.
+    let automationRef = e.automationId || null
+    if (automationRef && /^(cloud-agent|automation):/.test(automationRef)) automationRef = `automation:${automationRef}`
+    if (!automationRef && e.cloudAgentId) automationRef = `cloud-agent:${e.cloudAgentId}`
     const background = e.isHeadless || automationRef !== null
     const costBasis = e.isChargeable ? "billed" : "included"
     const key = JSON.stringify([bucket, rawIdentity, identityType, e.model, sessionRef, automationRef, e.isHeadless, costBasis])
@@ -206,12 +211,14 @@ export function normalizeCursorEvents(events: CursorUsageEvent[]): FactInput[] {
       cacheReadTokens: BigInt(0),
       cacheWriteTokens: BigInt(0),
       requests: 0,
+      tokenReportedRequests: 0,
       costNanos: BigInt(0),
       costBasis,
     } satisfies FactInput
     fact.requests += 1
     fact.costNanos += toNanos(e.chargedCents, "cents")
     if (e.tokenUsage) {
+      fact.tokenReportedRequests += 1
       fact.inputTokens += BigInt(e.tokenUsage.inputTokens)
       fact.outputTokens += BigInt(e.tokenUsage.outputTokens)
       fact.cacheReadTokens += BigInt(e.tokenUsage.cacheReadTokens)
