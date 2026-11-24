@@ -120,8 +120,50 @@ function anthropicText(value: unknown, at: string): void {
   }
 }
 
+// A client function tool: its definition is sent in full, so its bytes are
+// already in the estimate. A `type` field marks a server tool, whose retrieval
+// or execution adds input the reservation cannot see, so it stays outside the
+// allowlist. `defer_loading` only withholds a definition until a tool search
+// returns it; it never adds one that was not sent.
+function anthropicClientTool(value: unknown, at: string): void {
+  const tool = object(value, at)
+  fields(tool, "name description input_schema cache_control strict defer_loading", at)
+  text(tool.name, `${at}.name`)
+  schema(object(tool.input_schema, `${at}.input_schema`), `${at}.input_schema`)
+  cacheControl(tool.cache_control, `${at}.cache_control`)
+  if (tool.defer_loading !== undefined && typeof tool.defer_loading !== "boolean") invalid(`${at}.defer_loading must be a boolean.`)
+}
+
+// Context edits ask the provider to drop earlier thinking or tool results
+// before the model reads the conversation. They can only shrink the billed
+// input, never add to it, so the byte estimate stays an upper bound.
+const CONTEXT_EDITS = ["clear_thinking_20251015", "clear_tool_uses_20250919"]
+function anthropicContextManagement(value: unknown): void {
+  const management = object(value, "context_management")
+  fields(management, "edits", "context_management")
+  if (!Array.isArray(management.edits)) invalid("context_management.edits must be an array.")
+  for (const entry of management.edits) {
+    const edit = object(entry, "context_management.edits[]")
+    fields(edit, "type keep trigger clear_at_least exclude_tools clear_tool_inputs", "context_management.edits[]")
+    if (!oneOf(edit.type, CONTEXT_EDITS)) unsupported(`context_management.edits[].type must be one of ${CONTEXT_EDITS.join(", ")}.`)
+  }
+}
+
+// Effort and a JSON output schema steer the answer; neither adds input. Sent
+// for the whole request, or on a system message to change it from that turn on.
+function anthropicOutputConfig(value: unknown, at: string): void {
+  const config = object(value, at)
+  fields(config, "effort format", at)
+  if (config.format !== undefined) {
+    const format = object(config.format, `${at}.format`)
+    fields(format, "type schema", `${at}.format`)
+    if (format.type !== "json_schema") unsupported(`${at}.format must be json_schema.`)
+    schema(format.schema, `${at}.format.schema`)
+  }
+}
+
 function anthropicRequest(body: JsonObject): Estimate {
-  fields(body, "model messages max_tokens system metadata stop_sequences stream temperature top_p top_k tools tool_choice thinking output_config cache_control service_tier", "request")
+  fields(body, "model messages max_tokens system metadata stop_sequences stream temperature top_p top_k tools tool_choice thinking output_config cache_control service_tier context_management", "request")
   // Anthropic requires max_tokens and documents it as the hard ceiling on all
   // output, thinking included, so it bounds every thinking mode below.
   if (!Object.hasOwn(body, "max_tokens")) invalid("max_tokens is required for Anthropic messages.")
@@ -130,12 +172,25 @@ function anthropicRequest(body: JsonObject): Estimate {
   const messages = list(body.messages, "messages")
   for (const entry of messages) {
     const message = object(entry, "messages[]")
-    fields(message, "role content", "messages[]")
-    if (message.role !== "user" && message.role !== "assistant") invalid("messages[].role must be user or assistant.")
+    if (message.role !== "user" && message.role !== "assistant" && message.role !== "system") invalid("messages[].role must be user, assistant, or system.")
+    fields(message, message.role === "system" ? "role content output_config" : "role content", "messages[]")
+    if (message.output_config !== undefined) anthropicOutputConfig(message.output_config, "messages[].output_config")
     if (typeof message.content === "string") continue
     for (const value of list(message.content, "messages[].content")) {
       const block = object(value, "messages[].content[]")
-      if (block.type === "thinking" || block.type === "redacted_thinking") {
+      if (block.type === "tool_addition") {
+        // A mid-conversation system message that adds a tool carries the whole
+        // definition inline, so it is sized like an entry in tools[].
+        if (message.role !== "system") invalid("tool_addition blocks may only appear in system messages.")
+        fields(block, "type tool cache_control", "tool_addition")
+        const added = object(block.tool, "tool_addition.tool")
+        fields(added, "type definition", "tool_addition.tool")
+        if (added.type !== "tool_definition") unsupported("tool_addition.tool.type must be tool_definition.")
+        anthropicClientTool(added.definition, "tool_addition.tool.definition")
+        cacheControl(block.cache_control, "tool_addition.cache_control")
+      } else if (message.role === "system") {
+        anthropicText([block], "messages[].content")
+      } else if (block.type === "thinking" || block.type === "redacted_thinking") {
         // Replayed reasoning is billed as input on models that keep prior
         // turns' thinking. Anthropic documents the signature (and redacted
         // data) as an encrypted copy of the full reasoning, so its encoded
@@ -149,11 +204,18 @@ function anthropicRequest(body: JsonObject): Estimate {
         if (!(block[sealed] as string).length) invalid(`${block.type}.${sealed} must be non-empty.`)
         hiddenInputTokens += utf8Bytes(block[sealed] as string)
       } else if (block.type === "tool_use") {
-        fields(block, "type id name input cache_control", "tool_use")
+        fields(block, "type id name input cache_control caller", "tool_use")
         text(block.id, "tool_use.id")
         text(block.name, "tool_use.name")
         object(block.input, "tool_use.input")
         cacheControl(block.cache_control, "tool_use.cache_control")
+        if (block.caller !== undefined) {
+          // `direct` says the model itself made the call. Any other caller is a
+          // server-side tool acting for it, whose work the estimate cannot see.
+          const caller = object(block.caller, "tool_use.caller")
+          fields(caller, "type", "tool_use.caller")
+          if (caller.type !== "direct") unsupported("tool_use.caller.type must be direct.")
+        }
       } else if (block.type === "tool_result") {
         fields(block, "type tool_use_id content is_error cache_control", "tool_result")
         text(block.tool_use_id, "tool_result.tool_use_id")
@@ -167,14 +229,9 @@ function anthropicRequest(body: JsonObject): Estimate {
   if (body.system !== undefined) anthropicText(body.system, "system")
   if (body.tools !== undefined) {
     if (!Array.isArray(body.tools)) invalid("tools must be an array.")
-    for (const entry of body.tools) {
-      const tool = object(entry, "tools[]")
-      fields(tool, "name description input_schema cache_control strict", "tools[]")
-      text(tool.name, "tools[].name")
-      schema(object(tool.input_schema, "tools[].input_schema"), "tools[].input_schema")
-      cacheControl(tool.cache_control, "tools[].cache_control")
-    }
+    for (const entry of body.tools) anthropicClientTool(entry, "tools[]")
   }
+  if (body.context_management !== undefined) anthropicContextManagement(body.context_management)
   if (body.tool_choice !== undefined) {
     const choice = object(body.tool_choice, "tool_choice")
     fields(choice, "type name disable_parallel_tool_use", "tool_choice")
@@ -194,16 +251,7 @@ function anthropicRequest(body: JsonObject): Estimate {
       unsupported("thinking.display must be summarized, omitted, or updates.")
     }
   }
-  if (body.output_config !== undefined) {
-    const config = object(body.output_config, "output_config")
-    fields(config, "effort format", "output_config")
-    if (config.format !== undefined) {
-      const format = object(config.format, "output_config.format")
-      fields(format, "type schema", "output_config.format")
-      if (format.type !== "json_schema") unsupported("output_config.format must be json_schema.")
-      schema(format.schema, "output_config.format.schema")
-    }
-  }
+  if (body.output_config !== undefined) anthropicOutputConfig(body.output_config, "output_config")
   cacheControl(body.cache_control, "cache_control")
   return { output, messages: messages.length + (body.system === undefined ? 0 : 1), hiddenInputTokens }
 }

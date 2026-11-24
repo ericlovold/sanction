@@ -225,6 +225,81 @@ describe("counted client function and structured text shapes", () => {
     expect(result.reservedUsd).toBe(costUsd(result.model, tokensIn, 2000, { cacheWriteTokens: tokensIn, cacheWrite1hTokens: tokensIn }))
   })
 
+  // The shape Claude Code 2.1.329 sends through a gateway, recorded from a
+  // real session (keys and discriminators only; the content here is synthetic).
+  const claudeCode = () => anthropic({
+    model: "claude-opus-5-5", max_tokens: 32000, stream: true, metadata: { user_id: "user" },
+    system: [{ type: "text", text: "You are Claude Code." }, { type: "text", text: "Instructions", cache_control: { type: "ephemeral", ttl: "1h" } }],
+    messages: [
+      { role: "system", output_config: { effort: "medium" }, content: [
+        { type: "text", text: "Tools changed." },
+        { type: "tool_addition", tool: { type: "tool_definition", definition: { name: "Deferred", description: "Loaded later", input_schema: parameters } } },
+        { type: "tool_addition", tool: { type: "tool_definition", definition: { name: "Last", description: "Cached", input_schema: parameters } }, cache_control: { type: "ephemeral", ttl: "1h" } },
+      ] },
+      { role: "user", content: [{ type: "text", text: "Run echo hi" }] },
+      { role: "assistant", content: [
+        { type: "thinking", thinking: "", signature: "c2lnbmF0dXJl" },
+        { type: "tool_use", id: "toolu_1", name: "Bash", input: { command: "echo hi" }, caller: { type: "direct" }, cache_control: { type: "ephemeral", ttl: "1h" } },
+      ] },
+      { role: "user", content: [
+        { type: "tool_result", tool_use_id: "toolu_1", content: "hi", is_error: false },
+        { type: "tool_result", tool_use_id: "toolu_1", content: [{ type: "text", text: "hi" }], cache_control: { type: "ephemeral", ttl: "1h" } },
+      ] },
+    ],
+    tools: [
+      { name: "Bash", description: "Run a command", input_schema: parameters },
+      { name: "DeferredToolPlaceholder", description: "Placeholder", input_schema: parameters, defer_loading: true },
+    ],
+    thinking: { type: "adaptive", display: "omitted" }, output_config: { effort: "medium" },
+    context_management: { edits: [{ type: "clear_thinking_20251015", keep: "all" }] },
+  })
+
+  it("admits a Claude Code request and forwards it unchanged", () => {
+    const request = claudeCode()
+    const result = prepareGatewayRequest("anthropic", "v1/messages", encode(request))
+    expect(decode(result.body)).toEqual(request)
+    // Four messages plus the system prompt, every byte reserved at the cache-write
+    // rate, plus the replayed thinking signature counted once more.
+    const tokensIn = result.body.byteLength + 1024 + 256 * 5 + "c2lnbmF0dXJl".length
+    expect(result.reservedUsd).toBe(costUsd("claude-opus-5-5", tokensIn, 32000, { cacheWriteTokens: tokensIn, cacheWrite1hTokens: tokensIn }))
+    // Claude Code's short structured-output side request.
+    const side = anthropic({ output_config: { effort: "medium", format: { type: "json_schema", schema: parameters } }, metadata: { user_id: "user" }, tools: [], stream: true })
+    expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(side)).body)).toEqual(side)
+    // Clearing tool results is the other context edit; both only remove input.
+    const cleared = anthropic({ context_management: { edits: [{ type: "clear_tool_uses_20250919", trigger: { type: "input_tokens", value: 30000 }, keep: { type: "tool_uses", value: 3 } }] } })
+    expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(cleared)).body)).toEqual(cleared)
+  })
+
+  it("still refuses what it cannot size in a Claude Code request", () => {
+    const withMessage = (content: unknown[], role = "system") => ({ ...claudeCode(), messages: [{ role, content }, { role: "user", content: "Hi" }] })
+    // A server tool, in tools[] or added mid-conversation, runs retrieval the estimate cannot see.
+    expectError("anthropic", "v1/messages", { ...claudeCode(), tools: [{ type: "web_search_20250305", name: "web_search" }] }, "tools[].type is not supported")
+    const added = (definition: unknown, type = "tool_definition") => [{ type: "tool_addition", tool: { type, definition } }]
+    expectError("anthropic", "v1/messages", withMessage([{ type: "tool_addition", tool: { type: "web_search_20250305", name: "web_search" } }]), "tool_addition.tool.name is not supported")
+    expectError("anthropic", "v1/messages", withMessage(added({ name: "x", input_schema: parameters }, "server_tool")), "tool_addition.tool.type must be tool_definition")
+    expectError("anthropic", "v1/messages", withMessage(added({ type: "web_search_20250305", name: "web_search" })), "tool_addition.tool.definition.type is not supported")
+    expectError("anthropic", "v1/messages", withMessage(added({ name: "x", input_schema: { $ref: "https://example.test/schema" } })), "local schema references")
+    // Tool additions and per-turn output settings belong to system messages; media stays out of them.
+    expectError("anthropic", "v1/messages", withMessage(added({ name: "x", input_schema: parameters }), "user"), "only appear in system messages", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("anthropic", "v1/messages", { ...claudeCode(), messages: [{ role: "user", content: "Hi", output_config: { effort: "low" } }] }, "messages[].output_config is not supported")
+    expectError("anthropic", "v1/messages", { ...claudeCode(), messages: [{ role: "system", content: "Hi", output_config: { effort: "low", format: { type: "regex" } } }, { role: "user", content: "Hi" }] }, "messages[].output_config.format must be json_schema")
+    expectError("anthropic", "v1/messages", withMessage([{ type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } }]), "is not supported")
+    expectError("anthropic", "v1/messages", withMessage([{ type: "text", text: "x" }], "developer"), "role must be user, assistant, or system", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    // A tool call made by a server-side tool, not the model, is hidden work.
+    const called = (caller: unknown) => ({ ...claudeCode(), messages: [{ role: "assistant", content: [{ type: "tool_use", id: "t", name: "Bash", input: {}, caller }] }, { role: "user", content: "Hi" }] })
+    expectError("anthropic", "v1/messages", called({ type: "code_execution_20250825", tool_id: "srvtoolu_1" }), "tool_use.caller.tool_id is not supported")
+    expectError("anthropic", "v1/messages", called({ type: "code_execution_20250825" }), "tool_use.caller.type must be direct")
+    // Context management admits the two clearing edits and nothing else.
+    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [{ type: "memory_20250818" }] } }), "context_management.edits[].type must be one of")
+    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [{ type: ["clear_thinking_20251015"] }] } }), "context_management.edits[].type must be one of")
+    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [], strategy: "auto" } }), "context_management.strategy is not supported")
+    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [{ type: "clear_thinking_20251015", source: "file_1" }] } }), "context_management.edits[].source is not supported")
+    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: "all" } }), "must be an array", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("anthropic", "v1/messages", anthropic({ tools: [{ name: "x", input_schema: parameters, defer_loading: "yes" }] }), "defer_loading must be a boolean", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    // Stored context and server-side features named at the top level stay out.
+    for (const key of ["container", "mcp_servers", "betas"]) expectError("anthropic", "v1/messages", anthropic({ [key]: [] }), `request.${key} is not supported`)
+  })
+
   it("rejects unknown thinking modes and a budget outside enabled thinking", () => {
     expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "turbo" } }), "thinking.type must be")
     expectError("anthropic", "v1/messages", anthropic({ thinking: { type: "adaptive", budget_tokens: 1024 } }), "only to enabled", "GATEWAY_RESERVATION_INVALID_REQUEST")
