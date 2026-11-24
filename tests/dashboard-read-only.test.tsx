@@ -13,6 +13,7 @@ const { dbMock, viewMock, rosterMock } = vi.hoisted(() => ({
   rosterMock: vi.fn(),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/homeOverview", () => ({ homeOverview: vi.fn(async () => ({ providers: [], otherSpend: null, spendUnavailable: false, tools: [] })) }))
 vi.mock("@/lib/session", () => ({ getViewWallet: viewMock }))
 vi.mock("@/lib/roster", () => ({ getRoster: rosterMock, getWaiting: vi.fn(async () => []) }))
 vi.mock("@/lib/rls", () => ({ withTenant: (_id: string, fn: (tx: typeof dbMock) => unknown) => fn(dbMock) }))
@@ -41,7 +42,7 @@ describe("dashboard reads do not repair or overwrite policy", () => {
     expect(await Dashboard()).toBeTruthy()
     expect(await Dashboard()).toBeTruthy()
     expect(dbMock.policy.updateMany).not.toHaveBeenCalled()
-    expect(rosterMock).toHaveBeenCalledWith("demo-wallet")
+    expect(rosterMock).toHaveBeenCalledWith("demo-wallet", expect.any(Date))
   })
 
   it("does not query or write policy when there is no wallet to show", async () => {
