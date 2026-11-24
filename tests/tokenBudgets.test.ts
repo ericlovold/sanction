@@ -26,14 +26,21 @@ const agent = (over: Partial<AgentInput> = {}): AgentInput => ({
 const sum = (usd: number) => ({ _sum: { costUsd: usd } })
 
 /** Chain fetch: findUnique per ancestor, root first param call order is child-up. */
-function mockChain(nodes: Array<{ id: string; parentId: string | null; tokenCapCents: number | null }>) {
+function mockChain(nodes: Array<{
+  id: string; parentId: string | null; tokenCapCents: number | null
+  /** Omit for a wallet with a policy and no model defaults in the fixture; null for a wallet with no policy. */
+  model?: { daily: number; monthly?: number | null } | null
+}>) {
   for (const n of nodes) {
     dbMock.wallet.findUnique.mockResolvedValueOnce({
       id: n.id,
       parentId: n.parentId,
       frozenAt: null,
       frozenReason: null,
-      policy: { perTransactionMaxUsd: 5000, subtreeDailyCapUsd: null, subtreeDailyTokenCapUsd: n.tokenCapCents },
+      policy: n.model === null ? null : {
+        perTransactionMaxUsd: 5000, subtreeDailyCapUsd: null, subtreeDailyTokenCapUsd: n.tokenCapCents,
+        dailyTokenBudgetUsd: n.model?.daily, monthlyTokenBudgetUsd: n.model?.monthly ?? null,
+      },
     })
   }
 }
@@ -64,6 +71,56 @@ describe("seat daily budget", () => {
     dbMock.tokenLog.aggregate.mockResolvedValueOnce(sum(3))
     const v = await isBudgetExhausted(agent({ dailyTokenBudgetUsd: 300 })) // $3 override
     expect(v).toMatchObject({ exhausted: true, horizon: "daily", budget: 3 })
+  })
+})
+
+describe("a group with no policy inherits per-agent model limits", () => {
+  const unruled = () => agent({ walletId: "team", dailyTokenBudgetUsd: null, wallet: { policy: null } })
+
+  it("stops at the parent's daily default (before: no per-agent limit at all)", async () => {
+    mockChain([
+      { id: "team", parentId: "org", tokenCapCents: null, model: null },
+      { id: "org", parentId: null, tokenCapCents: null, model: { daily: 500 } },
+    ])
+    dbMock.tokenLog.aggregate.mockResolvedValueOnce(sum(5))
+    expect(await isBudgetExhausted(unruled())).toMatchObject({ exhausted: true, horizon: "daily", spent: 5, budget: 5 })
+  })
+
+  it("stops at the parent's monthly default", async () => {
+    mockChain([
+      { id: "team", parentId: "org", tokenCapCents: null, model: null },
+      { id: "org", parentId: null, tokenCapCents: null, model: { daily: 500, monthly: 2000 } },
+    ])
+    dbMock.tokenLog.aggregate.mockResolvedValueOnce(sum(1)).mockResolvedValueOnce(sum(20))
+    expect(await isBudgetExhausted(unruled())).toMatchObject({ exhausted: true, horizon: "monthly", budget: 20 })
+  })
+
+  it("passes under the inherited line and walks the chain once", async () => {
+    mockChain([
+      { id: "team", parentId: "org", tokenCapCents: null, model: null },
+      { id: "org", parentId: null, tokenCapCents: null, model: { daily: 500 } },
+    ])
+    dbMock.tokenLog.aggregate.mockResolvedValueOnce(sum(4.99))
+    expect(await isBudgetExhausted(unruled())).toMatchObject({ exhausted: false, spent: 4.99, budget: 5 })
+    expect(dbMock.wallet.findUnique).toHaveBeenCalledTimes(2)
+  })
+
+  it("the agent's own limit still beats the inherited default", async () => {
+    mockChain([
+      { id: "team", parentId: "org", tokenCapCents: null, model: null },
+      { id: "org", parentId: null, tokenCapCents: null, model: { daily: 500 } },
+    ])
+    dbMock.tokenLog.aggregate.mockResolvedValueOnce(sum(6))
+    expect(await isBudgetExhausted({ ...unruled(), dailyTokenBudgetUsd: 1000 })).toMatchObject({ exhausted: false, budget: 10 })
+  })
+
+  it("stays unlimited per agent when no wallet up the tree has a policy", async () => {
+    mockChain([
+      { id: "team", parentId: "org", tokenCapCents: null, model: null },
+      { id: "org", parentId: null, tokenCapCents: null, model: null },
+    ])
+    expect(await isBudgetExhausted(unruled())).toMatchObject({ exhausted: false, budget: null })
+    expect(dbMock.tokenLog.aggregate).not.toHaveBeenCalled()
   })
 })
 

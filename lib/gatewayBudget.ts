@@ -1,6 +1,6 @@
 import { db } from "./db"
 import { Prisma } from "./generated/prisma/client"
-import type { WalletBudgetNode } from "./cascadeBudget"
+import { inheritedTokenDefaults, type WalletBudgetNode } from "./cascadeBudget"
 import { costUsd, type GatewayUsage, type TokenBudgetVerdict } from "./gateway"
 import { logger } from "./log"
 import { freezeStateFromChain, frozenNote, type FreezeState } from "./freeze"
@@ -122,7 +122,8 @@ async function budgetSnapshot(tx: Tx, agent: Pick<GatewayBudgetAgent, "id" | "wa
   const chain = rows.map((row) => ({
     id: row.id, parentId: row.parentId, frozenAt: row.frozenAt, frozenReason: row.frozenReason,
     policy: row.policyId == null ? null : { perTransactionMaxUsd: row.perTransactionMaxUsd,
-      subtreeDailyCapUsd: row.subtreeDailyCapUsd, subtreeDailyTokenCapUsd: row.subtreeDailyTokenCapUsd },
+      subtreeDailyCapUsd: row.subtreeDailyCapUsd, subtreeDailyTokenCapUsd: row.subtreeDailyTokenCapUsd,
+      dailyTokenBudgetUsd: row.policyDaily, monthlyTokenBudgetUsd: row.policyMonthly },
   }))
   const own = rows[0]
   const current = own?.seatId && own.seatWalletId ? {
@@ -256,11 +257,14 @@ function occupiedUsd(row: OccupancyRow, monthly = false): number {
 }
 
 async function checkBudget(tx: Tx, agent: GatewayBudgetAgent, amount: number, chain: WalletBudgetNode[], now: Date): Promise<TokenBudgetVerdict> {
-  const monthlyCents = agent.monthlyTokenBudgetUsd ?? agent.wallet.policy?.monthlyTokenBudgetUsd
+  // A wallet with no policy of its own takes per-agent defaults from the
+  // nearest wallet above it. The chain was read under the budget locks.
+  const defaults = agent.wallet.policy ?? inheritedTokenDefaults(chain)
+  const monthlyCents = agent.monthlyTokenBudgetUsd ?? defaults?.monthlyTokenBudgetUsd
   const rows = await budgetOccupancy(tx, agent.id, chain.filter((node) => node.policy?.subtreeDailyTokenCapUsd != null).map((node) => node.id), now, monthlyCents != null)
   const own = rows.find((row) => row.kind === "agent" && row.scopeId === agent.id)
   if (!own) throw new Error("Incomplete agent token budget snapshot")
-  const dailyCents = agent.dailyTokenBudgetUsd ?? agent.wallet.policy?.dailyTokenBudgetUsd
+  const dailyCents = agent.dailyTokenBudgetUsd ?? defaults?.dailyTokenBudgetUsd
   const daily = dailyCents == null ? null : dailyCents / 100
   const spent = occupiedUsd(own)
   if (dailyCents != null && exceeds(spent, amount, dailyCents)) return { exhausted: true, spent, budget: daily, horizon: "daily" }

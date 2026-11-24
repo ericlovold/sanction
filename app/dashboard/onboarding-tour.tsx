@@ -29,9 +29,9 @@ const STEPS: Step[] = [
     body: "When an agent asks for something that needs a person, it waits here. Approving lets that one action through, once.",
   },
   {
-    target: "roster-root",
-    title: "See every agent",
-    body: "Each agent is listed under its group with what it spent this month. Search by name, person or group.",
+    target: "home-overview",
+    title: "See your providers and tools",
+    body: "Check stored provider keys, recorded usage and tool reports here. Open Agents to manage individual agents and groups.",
   },
   {
     target: "nav-vault",

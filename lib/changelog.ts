@@ -15,6 +15,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-22",
+    title: "A group with no policy inherits its parent's model limits",
+    tags: ["gateway", "budgets", "teams"],
+    body: "Model spend limits are counted for each agent on its own: an agent uses its own limit, or the default in its wallet's policy. Until now a group with no policy of its own had no per-agent model limit at all. Only a shared cap on a wallet above it could stop its agents.\n\nThe gateway now holds such a group to the per-agent daily and monthly defaults of the nearest wallet above it that has a policy. Create a team under your organization and its agents are limited from the first call, with no setup on the team.\n\nWhat does not change: a group that has its own policy keeps its own limits, lower or higher than its parent's. An agent's own limit still wins. Shared caps apply as before. Purchases in a group with no policy are still refused until it has one. If no wallet up the tree has a policy, there is still no per-agent model limit.\n\n**If you run groups without a policy today,** their agents will start being refused at the parent's default. Give the group its own policy, or an agent its own limit, to set a different number.",
+  },
+  {
     date: "2026-11-20",
     title: "The homepage and About page say what Sanction is",
     tags: ["site"],

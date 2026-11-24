@@ -166,6 +166,10 @@ APPROVED           ESCALATED                     DENIED
 - **Default deny / fail closed.** No policy → deny. A `deny` gate is terminal.
   Escalations that no human resolves within `escalationTimeoutMins` settle to
   `escalationTimeoutAction` (default `deny`) on the next read — no deadlocks.
+  On the gateway, a group with no policy of its own is held to the per-agent
+  model limits of the nearest wallet above it (`inheritedTokenDefaults`), so a
+  new group is never unlimited by omission. Purchases in such a group are
+  still denied until it has a policy.
 - **Runtime enforcement.** The decision happens *inline*, before the
   provider/merchant/tool call — not after the fact in a log.
 - **Small trusted surface.** Most flows reduce to **Authorize → Approve → Grant →

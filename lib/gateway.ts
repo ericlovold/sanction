@@ -1,5 +1,5 @@
 import { db } from "./db"
-import { walletAncestorChain } from "./cascadeBudget"
+import { inheritedTokenDefaults, walletAncestorChain, type TokenDefaults, type WalletBudgetNode } from "./cascadeBudget"
 import { walletSubtreeIds } from "./poolAccess"
 
 // LLM gateway: agents point their provider client at /api/gateway/<provider>/…
@@ -257,15 +257,17 @@ function monthStart(d = new Date()): Date {
   return out
 }
 
-/** Effective daily token budget in dollars, or null if no policy (no enforcement). */
-export function tokenBudgetUsd(agent: GatewayAgent): number | null {
-  const cents = agent.dailyTokenBudgetUsd ?? agent.wallet.policy?.dailyTokenBudgetUsd
+/** Effective daily token budget in dollars: the agent's own limit, else its
+ *  wallet's policy, else `inherited` (the nearest policy above a wallet that
+ *  has none). Null only when no wallet up the tree has a policy. */
+export function tokenBudgetUsd(agent: GatewayAgent, inherited: TokenDefaults | null = null): number | null {
+  const cents = agent.dailyTokenBudgetUsd ?? (agent.wallet.policy ?? inherited)?.dailyTokenBudgetUsd
   return cents == null ? null : cents / 100
 }
 
 /** Effective monthly token budget in dollars — opt-in, so null unless set. */
-export function monthlyTokenBudgetUsd(agent: GatewayAgent): number | null {
-  const cents = agent.monthlyTokenBudgetUsd ?? agent.wallet.policy?.monthlyTokenBudgetUsd
+export function monthlyTokenBudgetUsd(agent: GatewayAgent, inherited: TokenDefaults | null = null): number | null {
+  const cents = agent.monthlyTokenBudgetUsd ?? (agent.wallet.policy ?? inherited)?.monthlyTokenBudgetUsd
   return cents == null ? null : cents / 100
 }
 
@@ -281,17 +283,21 @@ async function agentSpentSince(agentId: string, since: Date): Promise<number> {
  *     across every seat under any ancestor that sets subtreeDailyTokenCapUsd.
  *     This is the department-level hard stop: individual seats can all be
  *     under their own limits and the channel still cannot exceed its pool.
- *  Ancestor work only runs when a monthly/subtree line can exist, so the
- *  common single-wallet case stays two queries. */
+ *  A wallet with no policy of its own takes the per-agent defaults from the
+ *  nearest wallet above it, so the ancestor walk runs first in that case. */
 export async function isBudgetExhausted(agent: GatewayAgent): Promise<TokenBudgetVerdict> {
-  const daily = tokenBudgetUsd(agent)
+  // The walk is only needed up front when the wallet has no policy; otherwise
+  // it waits until the per-agent lines have passed, as before.
+  let chain: WalletBudgetNode[] | null = agent.wallet.policy ? null : await walletAncestorChain(db, agent.walletId)
+  const inherited = chain ? inheritedTokenDefaults(chain) : null
+  const daily = tokenBudgetUsd(agent, inherited)
   let spentToday = 0
   if (daily != null) {
     spentToday = await agentSpentSince(agent.id, dayStart())
     if (spentToday >= daily) return { exhausted: true, spent: spentToday, budget: daily, horizon: "daily" }
   }
 
-  const monthly = monthlyTokenBudgetUsd(agent)
+  const monthly = monthlyTokenBudgetUsd(agent, inherited)
   if (monthly != null) {
     const spentMonth = await agentSpentSince(agent.id, monthStart())
     if (spentMonth >= monthly) return { exhausted: true, spent: spentMonth, budget: monthly, horizon: "monthly" }
@@ -299,7 +305,7 @@ export async function isBudgetExhausted(agent: GatewayAgent): Promise<TokenBudge
 
   // Pooled subtree caps: walk the ancestor chain; for each pool with a token
   // cap, sum today's token cost across every seat in that pool's subtree.
-  const chain = await walletAncestorChain(db, agent.walletId)
+  chain ??= await walletAncestorChain(db, agent.walletId)
   for (const node of chain) {
     const capCents = node.policy?.subtreeDailyTokenCapUsd
     if (capCents == null) continue
