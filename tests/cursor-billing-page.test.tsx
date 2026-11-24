@@ -125,3 +125,17 @@ it("preserves the incident link through sign-in", async () => {
   expect(html).toContain(encodeURIComponent("/dashboard/usage/cursor?day=2026-11-17#incident"))
   expect(mocks.queryRaw).not.toHaveBeenCalled()
 })
+
+it("explains the qualifying item threshold even if all token fields and some prices are missing", async () => {
+  const day = "2026-11-17"
+  mocks.member.mockResolvedValue({ role: "viewer", wallet: { id: "test", name: "Example" } })
+  mocks.queryRaw.mockResolvedValue([{ day, model: "model-a", items: BigInt(5000), tokens: null, cached: null, partial: true, cachedPartial: true }])
+  mocks.groupBy.mockResolvedValue([
+    { usageType: "on_demand", currency: "USD", _sum: { contracted: new Prisma.Decimal("0.0000000001") }, _count: { _all: 1, contracted: 1 }, _max: { occurredAt: new Date(day) } },
+    { usageType: "included", currency: null, _sum: { contracted: null }, _count: { _all: 4999, contracted: 0 }, _max: { occurredAt: new Date(day) } },
+  ])
+  const html = renderToStaticMarkup(await CursorUsagePage({ searchParams: Promise.resolve({ day }) }))
+  expect(html).toContain("daily threshold for 5,000 billing items")
+  expect(html).toContain("$0.0000000001")
+  expect(html).toContain("Price unreported")
+})
