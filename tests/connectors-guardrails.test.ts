@@ -124,6 +124,14 @@ describe("runaway_rate", () => {
     expect(spike([{ sessionRef: "c1" }, { sessionRef: "c2" }, { sessionRef: "c3" }])).toMatchObject({ subjectType: "person", subjectKey: "a@example.test", observedNanos: usd(12) })
   })
 
+  it("chooses the same subject for tied conversations in any input order", () => {
+    const facts = ["b", "a"].map(sessionRef => fact({ sessionRef, dollars: "6", hour: 0 }))
+    const [forward] = evaluateGuardrails(facts, T0)
+    const [reverse] = evaluateGuardrails([...facts].reverse(), T0)
+    expect(forward.subjectKey).toBe("a")
+    expect(reverse.dedupeKey).toBe(forward.dedupeKey)
+  })
+
   it("keeps people and providers apart", () => {
     const facts = [fact({ hour: 0, dollars: "3" }), fact({ hour: 0, dollars: "3", rawIdentity: "b@example.test" }), fact({ hour: 0, dollars: "3", provider: "openai" })]
     expect(evaluateGuardrails(facts, T0)).toEqual([])
@@ -146,7 +154,7 @@ describe("headless_burn", () => {
 
   it("does not count interactive work, and does not join hours that are not adjacent", () => {
     expect(evaluateGuardrails([fact({ hour: 0, dollars: "4.9" }), fact({ hour: 1, dollars: "4.9" }), fact({ hour: 2, dollars: "4.9" })], T0).filter((a) => a.rule === "headless_burn")).toEqual([])
-    const apart = [fact({ hour: 0, dollars: "4.9", headless: true }), fact({ hour: 5, dollars: "4.9", headless: true })]
+    const apart = [fact({ hour: 0, dollars: "6", headless: true }), fact({ hour: 5, dollars: "6", headless: true })]
     expect(evaluateGuardrails(apart, T0).filter((a) => a.rule === "headless_burn")).toEqual([])
   })
 

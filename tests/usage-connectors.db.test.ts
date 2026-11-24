@@ -203,6 +203,38 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     expect(last).toMatchObject({ status: "failed", errorCode: "bad_key" })
   })
 
+  it("keeps a newer completed sync when an older provider response arrives last", async () => {
+    let signalStarted!: () => void
+    let release!: () => void
+    const started = new Promise<void>(resolve => { signalStarted = resolve })
+    const resume = new Promise<void>(resolve => { release = resolve })
+    const staleResponse = cursorServing([])
+    const delayedFetch = async (url: string, init: RequestInit) => {
+      signalStarted()
+      await resume
+      return staleResponse(url, init)
+    }
+    const older = syncConnection(connectionB, {
+      trigger: "cron", now: afterIncident, http: { fetch: delayedFetch as never, ...fast },
+    })
+    const newerTime = new Date(afterIncident.getTime() + HOUR)
+    try {
+      await Promise.race([started, older.then(() => { throw Error("Older sync never reached the provider") })])
+      const newer = await syncConnection(connectionB, {
+        trigger: "manual", now: newerTime, http: { fetch: cursorServing(all) as never, ...fast },
+      })
+      expect(newer.ok).toBe(true)
+    } finally {
+      release()
+      await older
+    }
+    expect(await older).toMatchObject({ ok: false, code: "superseded" })
+    const connection = await db.usageConnection.findUniqueOrThrow({ where: { id: connectionB } })
+    expect(connection.syncedThrough).toEqual(newerTime)
+    const incident = (await facts(walletB)).filter(f => f.sessionRef === INCIDENT_CONVERSATION)
+    expect(incident.reduce((sum, f) => sum + f.costNanos, BigInt(0))).toBe(usd(140))
+  })
+
   it("a connection whose vault row is gone fails closed without calling the provider", async () => {
     await withTenant(walletB, (tx) => tx.credentialVault.deleteMany({ where: { walletId: walletB } }))
     const fetchMock = vi.fn()
@@ -282,28 +314,29 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     const now = new Date(d0 + 27 * HOUR + 10 * 60_000)
     expect(await syncConnection(connectionD, { trigger: "connect_test", now, http: { fetch: openai as never, ...fast } })).toMatchObject({ ok: true, factsWritten: 3 })
     expect(await cost()).toEqual({
-      "11-18T09:00": [usd(6), "billed"],
-      "11-18T15:00": [usd(2), "billed"],
+      "11-18T09:00": [usd(6), "allocated"],
+      "11-18T15:00": [usd(2), "allocated"],
       // Not priced yet: 2,000 tokens at yesterday's $8 per 4,000.
       "11-19T02:00": [usd(4), "estimated"],
     })
 
-    // An hour later OpenAI has priced today at $5. The pull asks from 72 hours
+    // An hour later OpenAI has priced today at $100. The pull asks from 72 hours
     // back, mid-day; the adapter widens that to midnight and the whole range
     // is replaced, so no stored row collides and the estimate becomes billed.
-    costs = [...costs, bucket(d0 + 24 * HOUR, 24 * HOUR, [{ amount: { value: 5, currency: "usd" }, user_id: "user-a", api_key_id: null }])]
+    costs = [...costs, bucket(d0 + 24 * HOUR, 24 * HOUR, [{ amount: { value: 100, currency: "usd" }, user_id: "user-a", api_key_id: null }])]
     starts.length = 0
     const later = new Date(now.getTime() + HOUR)
     expect(await syncConnection(connectionD, { trigger: "cron", now: later, http: { fetch: openai as never, ...fast } })).toMatchObject({ ok: true, factsWritten: 3 })
     expect(starts[0] % (24 * HOUR)).toBe(0)
     expect(starts[0]).toBe(Math.floor((now.getTime() - 72 * HOUR) / (24 * HOUR)) * 24 * HOUR)
     expect(await cost()).toEqual({
-      "11-18T09:00": [usd(6), "billed"],
-      "11-18T15:00": [usd(2), "billed"],
-      "11-19T02:00": [usd(5), "billed"],
+      "11-18T09:00": [usd(6), "allocated"],
+      "11-18T15:00": [usd(2), "allocated"],
+      "11-19T02:00": [usd(100), "allocated"],
     })
 
     const view = await aiSpendView(walletD, later)
-    expect(view).toMatchObject({ monthToDate: usd(13), monthBilled: usd(13), monthEstimated: BigInt(0) })
+    expect(view).toMatchObject({ monthToDate: usd(108), monthBilled: usd(108), monthEstimated: BigInt(0) })
+    expect(view.alerts.map(a => a.rule)).toEqual(["daily_cap"])
   })
 })

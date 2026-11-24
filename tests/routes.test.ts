@@ -197,6 +197,14 @@ describe("reserved vault labels are feature-owned (PROV-1 fix)", () => {
       expect(JSON.stringify(await res.json())).toMatch(/reserved/)
     }
   })
+  it("rejects renaming an existing connector credential", async () => {
+    dbMock.credentialVault.findUnique.mockResolvedValue({ id: "cr1", walletId: WID, label: "usage:cursor:conn1" })
+    const res = await editCredential(
+      req("PATCH", "/api/v1/credentials/vault", { headers: mgmt, body: { wallet_id: WID, id: "cr1", label: "new" } }),
+    )
+    expect(res.status).toBe(400)
+    expect(dbMock.credentialVault.update).not.toHaveBeenCalled()
+  })
   it("PATCH cannot rename an ordinary credential onto a reserved label", async () => {
     const res = await editCredential(
       req("PATCH", "/api/v1/credentials/vault", { headers: mgmt, body: { wallet_id: WID, id: "cr1", label: "provider:openai" } }),

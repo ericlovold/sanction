@@ -7,6 +7,7 @@ import { NextRequest } from "next/server"
 
 const m = vi.hoisted(() => {
   const tx = {
+    usageConnection: { updateMany: vi.fn() },
     credentialVault: { findFirst: vi.fn() },
     usageFact: { deleteMany: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
     usageAlert: { findMany: vi.fn(), createMany: vi.fn(), updateMany: vi.fn() },
@@ -16,7 +17,7 @@ const m = vi.hoisted(() => {
   return {
     tx,
     db: {
-      usageConnection: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+      usageConnection: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
       wallet: { findUnique: vi.fn() },
       $transaction: vi.fn(),
     },
@@ -58,7 +59,8 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.spyOn(console, "error").mockImplementation(() => {})
   m.db.usageConnection.findUnique.mockResolvedValue(connection)
-  m.db.usageConnection.update.mockResolvedValue({})
+  m.db.usageConnection.updateMany.mockResolvedValue({ count: 1 })
+  m.tx.usageConnection.updateMany.mockResolvedValue({ count: 1 })
   m.db.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(m.tx))
   m.db.wallet.findUnique.mockResolvedValue({ ownerEmail: "owner@example.test", name: "Acme" })
   m.tx.credentialVault.findFirst.mockResolvedValue({ id: "cred_1", walletId: "w_1", label: "usage:cursor:conn_1", encryptedValue: "x", keyId: "k" })
@@ -83,7 +85,7 @@ describe("syncConnection", () => {
     const windowStart = new Date(Math.floor((connection.syncedThrough.getTime() - 48 * HOUR) / HOUR) * HOUR)
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).startDate).toBe(windowStart.getTime())
     expect(m.scope).toHaveBeenCalledWith(m.tx, "w_1")
-    expect(m.tx.$executeRaw).toHaveBeenCalledOnce() // per-connection advisory lock
+    expect(m.tx.usageConnection.updateMany.mock.invocationCallOrder[0]).toBeLessThan(m.tx.usageFact.deleteMany.mock.invocationCallOrder[0])
     expect(m.tx.usageFact.deleteMany).toHaveBeenCalledWith({ where: { walletId: "w_1", connectionId: "conn_1", bucketStart: { gte: windowStart } } })
     expect(m.tx.usageFact.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(m.tx.usageFact.createMany.mock.invocationCallOrder[0])
     const written = m.tx.usageFact.createMany.mock.calls[0][0].data
@@ -91,8 +93,8 @@ describe("syncConnection", () => {
       f.walletId === "w_1" && f.connectionId === "conn_1" && /^[0-9a-f]{64}$/.test(f.dedupeKey) && f.sourceRefreshedAt === now)).toBe(true)
     expect(written.reduce((s: bigint, f: { costNanos: bigint }) => s + f.costNanos, BigInt(0))).toBe(usd(140))
 
-    expect(m.db.usageConnection.update).toHaveBeenCalledWith({
-      where: { id: "conn_1" },
+    expect(m.tx.usageConnection.updateMany).toHaveBeenCalledWith({
+      where: { id: "conn_1", walletId: "w_1", credentialId: "cred_1", status: { not: "disconnected" }, OR: [{ lastAttemptAt: null }, { lastAttemptAt: { lt: now } }] },
       data: { status: "active", statusCode: null, statusDetail: null, lastAttemptAt: now, lastSuccessAt: now, syncedThrough: now },
     })
     expect(m.tx.usageSyncRun.create.mock.calls[0][0].data).toMatchObject({
@@ -103,11 +105,26 @@ describe("syncConnection", () => {
     expect(m.tx.usageAlert.updateMany).toHaveBeenCalledOnce()
   })
 
+  it("discards a superseded pull before it can replace facts or send alerts", async () => {
+    m.tx.usageConnection.updateMany.mockResolvedValue({ count: 0 })
+    const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: serving(incidentEvents()) as never, ...fast } })
+    expect(result).toMatchObject({ ok: false, code: "superseded" })
+    expect(m.tx.usageFact.deleteMany).not.toHaveBeenCalled()
+    expect(m.email).not.toHaveBeenCalled()
+    expect(m.tx.usageSyncRun.create.mock.calls[0][0].data.status).toBe("superseded")
+  })
+
+  it("contains lookup failures before wallet scope is available", async () => {
+    m.db.usageConnection.findUnique.mockRejectedValue(new Error("connection reset"))
+    expect(await syncConnection("conn_1", { trigger: "cron", now })).toMatchObject({ ok: false, code: "provider_unavailable" })
+    expect(m.tx.usageSyncRun.create).not.toHaveBeenCalled()
+  })
+
   it("the decrypted key goes to the provider and nowhere else", async () => {
     const fetchMock = serving([])
     await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: fetchMock as never, ...fast } })
     expect((fetchMock.mock.calls[0][1].headers as Record<string, string>).Authorization).toBe(`Basic ${Buffer.from("crsr_plaintext_key:").toString("base64")}`)
-    const persisted = JSON.stringify([m.db.usageConnection.update.mock.calls, m.tx.usageSyncRun.create.mock.calls, (console.error as never as { mock: { calls: unknown[] } }).mock.calls])
+    const persisted = JSON.stringify([m.db.usageConnection.updateMany.mock.calls, m.tx.usageSyncRun.create.mock.calls, (console.error as never as { mock: { calls: unknown[] } }).mock.calls])
     expect(persisted).not.toContain("crsr_plaintext_key")
   })
 
@@ -152,14 +169,14 @@ describe("syncConnection", () => {
     const result = await syncConnection("conn_1", { trigger: "manual", actorEmail: "a@example.test", now, http: { fetch: rejected as never, ...fast } })
     expect(result).toMatchObject({ ok: false, code: "bad_key" })
     expect(m.db.$transaction).not.toHaveBeenCalled()
-    expect(m.db.usageConnection.update.mock.calls[0][0].data).toMatchObject({ status: "error", statusCode: "bad_key", lastAttemptAt: now })
-    expect(m.db.usageConnection.update.mock.calls[0][0].data).not.toHaveProperty("syncedThrough")
+    expect(m.db.usageConnection.updateMany.mock.calls[0][0].data).toMatchObject({ status: "error", statusCode: "bad_key", lastAttemptAt: now })
+    expect(m.db.usageConnection.updateMany.mock.calls[0][0].data).not.toHaveProperty("syncedThrough")
     expect(m.tx.usageSyncRun.create.mock.calls[0][0].data).toMatchObject({ status: "failed", errorCode: "bad_key", trigger: "manual", httpCalls: 0 })
   })
 
   it("an unexpected crash is contained too, with a generic message", async () => {
     m.db.$transaction.mockRejectedValue(new Error("connection reset: postgres://user:pw@host"))
-    m.db.usageConnection.update.mockRejectedValue(new Error("still down"))
+    m.db.usageConnection.updateMany.mockRejectedValue(new Error("still down"))
     m.tx.usageSyncRun.create.mockRejectedValue(new Error("still down"))
     const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: serving([]) as never, ...fast } })
     expect(result).toMatchObject({ ok: false, code: "provider_unavailable" })
@@ -188,10 +205,10 @@ describe("syncConnection", () => {
 describe("dueConnections", () => {
   it("skips connections that need a human, keeps transient failures", async () => {
     m.db.usageConnection.findMany.mockResolvedValue([
-      { id: "ok", statusCode: null }, { id: "dead", statusCode: "bad_key" }, { id: "plan", statusCode: "plan_unsupported" }, { id: "flaky", statusCode: "rate_limited" },
+      { id: "ok" }, { id: "flaky" },
     ])
     expect(await dueConnections()).toEqual(["ok", "flaky"])
-    expect(m.db.usageConnection.findMany.mock.calls[0][0].where).toEqual({ status: { in: ["active", "error"] }, credentialId: { not: null } })
+    expect(m.db.usageConnection.findMany.mock.calls[0][0].where).toEqual({ status: { in: ["active", "error"] }, credentialId: { not: null }, OR: [{ statusCode: null }, { statusCode: { notIn: ["bad_key", "plan_unsupported", "missing_credential"] } }] })
   })
 })
 
@@ -279,6 +296,25 @@ describe("read model", () => {
     ])
     expect(view.connections[0]).toMatchObject({ health: "ok", keyIsOld: true, lastRun: { status: "ok" }, dataAsOf: new Date(Date.UTC(2026, 10, 20, 8)) })
     expect(view.alerts[0].evidence.identity).toBe("a@x.test")
+  })
+
+  it("counts retained history as a source and checks coverage across sources", async () => {
+    const at = new Date("2026-11-12T02:00:00Z")
+    const historyThrough = new Date("2026-10-26T02:00:00Z")
+    m.db.usageConnection.findMany.mockResolvedValue([
+      { ...connection, connectedAt: new Date("2026-06-01"), lastSuccessAt: at },
+      { ...connection, id: "old", status: "disconnected", connectedAt: new Date("2026-10-25"), lastSuccessAt: historyThrough },
+      { ...connection, id: "empty", status: "disconnected" },
+    ])
+    m.tx.usageFact.groupBy.mockImplementation(async ({ by }: { by: string[] }) =>
+      by.includes("connectionId") ? [{ connectionId: "old", _max: { sourceRefreshedAt: historyThrough } }] : [])
+    m.tx.usageAlert.findMany.mockResolvedValue([])
+    m.tx.usageSyncRun.findMany.mockResolvedValue([])
+    const view = await aiSpendView("w_1", at)
+    expect(view.lastMonthPartial).toBe(true)
+    expect(view.connections.map((c) => [c.id, c.historical, c.dataAsOf])).toEqual([
+      ["conn_1", false, at], ["old", true, historyThrough],
+    ])
   })
 
   it("an empty wallet is all zeros, and last month is flagged partial for a fresh connection", async () => {

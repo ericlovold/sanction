@@ -60,19 +60,25 @@ export async function connectUsageToolAction(_prev: ConnectState, form: FormData
   // under the same connection, replacing old facts instead of doubling them.
   const connection = await db.usageConnection.upsert({
     where: { walletId_provider: { walletId, provider: provider.id } },
-    create: { walletId, provider: provider.id, authKind: provider.authKind, connectedByEmail: admin.email, connectedAt: now },
-    update: {
-      status: "active", statusCode: null, statusDetail: null, connectedByEmail: admin.email,
-      connectedAt: now, disconnectedAt: null, syncedThrough: null, lastSuccessAt: null,
-    },
+    create: { walletId, provider: provider.id, status: "disconnected", authKind: provider.authKind, connectedByEmail: admin.email, connectedAt: now },
+    update: { provider: provider.id },
   })
   const label = usageVaultLabel(provider.id, connection.id)
   const { blob, keyId } = await encryptCredentialEnvelope(key.data, walletId, label)
-  const credential = await withTenant(walletId, async (tx) => {
+  await withTenant(walletId, async (tx) => {
+    // Lock the connection row before replacing its key. Disconnect and sync
+    // acquire the same row before writing any dependent records.
+    await tx.usageConnection.update({
+      where: { id: connection.id, walletId },
+      data: {
+        status: "active", statusCode: null, statusDetail: null, connectedByEmail: admin.email,
+        connectedAt: now, disconnectedAt: null, syncedThrough: null, lastSuccessAt: null, lastAttemptAt: null,
+      },
+    })
     // Re-keying deletes the old ciphertext outright; there is no injection
     // history on these rows to preserve.
     await tx.credentialVault.deleteMany({ where: { walletId, label } })
-    return tx.credentialVault.create({
+    const credential = await tx.credentialVault.create({
       data: {
         walletId, label, type: "api_key", encryptedValue: blob, keyId,
         // Never injectable: a sentinel no agent id matches, clearance 5, and
@@ -80,8 +86,8 @@ export async function connectUsageToolAction(_prev: ConnectState, form: FormData
         allowedAgentIds: [GATEWAY_ONLY_SENTINEL], scopes: [], minClearance: 5,
       },
     })
+    await tx.usageConnection.update({ where: { id: connection.id, walletId }, data: { credentialId: credential.id } })
   })
-  await db.usageConnection.update({ where: { id: connection.id }, data: { credentialId: credential.id } })
 
   const result = await syncConnection(connection.id, { trigger: "connect_test", actorEmail: admin.email, now })
   revalidatePath(PATH)
@@ -118,16 +124,17 @@ export async function disconnectUsageToolAction(form: FormData): Promise<void> {
   const deleteData = form.get("delete_data") === "on"
 
   await withTenant(walletId, async (tx) => {
+    await tx.usageConnection.update({
+      where: { id: connection.id, walletId },
+      data: { status: "disconnected", credentialId: null, disconnectedAt: new Date(), statusCode: null, statusDetail: null },
+    })
     await tx.credentialVault.deleteMany({ where: { walletId, label: usageVaultLabel(connection.provider, connection.id) } })
     if (deleteData) {
       await tx.usageFact.deleteMany({ where: { walletId, connectionId: connection.id } })
       await tx.usageAlert.deleteMany({ where: { walletId, connectionId: connection.id } })
     }
   })
-  await db.usageConnection.update({
-    where: { id: connection.id },
-    data: { status: "disconnected", credentialId: null, disconnectedAt: new Date(), statusCode: null, statusDetail: null },
-  })
+
   revalidatePath(PATH)
 }
 

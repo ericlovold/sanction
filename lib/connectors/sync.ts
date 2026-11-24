@@ -10,7 +10,7 @@ import { decryptCredentialEnvelope } from "@/lib/credentialCrypto"
 import { sendUsageAlertEmail } from "@/lib/email"
 import { logger } from "@/lib/log"
 import { adapterFor } from "./adapters"
-import { ConnectorError, DAY_MS, HOUR_MS, factDedupeKey, hourStart, needsReconnect } from "./facts"
+import { ConnectorError, DAY_MS, HOUR_MS, factDedupeKey, hourStart, isBilledCost, reconnectCodes } from "./facts"
 import { DEFAULT_THRESHOLDS, evaluateGuardrails, type AlertInput, type GuardFact } from "./guardrails"
 import type { FetchDeps } from "./pace"
 import { usageProvider } from "./registry"
@@ -41,7 +41,13 @@ const NOTIFY_WITHIN_MS = 48 * HOUR_MS
  */
 export async function syncConnection(connectionId: string, opts: SyncOptions): Promise<SyncResult> {
   const now = opts.now ?? new Date()
-  const connection = await db.usageConnection.findUnique({ where: { id: connectionId } })
+  let connection
+  try {
+    connection = await db.usageConnection.findUnique({ where: { id: connectionId } })
+  } catch {
+    log.error("usage connection lookup failed", { connectionId })
+    return { ok: false, code: "provider_unavailable", message: "Could not load this connection. The next pull will retry." }
+  }
   if (!connection || connection.status === "disconnected") {
     return { ok: false, code: "missing_credential", message: "This connection no longer exists." }
   }
@@ -56,6 +62,13 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
     : hourStart(now.getTime() - provider.backfillDays * DAY_MS)
   const windowStart = new Date(windowStartMs)
   let httpCalls = 0
+  // A conditional update takes the row lock shared with re-key and disconnect.
+  // A later attempt or replacement key makes this provider response obsolete.
+  const eligible = {
+    id: connectionId, walletId, credentialId: connection.credentialId,
+    status: { not: "disconnected" },
+    OR: [{ lastAttemptAt: null }, { lastAttemptAt: { lt: now } }],
+  }
 
   try {
     const credential = connection.credentialId
@@ -72,12 +85,14 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
     const sourceRefreshedAt = pulled.refreshedAt ?? now
     const replaceFrom = new Date(pulled.fromMs)
 
-    const { factsWritten, fresh } = await db.$transaction(
+    const committed = await db.$transaction(
       async (tx) => {
         await scopeTenant(tx, walletId)
-        // One pull per connection at a time: a cron run and a "Sync now" click
-        // must not both replace the same window.
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`usage-sync:${connectionId}`}))`
+        const claimed = await tx.usageConnection.updateMany({
+          where: eligible,
+          data: { status: "active", statusCode: null, statusDetail: null, lastAttemptAt: now, lastSuccessAt: now, syncedThrough: now },
+        })
+        if (!claimed.count) return null
 
         // Replace, not merge: the window is re-read from the provider in full,
         // so deleting it and writing what came back is idempotent and also
@@ -109,10 +124,10 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
           automationRef: r.automationRef,
           headless: r.headless,
           human: r.identityType === "user",
-          hourly: r.bucketEnd.getTime() - r.bucketStart.getTime() === HOUR_MS,
+          hourly: r.provider !== "openai" && r.bucketEnd.getTime() - r.bucketStart.getTime() === HOUR_MS,
           bucketStartMs: r.bucketStart.getTime(),
           costNanos: r.costNanos,
-          billed: r.costBasis === "billed",
+          billed: isBilledCost(r.costBasis),
         }))
         const alerts = evaluateGuardrails(guardFacts, pulled.fromMs)
         const known = new Set(
@@ -125,18 +140,23 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
             skipDuplicates: true,
           })
         }
+        await tx.usageSyncRun.create({ data: {
+          walletId, connectionId, trigger: opts.trigger, actorEmail: opts.actorEmail ?? null,
+          endpoint: adapter.endpoint, windowStart, windowEnd: now, finishedAt: new Date(),
+          status: "ok", httpCalls, factsWritten: pulled.facts.length, alertsRaised: fresh.length,
+        } })
         return { factsWritten: pulled.facts.length, fresh }
       },
       { timeout: 60_000, maxWait: 15_000 },
     )
 
-    await db.usageConnection.update({
-      where: { id: connectionId },
-      data: { status: "active", statusCode: null, statusDetail: null, lastAttemptAt: now, lastSuccessAt: now, syncedThrough: now },
-    })
-    await record(walletId, connectionId, opts, {
-      endpoint: adapter.endpoint, windowStart, windowEnd: now, status: "ok", httpCalls, factsWritten, alertsRaised: fresh.length,
-    })
+    if (!committed) {
+      await record(walletId, connectionId, opts, {
+        endpoint: adapter.endpoint, windowStart, windowEnd: now, status: "superseded", httpCalls, factsWritten: 0, alertsRaised: 0,
+      })
+      return { ok: false, code: "superseded", message: "The connection changed or a newer pull finished. This result was discarded." }
+    }
+    const { factsWritten, fresh } = committed
     await notify(walletId, connectionId, fresh, now)
     return { ok: true, factsWritten, alertsRaised: fresh.length, windowStart, windowEnd: now }
   } catch (error) {
@@ -147,7 +167,7 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
     // request details; the code and connection id are enough to find the run.
     log.error("usage sync failed", { connectionId, provider: connection.provider, code, unexpected: !known, name: known ? undefined : (error as Error)?.name })
     await db.usageConnection
-      .update({ where: { id: connectionId }, data: { status: "error", statusCode: code, statusDetail: message, lastAttemptAt: now } })
+      .updateMany({ where: eligible, data: { status: "error", statusCode: code, statusDetail: message, lastAttemptAt: now } })
       .catch(() => undefined)
     await record(walletId, connectionId, opts, {
       endpoint: adapter.endpoint, windowStart, windowEnd: now, status: "failed", errorCode: code, httpCalls, factsWritten: 0, alertsRaised: 0,
@@ -190,10 +210,12 @@ async function notify(walletId: string, connectionId: string, alerts: AlertInput
 /** Connections the hourly poller should pull, least recently attempted first. */
 export async function dueConnections(limit = 50) {
   const rows = await db.usageConnection.findMany({
-    where: { status: { in: ["active", "error"] }, credentialId: { not: null } },
+    where: { status: { in: ["active", "error"] }, credentialId: { not: null },
+      OR: [{ statusCode: null }, { statusCode: { notIn: reconnectCodes } }],
+    },
     orderBy: [{ lastAttemptAt: { sort: "asc", nulls: "first" } }],
-    select: { id: true, statusCode: true },
-    take: limit * 2,
+    select: { id: true },
+    take: limit,
   })
-  return rows.filter((r) => !needsReconnect(r.statusCode)).slice(0, limit).map((r) => r.id)
+  return rows.map((r) => r.id)
 }

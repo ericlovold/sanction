@@ -133,25 +133,29 @@ export async function fetchOpenAiUsageAndCosts(
   window: { startMs: number; endMs: number },
   deps: FetchDeps = {},
 ): Promise<OpenAiPull> {
+  const out: OpenAiPull = { usage: [], costs: [], httpCalls: 0 }
+  const take = deps.take ?? createRateLimiter()
   const resolved: Required<FetchDeps> = {
     fetch: deps.fetch ?? fetch,
     sleep: deps.sleep ?? defaultClock.sleep,
-    take: deps.take ?? createRateLimiter(),
+    async take() {
+      if (out.httpCalls >= MAX_CALLS) {
+        throw new ConnectorError("unexpected_response", "OpenAI returned more usage than one pull can read. Contact Sanction support.")
+      }
+      await take()
+      out.httpCalls++
+    },
   }
-  const out: OpenAiPull = { usage: [], costs: [], httpCalls: 0 }
   if (window.endMs <= window.startMs) return out
   const range = { start_time: String(Math.floor(window.startMs / 1000)), end_time: String(Math.ceil(window.endMs / 1000)) }
 
   const plans = [
     { path: OPENAI_USAGE_PATH, kind: "usage", width: "1h", limit: USAGE_PAGE_BUCKETS, groupBy: ["user_id", "api_key_id", "model"] },
-    { path: OPENAI_COSTS_PATH, kind: "costs", width: "1d", limit: COSTS_PAGE_BUCKETS, groupBy: ["user_id", "api_key_id"] },
+    { path: OPENAI_COSTS_PATH, kind: "costs", width: "1d", limit: COSTS_PAGE_BUCKETS, groupBy: ["user_id", "api_key_id", "line_item"] },
   ] as const
   for (const plan of plans) {
     let cursor: string | null = null
     do {
-      if (++out.httpCalls > MAX_CALLS) {
-        throw new ConnectorError("unexpected_response", "OpenAI returned more usage than one pull can read. Contact Sanction support.")
-      }
       const query = new URLSearchParams({ ...range, bucket_width: plan.width, limit: String(plan.limit) })
       for (const dimension of plan.groupBy) query.append("group_by", dimension)
       if (cursor) query.set("page", cursor)
@@ -200,10 +204,11 @@ export function allocate(total: bigint, weights: bigint[]): bigint[] {
  * For each identity and UTC day:
  *   - Day is priced and the identity has hourly usage: the day's cost is
  *     spread over those hours in proportion to tokens. The day total and the
- *     per-person total are exactly what OpenAI billed ("billed"); the split
- *     by hour and by model is derived, and a pricier model is under-weighted.
+ *     per-person total are exactly what OpenAI billed. The hourly shares
+ *     have an "allocated" basis because the provider reports no hourly cost.
  *   - Day is priced but the identity has no completions usage (embeddings,
- *     images, ...) or a credit: one day-long "(other usage)" row carries it.
+ *     images, ...): a day-long "(other usage)" row carries the charges.
+ *     Credits always have their own day-long row.
  *   - Day is not priced yet (the costs endpoint returned nothing at all for
  *     it, typically today): hours are "estimated" at the identity's own
  *     recent cost per token, else the organization's, else zero.
@@ -250,7 +255,7 @@ export function normalizeOpenAiBuckets(usage: OpenAiUsageBucket[], costs: OpenAi
   }
 
   const pricedDays = new Set<number>()
-  const costByIdentityDay = new Map<string, { identity: Identity; day: number; cost: bigint }>()
+  const costByIdentityDay = new Map<string, { identity: Identity; day: number; charges: bigint; credits: bigint }>()
   for (const bucket of costs) {
     const day = utcDay(bucket.start_time * 1000)
     for (const r of bucket.results) {
@@ -261,8 +266,10 @@ export function normalizeOpenAiBuckets(usage: OpenAiUsageBucket[], costs: OpenAi
       pricedDays.add(day)
       const identity = identityOf(r)
       const k = key(identity, day)
-      const entry = costByIdentityDay.get(k) ?? { identity, day, cost: ZERO }
-      entry.cost += toNanos(r.amount.value, "usd")
+      const entry = costByIdentityDay.get(k) ?? { identity, day, charges: ZERO, credits: ZERO }
+      const cost = toNanos(r.amount.value, "usd")
+      if (cost < ZERO) entry.credits += cost
+      else entry.charges += cost
       costByIdentityDay.set(k, entry)
     }
   }
@@ -277,16 +284,23 @@ export function normalizeOpenAiBuckets(usage: OpenAiUsageBucket[], costs: OpenAi
     }
   }
 
-  for (const [k, { identity, day, cost }] of costByIdentityDay) {
+  for (const [k, { identity, day, charges, credits }] of costByIdentityDay) {
     const rows = rowsByIdentityDay.get(k) ?? []
     const weight = rows.reduce((s, r) => s + r.weight, ZERO)
-    if (weight > ZERO && cost >= ZERO) {
-      const parts = allocate(cost, rows.map((r) => r.weight))
-      rows.forEach((r, i) => (r.fact.costNanos = parts[i]))
-      addRate(JSON.stringify([identity.rawIdentity, identity.identityType]), cost, weight)
-    } else if (cost !== ZERO) {
+    if (weight > ZERO) {
+      rows.sort((a, b) => a.fact.bucketStart.getTime() - b.fact.bucketStart.getTime() ||
+        (a.fact.model < b.fact.model ? -1 : a.fact.model > b.fact.model ? 1 : 0))
+      const parts = allocate(charges, rows.map((r) => r.weight))
+      rows.forEach((r, i) => {
+        r.fact.costNanos = parts[i]
+        r.fact.costBasis = "allocated"
+      })
+      if (charges > ZERO || credits === ZERO) addRate(JSON.stringify([identity.rawIdentity, identity.identityType]), charges, weight)
+    }
+    for (const [model, cost] of [["(other usage)", weight > ZERO ? ZERO : charges], ["(credit)", credits]] as const) {
+      if (cost === ZERO) continue
       facts.push({
-        provider: "openai", surface: "api", ...identity, model: "(other usage)", sessionRef: null, automationRef: null, headless: false,
+        provider: "openai", surface: "api", ...identity, model, sessionRef: null, automationRef: null, headless: false,
         bucketStart: new Date(day), bucketEnd: new Date(day + DAY_MS),
         inputTokens: ZERO, outputTokens: ZERO, cacheReadTokens: ZERO, cacheWriteTokens: ZERO, requests: 0, costNanos: cost, costBasis: "billed",
       })

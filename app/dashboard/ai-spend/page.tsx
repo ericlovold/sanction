@@ -49,7 +49,7 @@ function Source({ view }: { view: AiSpendView }) {
   return (
     <p className="mt-1 text-[11px] text-muted-foreground">
       data as of {stamp(oldest)}
-      {view.connections.length > 1 && " (oldest of the connected tools)"}
+      {view.connections.length > 1 && " (oldest source)"}
     </p>
   )
 }
@@ -145,7 +145,7 @@ export default async function AiSpendPage() {
             {view.connections.map((c) => (
               <span key={c.id} className="inline-flex items-center gap-1.5">
                 <span aria-hidden className="h-2 w-2 rounded-[2px]" style={{ background: usageProvider(c.provider)?.color ?? "#71717a" }} />
-                {usageProvider(c.provider)?.name ?? c.provider} as of <span className="font-mono">{stamp(c.dataAsOf)}</span>
+                {usageProvider(c.provider)?.name ?? c.provider}{c.historical && " (retained history)"} as of <span className="font-mono">{stamp(c.dataAsOf)}</span>
               </span>
             ))}
           </p>
@@ -168,7 +168,7 @@ export default async function AiSpendPage() {
           {
             label: "Last month",
             value: view.lastMonthPartial && view.lastMonth === BigInt(0) ? "No data" : usdOf(view.lastMonth),
-            sub: view.lastMonthPartial ? "partial: history starts 30 days before connecting" : "full month",
+            sub: view.lastMonthPartial ? "partial coverage across tools" : "full month",
           },
         ].map((k) => (
           <Card key={k.label} className="bg-card border-border">
@@ -202,9 +202,11 @@ export default async function AiSpendPage() {
                 <li key={a.id} className="rounded-md border border-amber-500/25 bg-amber-500/[0.04] p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-medium">{RULE[a.rule] ?? a.rule}</p>
-                    <p className="font-mono text-sm">
-                      {usdOf(a.observedNanos)} <span className="text-xs text-muted-foreground">against a line of {usdOf(a.thresholdNanos)}</span>
-                    </p>
+                    {isAdmin && (
+                      <p className="font-mono text-sm">
+                        {usdOf(a.observedNanos)} <span className="text-xs text-muted-foreground">against a line of {usdOf(a.thresholdNanos)}</span>
+                      </p>
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {usageProvider(a.provider)?.name ?? a.provider} · {stamp(a.windowStart)} to {stamp(a.windowEnd)}
@@ -215,9 +217,13 @@ export default async function AiSpendPage() {
                     )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Billed portion: {usdOf(BigInt(a.evidence.billedNanos))}.{" "}
-                    {a.evidence.baselineP95Nanos !== undefined &&
-                      `Their normal busy hour over the previous week: ${usdOf(BigInt(a.evidence.baselineP95Nanos))}. `}
+                    {isAdmin && (
+                      <>
+                        Billed portion: {usdOf(BigInt(a.evidence.billedNanos))}.{" "}
+                        {a.evidence.baselineP95Nanos !== undefined &&
+                          `Their normal busy hour over the previous week: ${usdOf(BigInt(a.evidence.baselineP95Nanos))}. `}
+                      </>
+                    )}
                     {a.notifiedAt ? `Emailed ${stamp(a.notifiedAt)}.` : "Found in history, so no email was sent."} Nothing was stopped.
                   </p>
                   {isAdmin && (
@@ -322,7 +328,7 @@ export default async function AiSpendPage() {
         <h2 className="text-sm font-medium text-muted-foreground">Connections</h2>
         <div className="grid gap-4 md:grid-cols-2">
           {USAGE_PROVIDERS.map((p) => {
-            const c = view.connections.find((x) => x.provider === p.id)
+            const c = view.connections.find((x) => x.provider === p.id && !x.historical)
             const health = c ? HEALTH[c.health] : null
             return (
               <Card key={p.id} className="bg-card border-border">
@@ -363,7 +369,7 @@ export default async function AiSpendPage() {
                       )}
                       {c.lastRun && (
                         <p className="text-muted-foreground">
-                          Last attempt {stamp(c.lastRun.startedAt)}: {c.lastRun.status === "ok" ? `${fmtCount(c.lastRun.factsWritten)} rows in ${c.lastRun.httpCalls} calls` : "failed"}
+                          Last attempt {stamp(c.lastRun.startedAt)}: {c.lastRun.status === "ok" ? `${fmtCount(c.lastRun.factsWritten)} rows in ${c.lastRun.httpCalls} calls` : c.lastRun.status}
                         </p>
                       )}
                       {c.statusDetail && <p className="text-amber-400">{c.statusDetail}</p>}

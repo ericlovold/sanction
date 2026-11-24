@@ -46,6 +46,7 @@ describe("toNanos", () => {
     expect(toNanos("1.5e3", "cents")).toBe(BigInt("15000000000"))
     expect(toNanos(1e-300, "usd")).toBe(BigInt(0))
     expect(toNanos("1e-500", "usd")).toBe(BigInt(0))
+    expect(toNanos("1." + "0".repeat(410), "usd")).toBe(usd(1))
   })
 
   it("rounds digits finer than a nano-dollar half away from zero", () => {
