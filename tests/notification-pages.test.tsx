@@ -3,7 +3,11 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 const m = vi.hoisted(() => ({
   view: vi.fn(), wallets: vi.fn(), subtree: vi.fn(), pending: vi.fn(), focus: vi.fn(), org: vi.fn(), count: vi.fn(), agent: vi.fn(),
-  wallet: vi.fn(), aggregate: vi.fn(),
+  wallet: vi.fn(), aggregate: vi.fn(), agents: vi.fn(), tokenGroups: vi.fn(), ancestors: vi.fn(),
+}))
+vi.mock("@/lib/cascadeBudget", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/cascadeBudget")>(),
+  walletAncestorChain: m.ancestors,
 }))
 vi.mock("@/lib/session", () => ({ getViewWallet: m.view, listViewWallets: m.wallets }))
 vi.mock("@/lib/walletSubtree", () => ({ subtreeWalletIds: m.subtree }))
@@ -18,8 +22,9 @@ vi.mock("@/lib/db", () => ({ db: {
   pendingApproval: { findMany: m.org, findFirst: m.focus, count: m.count },
   webhook: { findMany: async () => [] },
   wallet: { findUnique: m.wallet },
-  agent: { count: async () => 1, findFirst: m.agent, findMany: async () => [] },
-  tokenLog: { aggregate: m.aggregate, findMany: async () => [], groupBy: async () => [] },
+  agent: { count: async () => 1, findFirst: m.agent, findMany: m.agents },
+  $queryRaw: async () => [],
+  tokenLog: { aggregate: m.aggregate, findMany: async () => [], groupBy: m.tokenGroups },
   authorizationRequest: { aggregate: m.aggregate, findMany: async () => [], groupBy: async () => [] },
 } }))
 vi.mock("@/components/approval-queue", () => ({ ApprovalQueue: ({ pending }: { pending: { id: string }[] }) => createElement("div", {}, pending.map(a => createElement("button", { key: a.id }, a.id))) }))
@@ -37,7 +42,8 @@ beforeEach(() => {
   m.pending.mockResolvedValue([]); m.org.mockImplementation(({ where }) => Promise.resolve(where.status === "pending" ? Array.from({ length: 50 }, (_, i) => row(`old-${i}`)) : []))
   m.count.mockResolvedValue(65); m.focus.mockResolvedValue(row("newest"))
   m.agent.mockResolvedValue(null); m.wallet.mockResolvedValue({ name: "Engineering", policy: { dailyTokenBudgetUsd: 2000, dailySpendBudgetUsd: 5000 } })
-  m.aggregate.mockResolvedValue({ _sum: { costUsd: 19, amountUsd: 0, tokensIn: 0, tokensOut: 0 } })
+  m.agents.mockResolvedValue([]); m.tokenGroups.mockResolvedValue([]); m.ancestors.mockResolvedValue([])
+  m.aggregate.mockResolvedValue({ _sum: { costUsd: 19, amountUsd: 0, tokensIn: 0, tokensOut: 0 }, _count: { _all: 0 } })
 })
 describe("approval email landing", () => {
   it("renders a linked request beyond the oldest 50 and exposes the total and next page", async () => {
@@ -114,5 +120,73 @@ describe("budget email landing", () => {
     const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))
     expect(html).toContain("linked agent was not found")
     expect(m.wallet).not.toHaveBeenCalled()
+  })
+})
+
+describe("Spend model inheritance", () => {
+  const params = { wallet: "child", agent: "agent-1", budget: "daily_tokens" }
+  const child = { id: "child", name: "Engineering", policy: null }
+  const policy = (dailyTokenBudgetUsd: number) => ({ dailyTokenBudgetUsd, dailySpendBudgetUsd: 5000, perTransactionMaxUsd: 5000, subtreeDailyCapUsd: null })
+  const seat = (id: string, dailyTokenBudgetUsd: number | null = null) => ({
+    id, name: id, dailyTokenBudgetUsd, dailySpendBudgetUsd: null,
+    perTransactionMaxUsd: null, escalateOverUsd: null, wallet: child,
+  })
+  beforeEach(() => {
+    m.wallet.mockResolvedValue(child)
+    m.agent.mockResolvedValue(seat("agent-1"))
+    m.agents.mockResolvedValue([seat("agent-1"), seat("agent-2")])
+    m.ancestors.mockResolvedValue([
+      { id: "child", parentId: "outside-parent", policy: null },
+      { id: "outside-parent", parentId: null, name: "Never show ancestor", policy: policy(500) },
+    ])
+    m.tokenGroups.mockImplementation(({ by }) => Promise.resolve(by.length === 1 && by[0] === "agentId"
+      ? [{ agentId: "agent-1", _sum: { costUsd: 4, tokensIn: 1, tokensOut: 1 } }]
+      : []))
+  })
+
+  it("uses inherited defaults in both the alert and daily rows with one lookup per wallet", async () => {
+    const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))
+    expect(html).toContain("<b>$19.00</b> of $5.00")
+    expect(html).toContain("<b>$4.00</b> of $5.00")
+    expect(html).toContain("inherit a default model limit of $5.00")
+    expect(html).not.toContain("Never show ancestor")
+    expect(m.ancestors).toHaveBeenCalledTimes(1)
+    expect(m.ancestors).toHaveBeenCalledWith(expect.anything(), "child")
+  })
+
+  it.each([0, 1000])("preserves agent override %i in alert and daily rows", async override => {
+    m.agent.mockResolvedValue(seat("agent-1", override))
+    m.agents.mockResolvedValue([seat("agent-1", override)])
+    m.tokenGroups.mockImplementation(({ by }) => Promise.resolve(by[0] === "agentId"
+      ? [{ agentId: "agent-1", _sum: { costUsd: 9, tokensIn: 1, tokensOut: 1 } }]
+      : []))
+    const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))
+    const dollars = `$${(override / 100).toFixed(2)}`
+    expect(html).toContain(`<b>$19.00</b> of ${dollars}`)
+    expect(html).toContain(`<b>$9.00</b> of ${dollars}`)
+  })
+
+  it.each([0, 1000])("keeps own policy %i and does not fetch ancestor defaults", async daily => {
+    const ruled = { ...child, policy: policy(daily) }
+    m.wallet.mockResolvedValue(ruled)
+    m.agents.mockResolvedValue([{ ...seat("agent-1"), wallet: ruled }])
+    const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))
+    expect(html).toContain(`<b>$19.00</b> of $${(daily / 100).toFixed(2)}`)
+    expect(m.ancestors).not.toHaveBeenCalled()
+  })
+
+  it("preserves an inherited zero limit", async () => {
+    m.ancestors.mockResolvedValue([{ id: "child", parentId: "org", policy: null }, { id: "org", parentId: null, policy: policy(0) }])
+    const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))
+    expect(html).toContain("<b>$19.00</b> of $0.00")
+    expect(html).toContain("<b>$4.00</b> of $0.00")
+  })
+
+  it("does not invent a zero meter when no ancestor has a policy", async () => {
+    m.ancestors.mockResolvedValue([{ id: "child", parentId: null, policy: null }])
+    const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))
+    expect(html).toContain("No per-agent daily model limit applies.")
+    expect(html).not.toContain("<b>$19.00</b> of $0.00")
+    expect(html).not.toContain("<b>$4.00</b> of $0.00")
   })
 })

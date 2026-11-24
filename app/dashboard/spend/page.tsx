@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { spendReturnPath } from "@/lib/returnPath"
 import { switchWalletAction } from "@/app/dashboard/actions"
 import { db } from "@/lib/db"
+import { inheritedTokenDefaults, walletAncestorChain } from "@/lib/cascadeBudget"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet, listViewWallets } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
@@ -69,6 +70,15 @@ async function getSpend(walletId: string) {
       },
     }),
   ])
+  // Resolve each wallet once, including a policyless view root whose default
+  // may come from outside the visible subtree. Only the numeric limit leaves
+  // this lookup; ancestor names and unrelated agents never enter the view.
+  const policies = new Map(agents.map((a) => [a.wallet.id, a.wallet.policy]))
+  policies.set(walletId, wallet?.policy ?? null)
+  const modelDefaults = new Map(await Promise.all([...policies].map(async ([id, policy]) => [
+    id,
+    policy?.dailyTokenBudgetUsd ?? inheritedTokenDefaults(await walletAncestorChain(db, id))?.dailyTokenBudgetUsd ?? null,
+  ] as const)))
   const agentIds = agents.map((a) => a.id)
   const nameOf = new Map(agents.map((a) => [a.id, a.name]))
   const overrideOf = new Map(
@@ -111,9 +121,8 @@ async function getSpend(walletId: string) {
     db.authorizationRequest.groupBy({ by: ["agentId"], where: { ...todayScope, status: "approved" }, _sum: { amountUsd: true } }),
   ])
 
-  // Today, per agent, against that agent's own limits: its override, or the
-  // default from its wallet's policy. With no policy no model limit applies
-  // (the gateway does not enforce one), so the agent is not measured.
+  // Model defaults come from the nearest policy, even outside this view.
+  // Agent overrides win; an absent default stays unlimited rather than zero.
   const today = new Map<string, { model: number; purchases: number }>()
   for (const id of agentIds) today.set(id, { model: 0, purchases: 0 })
   for (const r of tokTodayByAgent) {
@@ -128,14 +137,13 @@ async function getSpend(walletId: string) {
     agents.map((a) => ({
       id: a.id,
       name: a.name,
-      modelLimitCents: a.dailyTokenBudgetUsd ?? a.wallet?.policy?.dailyTokenBudgetUsd ?? null,
+      modelLimitCents: a.dailyTokenBudgetUsd ?? modelDefaults.get(a.wallet.id) ?? null,
       purchaseLimitCents: a.dailySpendBudgetUsd ?? a.wallet?.policy?.dailySpendBudgetUsd ?? null,
     })),
     today,
   )
 
-  // A group with agents and no policy of its own is not limited by the wallet
-  // above it: /authorize and the gateway read the agent's own wallet's policy.
+  // Purchases still require a local policy; model defaults may be inherited.
   const unruled = [...new Map(
     agents.filter((a) => a.wallet && !a.wallet.policy && a.wallet.id !== walletId).map((a) => [a.wallet.id, a.wallet.name]),
   ).values()].sort()
@@ -193,7 +201,7 @@ async function getSpend(walletId: string) {
   const seatFlags = seatHealth(healthInputs)
 
   return {
-    wallet, policy: wallet?.policy ?? null,
+    wallet, policy: wallet?.policy ?? null, modelDefaultCents: modelDefaults.get(walletId) ?? null,
     tokDay, spendDay, tokMonth, spendMonth,
     byModel, byTask: byTask.filter((t) => (t._sum.costUsd ?? 0) > 0), byCategory,
     agentList, days, mix, decisions,
@@ -396,7 +404,9 @@ export default async function SpendPage({ searchParams }: {
               <p className="sp-review-who">{alertAgent.name} · today</p>
               <div className="sp-meters">
                 {budget !== "daily_spend" && (() => {
-                  const limit = (alertAgent.dailyTokenBudgetUsd ?? s.policy?.dailyTokenBudgetUsd ?? 0) / 100
+                  const limitCents = alertAgent.dailyTokenBudgetUsd ?? s.modelDefaultCents
+                  if (limitCents == null) return <p className="sp-review-who">No per-agent daily model limit applies.</p>
+                  const limit = limitCents / 100
                   const spent = alertUsage[0]._sum.costUsd ?? 0
                   return <Meter label="Model spend" spent={spent} limit={limit} note={paceNote(spent, limit, now)} />
                 })()}
@@ -460,7 +470,9 @@ export default async function SpendPage({ searchParams }: {
         <p className="pol-lede">
           {s.policy
             ? `Each agent has its own limit: ${fmtUsd(s.policy.dailyTokenBudgetUsd / 100)} a day on models and ${fmtUsd(s.policy.dailySpendBudgetUsd / 100)} a day on purchases in ${walletName}, unless the agent or its group sets another.`
-            : `${walletName} has no policy yet, so its agents' purchases are refused and their model spend has no limit.`}{" "}
+            : `${walletName} has no policy yet, so its agents' purchases are refused. ${s.modelDefaultCents != null
+              ? `Its agents inherit a default model limit of ${fmtUsd(s.modelDefaultCents / 100)} a day from the nearest policy above this wallet, unless an agent sets its own.`
+              : "No per-agent daily model limit applies unless an agent sets its own."}`}{" "}
           {pooledPurchases === null && pooledModel === null && s.policy
             ? "Nothing here caps all agents together."
             : ""}
@@ -469,8 +481,8 @@ export default async function SpendPage({ searchParams }: {
         {s.unruled.length > 0 && (
           <p className="pol-warn sp-unruled">
             {nameList(s.unruled)} {s.unruled.length === 1 ? "has" : "have"} no policy of {s.unruled.length === 1 ? "its" : "their"} own.
-            Purchases by agents there are refused, and their model spend has no per-agent limit unless an agent sets its
-            own.
+            Purchases by agents there are refused. Model limits come from the nearest policy above each group when one
+            exists, unless an agent sets its own limit.
           </p>
         )}
 
