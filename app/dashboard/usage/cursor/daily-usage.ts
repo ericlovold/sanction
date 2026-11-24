@@ -1,4 +1,5 @@
 import { Prisma } from "@/lib/generated/prisma/client"
+import type { BillingProduct } from "@/lib/cursorBilling"
 import { db } from "@/lib/db"
 
 export type UsageCounts = {
@@ -18,7 +19,7 @@ function addReported(left: bigint | null, right: bigint | null) {
   return left + right
 }
 
-export async function getDailyUsage(walletId: string, window?: { gte: Date; lt: Date }) {
+export async function getDailyUsage(walletId: string, product: BillingProduct, window?: { gte: Date; lt: Date }) {
   // occurredAt is a UTC timestamp WITHOUT TIME ZONE. Group its stored calendar date.
   const rows = await db.$queryRaw<ModelUsage[]>`
     SELECT to_char("occurredAt", 'YYYY-MM-DD') AS day, model, count(*) AS items,
@@ -30,7 +31,7 @@ export async function getDailyUsage(walletId: string, window?: { gte: Date; lt: 
            bool_or(num_nonnulls("promptTokens", "completionTokens", "cachedPromptTokens", "cacheWriteTokens") < 4) AS partial,
            count("cachedPromptTokens") < count(*) AS "cachedPartial"
     FROM "CursorBillingItem"
-    WHERE "walletId" = ${walletId}
+    WHERE "walletId" = ${walletId} AND product = ${product}
       ${window ? Prisma.sql`AND "occurredAt" >= ${window.gte} AND "occurredAt" < ${window.lt}` : Prisma.empty}
     GROUP BY day, model
     ORDER BY day DESC, tokens DESC NULLS LAST, model ASC NULLS LAST

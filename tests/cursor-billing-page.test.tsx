@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, expect, it, vi } from "vitest"
 import { Prisma } from "@/lib/generated/prisma/client"
+import GrokBotUsagePage from "@/app/dashboard/usage/grok-bot/page"
 import CursorUsagePage from "@/app/dashboard/usage/cursor/page"
 
 const mocks = vi.hoisted(() => ({ member: vi.fn(), groupBy: vi.fn(), queryRaw: vi.fn(), sources: vi.fn() }))
@@ -18,7 +19,7 @@ beforeEach(() => {
 
 it("requires a session before reading wallet billing observations", async () => {
   mocks.member.mockResolvedValue(null)
-  expect(renderToStaticMarkup(await CursorUsagePage())).toContain("Sign in")
+  expect(renderToStaticMarkup(await CursorUsagePage({}))).toContain("Sign in")
   expect(mocks.groupBy).not.toHaveBeenCalled()
   expect(mocks.queryRaw).not.toHaveBeenCalled()
 })
@@ -31,8 +32,8 @@ it.each(["viewer", "admin", "owner"])("shows billing coverage with role-appropri
     _sum: { promptTokens: 13, completionTokens: 0, cachedPromptTokens: null, cacheWriteTokens: 19, contracted: { toFixed: () => "0.0000000001" } },
     _min: { occurredAt: new Date("2026-10-01") }, _max: { occurredAt: new Date("2026-10-02") },
   }])
-  const html = renderToStaticMarkup(await CursorUsagePage())
-  expect(mocks.groupBy.mock.calls[0][0].where).toEqual({ walletId: "test-wallet" })
+  const html = renderToStaticMarkup(await CursorUsagePage({}))
+  expect(mocks.groupBy.mock.calls[0][0].where).toEqual({ walletId: "test-wallet", product: "cursor" })
   expect(html.includes("Import billing items")).toBe(role !== "viewer")
   expect(html).toContain("13 (partial)")
   expect(html).toContain("Unavailable")
@@ -50,7 +51,7 @@ it("sums reported units across models and flags partial days", async () => {
     { ...row, model: null, tokens: null, cached: null, partial: true, cachedPartial: true },
     { ...row, day: "2026-11-22", model: "Model C", tokens: BigInt(0), cached: BigInt(0) },
   ])
-  const html = renderToStaticMarkup(await CursorUsagePage())
+  const html = renderToStaticMarkup(await CursorUsagePage({}))
   const [query, wallet] = mocks.queryRaw.mock.calls[0]
   expect(query.join("?")).toContain('WHERE "walletId" = ?')
   expect(wallet).toBe("scoped")
@@ -72,7 +73,7 @@ it("flags a cache-heavy included-usage day using reported units across models", 
     { ...row, model: "Model A", items: BigInt(9525), tokens: BigInt(864585850), cached: BigInt(786051146) },
     { ...row, model: "Model B", items: BigInt(50), tokens: BigInt(5771831), cached: BigInt(5143552) },
   ])
-  const html = renderToStaticMarkup(await CursorUsagePage())
+  const html = renderToStaticMarkup(await CursorUsagePage({}))
   expect(html).toContain(">High volume<")
   expect(html).toContain("870,357,681")
   expect(html).toContain("791,194,698")
@@ -87,7 +88,7 @@ it.each(["admin", "viewer"])("scopes selected-day evidence and source links for 
   mocks.groupBy.mockResolvedValue([{ usageType: "on_demand", currency: "USD", _sum: { contracted: new Prisma.Decimal("3.5817012") }, _count: { _all: 3, contracted: 2 }, _max: { occurredAt: start } }])
   mocks.sources.mockResolvedValue({ rows: [{ id: "test-run" }] })
   const html = renderToStaticMarkup(await CursorUsagePage({ searchParams: Promise.resolve({ day }) }))
-  expect(mocks.groupBy.mock.calls[0][0].where).toEqual({ walletId: "test", occurredAt: { gte: start, lt: new Date("2026-11-18") } })
+  expect(mocks.groupBy.mock.calls[0][0].where).toEqual({ walletId: "test", product: "cursor", occurredAt: { gte: start, lt: new Date("2026-11-18") } })
   expect(html).toContain('title="USD 3.5817012">$3.58</span> (partial)')
   expect(html).toContain("80.0%")
   expect(html).toContain("no model names")
@@ -138,4 +139,18 @@ it("explains the qualifying item threshold even if all token fields and some pri
   expect(html).toContain("daily threshold for 5,000 billing items")
   expect(html).toContain("$0.0000000001")
   expect(html).toContain("Price unreported")
+})
+
+it("shows Grok Bot usage in its own wallet view and omits Cursor incident controls", async () => {
+  mocks.member.mockResolvedValue({ role: "admin", wallet: { id: "wallet", name: "Test" } })
+  mocks.groupBy.mockResolvedValue([])
+  mocks.queryRaw.mockResolvedValue([{ day: "2026-11-01", model: null, items: BigInt(6000),
+    tokens: BigInt(100000001), cached: BigInt(300), partial: true, cachedPartial: true }])
+  const html = renderToStaticMarkup(await GrokBotUsagePage())
+  expect(mocks.groupBy.mock.calls[0][0].where).toEqual({ walletId: "wallet", product: "grok-bot" })
+  expect(mocks.queryRaw.mock.calls[0].slice(1, 3)).toEqual(["wallet", "grok-bot"])
+  expect(html).toContain("Grok Bot billing export")
+  expect(html).toContain("Import billing items")
+  expect(html).toContain("100,000,001 (partial)")
+  expect(html).not.toMatch(/High volume|Review day|cursor_day/)
 })

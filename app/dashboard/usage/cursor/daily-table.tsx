@@ -19,7 +19,7 @@ function Metrics({ usage }: { usage: UsageCounts }) {
   </>
 }
 
-function DayRows({ day }: { day: DailyUsage }) {
+function DayRows({ day, isCursor }: { day: DailyUsage; isCursor: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const id = useId()
   return <>
@@ -31,8 +31,8 @@ function DayRows({ day }: { day: DailyUsage }) {
           <span aria-hidden="true" className={`mr-2 inline-block h-2 w-2 border-r border-t ${expanded ? "rotate-[135deg]" : "rotate-45"}`} />
           {day.day}
         </button>
-        {highCursorVolume(day.tokens, day.items) && <span className="ml-2 text-xs font-medium text-amber-700 dark:text-amber-400">High volume</span>}
-        <Link href={`/dashboard/usage/cursor?day=${day.day}#incident`} aria-label={`Review Cursor usage for ${day.day}`} className="ml-3 text-xs font-medium underline underline-offset-4">Review day</Link>
+        {isCursor && highCursorVolume(day.tokens, day.items) && <span className="ml-2 text-xs font-medium text-amber-700 dark:text-amber-400">High volume</span>}
+        {isCursor && <Link href={`/dashboard/usage/cursor?day=${day.day}#incident`} aria-label={`Review Cursor usage for ${day.day}`} className="ml-3 text-xs font-medium underline underline-offset-4">Review day</Link>}
       </th>
       <Metrics usage={day} />
     </tr></tbody>
@@ -45,17 +45,17 @@ function DayRows({ day }: { day: DailyUsage }) {
   </>
 }
 
-export function DailyTable({ days }: { days: DailyUsage[] }) {
+export function DailyTable({ days, isCursor }: { days: DailyUsage[]; isCursor: boolean }) {
   return <section className="space-y-3">
     <h2 className="text-xl font-medium">Usage by day and model</h2>
-    <p className="text-sm text-muted-foreground">Select a UTC day to see its models. Cached share divides cached prompt tokens by all reported prompt, completion, cached prompt and cache-write tokens. Partial totals include only reported counts. High volume marks days with at least {CURSOR_DAILY_TOKENS.toLocaleString("en-US")} reported tokens or {CURSOR_DAILY_EVENTS.toLocaleString("en-US")} billing items.</p>
+    <p className="text-sm text-muted-foreground">Select a UTC day to see its models. Cached share divides cached prompt tokens by all reported prompt, completion, cached prompt and cache-write tokens. Partial totals include only reported counts.{isCursor && <> High volume marks days with at least {CURSOR_DAILY_TOKENS.toLocaleString("en-US")} reported tokens or {CURSOR_DAILY_EVENTS.toLocaleString("en-US")} billing items.</>}</p>
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm tabular-nums">
         <thead><tr>
           <th className="p-3 text-left" scope="col">Day (UTC) / model</th>
           {["Items", "Reported tokens", "Cached prompt tokens", "Cached share"].map(label => <th key={label} className="p-3 text-right" scope="col">{label}</th>)}
         </tr></thead>
-        {days.map(day => <DayRows key={day.day} day={day} />)}
+        {days.map(day => <DayRows key={day.day} day={day} isCursor={isCursor} />)}
       </table>
     </div>
   </section>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { readCursorCsv } from "@/lib/cursorCsv"
-import { importCursorBatch } from "@/app/dashboard/usage/cursor/actions"
+import { readBillingCsv } from "@/lib/cursorCsv"
+import { importBillingBatch } from "@/app/dashboard/usage/cursor/actions"
 
 const mocks = vi.hoisted(() => ({ role: vi.fn(), createMany: vi.fn() }))
 vi.mock("@/lib/session", () => ({ requireSessionRole: mocks.role }))
@@ -12,6 +12,8 @@ const sample = ["cursor", "test@example.test", '{"prompt-text-tokens":"0","compl
   "usage", "item-1", "included", "model, with comma", "0.0000000001", "2026-10-21T12:00:00.000Z", "private-principal"]
 const csv = (...rows: string[][]) => "\uFEFF" + [header, ...rows].map(row => row.map(v => '"' + v.replaceAll('"', '""') + '"').join(",")).join("\r\n")
 const replace = (column: string, value: string) => sample.map((original, i) => header[i] === column ? value : original)
+
+const readCursorCsv = (text: string) => readBillingCsv(text, "cursor")
 
 describe("Cursor unified billing exports", () => {
   beforeEach(() => vi.resetAllMocks())
@@ -29,6 +31,17 @@ describe("Cursor unified billing exports", () => {
     expect(unknown[1].contracted).toBeNull()
   })
 
+  it("extracts only the selected product from a mixed export without principal fields", () => {
+    const mixed = csv(sample, replace("Product", "grok-bot"), replace("Product", "other"))
+    for (const product of ["cursor", "grok-bot"] as const) {
+      const { rows, skipped } = readBillingCsv(mixed, product)
+      expect(skipped).toBe(2)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ product, itemId: "item-1", occurredAt: sample[9], completionTokens: 23 })
+      expect(JSON.stringify(rows)).not.toMatch(/test@example|private-principal/)
+    }
+  })
+
   it.each([
     ["Usage", '{"image-seconds":1}'], ["Usage", '{"prompt-text-tokens":false}'],
     ["Usage", '{"prompt-text-tokens":-1}'], ["Usage", '{"prompt-text-tokens":2147483648}'],
@@ -41,8 +54,8 @@ describe("Cursor unified billing exports", () => {
     mocks.role.mockResolvedValue({ id: "wallet-A" })
     mocks.createMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 })
     const { rows } = readCursorCsv(csv(sample))
-    expect(await importCursorBatch("wallet-A", rows)).toBe(1)
-    expect(await importCursorBatch("wallet-A", rows)).toBe(0)
+    expect(await importBillingBatch("wallet-A", "cursor", rows)).toBe(1)
+    expect(await importBillingBatch("wallet-A", "cursor", rows)).toBe(0)
     expect(mocks.role).toHaveBeenCalledWith("admin")
     const first = mocks.createMany.mock.calls[0][0]
     expect(mocks.createMany.mock.calls[1][0]).toEqual(first)
@@ -53,10 +66,10 @@ describe("Cursor unified billing exports", () => {
   it("rejects a missing admin session, wallet switches and forged rows", async () => {
     const { rows } = readCursorCsv(csv(sample))
     mocks.role.mockResolvedValueOnce(null).mockResolvedValue({ id: "wallet-B" })
-    await expect(importCursorBatch("wallet-A", rows)).rejects.toThrow()
-    await expect(importCursorBatch("wallet-A", rows)).rejects.toThrow()
-    for (const payload of [[], Array(251).fill(rows[0]), [{ ...rows[0], product: "other" }], [{ ...rows[0], walletId: "wallet-A" }]]) {
-      await expect(importCursorBatch("wallet-B", payload)).rejects.toThrow()
+    await expect(importBillingBatch("wallet-A", "cursor", rows)).rejects.toThrow()
+    await expect(importBillingBatch("wallet-A", "cursor", rows)).rejects.toThrow()
+    for (const payload of [[], Array(251).fill(rows[0]), [{ ...rows[0], product: "other" }], [{ ...rows[0], product: "grok-bot" }], [{ ...rows[0], walletId: "wallet-A" }]]) {
+      await expect(importBillingBatch("wallet-B", "cursor", payload)).rejects.toThrow()
     }
     expect(mocks.createMany).not.toHaveBeenCalled()
   })

@@ -25,7 +25,10 @@ export default async function UsagePage() {
       <p className="text-muted-foreground">Sessions and tokens reported by Claude Code and local Codex clients to {wallet.name}. Claude Code also reports cost estimates when available.</p>
       <p className="max-w-3xl text-sm text-muted-foreground">Reporting covers clients that send events. Open your provider account for subscription limits and remaining usage.</p>
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm underline">
-        {wallet.isSession && <Link href="/dashboard/usage/cursor">Cursor billing export</Link>}
+        {wallet.isSession && <>
+          <Link href="/dashboard/usage/cursor">Cursor billing export</Link>
+          <Link href="/dashboard/usage/grok-bot">Grok Bot billing export</Link>
+        </>}
         <Link href="/dashboard/spend">Governed spend and budgets</Link>
         <Link href="/platform#pricing">Sanction plans and pricing</Link>
       </div>
