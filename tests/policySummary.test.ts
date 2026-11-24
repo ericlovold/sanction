@@ -21,7 +21,8 @@ const base: SummaryPolicy = {
 describe("policySummary", () => {
   it("describes the default ladder", () => {
     expect(policySummary(base)).toEqual([
-      "Purchases stop at $50.00 a day. Model spend stops at $10.00 a day.",
+      "Each agent's purchases stop at $50.00 a day. Each agent's model spend stops at $10.00 a day. The daily purchase and model-spend limits are defaults; an agent’s own limit replaces the corresponding default.",
+      "This wallet sets no cap on all agents together, so the total grows with every agent added.",
       "Inside those limits, a purchase up to $25.00 goes through on its own. Above that, up to $50.00, a person is asked. Anything larger is refused.",
       "Any tool may be used unless it is listed below.",
       "Taking on new capabilities (skills, plugins, new APIs) is not governed.",
@@ -31,7 +32,7 @@ describe("policySummary", () => {
 
   it("says so when a person can never be asked about a purchase", () => {
     const lines = policySummary({ ...base, escalate_over_usd: 50 })
-    expect(lines[1]).toBe(
+    expect(lines[2]).toBe(
       "Inside those limits, a purchase up to $50.00 goes through on its own and anything larger is refused. A person is never asked about a purchase.",
     )
   })
@@ -39,13 +40,13 @@ describe("policySummary", () => {
   it("uses the always-approve amount when it is above the ask line", () => {
     // The engine approves at or under the always-approve amount before it
     // checks the ask line, so a person is only asked above the larger one.
-    expect(policySummary({ ...base, auto_approve_under_usd: 40 })[1]).toBe(
+    expect(policySummary({ ...base, auto_approve_under_usd: 40 })[2]).toBe(
       "Inside those limits, a purchase up to $40.00 goes through on its own. Above that, up to $50.00, a person is asked. Anything larger is refused.",
     )
   })
 
   it("says every purchase is refused at a zero limit", () => {
-    expect(policySummary({ ...base, per_transaction_max_usd: 0, escalate_over_usd: 0 })[1]).toBe(
+    expect(policySummary({ ...base, per_transaction_max_usd: 0, escalate_over_usd: 0 })[2]).toBe(
       "Every purchase is refused, because the largest single purchase is $0.00.",
     )
   })
@@ -65,11 +66,27 @@ describe("policySummary", () => {
       escalation_timeout_action: "approve",
     })
     expect(lines[0]).toContain("Observe mode is on")
-    expect(lines[1]).toBe("Purchases stop at $50.00 a day and $1,000.00 a month. Model spend stops at $10.00 a day.")
-    expect(lines[3]).toBe("Purchases are limited to 1 category. 2 categories are blocked.")
-    expect(lines[4]).toBe("Only 2 named tools may be used; any other tool is refused. 1 tool is blocked. 1 tool asks a person every time.")
-    expect(lines[5]).toBe("1 rule governs new capabilities (skills, plugins, new APIs).")
-    expect(lines[6]).toBe("When a person is asked, the request waits with no time limit.")
+    expect(lines[1]).toBe("Each agent's purchases stop at $50.00 a day and $1,000.00 a month. Each agent's model spend stops at $10.00 a day. The daily purchase and model-spend limits are defaults; an agent’s own limit replaces the corresponding default.")
+    expect(lines[4]).toBe("Purchases are limited to 1 category. 2 categories are blocked.")
+    expect(lines[5]).toBe("Only 2 named tools may be used; any other tool is refused. 1 tool is blocked. 1 tool asks a person every time.")
+    expect(lines[6]).toBe("1 rule governs new capabilities (skills, plugins, new APIs).")
+    expect(lines[7]).toBe("When a person is asked, the request waits with no time limit.")
+  })
+
+  it("says the daily and monthly limits are per agent, and names the caps that pool agents", () => {
+    // /authorize and the gateway each sum one agent's spend against these
+    // limits; only the subtree caps add agents together.
+    const lines = policySummary({
+      ...base,
+      monthly_token_budget_usd: 200,
+      subtree_daily_cap_usd: 500,
+      subtree_daily_token_cap_usd: 80,
+    })
+    expect(lines[0]).toBe("Each agent's purchases stop at $50.00 a day. Each agent's model spend stops at $10.00 a day and $200.00 a month. The daily purchase and model-spend limits are defaults; an agent’s own limit replaces the corresponding default.")
+    expect(lines[1]).toBe("All agents in this wallet and the groups below it, together, stop at $500.00 a day in purchases and $80.00 a day in model spend.")
+    expect(policySummary({ ...base, subtree_daily_token_cap_usd: 80 })[1]).toBe(
+      "All agents in this wallet and the groups below it, together, stop at $80.00 a day in model spend.",
+    )
   })
 
   it("approves on timeout when the policy says so, and reads odd rule values safely", () => {

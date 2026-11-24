@@ -31,6 +31,7 @@ model ConsumedBindingToken {
 }
 
 model Wallet {
+  cursorBillingItems CursorBillingItem[]
   mcpOAuthConnections McpOAuthConnection[]
 
   id         String   @id @default(cuid())
@@ -1189,4 +1190,24 @@ model UsageAlert {
 
   @@unique([walletId, dedupeKey])
   @@index([walletId, createdAt])
+}
+
+// Rows reported by Cursor, independent of Sanction authorizations and budgets.
+model CursorBillingItem {
+  walletId String
+  itemHash String
+  occurredAt DateTime
+  product String
+  chargeCategory String
+  usageType String
+  currency String?
+  contracted Decimal? @db.Decimal(30, 10)
+  model String?
+  promptTokens Int?
+  completionTokens Int?
+  cachedPromptTokens Int?
+  cacheWriteTokens Int?
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@id([walletId, itemHash])
 }

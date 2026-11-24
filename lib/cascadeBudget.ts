@@ -17,6 +17,10 @@ export type WalletBudgetNode = {
     subtreeDailyCapUsd: number | null
     // Pooled token cap rides the same walk (gateway pre-call wall).
     subtreeDailyTokenCapUsd?: number | null
+    // Per-agent model defaults ride it too, so a group with no policy of its
+    // own can take them from the nearest wallet above (inheritedTokenDefaults).
+    dailyTokenBudgetUsd?: number | null
+    monthlyTokenBudgetUsd?: number | null
   } | null
 }
 
@@ -84,7 +88,12 @@ export async function walletAncestorChain(tx: CascadeTx, walletId: string): Prom
         parentId: true,
         frozenAt: true,
         frozenReason: true,
-        policy: { select: { perTransactionMaxUsd: true, subtreeDailyCapUsd: true, subtreeDailyTokenCapUsd: true } },
+        policy: {
+          select: {
+            perTransactionMaxUsd: true, subtreeDailyCapUsd: true, subtreeDailyTokenCapUsd: true,
+            dailyTokenBudgetUsd: true, monthlyTokenBudgetUsd: true,
+          },
+        },
       },
     })
     if (!wallet) break
@@ -93,6 +102,24 @@ export async function walletAncestorChain(tx: CascadeTx, walletId: string): Prom
   }
 
   return chain
+}
+
+export type TokenDefaults = { dailyTokenBudgetUsd: number; monthlyTokenBudgetUsd?: number | null }
+
+/**
+ * The per-agent model limits an agent falls back to when it sets none of its
+ * own: its wallet's policy, or, when that wallet has no policy, the policy of
+ * the nearest wallet above it. Cents; null when no wallet in the chain has one.
+ *
+ * This is a fallback, not an overlay. A group with its own policy keeps its
+ * own limits, lower or higher than the parent's; only a group with no policy
+ * at all inherits. Before this, such a group had no per-agent model limit.
+ * `chain` is leaf-first, as walletAncestorChain returns it.
+ */
+export function inheritedTokenDefaults(chain: WalletBudgetNode[]): TokenDefaults | null {
+  const policy = chain.find((node) => node.policy != null)?.policy
+  if (policy?.dailyTokenBudgetUsd == null) return null
+  return { dailyTokenBudgetUsd: policy.dailyTokenBudgetUsd, monthlyTokenBudgetUsd: policy.monthlyTokenBudgetUsd ?? null }
 }
 
 export function effectivePerTransactionMaxCents(

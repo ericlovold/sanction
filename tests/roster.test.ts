@@ -25,6 +25,12 @@ describe("agentStamp", () => {
     expect(agentStamp({ isActive: true }, 2)).toBe("paused")
   })
 
+  it("is blocked when the key expires, even when still enabled with waiting requests", () => {
+    const now = new Date("2026-11-24T12:00:00Z")
+    expect(agentStamp({ isActive: true, expiresAt: now }, 2, now)).toBe("blocked")
+    expect(agentStamp({ isActive: true, expiresAt: new Date(now.getTime() + 1) }, 2, now)).toBe("paused")
+  })
+
   it("is blocked when the seat is inactive — even if something is pending", () => {
     expect(agentStamp({ isActive: false }, 1)).toBe("blocked")
   })
@@ -65,13 +71,14 @@ describe("getRoster", () => {
     dbMock.agent.findMany.mockResolvedValue([
       { id: "a1", name: "nightly-coder", holder: null, isActive: true, walletId: "root", lastUsedAt: used },
     ])
-    const { root } = await getRoster("root")
+    const snapshot = new Date("2026-11-24T12:00:00Z")
+    const { root } = await getRoster("root", snapshot)
     expect(root.agents[0]?.lastUsedAt).toBe(used)
     const where = dbMock.pendingApproval.groupBy.mock.calls[0]?.[0]?.where
     expect(where.status).toBe("pending")
     // Same live set as the nav badge: no deadline, or a deadline still ahead.
     expect(where.OR[0]).toEqual({ expiresAt: null })
-    expect(where.OR[1].expiresAt.gt).toBeInstanceOf(Date)
+    expect(where.OR[1].expiresAt.gt).toBe(snapshot)
   })
 
   it("returns an empty root when the wallet row is missing", async () => {
@@ -106,7 +113,8 @@ describe("getWaiting", () => {
         agent: { name: "coder" }, wallet: { name: "Eric" },
       },
     ])
-    const items = await getWaiting("root", 2)
+    const snapshot = new Date("2026-11-24T12:00:00Z")
+    const items = await getWaiting("root", 2, snapshot)
     expect(items).toEqual([
       { id: "p1", title: "$480.00 Datadog", agentName: "buyer", groupName: "Finance", reason: "Exceeds escalation threshold", createdAt: asked },
       { id: "p2", title: "claude-code.Bash", agentName: "coder", groupName: "Eric", reason: null, createdAt: asked },
@@ -116,5 +124,6 @@ describe("getWaiting", () => {
     expect(args.orderBy).toEqual({ createdAt: "asc" })
     expect(args.where.walletId).toEqual({ in: ["root", "child"] })
     expect(args.where.OR[0]).toEqual({ expiresAt: null })
+    expect(args.where.OR[1].expiresAt.gt).toBe(snapshot)
   })
 })
