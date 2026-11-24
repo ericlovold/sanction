@@ -5,6 +5,7 @@ import { developerConfig, developerConnection } from "@/lib/developerConnection"
 import { hasRole } from "@/lib/roles"
 import { completedWalkthroughProof } from "@/lib/brokerWalkthrough"
 import { sourceNames } from "@/lib/usageObservation"
+import { BrandIcon, BrandNotice } from "@/components/brand-icon"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Connect a developer tool | Sanction" }
@@ -53,11 +54,12 @@ export default async function ConnectPage({ searchParams }: {
     </section>
     {view.selected && <>
       <section className="space-y-4 rounded-lg border p-5">
-        <h2 className="text-xl font-medium">2. Configure {sourceNames[source]}</h2>
+        <h2 className="flex flex-wrap items-center gap-x-2 text-xl font-medium">2. Configure <span className="inline-flex items-center gap-2"><BrandIcon brand={source} size={24} />{sourceNames[source]}</span></h2>
         <p className="text-sm">Use the saved key for <strong>{view.selected.name}</strong>. Keys are shown only when created or rotated; Sanction cannot recover them here.</p>
         {source === "claude-code" ? <p className="text-sm text-muted-foreground">Set SANCTION_AGENT_KEY locally to that seat’s key, then run this in the terminal that launches Claude Code. Review any existing exporter settings: these variables change where logs are sent.</p> : <p className="text-sm text-muted-foreground">Merge this into your private ~/.codex/config.toml. Replace YOUR_SEAT_KEY locally. Do not duplicate an existing [otel] table or commit the key in project configuration.</p>}
         <ConnectionConfig key={source + view.selected.id} text={developerConfig(source)} />
         <p className="text-xs text-muted-foreground">Keep prompt and tool-detail export disabled. Native exporters may send extra fields in transit; Sanction discards unneeded fields and does not retain raw envelopes.</p>
+        <BrandNotice />
       </section>
       <section id="delivery" className="scroll-mt-28 space-y-4 rounded-lg border p-5">
         <h2 className="text-xl font-medium">3. Run a task and check delivery</h2>
