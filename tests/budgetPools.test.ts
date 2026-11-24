@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { allocationMoves, grantAuthorityUsd, poolStatus, spendCapPressure } from "../lib/budgetPools"
+import { allocationMoves, delegatedTokenBudgetUsd, grantAuthorityUsd, poolStatus, spendCapPressure } from "../lib/budgetPools"
 
 describe("grantAuthorityUsd", () => {
   it("prefers an explicit max amount constraint", () => {
@@ -73,5 +73,39 @@ describe("allocationMoves", () => {
       largestModelShare: 0,
     })
     expect(moves.map((m) => m.id)).toContain("grant-exposure")
+  })
+})
+
+
+describe("delegatedTokenBudgetUsd in a scoped group view", () => {
+  const team = { id: "team", parentId: "org", policy: null }
+  const agent = { walletId: "team", dailyTokenBudgetUsd: null }
+
+  it("uses the ancestor default without adding its wallet to the visible subtree", () => {
+    const visible = new Map([[team.id, team]])
+    expect(delegatedTokenBudgetUsd(agent, visible, 500)).toBe(5)
+    expect([...visible.keys()]).toEqual(["team"])
+  })
+
+  it.each([0, 2000])("keeps an explicit local policy of %i cents", (dailyTokenBudgetUsd) => {
+    const visible = new Map([[team.id, { ...team, policy: { dailyTokenBudgetUsd } }]])
+    expect(delegatedTokenBudgetUsd(agent, visible, 500)).toBe(dailyTokenBudgetUsd / 100)
+  })
+
+  it("uses the nearest policy within the view before the external default", () => {
+    const visible = new Map([
+      ["team", { ...team, parentId: "dept", policy: null as { dailyTokenBudgetUsd: number } | null }],
+      ["dept", { id: "dept", parentId: "org", policy: { dailyTokenBudgetUsd: 700 } }],
+    ])
+    expect(delegatedTokenBudgetUsd(agent, visible, 500)).toBe(7)
+  })
+
+  it.each([0, 2000])("preserves the agent override of %i cents", (dailyTokenBudgetUsd) => {
+    expect(delegatedTokenBudgetUsd({ ...agent, dailyTokenBudgetUsd }, new Map([[team.id, team]]), 500))
+      .toBe(dailyTokenBudgetUsd / 100)
+  })
+
+  it("preserves an inherited zero limit", () => {
+    expect(delegatedTokenBudgetUsd(agent, new Map([[team.id, team]]), 0)).toBe(0)
   })
 })

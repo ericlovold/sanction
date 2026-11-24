@@ -252,6 +252,38 @@ describe.skipIf(!run)("gateway reservations (Postgres)", () => {
     expect(await reservations([wallet.id])).toHaveLength(4)
   })
 
+  it("holds a group with no policy to the per-agent defaults of the nearest wallet above it", async () => {
+    // Org: $2.00 a day per agent, $3.00 a month. The department between has no
+    // policy either, so the team's agent inherits across two levels.
+    const org = await makeWallet({ daily: 200, monthly: 300 })
+    const dept = await makeWallet({ parentId: org.id })
+    const team = await makeWallet({ parentId: dept.id })
+    await db.policy.deleteMany({ where: { walletId: { in: [dept.id, team.id] } } })
+    const agent = await db.agent.findFirstOrThrow({
+      where: { id: team.agent.id }, include: { wallet: { include: { policy: true } } },
+    })
+    expect(agent.wallet.policy).toBeNull()
+    const unruled = { ...team, agent }
+
+    // Ten simultaneous $1.00 requests: exactly two fit under the inherited $2.00.
+    const results = await Promise.all(Array.from({ length: 10 }, () => reserve(unruled)))
+    expect(results.filter((result) => !result.exhausted)).toHaveLength(2)
+    expect(results.find((result) => result.exhausted)).toMatchObject({ horizon: "daily", budget: 2 })
+
+    // The org's own agent has its own $2.00: limits are per agent, not shared.
+    await admitted(org)
+
+    // The inherited monthly line holds too: $1.50 a month admits one $1.00 call.
+    const monthlyOrg = await makeWallet({ monthly: 150 })
+    const monthlyTeam = await makeWallet({ parentId: monthlyOrg.id })
+    await db.policy.deleteMany({ where: { walletId: monthlyTeam.id } })
+    const monthlyAgent = await db.agent.findFirstOrThrow({
+      where: { id: monthlyTeam.agent.id }, include: { wallet: { include: { policy: true } } },
+    })
+    await admitted({ ...monthlyTeam, agent: monthlyAgent })
+    expect(await reserve({ ...monthlyTeam, agent: monthlyAgent })).toMatchObject({ exhausted: true, horizon: "monthly", budget: 1.5 })
+  })
+
   it("admits a complete 499-wallet pool and refuses the 500th member without undercounting", async () => {
     const parent = await makeWallet({ pool: 500 })
     const child = await makeWallet({ parentId: parent.id })
