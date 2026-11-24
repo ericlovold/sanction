@@ -38,8 +38,34 @@ const STRIP_REQ_PREFIXES = ["x-forwarded-", "x-vercel-"]
 // cookies, which must never be set on Sanction's origin.
 const STRIP_RES = new Set(["content-encoding", "content-length", "transfer-encoding", "connection", "set-cookie"])
 
+// Where a client puts its provider credential. A client that can only send one
+// credential (Claude Code's apiKeyHelper, an SDK's api_key) may put its Sanction
+// seat key there instead; the wallet's stored provider key then pays upstream.
+const PROVIDER_AUTH_HEADERS = ["authorization", "x-api-key", "x-goog-api-key"]
+
+/** The seat key a provider-auth header carries, or null when it holds anything else. */
+function carriedSeatKey(name: string, value: string | null): string | null {
+  if (!value) return null
+  const token = name === "authorization" ? value.replace(/^Bearer\s+/i, "") : value
+  return token.startsWith("pxy_") ? token : null
+}
+
+/** The one seat key this request presents: `x-sanction-key`, or the same key
+ * carried as the provider credential. Two different keys is ambiguous, and an
+ * ambiguous identity is refused rather than guessed. */
+function seatKey(req: NextRequest): string | null {
+  const keys = new Set<string>()
+  const explicit = req.headers.get("x-sanction-key")
+  if (explicit) keys.add(explicit)
+  for (const name of PROVIDER_AUTH_HEADERS) {
+    const carried = carriedSeatKey(name, req.headers.get(name))
+    if (carried) keys.add(carried)
+  }
+  return keys.size === 1 ? [...keys][0] : null
+}
+
 async function authAgent(req: NextRequest) {
-  const key = req.headers.get("x-sanction-key")
+  const key = seatKey(req)
   if (!key) return null
   const agent = await db.agent.findUnique({
     where: { apiKeyHash: hashApiKey(key) },
@@ -56,6 +82,9 @@ function upstreamHeaders(req: NextRequest): Headers {
   req.headers.forEach((v, k) => {
     const name = k.toLowerCase()
     if (STRIP_REQ.has(name) || STRIP_REQ_PREFIXES.some((p) => name.startsWith(p))) return
+    // A seat key is Sanction's credential wherever the client put it. It must
+    // never reach the provider.
+    if (PROVIDER_AUTH_HEADERS.includes(name) && carriedSeatKey(name, v)) return
     h.set(k, v)
   })
   return h
@@ -101,7 +130,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ provider: strin
   if (!cfg) return NextResponse.json({ error: `Unknown gateway provider '${provider}'` }, { status: 404, headers: noStore })
 
   const agent = await authAgent(req)
-  if (!agent) return NextResponse.json({ error: "Missing or invalid x-sanction-key" }, { status: 401, headers: noStore })
+  if (!agent) return NextResponse.json({ error: "Missing or invalid x-sanction-key. Send the seat key in x-sanction-key, or as the provider credential." }, { status: 401, headers: noStore })
 
   // KILL-1: a frozen wallet (or ancestor) pauses the gateway too — metered LLM
   // calls are spend.

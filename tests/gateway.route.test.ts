@@ -420,6 +420,90 @@ describe("gateway provider-key injection (Providers page)", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  // A client with one credential slot (Claude Code's apiKeyHelper, an SDK's
+  // api_key) sends its seat key there. Sanction keeps it and pays upstream with
+  // the wallet's stored provider key.
+  const carried = (provider: string, path: string, headers: Record<string, string>) =>
+    new NextRequest(`https://test.local/api/gateway/${provider}/${path}`, {
+      method: "POST", headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ model: provider === "openai" ? "gpt-4o" : "claude-sonnet-5", max_tokens: 1024, messages: [{ role: "user", content: "hi" }] }),
+    })
+  const upstream = (fetchMock: ReturnType<typeof vi.fn>) => new Headers((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers as HeadersInit)
+  const okFetch = () => vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }))
+  const stored = (label: string) => dbMock.credentialVault.findFirst.mockResolvedValueOnce({ id: "cred_1", walletId: "wallet_1", label, encryptedValue: "x", keyId: "k" })
+
+  it.each([
+    ["both headers, as Claude Code's apiKeyHelper sends it", { authorization: `Bearer ${KEY}`, "x-api-key": KEY }],
+    ["a bearer token only", { authorization: `bearer   ${KEY}` }],
+    ["x-api-key only", { "x-api-key": KEY }],
+    ["the same key in x-sanction-key as well", { "x-sanction-key": KEY, authorization: `Bearer ${KEY}` }],
+  ])("accepts the seat key as the provider credential (%s) and pays with the stored key", async (_name, headers) => {
+    dbMock.agent.findUnique.mockResolvedValue(AGENT)
+    stored("provider:anthropic")
+    const fetchMock = okFetch()
+    global.fetch = fetchMock as never
+    const res = await gateway(carried("anthropic", "v1/messages", headers), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    expect(dbMock.agent.findUnique.mock.calls[0][0].where).toEqual({ apiKeyHash: hashApiKey(KEY) })
+    const sent = upstream(fetchMock)
+    expect(sent.get("x-api-key")).toBe("vaulted-provider-key")
+    expect(sent.get("authorization")).toBeNull()
+    // The seat key reaches the provider in no header at all.
+    expect([...sent.values()].join(" ")).not.toContain(KEY)
+  })
+
+  it("pays an OpenAI call with the stored key when the seat key is the bearer token", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(AGENT)
+    stored("provider:openai")
+    const fetchMock = okFetch()
+    global.fetch = fetchMock as never
+    const res = await gateway(carried("openai", "v1/chat/completions", { authorization: `Bearer ${KEY}` }), params("openai", "v1/chat/completions"))
+    expect(res.status).toBe(200)
+    expect(upstream(fetchMock).get("authorization")).toBe("Bearer vaulted-provider-key")
+  })
+
+  it("fails closed, before any upstream call, when the seat key is the credential and no provider key is stored", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(AGENT)
+    dbMock.credentialVault.findFirst.mockResolvedValueOnce(null)
+    global.fetch = vi.fn() as never
+    const res = await gateway(carried("anthropic", "v1/messages", { authorization: `Bearer ${KEY}`, "x-api-key": KEY }), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(401)
+    expect((await res.json()).code).toBe("PROVIDER_NOT_CONNECTED")
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("never forwards a seat key that was sent beside a real provider key", async () => {
+    dbMock.agent.findUnique.mockResolvedValue(AGENT)
+    const fetchMock = okFetch()
+    global.fetch = fetchMock as never
+    const res = await gateway(carried("anthropic", "v1/messages", { authorization: `Bearer ${KEY}`, "x-api-key": "caller-own-anthropic-key" }), params("anthropic", "v1/messages"))
+    expect(res.status).toBe(200)
+    const sent = upstream(fetchMock)
+    expect(sent.get("x-api-key")).toBe("caller-own-anthropic-key")
+    expect(sent.get("authorization")).toBeNull()
+    expect(dbMock.credentialVault.findFirst).not.toHaveBeenCalled()
+  })
+
+  it("refuses two different seat keys, an unknown one, and a provider key with no seat key", async () => {
+    global.fetch = vi.fn() as never
+    dbMock.agent.findUnique.mockResolvedValue(AGENT)
+    const other = "pxy_someotherseat"
+    const conflicting: Record<string, string>[] = [
+      { "x-sanction-key": KEY, authorization: `Bearer ${other}` },
+      { authorization: `Bearer ${KEY}`, "x-api-key": other },
+    ]
+    for (const headers of conflicting) {
+      const res = await gateway(carried("anthropic", "v1/messages", headers), params("anthropic", "v1/messages"))
+      expect(res.status).toBe(401)
+    }
+    // Ambiguity is refused without choosing a key to look up.
+    expect(dbMock.agent.findUnique).not.toHaveBeenCalled()
+    dbMock.agent.findUnique.mockResolvedValue(null)
+    expect((await gateway(carried("anthropic", "v1/messages", { "x-api-key": other }), params("anthropic", "v1/messages"))).status).toBe(401)
+    expect((await gateway(carried("anthropic", "v1/messages", { "x-api-key": "sk-ant-callers-own" }), params("anthropic", "v1/messages"))).status).toBe(401)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
   it("caller-supplied auth wins — vault is not consulted", async () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as never
     const res = await gateway(req("anthropic", "v1/messages"), params("anthropic", "v1/messages"))
