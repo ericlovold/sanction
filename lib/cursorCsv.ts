@@ -1,16 +1,16 @@
 import { parse } from "csv-parse/browser/esm/sync"
-import { cursorItem, type CursorItem } from "./cursorBilling"
+import { cursorItem, type CursorItem, type BillingProduct } from "./cursorBilling"
 
 const columns = ["Billing Item ID", "Event Time", "Product", "Charge Category", "Usage Type",
   "Usage", "Pricing Currency", "Pricing Contracted", "Model"]
 const units = ["prompt-text-tokens", "completion-text-tokens", "cached-prompt-text-tokens", "cache-write-text-tokens"]
 
-export function readCursorCsv(text: string): { rows: CursorItem[]; skipped: number } {
+export function readBillingCsv(text: string, product: BillingProduct): { rows: CursorItem[]; skipped: number } {
   const records: Record<string, string>[] = parse(text, {
     bom: true, skip_empty_lines: true, max_record_size: 32768,
     columns(header: string[]) {
       if (!columns.every(key => header.includes(key)) || new Set(header).size !== header.length) {
-        throw Error("Expected Cursor unified usage export columns.")
+        throw Error("Expected unified usage export columns.")
       }
       return header
     },
@@ -19,7 +19,7 @@ export function readCursorCsv(text: string): { rows: CursorItem[]; skipped: numb
   let skipped = 0
   const rows: CursorItem[] = []
   for (const [index, row] of records.entries()) {
-    if (row.Product !== "cursor") { skipped++; continue }
+    if (row.Product !== product) { skipped++; continue }
     try {
       const usage = JSON.parse(row.Usage || "{}")
       if (!usage || typeof usage !== "object" || Array.isArray(usage) || Object.keys(usage).some(k => !units.includes(k))) {

@@ -15,7 +15,7 @@ export async function recentHighCursorDay(walletId: string, now: Date) {
                     + coalesce("cachedPromptTokens", 0) + coalesce("cacheWriteTokens", 0)
                  END)::bigint AS tokens
       FROM "CursorBillingItem"
-      WHERE "walletId" = ${walletId} AND "occurredAt" >= ${start} AND "occurredAt" <= ${now}
+      WHERE "walletId" = ${walletId} AND product = 'cursor' AND "occurredAt" >= ${start} AND "occurredAt" <= ${now}
       GROUP BY day
     ) AS daily
     WHERE items >= ${CURSOR_DAILY_EVENTS} OR tokens >= ${CURSOR_DAILY_TOKENS}

@@ -17,6 +17,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("Home imported Cursor incident
       { ...item, itemHash: "early", occurredAt: new Date("2026-11-12T11:00:00Z") },
       { ...item, itemHash: "partial", occurredAt: new Date("2026-11-17T03:00:00Z"), cachedPromptTokens: 50_000_000 },
       { ...item, itemHash: "partial2", occurredAt: new Date("2026-11-17T20:00:00Z"), cachedPromptTokens: 50_000_000 },
+      { ...item, product: "grok-bot", itemHash: "grok-heavy", occurredAt: new Date("2026-11-19T09:00:00Z") },
       { ...item, itemHash: "quiet", occurredAt: new Date("2026-11-18T09:00:00Z"), cachedPromptTokens: 99 },
       { ...item, itemHash: "future", occurredAt: new Date("2026-11-24T15:00:01Z") },
       { ...item, walletId: wallets[1], itemHash: "other", occurredAt: new Date("2026-11-23T23:00:00Z") },

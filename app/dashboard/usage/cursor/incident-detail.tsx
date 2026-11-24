@@ -21,9 +21,9 @@ export async function incidentDetail(walletId: string, walletName: string, start
   const day = start.toISOString().slice(0, 10)
   const window = { gte: start, lt: new Date(start.getTime() + DAY_MS) }
   const [[usage], charges, sources] = await Promise.all([
-    getDailyUsage(walletId, window),
+    getDailyUsage(walletId, "cursor", window),
     db.cursorBillingItem.groupBy({
-      by: ["usageType", "currency"], where: { walletId, occurredAt: window },
+      by: ["usageType", "currency"], where: { walletId, product: "cursor", occurredAt: window },
       _sum: { contracted: true }, _count: { _all: true, contracted: true }, _max: { occurredAt: true },
       orderBy: [{ usageType: "asc" }, { currency: "asc" }],
     }),

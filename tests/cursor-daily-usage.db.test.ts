@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { getDailyUsage } from "@/app/dashboard/usage/cursor/daily-usage"
+import { importBillingBatch } from "@/app/dashboard/usage/cursor/actions"
+import { requireSessionRole } from "@/lib/session"
 import { db } from "@/lib/db"
+
+vi.mock("@/lib/session", () => ({ requireSessionRole: vi.fn() }))
 
 describe.skipIf(process.env.RUN_DB_TESTS !== "1")("Cursor daily usage (Postgres)", () => {
   const walletId = randomUUID()
@@ -30,16 +34,33 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("Cursor daily usage (Postgres)
     await db.wallet.deleteMany({ where: { id: { in: [walletId, otherWalletId] } } })
   })
 
+  it("deduplicates retries per wallet and product, including overlapping billing IDs", async () => {
+    const row = { itemId: "same-billing-id", occurredAt: "2026-11-02T01:00:00Z", chargeCategory: "usage",
+      usageType: "included", model: null, currency: "USD", contracted: "0", promptTokens: 2,
+      completionTokens: null, cachedPromptTokens: 9, cacheWriteTokens: null }
+    for (const id of [walletId, otherWalletId]) {
+      vi.mocked(requireSessionRole).mockResolvedValue(await db.wallet.findUniqueOrThrow({ where: { id } }))
+      for (const product of ["cursor", "grok-bot"] as const) {
+        const rows = [{ ...row, product, promptTokens: product === "grok-bot" ? 400 : 2 }]
+        const counts = await Promise.all([importBillingBatch(id, product, rows), importBillingBatch(id, product, rows)])
+        expect(counts.sort()).toEqual([0, 1])
+      }
+      const window = { gte: new Date("2026-11-02"), lt: new Date("2026-11-03") }
+      expect(await getDailyUsage(id, "grok-bot", window)).toMatchObject([{ items: BigInt(1), tokens: BigInt(409) }])
+      expect(await getDailyUsage(id, "cursor", window)).toMatchObject([{ items: BigInt(1), tokens: BigInt(11) }])
+    }
+  })
+
   it("restricts a day detail to its UTC window and wallet", async () => {
-    const days = await getDailyUsage(walletId, { gte: new Date("2026-10-02"), lt: new Date("2026-10-03") })
-    const priorDay = await getDailyUsage(walletId, { gte: new Date("2026-10-01"), lt: new Date("2026-10-02") })
+    const days = await getDailyUsage(walletId, "cursor", { gte: new Date("2026-10-02"), lt: new Date("2026-10-03") })
+    const priorDay = await getDailyUsage(walletId, "cursor", { gte: new Date("2026-10-01"), lt: new Date("2026-10-02") })
     expect(priorDay.map(day => day.day)).toEqual(["2026-10-01"])
     expect(days).toHaveLength(1)
     expect(days[0]).toMatchObject({ day: "2026-10-02", items: BigInt(4), cached: BigInt(5) })
   })
 
   it("groups only the requested wallet by UTC date and model, preserving zero and missing counts", async () => {
-    const days = await getDailyUsage(walletId)
+    const days = await getDailyUsage(walletId, "cursor", { gte: new Date("2026-10-01"), lt: new Date("2026-10-03") })
     const one = BigInt(1)
     const zero = BigInt(0)
     const before = {
