@@ -98,7 +98,7 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
   it("the first pull backfills history, stores exact money, and raises the incident's alerts", async () => {
     const fetchMock = cursorServing(all)
     const result = await syncConnection(connectionA, { trigger: "connect_test", actorEmail: "admin@example.test", now: afterIncident, http: { fetch: fetchMock as never, ...fast } })
-    expect(result).toMatchObject({ ok: true, alertsRaised: 3 })
+    expect(result).toMatchObject({ ok: true, alertsRaised: 4 })
 
     const stored = await facts(walletA)
     const incident = stored.filter((f) => f.sessionRef === INCIDENT_CONVERSATION)
@@ -107,7 +107,7 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     expect(incident.every((f) => f.headless && f.surface === "agent" && f.costBasis === "billed")).toBe(true)
 
     const alerts = await withTenant(walletA, (tx) => tx.usageAlert.findMany({ where: { walletId: walletA } }))
-    expect(alerts.map((a) => a.rule).sort()).toEqual(["daily_cap", "headless_burn", "runaway_rate"])
+    expect(alerts.map((a) => a.rule).sort()).toEqual(["cursor_daily_volume", "daily_cap", "headless_burn", "runaway_rate"])
     expect(alerts.every((a) => a.notifiedAt)).toBe(true)
     expect(mocks.email).toHaveBeenCalledOnce()
 
@@ -125,7 +125,7 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     const shape = (rows: typeof after) => rows.map((f) => [f.dedupeKey, f.costNanos, f.requests, f.inputTokens])
     expect(shape(after)).toEqual(shape(before))
     expect(mocks.email).not.toHaveBeenCalled()
-    expect(await withTenant(walletA, (tx) => tx.usageAlert.count({ where: { walletId: walletA } }))).toBe(3)
+    expect(await withTenant(walletA, (tx) => tx.usageAlert.count({ where: { walletId: walletA } }))).toBe(4)
   })
 
   it("a revised provider figure replaces the stored one inside the re-read window", async () => {
@@ -144,7 +144,7 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
       ["cron", "ok", "/teams/filtered-usage-events"],
       ["cron", "ok", "/teams/filtered-usage-events"],
     ])
-    expect(runs[0]).toMatchObject({ actorEmail: "admin@example.test", alertsRaised: 3 })
+    expect(runs[0]).toMatchObject({ actorEmail: "admin@example.test", alertsRaised: 4 })
     expect(runs[0].httpCalls).toBeGreaterThanOrEqual(30)
     expect(runs[0].factsWritten).toBeGreaterThan(INCIDENT_HOURS)
   })
@@ -181,7 +181,10 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     expect(view.monthToDate).toBeGreaterThan(usd(130))
     expect(view.people[0]).toMatchObject({ identity: "dev@example.test", topModel: "claude-4.5-sonnet" })
     expect(view.people[0].tools.map((t) => t[0])).toEqual(["cursor"])
-    expect(view.alerts).toHaveLength(3)
+    expect(view.alerts).toHaveLength(4)
+    expect(view.alerts.find((a) => a.rule === "cursor_daily_volume")?.evidence.volume).toMatchObject({
+      requests: "700", requestsWithTokens: "700", cachedTokens: "980000000",
+    })
     expect(view.connections[0]).toMatchObject({ provider: "cursor", keyIsOld: false })
     expect(view.days.reduce((s, d) => s + d.total, BigInt(0))).toBeGreaterThan(usd(130))
   })

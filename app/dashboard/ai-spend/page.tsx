@@ -5,6 +5,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet } from "@/lib/session"
 import { hasRole } from "@/lib/roles"
 import { fmtCount, fmtUsd } from "@/lib/format"
+import { describeCursorVolume } from "@/lib/connectors/cursorVolume"
 import { nanosToUsd } from "@/lib/connectors/money"
 import { USAGE_PROVIDERS, usageProvider } from "@/lib/connectors/registry"
 import { aiSpendView, type AiSpendView, type ConnectionHealth } from "@/lib/connectors/spendView"
@@ -36,6 +37,7 @@ const HEALTH: Record<ConnectionHealth, { label: string; tone: string }> = {
 const RULE: Record<string, string> = {
   runaway_rate: "Spend spiked far above this person's normal hour",
   headless_burn: "Background work kept spending with nobody at the keyboard",
+  cursor_daily_volume: "High daily Cursor usage",
   daily_cap: "One person passed the daily spend line",
 }
 
@@ -207,7 +209,7 @@ export default async function AiSpendPage({ searchParams }: { searchParams: Prom
           {view.alerts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No guardrail has fired. Sanction checks every pull for an hour far above a person&apos;s normal, background work that keeps
-              spending, and any person past $50 in a day.
+              spending, high daily Cursor token or request volume, and any person past $50 in a day.
             </p>
           ) : (
             <ul className="space-y-3">
@@ -215,7 +217,7 @@ export default async function AiSpendPage({ searchParams }: { searchParams: Prom
                 <li key={a.id} className="rounded-md border border-amber-500/25 bg-amber-500/[0.04] p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-medium">{RULE[a.rule] ?? a.rule}</p>
-                    {isAdmin && (
+                    {isAdmin && !a.evidence.volume && (
                       <p className="font-mono text-sm">
                         {usdOf(a.observedNanos)} <span className="text-xs text-muted-foreground">against a line of {usdOf(a.thresholdNanos)}</span>
                       </p>
@@ -239,7 +241,12 @@ export default async function AiSpendPage({ searchParams }: { searchParams: Prom
                     )}
                     {a.notifiedAt ? `Emailed ${stamp(a.notifiedAt)}.` : "Found in history, so no email was sent."} Nothing was stopped.
                   </p>
-                  {isAdmin && (
+                  {isAdmin && a.evidence.volume && (
+                    <p className="mt-2 text-sm">{describeCursorVolume(a.evidence.volume)}{" "}
+                      <Link className="underline" href={sourceDayHref(a.windowStart)}>View sources for this day</Link>
+                    </p>
+                  )}
+                  {isAdmin && !a.evidence.volume && (
                     <details className="mt-2 text-xs">
                       <summary className="cursor-pointer text-muted-foreground underline underline-offset-2">Evidence</summary>
                       <table className="mt-2 w-full text-left font-mono">

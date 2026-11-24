@@ -15,6 +15,7 @@ const T0 = Date.UTC(2026, 10, 10)
 function guardFacts(facts: FactInput[]): GuardFact[] {
   return facts.map((f) => ({
     provider: f.provider, rawIdentity: f.rawIdentity, model: f.model, sessionRef: f.sessionRef, automationRef: f.automationRef,
+    volume: { tokens: f.inputTokens + f.outputTokens + f.cacheReadTokens + f.cacheWriteTokens, cached: f.cacheReadTokens, requests: f.requests, reported: f.tokenReportedRequests ?? 0 },
     headless: f.headless, human: f.identityType === "user", hourly: true, bucketStartMs: f.bucketStart.getTime(), costNanos: f.costNanos, billed: f.costBasis === "billed",
   }))
 }
@@ -74,7 +75,7 @@ describe("replay: the Cursor scanner incident (synthetic, see tests/helpers/curs
 
   it("the whole seven-hour burn is one alert per rule, not one per hour", () => {
     const alerts = evaluateGuardrails(through([...baselineEvents(), ...incidentEvents()]), INCIDENT_START - 48 * HOUR)
-    expect(alerts.map((a) => a.rule).sort()).toEqual(["daily_cap", "headless_burn", "runaway_rate"])
+    expect(alerts.map((a) => a.rule).sort()).toEqual(["cursor_daily_volume", "daily_cap", "headless_burn", "runaway_rate"])
     expect(alerts.find((a) => a.rule === "daily_cap")).toMatchObject({ subjectType: "person", subjectKey: INCIDENT_USER, observedNanos: usd(140) })
   })
 
@@ -212,5 +213,33 @@ describe("determinism and thresholds", () => {
     expect(p95([BigInt(7)])).toBe(BigInt(7))
     expect(p95(Array.from({ length: 100 }, (_, i) => BigInt(i + 1)))).toBe(BigInt(95))
     expect(p95([BigInt(3), BigInt(1), BigInt(2)])).toBe(BigInt(3))
+  })
+})
+
+describe("Cursor daily volume", () => {
+  const included = { hour: 0, dollars: "0", billed: false }
+  function volumeFacts(tokens: number, requests: number, reported: number) {
+    return fact({ ...included, volume: { tokens: BigInt(tokens), cached: BigInt(tokens), requests, reported } })
+  }
+
+  it("counts cache reads and included usage at the exact token threshold", () => {
+    const alerts = evaluateGuardrails([volumeFacts(100_000_000, 100, 100)], T0)
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toMatchObject({
+      rule: "cursor_daily_volume", observedNanos: BigInt(0), evidence: {
+        billedNanos: "0", volume: { reportedTokens: "100000000", cachedTokens: "100000000", requests: "100" },
+      },
+    })
+  })
+
+  it("can alert on requests with no reported tokens and leaves subthreshold and legacy facts quiet", () => {
+    expect(evaluateGuardrails([volumeFacts(0, 5000, 0)], T0)[0].evidence.volume).toMatchObject({ requests: "5000", requestsWithTokens: "0" })
+    expect(evaluateGuardrails([volumeFacts(99_999_999, 4999, 4999), fact(included)], T0)).toEqual([])
+  })
+
+  it("never combines providers, identities or UTC days, and excludes old windows", () => {
+    const half = volumeFacts(50_000_000, 2500, 2500)
+    expect(evaluateGuardrails([half, { ...half, rawIdentity: "other" }, { ...half, provider: "openai" }, { ...half, bucketStartMs: T0 + DAY }], T0)).toEqual([])
+    expect(evaluateGuardrails([volumeFacts(100_000_000, 5000, 5000)], T0 + DAY)).toEqual([])
   })
 })

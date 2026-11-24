@@ -11,6 +11,7 @@
 
 import { createHash } from "node:crypto"
 import { DAY_MS, HOUR_MS } from "./facts"
+import { CURSOR_DAILY_EVENTS, CURSOR_DAILY_TOKENS, highCursorVolume, type CursorVolumeEvidence } from "./cursorVolume"
 import { usd } from "./money"
 
 export type GuardFact = {
@@ -30,6 +31,7 @@ export type GuardFact = {
   hourly: boolean
   bucketStartMs: number // hour-aligned UTC
   costNanos: bigint
+  volume?: { tokens: bigint; cached: bigint; requests: number; reported: number }
   billed: boolean
 }
 
@@ -53,12 +55,13 @@ export const DEFAULT_THRESHOLDS: GuardThresholds = {
   dailyCapNanos: usd(50),
 }
 
-export type AlertRule = "runaway_rate" | "headless_burn" | "daily_cap"
+export type AlertRule = "runaway_rate" | "headless_burn" | "daily_cap" | "cursor_daily_volume"
 export type AlertSubject = "person" | "automation" | "conversation"
 
 export type AlertEvidence = {
   identity: string
   billedNanos: string // of observedNanos, the part the provider charged
+  volume?: CursorVolumeEvidence
   baselineP95Nanos?: string
   baselineHours?: number
   // Largest contributors to the window, biggest first.
@@ -229,6 +232,36 @@ export function evaluateGuardrails(
           observedNanos: observed,
           thresholdNanos: thresholds.headlessBurnNanos,
           evidence: evidence(rawIdentity, windowFacts),
+        })
+      }
+    }
+
+    if (provider === "cursor") {
+      const days = new Map<number, GuardFact[]>()
+      for (const f of personFacts) if (f.volume && f.hourly) appendFact(days, utcDay(f.bucketStartMs), f)
+      for (const [day, rows] of days) {
+        if (!rows.some((r) => r.bucketStartMs >= evaluateFromMs)) continue
+        let tokens = ZERO, cached = ZERO, requests = ZERO, reported = ZERO
+        let lastHour = day
+        for (const row of rows) {
+          const v = row.volume!
+          tokens += v.tokens
+          cached += v.cached
+          requests += BigInt(v.requests)
+          reported += BigInt(v.reported)
+          lastHour = Math.max(lastHour, row.bucketStartMs)
+        }
+        if (!highCursorVolume(tokens, requests)) continue
+        const volume = {
+          reportedTokens: String(tokens), cachedTokens: String(cached), requests: String(requests),
+          requestsWithTokens: String(reported), tokenThreshold: String(CURSOR_DAILY_TOKENS), requestThreshold: String(CURSOR_DAILY_EVENTS),
+        }
+        raise({
+          rule: "cursor_daily_volume", provider, subjectType: "person", subjectKey: rawIdentity,
+          windowStart: new Date(day), windowEnd: new Date(lastHour + HOUR_MS),
+          // These columns are money. The actual count thresholds and units live in evidence.
+          observedNanos: total(rows), thresholdNanos: ZERO,
+          evidence: { identity: rawIdentity, billedNanos: String(total(rows.filter((r) => r.billed))), volume, top: [] },
         })
       }
     }

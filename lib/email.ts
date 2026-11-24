@@ -1,3 +1,4 @@
+import { describeCursorVolume, type CursorVolumeEvidence } from "./connectors/cursorVolume"
 import { spendReturnPath } from "@/lib/returnPath"
 // Minimal transactional email via Resend's REST API (no SDK dependency).
 // Non-sign-in messages retain a development logging fallback. Sign-in senders
@@ -216,13 +217,14 @@ type UsageAlertEmail = {
     windowEnd: Date
     observedNanos: bigint
     thresholdNanos: bigint
-    evidence: { identity: string; billedNanos: string }
+    evidence: { identity: string; billedNanos: string; volume?: CursorVolumeEvidence }
   }[]
 }
 
 const USAGE_RULE_LABEL: Record<string, string> = {
   runaway_rate: "Spend spiked far above this person's normal hour",
   headless_burn: "Background work kept spending with nobody at the keyboard",
+  cursor_daily_volume: "High daily Cursor usage",
   daily_cap: "One person passed the daily spend line",
 }
 
@@ -237,7 +239,9 @@ export async function sendUsageAlertEmail(to: string, a: UsageAlertEmail): Promi
   const lines = a.alerts.map((x) => ({
     title: USAGE_RULE_LABEL[x.rule] ?? x.rule,
     who: x.subjectType === "person" ? x.evidence.identity : `${x.subjectType} ${x.subjectKey} (${x.evidence.identity})`,
-    amount: `${dollars(x.observedNanos)} in ${x.provider} usage between ${hour(x.windowStart)} and ${hour(x.windowEnd)}, against a line of ${dollars(x.thresholdNanos)}. Billed so far: ${dollars(BigInt(x.evidence.billedNanos))}.`,
+    amount: x.evidence.volume
+      ? `${describeCursorVolume(x.evidence.volume)} UTC day: ${x.windowStart.toISOString().slice(0, 10)}. Billed so far: ${dollars(BigInt(x.evidence.billedNanos))}.`
+      : `${dollars(x.observedNanos)} in ${x.provider} usage between ${hour(x.windowStart)} and ${hour(x.windowEnd)}, against a line of ${dollars(x.thresholdNanos)}. Billed so far: ${dollars(BigInt(x.evidence.billedNanos))}.`,
   }))
   const subject = lines.length === 1 ? `AI spend alert: ${lines[0].title}` : `${lines.length} AI spend alerts for ${a.walletName}`
   const note =

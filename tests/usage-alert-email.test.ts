@@ -49,3 +49,16 @@ describe("sendUsageAlertEmail", () => {
     expect(message.html).not.toContain("<script>")
   })
 })
+
+it("uses token and request units for high-volume alerts on included usage", async () => {
+  const message = await send([alert({
+    rule: "cursor_daily_volume", observedNanos: BigInt(0), thresholdNanos: BigInt(0),
+    evidence: { identity: "dev@example.test", billedNanos: "0", volume: {
+      reportedTokens: "120000000", cachedTokens: "110000000", requests: "1000", requestsWithTokens: "999",
+      tokenThreshold: "100000000", requestThreshold: "5000",
+    } },
+  })])
+  expect(message.text).toContain("120,000,000 reported tokens (110,000,000 cache reads), 1,000 requests")
+  expect(message.text).toContain("UTC day: 2026-11-17. Billed so far: $0.00")
+  expect(message.text).not.toContain("line of $0.00")
+})
