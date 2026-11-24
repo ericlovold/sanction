@@ -14,6 +14,11 @@ and self-reported `/tokens` writes compete for the same capacity.
 Base URL: `https://getsanction.com/api/gateway/<provider>`
 Auth: `x-sanction-key: pxy_…` (your agent key). Your provider key is forwarded as usual.
 
+A client with only one credential slot can send the seat key there instead, as
+`Authorization: Bearer pxy_…` or `x-api-key: pxy_…`. Sanction keeps it, never
+forwards it, and pays the provider with the key stored under **Dashboard →
+Providers**. Two different seat keys in one request are refused.
+
 ## Anthropic (Python SDK)
 
 ```python
@@ -60,6 +65,39 @@ spend stopped the next session before it reached Anthropic.
   with every tool definition inlined, which is slower and costs more.
 - **The key is in your environment.** Keep `ANTHROPIC_CUSTOM_HEADERS` out of
   project settings files that are committed.
+
+### With only a seat key
+
+A team can keep one Anthropic key in Sanction and give each developer only a
+seat key. Connect Anthropic once under **Dashboard → Providers**, then have
+Claude Code fetch the seat key from the system keychain instead of an
+environment variable. On macOS, store it (the command prompts for the key, so
+it stays out of shell history):
+
+```bash
+security add-generic-password -U -s sanction-seat-key -a "$USER" -w
+```
+
+and add this to `~/.claude/settings.json`:
+
+```json
+{
+  "env": { "ANTHROPIC_BASE_URL": "https://getsanction.com/api/gateway/anthropic" },
+  "apiKeyHelper": "security find-generic-password -s sanction-seat-key -w"
+}
+```
+
+Claude Code sends whatever the helper prints as its credential. The gateway
+recognises the seat key, keeps it, and calls Anthropic with the stored key.
+Usage is billed to that key at API prices, not to a Claude subscription, and
+the developer never holds it. Without a stored key the gateway answers `401`
+with `PROVIDER_NOT_CONNECTED` and makes no upstream call.
+
+Checked on a local gateway with Claude Code 2.1.329 and a stored Anthropic
+key: with an `apiKeyHelper` that prints only the seat key, a tool-using session
+had every request accepted and metered to that seat, and a budget set just
+above recorded spend stopped the next session with `402`. The same seat key as
+an OpenAI bearer token paid a Chat Completions call with the stored OpenAI key.
 
 ## OpenAI (Python SDK)
 
