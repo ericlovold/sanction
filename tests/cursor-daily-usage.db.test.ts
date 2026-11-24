@@ -32,6 +32,8 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("Cursor daily usage (Postgres)
 
   it("restricts a day detail to its UTC window and wallet", async () => {
     const days = await getDailyUsage(walletId, { gte: new Date("2026-10-02"), lt: new Date("2026-10-03") })
+    const priorDay = await getDailyUsage(walletId, { gte: new Date("2026-10-01"), lt: new Date("2026-10-02") })
+    expect(priorDay.map(day => day.day)).toEqual(["2026-10-01"])
     expect(days).toHaveLength(1)
     expect(days[0]).toMatchObject({ day: "2026-10-02", items: BigInt(4), cached: BigInt(5) })
   })

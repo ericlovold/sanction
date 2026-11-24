@@ -30,4 +30,19 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("Home imported Cursor incident
     })
     expect(await recentHighCursorDay(wallets[0], new Date("2027-01-01T00:00:00Z"))).toBeNull()
   })
+  it("flags the 5,000th billing item when token counts are unavailable", async () => {
+    const walletId = wallets[1]
+    const occurredAt = new Date("2026-11-24T10:00:00Z")
+    await db.$executeRaw`
+      INSERT INTO "CursorBillingItem" ("walletId", "itemHash", "occurredAt", product, "usageType", "chargeCategory")
+      SELECT ${walletId}, n::text, ${occurredAt}, 'cursor', 'included', 'usage'
+      FROM generate_series(1, 4999) n
+    `
+    expect((await recentHighCursorDay(walletId, now))?.day).toBe("2026-11-23")
+    await db.cursorBillingItem.create({ data: {
+      walletId, occurredAt, itemHash: "5000", product: "cursor", usageType: "included", chargeCategory: "usage",
+    } })
+    expect(await recentHighCursorDay(walletId, now)).toEqual({ day: "2026-11-24", items: BigInt(5000), tokens: null })
+  })
+
 })
