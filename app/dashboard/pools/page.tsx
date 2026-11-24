@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { AlertTriangle, GitBranch, Route, ShieldCheck, WalletCards } from "lucide-react"
 import { db } from "@/lib/db"
-import { allocationMoves, grantAuthorityUsd, poolStatus, spendCapPressure, type PoolStatus } from "@/lib/budgetPools"
+import { inheritedTokenDefaults, walletAncestorChain } from "@/lib/cascadeBudget"
+import { allocationMoves, delegatedTokenBudgetUsd, grantAuthorityUsd, poolStatus, spendCapPressure, type PoolStatus } from "@/lib/budgetPools"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NoWallet } from "@/components/no-wallet"
 import { PoolControls } from "@/components/pool-controls"
@@ -206,6 +207,12 @@ async function getPools(walletId: string) {
   const now = new Date()
 
   const { wallets, truncated } = await loadWalletSubtree(walletId)
+  // Resolve only the effective default outside the view; ancestor wallets
+  // stay out of the visible tree and its data queries.
+  const root = wallets.find((wallet) => wallet.id === walletId)
+  const rootTokenDefault = root && !root.policy && root.parentId
+    ? inheritedTokenDefaults(await walletAncestorChain(db, walletId))?.dailyTokenBudgetUsd ?? null
+    : null
   const walletIds = wallets.map((wallet) => wallet.id)
   const walletById = new Map(wallets.map((wallet) => [wallet.id, wallet]))
   const childrenOf = new Map<string, string[]>()
@@ -239,16 +246,7 @@ async function getPools(walletId: string) {
     if (agent.isActive) {
       bucket.activeAgentCount += 1
       bucket.delegatedDailyUsd += (agent.dailySpendBudgetUsd ?? wallet.policy?.dailySpendBudgetUsd ?? 0) / 100
-      // A group with no policy takes per-agent model defaults from the nearest
-      // wallet above it (inheritedTokenDefaults in lib/cascadeBudget.ts). The
-      // walk stops at the top of this view.
-      let ruling = wallet
-      for (let depth = 0; !ruling.policy && ruling.parentId && depth < 16; depth++) {
-        const parent = walletById.get(ruling.parentId)
-        if (!parent) break
-        ruling = parent
-      }
-      bucket.delegatedTokenDailyUsd += (agent.dailyTokenBudgetUsd ?? ruling.policy?.dailyTokenBudgetUsd ?? 0) / 100
+      bucket.delegatedTokenDailyUsd += delegatedTokenBudgetUsd(agent, walletById, rootTokenDefault)
     }
   }
 

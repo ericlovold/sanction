@@ -1,3 +1,27 @@
+type ModelBudgetWallet = {
+  id: string
+  parentId: string | null
+  policy: { dailyTokenBudgetUsd: number } | null
+}
+
+/** Resolve model authority inside a visible subtree without adding ancestors
+ * to that view. rootDefaultCents is the separately resolved root inheritance. */
+export function delegatedTokenBudgetUsd(
+  agent: { walletId: string; dailyTokenBudgetUsd: number | null },
+  wallets: ReadonlyMap<string, ModelBudgetWallet>,
+  rootDefaultCents: number | null,
+): number {
+  if (agent.dailyTokenBudgetUsd != null) return agent.dailyTokenBudgetUsd / 100
+  let wallet = wallets.get(agent.walletId)
+  const seen = new Set<string>()
+  for (let depth = 0; wallet && depth < 16 && !seen.has(wallet.id); depth++) {
+    if (wallet.policy) return wallet.policy.dailyTokenBudgetUsd / 100
+    seen.add(wallet.id)
+    wallet = wallet.parentId ? wallets.get(wallet.parentId) : undefined
+  }
+  return (rootDefaultCents ?? 0) / 100
+}
+
 export type PoolStatus = "cap_missing" | "over_cap" | "hot" | "warm" | "clear"
 
 export type AllocationMove = {
