@@ -30,6 +30,12 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("Cursor daily usage (Postgres)
     await db.wallet.deleteMany({ where: { id: { in: [walletId, otherWalletId] } } })
   })
 
+  it("restricts a day detail to its UTC window and wallet", async () => {
+    const days = await getDailyUsage(walletId, { gte: new Date("2026-10-02"), lt: new Date("2026-10-03") })
+    expect(days).toHaveLength(1)
+    expect(days[0]).toMatchObject({ day: "2026-10-02", items: BigInt(4), cached: BigInt(5) })
+  })
+
   it("groups only the requested wallet by UTC date and model, preserving zero and missing counts", async () => {
     const days = await getDailyUsage(walletId)
     const one = BigInt(1)

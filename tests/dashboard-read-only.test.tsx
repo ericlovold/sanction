@@ -1,3 +1,5 @@
+import { renderToStaticMarkup } from "react-dom/server"
+import { recentHighCursorDay } from "@/lib/homeCursorIncident"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { dbMock, viewMock, rosterMock } = vi.hoisted(() => ({
@@ -13,6 +15,7 @@ const { dbMock, viewMock, rosterMock } = vi.hoisted(() => ({
   rosterMock: vi.fn(),
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
+vi.mock("@/lib/homeCursorIncident", () => ({ recentHighCursorDay: vi.fn() }))
 vi.mock("@/lib/homeOverview", () => ({ homeOverview: vi.fn(async () => ({ providers: [], otherSpend: null, spendUnavailable: false, tools: [] })) }))
 vi.mock("@/lib/session", () => ({ getViewWallet: viewMock }))
 vi.mock("@/lib/roster", () => ({ getRoster: rosterMock, getWaiting: vi.fn(async () => []) }))
@@ -42,7 +45,17 @@ describe("dashboard reads do not repair or overwrite policy", () => {
     expect(await Dashboard()).toBeTruthy()
     expect(await Dashboard()).toBeTruthy()
     expect(dbMock.policy.updateMany).not.toHaveBeenCalled()
+    expect(recentHighCursorDay).not.toHaveBeenCalled()
     expect(rosterMock).toHaveBeenCalledWith("demo-wallet", expect.any(Date))
+  })
+
+  it("links a signed-in member to the matching imported Cursor day", async () => {
+    viewMock.mockResolvedValue({ id: "member-wallet", name: "Member", isSession: true, role: "viewer" })
+    vi.mocked(recentHighCursorDay).mockResolvedValue({ day: "2026-11-17", tokens: BigInt(123456789), items: BigInt(42) })
+    const html = renderToStaticMarkup(await Dashboard())
+    expect(recentHighCursorDay).toHaveBeenCalledWith("member-wallet", expect.any(Date))
+    expect(html).toContain('href="/dashboard/usage/cursor?day=2026-11-17#incident"')
+    expect(html).toContain("123,456,789 reported tokens")
   })
 
   it("does not query or write policy when there is no wallet to show", async () => {

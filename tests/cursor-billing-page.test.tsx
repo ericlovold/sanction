@@ -1,10 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, expect, it, vi } from "vitest"
+import { Prisma } from "@/lib/generated/prisma/client"
 import CursorUsagePage from "@/app/dashboard/usage/cursor/page"
 
-const mocks = vi.hoisted(() => ({ member: vi.fn(), groupBy: vi.fn(), queryRaw: vi.fn() }))
+const mocks = vi.hoisted(() => ({ member: vi.fn(), groupBy: vi.fn(), queryRaw: vi.fn(), sources: vi.fn() }))
 vi.mock("@/lib/session", () => ({ getSessionMember: mocks.member }))
 vi.mock("@/lib/db", () => ({ db: { $queryRaw: mocks.queryRaw, cursorBillingItem: { groupBy: mocks.groupBy } } }))
+vi.mock("@/lib/connectors/cursorSources", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/connectors/cursorSources")>(), cursorSources: mocks.sources,
+}))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
 beforeEach(() => {
@@ -73,4 +77,51 @@ it("flags a cache-heavy included-usage day using reported units across models", 
   expect(html).toContain("870,357,681")
   expect(html).toContain("791,194,698")
   expect(html).toContain("90.9%")
+})
+
+it.each(["admin", "viewer"])("scopes selected-day evidence and source links for %s", async role => {
+  const day = "2026-11-17"
+  const start = new Date(day)
+  mocks.member.mockResolvedValue({ role, wallet: { id: "test", name: "Example" } })
+  mocks.queryRaw.mockResolvedValue([{ day, model: null, items: BigInt(3), tokens: BigInt(10), cached: BigInt(8), partial: false, cachedPartial: false }])
+  mocks.groupBy.mockResolvedValue([{ usageType: "on_demand", currency: "USD", _sum: { contracted: new Prisma.Decimal("3.5817012") }, _count: { _all: 3, contracted: 2 }, _max: { occurredAt: start } }])
+  mocks.sources.mockResolvedValue({ rows: [{ id: "test-run" }] })
+  const html = renderToStaticMarkup(await CursorUsagePage({ searchParams: Promise.resolve({ day }) }))
+  expect(mocks.groupBy.mock.calls[0][0].where).toEqual({ walletId: "test", occurredAt: { gte: start, lt: new Date("2026-11-18") } })
+  expect(html).toContain('title="USD 3.5817012">$3.58</span> (partial)')
+  expect(html).toContain("80.0%")
+  expect(html).toContain("no model names")
+  expect(html).toContain("omit run and automation IDs")
+  if (role === "admin") {
+    expect(mocks.sources).toHaveBeenCalledWith("test", start)
+    expect(html).toContain("cursor_day=2026-11-17#cursor-sources")
+  } else {
+    expect(mocks.sources).not.toHaveBeenCalled()
+    expect(html).toContain("https://cursor.com/agents")
+  }
+})
+
+it("shows missing imported and synced evidence without implying zero usage", async () => {
+  mocks.member.mockResolvedValue({ role: "owner", wallet: { id: "test", name: "Example" } })
+  mocks.groupBy.mockResolvedValue([])
+  mocks.sources.mockResolvedValue({ rows: [] })
+  const html = renderToStaticMarkup(await CursorUsagePage({ searchParams: Promise.resolve({ day: "2026-11-17" }) }))
+  expect(html).toContain("No imported Cursor billing items")
+  expect(html).toContain("Open Cursor run history")
+})
+
+it("rejects invalid days before querying billing or synced records", async () => {
+  mocks.member.mockResolvedValue({ role: "owner", wallet: { id: "test" } })
+  const html = renderToStaticMarkup(await CursorUsagePage({ searchParams: Promise.resolve({ day: "2025-02-30" }) }))
+  expect(html).toContain("Invalid Cursor usage date")
+  expect(mocks.groupBy).not.toHaveBeenCalled()
+  expect(mocks.queryRaw).not.toHaveBeenCalled()
+  expect(mocks.sources).not.toHaveBeenCalled()
+})
+
+it("preserves the incident link through sign-in", async () => {
+  mocks.member.mockResolvedValue(null)
+  const html = renderToStaticMarkup(await CursorUsagePage({ searchParams: Promise.resolve({ day: "2026-11-17" }) }))
+  expect(html).toContain(encodeURIComponent("/dashboard/usage/cursor?day=2026-11-17#incident"))
+  expect(mocks.queryRaw).not.toHaveBeenCalled()
 })

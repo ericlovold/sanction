@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useId, useState } from "react"
 import { CURSOR_DAILY_EVENTS, CURSOR_DAILY_TOKENS, highCursorVolume } from "@/lib/connectors/cursorVolume"
 import type { DailyUsage, UsageCounts } from "./daily-usage"
@@ -31,6 +32,7 @@ function DayRows({ day }: { day: DailyUsage }) {
           {day.day}
         </button>
         {highCursorVolume(day.tokens, day.items) && <span className="ml-2 text-xs font-medium text-amber-700 dark:text-amber-400">High volume</span>}
+        <Link href={`/dashboard/usage/cursor?day=${day.day}#incident`} aria-label={`Review Cursor usage for ${day.day}`} className="ml-3 text-xs font-medium underline underline-offset-4">Review day</Link>
       </th>
       <Metrics usage={day} />
     </tr></tbody>
