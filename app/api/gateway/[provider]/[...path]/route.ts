@@ -58,7 +58,11 @@ function seatKey(req: NextRequest): string | null {
   const explicit = req.headers.get("x-sanction-key")
   if (explicit) keys.add(explicit)
   for (const name of PROVIDER_AUTH_HEADERS) {
-    const carried = carriedSeatKey(name, req.headers.get(name))
+    const value = req.headers.get(name)
+    // Fetch joins duplicate headers. Each provider credential must be a single
+    // value so a second credential cannot be forwarded as part of the first.
+    if (value?.includes(",")) return null
+    const carried = carriedSeatKey(name, value)
     if (carried) keys.add(carried)
   }
   return keys.size === 1 ? [...keys][0] : null

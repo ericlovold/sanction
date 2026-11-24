@@ -491,6 +491,9 @@ describe("gateway provider-key injection (Providers page)", () => {
     const conflicting: Record<string, string>[] = [
       { "x-sanction-key": KEY, authorization: `Bearer ${other}` },
       { authorization: `Bearer ${KEY}`, "x-api-key": other },
+      { "x-sanction-key": KEY, authorization: `Bearer upstream-key, Bearer ${KEY}` },
+      { "x-sanction-key": KEY, "x-api-key": `upstream-key, ${KEY}` },
+      { "x-sanction-key": KEY, "x-goog-api-key": `upstream-key, ${KEY}` },
     ]
     for (const headers of conflicting) {
       const res = await gateway(carried("anthropic", "v1/messages", headers), params("anthropic", "v1/messages"))
