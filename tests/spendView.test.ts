@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { closestToLimit, countAgentsAtLimit, denialReason, meter, paceNote, shares, zoneLabel, type LimitAgent } from "../lib/spendView"
 
 describe("meter", () => {
@@ -37,7 +37,7 @@ describe("closestToLimit", () => {
     const today = new Map([
       ["half", { model: 5, purchases: 0 }],
       ["full", { model: 2, purchases: 50 }],
-      ["quiet", { model: 4.9, purchases: 24 }],
+      ["quiet", { model: 4.96, purchases: 24.99 }],
       ["near", { model: 9, purchases: 0 }],
     ])
     const rows = closestToLimit(agents, today)
@@ -75,6 +75,19 @@ describe("paceNote", () => {
 
   it("projects to midnight when the day will end under the limit", () => {
     expect(paceNote(2, 10, noon)).toBe("At this pace, about $4.00 by midnight.")
+  })
+
+  it("projects to local midnight on 23-hour and 25-hour days", () => {
+    vi.stubEnv("TZ", "America/Chicago")
+    try {
+      // Both readings are 12 elapsed hours after local midnight.
+      const spring = new Date(2026, 2, 8, 13)
+      const fall = new Date(2026, 10, 1, 11)
+      expect(paceNote(24, 47, spring)).toBe("At this pace, about $46.00 by midnight.")
+      expect(paceNote(24, 51, fall)).toBe("At this pace, about $50.00 by midnight.")
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it("names the time, with its zone, when the limit will be reached today", () => {

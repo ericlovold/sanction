@@ -1,15 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createElement } from "react"
+import { UsageReportNav } from "@/components/usage-report-nav"
 import type { WalletRole } from "@/lib/roles"
 import { safeNext } from "@/lib/returnPath"
 import ConnectPage from "@/app/dashboard/connect/page"
 import UsagePage from "@/app/dashboard/usage/page"
 
 const mocks = vi.hoisted(() => ({
+  path: vi.fn(),
   wallet: vi.fn(),
   connection: vi.fn(),
   usage: vi.fn(),
 }))
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), usePathname: mocks.path }))
 vi.mock("@/lib/session", () => ({ getViewWallet: mocks.wallet }))
 vi.mock("@/lib/usageView", () => ({ usageView: mocks.usage }))
 vi.mock("@/lib/developerConnection", () => ({ developerConnection: mocks.connection }))
@@ -25,6 +29,27 @@ beforeEach(() => {
     })),
     sessions: [],
     truncated: false,
+  })
+})
+
+describe("usage report navigation", () => {
+  it.each([
+    ["/dashboard/usage", "Client sessions", "page"],
+    ["/dashboard/connect", "Client sessions", "location"],
+    ["/dashboard/usage/cursor", "Tool billing", "location"],
+    ["/dashboard/usage/grok-bot", "Tool billing", "location"],
+    ["/dashboard/ai-spend", "Tool billing", "page"],
+    ["/dashboard/spend", "Spend &amp; budgets", "page"],
+  ])("marks the report for %s", (path, label, current) => {
+    mocks.path.mockReturnValue(path)
+    const html = renderToStaticMarkup(createElement(UsageReportNav))
+    expect(html.match(/aria-current=/g)).toHaveLength(1)
+    expect(html).toMatch(new RegExp(`<a[^>]*aria-current="${current}"[^>]*>${label}</a>`))
+  })
+
+  it("keeps report navigation off the Home page", () => {
+    mocks.path.mockReturnValue("/dashboard")
+    expect(renderToStaticMarkup(createElement(UsageReportNav))).toBe("")
   })
 })
 

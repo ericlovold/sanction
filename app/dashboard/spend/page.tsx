@@ -49,8 +49,8 @@ function Meter({ label, spent, limit, note }: { label: ReactNode; spent: number;
   )
 }
 
-async function getSpend(walletId: string) {
-  const dayStart = new Date()
+async function getSpend(walletId: string, now: Date) {
+  const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
   const monthStart = new Date(dayStart)
   monthStart.setDate(1)
@@ -95,7 +95,7 @@ async function getSpend(walletId: string) {
   const monthScope = { agentId: { in: agentIds }, createdAt: { gte: monthStart } }
   const todayScope = { agentId: { in: agentIds }, createdAt: { gte: dayStart } }
 
-  const weekStart = new Date()
+  const weekStart = new Date(now)
   weekStart.setDate(weekStart.getDate() - 6)
   weekStart.setHours(0, 0, 0, 0)
 
@@ -278,10 +278,10 @@ export default async function SpendPage({ searchParams }: {
     )
   }
 
-  const s = await getSpend(walletId)
   const now = new Date()
+  const s = await getSpend(walletId, now)
   const zone = zoneLabel(now)
-  const dayStart = new Date()
+  const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
   const alertUsage = alertAgent ? await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: alertAgent.id, createdAt: { gte: dayStart } }, _sum: { costUsd: true } }),
@@ -381,7 +381,7 @@ export default async function SpendPage({ searchParams }: {
     <div className="home sp-page">
       <header className="home-head">
         <div>
-          <h1 className="home-title">Spend</h1>
+          <h1 className="home-title">Spend &amp; budgets</h1>
           <p className="home-sub">{walletName}</p>
         </div>
         <div className="home-actions">
@@ -418,7 +418,9 @@ export default async function SpendPage({ searchParams }: {
                   return <Meter label="Model spend" spent={spent} limit={limit} note={paceNote(spent, limit, now)} />
                 })()}
                 {budget !== "daily_tokens" && (() => {
-                  const limit = (alertAgent.dailySpendBudgetUsd ?? s.policy?.dailySpendBudgetUsd ?? 0) / 100
+                  const limitCents = alertAgent.dailySpendBudgetUsd ?? s.policy?.dailySpendBudgetUsd
+                  if (limitCents == null) return <p className="sp-review-who">No per-agent daily purchase limit applies.</p>
+                  const limit = limitCents / 100
                   const spent = alertUsage[1]._sum.amountUsd ?? 0
                   return <Meter label="Purchases" spent={spent} limit={limit} note={paceNote(spent, limit, now)} />
                 })()}
@@ -570,13 +572,16 @@ export default async function SpendPage({ searchParams }: {
               ? `Highest day: ${fmtUsd(peak.cost)} on ${peak.label}. Today: ${fmtUsd(s.days[s.days.length - 1]?.cost ?? 0)}.`
               : "No model spend in the last 14 days."}
           </p>
-          <table className="sr-only">
-            <caption>Model spend per day, last 14 days</caption>
-            <thead><tr><th>Day</th><th>Model spend</th></tr></thead>
-            <tbody>
-              {s.days.map((d, i) => <tr key={i}><td>{d.label}</td><td>{fmtUsd(d.cost)}</td></tr>)}
-            </tbody>
-          </table>
+          <details className="sp-run-data">
+            <summary>Show daily values</summary>
+            <table>
+              <caption>Model spend per day, last 14 days</caption>
+              <thead><tr><th>Day</th><th>Model spend</th></tr></thead>
+              <tbody>
+                {s.days.map((d, i) => <tr key={i}><td>{d.label}</td><td>{fmtUsd(d.cost)}</td></tr>)}
+              </tbody>
+            </table>
+          </details>
         </div>
       </section>
 

@@ -7,7 +7,7 @@ import { hasRole } from "@/lib/roles"
 import { BrandIcon, BrandNotice } from "@/components/brand-icon"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Developer usage | Sanction" }
+export const metadata = { title: "Client sessions | Sanction" }
 const date = (value: Date | null) => value ? value.toISOString().replace("T", " ").slice(0, 19) + " UTC" : "Unknown"
 const providerUsage = {
   "claude-code": { label: "Claude account usage", href: "https://claude.ai/settings/usage" },
@@ -20,12 +20,10 @@ export default async function UsagePage() {
   const view = await usageView(wallet.id)
   return <div className="mx-auto max-w-6xl space-y-8 p-5 md:p-10">
     <header className="space-y-3">
-      <Link href="/dashboard" className="text-sm text-muted-foreground underline">Back to roster</Link>
-      <h1 className="text-3xl font-semibold tracking-tight">Developer usage</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Client sessions</h1>
       <p className="text-muted-foreground">Sessions and tokens reported by Claude Code and local Codex clients to {wallet.name}. Claude Code also reports cost estimates when available.</p>
       <p className="max-w-3xl text-sm text-muted-foreground">Reporting covers clients that send events. Open your provider account for subscription limits and remaining usage.</p>
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm underline">
-        <Link href="/dashboard/spend">Governed spend and budgets</Link>
         <Link href="/platform#pricing">Sanction plans and pricing</Link>
       </div>
     </header>

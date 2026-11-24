@@ -1,7 +1,7 @@
 # Developer usage and a native approval test
 
 Sanction accepts **OTLP HTTP JSON logs** from Claude Code and Codex. The
-Developer usage page shows sessions, reported token counts and the last delivery
+Client sessions report shows sessions, reported token counts and the last delivery
 from each source. Claude Code can also report estimated cost. This is client-reported observation, not a billing
 invoice or a guarantee that every client is connected. It does not stop vendor
 auto-refills. Codex here means the local client, not ChatGPT web.
@@ -12,10 +12,11 @@ Use [guided connection setup](/dashboard/connect) to choose a tool and seat,
 copy its configuration, and check delivery for that seat. Delivery history
 does not attest to a new configuration or enforcement.
 
-Create a dedicated seat for each client in **Roster → Add agent**. Keep its key
+Create a dedicated seat for each client in **Agents → Add agent**. Keep its key
 in your local environment or private user configuration, never in the repo.
-Open **Developer usage** in the dashboard navigation to verify delivery. The page covers the selected
-wallet, not its descendants, and at most the latest 1,000 events from seven days.
+Open **Usage → Client sessions** to verify delivery. On a phone, open **Home → View usage details**.
+The report shows up to the latest 1,000 events from the selected wallet over seven days.
+For Cursor and Grok Bot billing exports, open **Usage → Tool billing**.
 
 ### Claude Code
 

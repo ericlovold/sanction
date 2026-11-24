@@ -26,7 +26,6 @@ const ICON = {
   approvals: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z",
   agents: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   usage: "M4 4v16h16M8 16v-4m5 4V7m5 9v-6",
-  spend: "M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM3 10h18M7 15h3",
   policy: "M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3ZM9 12l2 2 4-4",
   activity: "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   settings: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4",
@@ -40,8 +39,7 @@ const primary: Item[] = [
 ]
 
 const secondary: Item[] = [
-  { href: "/dashboard/usage", label: "Usage", icon: ICON.usage, also: ["/dashboard/connect"] },
-  { href: "/dashboard/spend", label: "Spend", icon: ICON.spend },
+  { href: "/dashboard/usage", label: "Usage", icon: ICON.usage, also: ["/dashboard/connect", "/dashboard/ai-spend", "/dashboard/spend"] },
   { href: "/dashboard/policy", label: "Policy", icon: ICON.policy },
   { href: "/dashboard/audit", label: "Activity", icon: ICON.activity, tab: true },
 ]

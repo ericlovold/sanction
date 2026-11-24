@@ -1,13 +1,25 @@
 import { db } from "./db"
-import { usageSources, type UsageSource } from "./usageObservation"
+import { usageSources } from "./usageObservation"
+
+export async function usageConnections(walletId: string, now = new Date()) {
+  const latest = await db.usageObservation.groupBy({
+    by: ["source"], where: { agent: { walletId } },
+    _max: { receivedAt: true, occurredAt: true },
+  })
+  return usageSources.map(source => {
+    const last = latest.find(row => row.source === source)?._max
+    const receivedAt = last?.receivedAt ?? null
+    const status = !receivedAt ? "No events received"
+      : now.getTime() - receivedAt.getTime() > 15 * 60_000 ? "No recent delivery"
+      : "Recently received"
+    return { source, receivedAt, occurredAt: last?.occurredAt ?? null, status }
+  })
+}
 
 export async function usageView(walletId: string, now = new Date()) {
   const since = new Date(now.getTime() - 7 * 86_400_000)
-  const [latest, rows] = await Promise.all([
-    db.usageObservation.groupBy({
-      by: ["source"], where: { agent: { walletId } },
-      _max: { receivedAt: true, occurredAt: true },
-    }),
+  const [connections, rows] = await Promise.all([
+    usageConnections(walletId, now),
     db.usageObservation.findMany({
       where: { agent: { walletId }, occurredAt: { gte: since, lte: now } },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 1001,
@@ -36,11 +48,6 @@ export async function usageView(walletId: string, now = new Date()) {
   }
   return {
     truncated: rows.length > 1000, sessions: [...sessions.values()],
-    connections: usageSources.map(source => {
-      const last = latest.find(r => r.source === source)?._max
-      const receivedAt = last?.receivedAt ?? null, occurredAt = last?.occurredAt ?? null
-      return { source: source as UsageSource, receivedAt, occurredAt,
-        status: !receivedAt ? "No events received" : now.getTime() - receivedAt.getTime() > 15 * 60_000 ? "No recent delivery" : "Recently received" }
-    }),
+    connections,
   }
 }

@@ -33,7 +33,6 @@ export default async function ConnectPage({ searchParams }: {
   ])
   return <div className="mx-auto max-w-3xl space-y-7 p-5 md:p-10">
     <header className="space-y-3">
-      <Link href="/dashboard" className="text-sm underline">Back to roster</Link>
       <h1 className="text-3xl font-semibold">Connect a developer tool</h1>
       <p className="text-muted-foreground">Connect usage reporting to {wallet.name}, then try a separate approval test.</p>
       <p className="text-sm">This connects usage reporting. It does not stop tool execution, model calls, or subscription auto-refills.</p>

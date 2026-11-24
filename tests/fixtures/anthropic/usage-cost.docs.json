@@ -1,0 +1,103 @@
+{
+  "_source": "Response examples copied verbatim from the Anthropic API reference for GET /v1/organizations/analytics/usage and /cost (platform.claude.com/docs/en/api/beta/organization/analytics/{usage,cost}/list), read 2026-11-23. Do not edit by hand: if Anthropic changes the documented shape, replace this file and let the contract test say what broke.",
+  "usage": {
+    "data": [
+      {
+        "ending_at": "2026-10-01T00:00:00Z",
+        "group": {
+          "actor": {
+            "deleted": false,
+            "email_address": "user@emaildomain.com",
+            "name": "Jane Doe",
+            "type": "user_actor",
+            "user_id": "user_01WxYzAbCdEfGhJkMnPqRsTu"
+          },
+          "actor_type": "user_actor",
+          "agent_id": "agent_01VHd3EAGJ6PLkP9LM7DDu3f",
+          "api_key_id": "apikey_01Rj2N8SVvo6BePZj99NhmiT",
+          "claude_tag_category": "dm",
+          "claude_tag_user_id": "U0123ABCDEF",
+          "context_window": "0-200k",
+          "deployment_id": "depl_01JFC6ihzZHtAuyHsaENdJhY",
+          "environment_id": "env_017oTjuGedHtjhJauVC5xGJD",
+          "inference_geo": "global",
+          "model": "claude-opus-5-5",
+          "organization_id": "12345678-1234-5678-1234-567812345678",
+          "product": "chat",
+          "rbac_group_id": "rbac_group_012rppKaSVsmTo6NqRDXQXNF",
+          "service_tier": "standard",
+          "session_id": "sesn_0187kPDyNCwibNNvfaPEApCJ",
+          "slack_channel_id": "C0123ABCDEF",
+          "speed": "fast",
+          "user_profile_id": "uprof_01M33NeYUQK2WV9PpYcsPHLi",
+          "workspace_id": "wrkspc_01JwQvzr7rXLA5AGx3HKfFUJ"
+        },
+        "starting_at": "2026-09-01T00:00:00Z",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_read_input_tokens": 3200000,
+          "output_tokens": 891000,
+          "requests": 128,
+          "server_tool_use": {
+            "web_search_requests": 10
+          },
+          "total_tokens": 5375500,
+          "uncached_input_tokens": 1284500
+        }
+      }
+    ],
+    "data_refreshed_at": "2026-10-01T04:02:11Z",
+    "has_more": true,
+    "next_page": "next_page"
+  },
+  "cost": {
+    "data": [
+      {
+        "cost": {
+          "amount": "41280.000000",
+          "currency": "USD",
+          "list_amount": "51600.000000",
+          "requests": 128
+        },
+        "ending_at": "2026-10-01T00:00:00Z",
+        "group": {
+          "actor": {
+            "deleted": false,
+            "email_address": "user@emaildomain.com",
+            "name": "Jane Doe",
+            "type": "user_actor",
+            "user_id": "user_01WxYzAbCdEfGhJkMnPqRsTu"
+          },
+          "actor_type": "user_actor",
+          "agent_id": "agent_01VHd3EAGJ6PLkP9LM7DDu3f",
+          "api_key_id": "apikey_01Rj2N8SVvo6BePZj99NhmiT",
+          "claude_tag_category": "dm",
+          "claude_tag_user_id": "U0123ABCDEF",
+          "context_window": "0-200k",
+          "cost_type": "tokens",
+          "deployment_id": "depl_01JFC6ihzZHtAuyHsaENdJhY",
+          "environment_id": "env_017oTjuGedHtjhJauVC5xGJD",
+          "inference_geo": "global",
+          "model": "claude-opus-5-5",
+          "organization_id": "12345678-1234-5678-1234-567812345678",
+          "product": "chat",
+          "rbac_group_id": "rbac_group_012rppKaSVsmTo6NqRDXQXNF",
+          "service_tier": "standard",
+          "session_id": "sesn_0187kPDyNCwibNNvfaPEApCJ",
+          "slack_channel_id": "C0123ABCDEF",
+          "speed": "fast",
+          "token_type": "cache_creation.ephemeral_1h_input_tokens",
+          "user_profile_id": "uprof_01M33NeYUQK2WV9PpYcsPHLi",
+          "workspace_id": "wrkspc_01JwQvzr7rXLA5AGx3HKfFUJ"
+        },
+        "starting_at": "2026-09-01T00:00:00Z"
+      }
+    ],
+    "data_refreshed_at": "2026-10-01T04:02:11Z",
+    "has_more": true,
+    "next_page": "next_page"
+  }
+}

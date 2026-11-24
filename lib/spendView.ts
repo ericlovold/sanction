@@ -95,8 +95,8 @@ export function closestToLimit(
     for (const [kind, spentUsd, limitCents] of pairs) {
       if (limitCents === null || spentUsd <= 0) continue
       const limitUsd = limitCents / 100
+      if (spentUsd < limitUsd * (WATCH_PCT / 100)) continue
       const view = meter(spentUsd, limitUsd)
-      if (view.state === "ok" && view.pct < WATCH_PCT) continue
       rows.push({ id: agent.id, name: agent.name, kind, spentUsd, limitUsd, view })
     }
   }

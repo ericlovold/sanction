@@ -67,7 +67,7 @@ export function RunwayChart({
           {area && <polygon points={area} className="sp-area" />}
           {pace.onPace !== null && last >= 0 && (
             <line
-              x1={x(last)} y1={y(spent)} x2={x(daysInMonth - 1)} y2={y(projectedEnd)}
+              x1={x(last)} y1={y(spent)} x2={W} y2={y(projectedEnd)}
               className="sp-line-pace" vectorEffect="non-scaling-stroke"
             />
           )}

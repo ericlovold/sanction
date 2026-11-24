@@ -182,6 +182,13 @@ describe("Spend model inheritance", () => {
     expect(html).toContain("<b>$4.00</b> of $0.00")
   })
 
+  it.each([null, 0])("distinguishes an absent purchase limit from an explicit zero (%s)", async limit => {
+    m.agent.mockResolvedValue({ ...seat("agent-1"), dailySpendBudgetUsd: limit })
+    const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve({ ...params, budget: "daily_spend" }) }))
+    expect(html.includes("No per-agent daily purchase limit applies.")).toBe(limit === null)
+    expect(html).toContain("Show daily values")
+  })
+
   it("does not invent a zero meter when no ancestor has a policy", async () => {
     m.ancestors.mockResolvedValue([{ id: "child", parentId: null, policy: null }])
     const html = renderToStaticMarkup(await SpendPage({ searchParams: Promise.resolve(params) }))

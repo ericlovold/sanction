@@ -11,7 +11,9 @@ export type ProviderId = "anthropic" | "openai" | "gemini" | "perplexity"
 // `isReservedVaultLabel`, which /exec refuses regardless of allow-list or
 // clearance, so a hand-edited row can never open the key to an agent either.
 export const GATEWAY_ONLY_SENTINEL = "gateway-internal-only"
-export const RESERVED_LABEL_PREFIXES = ["provider:", "mcp:"] as const
+// `usage:` rows are provider ADMIN keys held by the usage connectors
+// (lib/connectors/registry.ts): read by the hourly poller only, never by an agent.
+export const RESERVED_LABEL_PREFIXES = ["provider:", "mcp:", "usage:"] as const
 export function isReservedVaultLabel(label: string): boolean {
   return RESERVED_LABEL_PREFIXES.some((p) => label.startsWith(p))
 }

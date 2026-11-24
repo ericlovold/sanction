@@ -28,7 +28,6 @@ export type Pace = {
   pctOfCap: number | null
 }
 
-const DAY_MS = 86_400_000
 // Morning guard: don't extrapolate the first ~72 minutes of a day — one early
 // charge would project absurd end-of-day totals. (Raised from ~30m after the
 // runway board shipped; a 6am charge was still projecting wildly.)
@@ -37,7 +36,9 @@ const MIN_FRACTION = 0.05
 export function dailyPace(spent: number, cap: number | null, now: Date): Pace {
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)
-  const fraction = Math.min(1, (now.getTime() - start.getTime()) / DAY_MS)
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const span = end.getTime() - start.getTime()
+  const fraction = Math.min(1, (now.getTime() - start.getTime()) / span)
   const pctOfCap = cap && cap > 0 ? (spent / cap) * 100 : null
 
   if (spent <= 0 || fraction < MIN_FRACTION) {

@@ -512,7 +512,8 @@
   white-space: nowrap;
 }
 
-.g-seg button[aria-pressed="true"] {
+.g-seg button[aria-pressed="true"],
+.g-seg button[aria-selected="true"] {
   background: var(--d-glass-strong);
   color: var(--d-ink);
   box-shadow: inset 0 1px 0 var(--d-glass-rim-a), 0 0 0 1px var(--d-glass-edge), 0 4px 10px -6px rgba(0, 0, 0, 0.3);
@@ -2012,7 +2013,7 @@ a.sp-limit-name:hover {
 /* charts */
 .sp-charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 26px 32px;
   padding: 18px;
   overflow: visible;
