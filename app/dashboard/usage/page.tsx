@@ -4,6 +4,7 @@ import { NoWallet } from "@/components/no-wallet"
 import { usageView } from "@/lib/usageView"
 import { sourceNames, type UsageSource } from "@/lib/usageObservation"
 import { hasRole } from "@/lib/roles"
+import { BrandIcon, BrandNotice } from "@/components/brand-icon"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Developer usage | Sanction" }
@@ -30,7 +31,7 @@ export default async function UsagePage() {
     </header>
     <section className="grid gap-4 md:grid-cols-2" aria-label="Connection coverage">
       {view.connections.map(c => <article key={c.source} className="space-y-3 rounded-lg border p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-medium">{sourceNames[c.source]}</h2><span className="rounded border px-2 py-1 text-xs">Observation only</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2.5 text-lg font-medium"><BrandIcon brand={c.source} size={24} />{sourceNames[c.source]}</h2><span className="rounded border px-2 py-1 text-xs">Observation only</span></div>
         <p className="font-medium">{c.status}</p>
         <dl className="space-y-1 text-xs text-muted-foreground"><div>Last delivery: {date(c.receivedAt)}</div><div>Latest event: {date(c.occurredAt)}</div></dl>
         <p className="text-xs text-muted-foreground">No recent delivery can mean idle, offline, or unconfigured. It does not mean zero usage.</p>
@@ -50,13 +51,14 @@ export default async function UsagePage() {
           <thead className="border-b bg-muted/30"><tr>{["Session / seat", "Tool", "Model calls", "Input / output tokens", "Reported estimate"].map(s => <th className="px-4 py-3 font-medium" key={s}>{s}</th>)}</tr></thead>
           <tbody>{view.sessions.map(s => <tr key={s.key} className="border-b last:border-0">
             <td className="px-4 py-4"><p>{s.seat}</p><p className="font-mono text-xs" title={s.sessionId}>{s.sessionId.slice(0, 20)}</p><p className="mt-1 text-xs text-muted-foreground">{date(s.lastEvent)}</p></td>
-            <td className="px-4 py-4">{sourceNames[s.source as UsageSource]}</td>
+            <td className="px-4 py-4"><span className="inline-flex items-center gap-2 whitespace-nowrap"><BrandIcon brand={s.source} size={18} />{sourceNames[s.source as UsageSource]}</span></td>
             <td className="px-4 py-4">{s.modelCalls}</td>
             <td className="px-4 py-4">{s.modelCalls && s.unmeteredCalls < s.modelCalls ? `${s.tokensIn.toLocaleString()} / ${s.tokensOut.toLocaleString()}${s.unmeteredCalls ? " · partial" : ""}` : "Unavailable"}</td>
             <td className="px-4 py-4">{!s.modelCalls || s.unpricedCalls === s.modelCalls ? "Unavailable" : `$${s.estimatedCost.toFixed(4)}${s.unpricedCalls ? " · partial" : ""}`}</td>
           </tr>)}</tbody>
         </table></div>}
       <p className="text-xs text-muted-foreground">Client-reported values, not invoices. Claude cache tokens are stored separately; Codex cached tokens are included in its input count. Unknown prices remain unavailable.</p>
+      <BrandNotice />
     </section>
     <section className="space-y-3 rounded-lg border p-5">
       <h2 className="text-xl font-medium">Usage reporting and approvals</h2>
