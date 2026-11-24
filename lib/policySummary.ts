@@ -53,9 +53,10 @@ export function policySummary(p: SummaryPolicy): string[] {
       (p.monthly_spend_budget_usd !== null ? ` and ${fmtUsd(p.monthly_spend_budget_usd)} a month` : "") +
       `. Each agent's model spend stops at ${fmtUsd(p.daily_token_budget_usd)} a day` +
       (monthlyModel !== null ? ` and ${fmtUsd(monthlyModel)} a month` : "") +
-      // The wallet's numbers are defaults: /authorize and the gateway read the
+      // Daily purchase and model-spend limits are defaults; monthly purchases
+      // have no agent override. /authorize and the gateway read the
       // agent's own limit first (agent.dailySpendBudgetUsd ?? policy...).
-      ". These are defaults: an agent with its own limit uses that instead.",
+      ". The daily purchase and model-spend limits are defaults; an agent’s own limit replaces the corresponding default.",
   )
 
   const pooledPurchases = p.subtree_daily_cap_usd ?? null
