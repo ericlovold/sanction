@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
 export const metadata: Metadata = {
-  title: "AI tools | Sanction",
+  title: "Tool billing | Sanction",
   description: "Connect your AI tools and see usage and spend in one place.",
 }
 
@@ -148,12 +148,18 @@ export default async function AiSpendPage({ searchParams }: { searchParams: Prom
   return (
     <div className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">AI tools</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Tool billing</h1>
         <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
           Connect the AI tools your team pays for and see who is spending what, in one place. These numbers are pulled from each
           tool&apos;s own reporting, so they run behind real time. Sanction watches them for runaway jobs and tells you; it cannot stop
           a tool that does not route through it.
         </p>
+        {wallet.isSession && (
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm underline">
+            <Link href="/dashboard/usage/cursor">Cursor billing export</Link>
+            <Link href="/dashboard/usage/grok-bot">Grok Bot billing export</Link>
+          </div>
+        )}
         {view.connections.length > 0 && (
           <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {view.connections.map((c) => (

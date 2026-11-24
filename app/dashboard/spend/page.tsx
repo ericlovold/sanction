@@ -239,9 +239,9 @@ export default async function SpendPage({ searchParams }: {
   return (
     <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
       <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Spend &amp; token usage</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Spend &amp; budgets</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Where the money goes — token burn and purchases against their budgets, by agent, model, and task.
+          Recorded model costs and authorized spend by agent, model, and task.
         </p>
       </div>
 

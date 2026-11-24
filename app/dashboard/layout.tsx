@@ -2,6 +2,7 @@ import { getViewWallet, listViewWallets } from "@/lib/session"
 import { db } from "@/lib/db"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { AccountControl } from "@/components/account-control"
+import { UsageReportNav } from "@/components/usage-report-nav"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { WalletSwitcher } from "@/components/wallet-switcher"
 import { SwRegister } from "@/components/sw-register"
@@ -48,7 +49,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         account={<AccountControl view={view} />}
         switcher={sessionWallets.length > 1 ? <WalletSwitcher wallets={sessionWallets} activeId={view.id} /> : undefined}
       />
-      <main className="dash-main dash-main-pad">{children}</main>
+      <main className="dash-main dash-main-pad">
+        <UsageReportNav />
+        {children}
+      </main>
       </div>
       <SwRegister />
       {process.env.NODE_ENV !== "production" && (

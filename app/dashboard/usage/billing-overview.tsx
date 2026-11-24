@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { db } from "@/lib/db"
 import { billingProductNames, type BillingProduct } from "@/lib/cursorBilling"
 import { getDailyUsage } from "./cursor/daily-usage"
@@ -20,7 +19,6 @@ export async function billingOverview(wallet: { id: string; name: string }, canI
     _sum: { promptTokens: true, completionTokens: true, cachedPromptTokens: true, cacheWriteTokens: true, contracted: true },
   })])
   return <div className="mx-auto max-w-7xl space-y-6 p-5 md:p-10">
-    <Link className="text-sm underline" href="/dashboard/usage">Developer usage</Link>
     <h1 className="text-3xl font-semibold">{billingProductNames[product]} billing export</h1>
     <p className="text-sm text-muted-foreground">Provider-reported billing items imported into {wallet.name}. These amounts are separate from governed spend and budgets.</p>
     {canImport && <BillingImportForm product={product} walletId={wallet.id} walletName={wallet.name} />}

@@ -37,6 +37,9 @@ it.each([
   const html = renderToStaticMarkup(await AiSpendPage({ searchParams: Promise.resolve({}) }))
   expect(html).toContain("One person passed the daily spend line")
   expect(html).toContain("$100.00")
+  for (const path of ["/dashboard/usage/cursor", "/dashboard/usage/grok-bot"]) {
+    expect(html.includes(`href="${path}"`)).toBe(isSession)
+  }
   for (const value of ["person@example.test", "$72.00", "$50.00", "$63.00", "$11.00", "98,765,432 cache reads", "4,321 requests", "sync@example.test", "View sources for this day"]) {
     expect(html.includes(value)).toBe(privateDetails)
   }
