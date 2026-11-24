@@ -7,6 +7,7 @@ import { getViewWallet } from "@/lib/session"
 import { hasRole } from "@/lib/roles"
 import { getRoster, getWaiting, type RosterGroup } from "@/lib/roster"
 import { HomeOverview } from "@/components/home-overview"
+import { recentHighCursorDay } from "@/lib/homeCursorIncident"
 import { homeOverview } from "@/lib/homeOverview"
 import { SetupContinuation } from "@/components/setup-continuation"
 import { FirstHourChecklist } from "@/components/first-hour-checklist"
@@ -56,7 +57,10 @@ export default async function Dashboard() {
     where: { ownerWalletId: view.id, completedAt: { not: null }, executionCount: 1, initialStopped: true, changedStopped: true, reuseStopped: true },
     select: { id: true },
   })
-  const [roster, waiting, overview] = await Promise.all([getRoster(view.id, now), getWaiting(view.id, 3, now), homeOverview(view.id, now)])
+  const [roster, waiting, overview, cursorDay] = await Promise.all([
+    getRoster(view.id, now), getWaiting(view.id, 3, now), homeOverview(view.id, now),
+    view.isSession ? recentHighCursorDay(view.id, now) : null,
+  ])
   const isDemo = !view.isSession && process.env.SANCTION_WALLET_ID === view.id
   const canAdd = hasRole(view.role, "admin")
 
@@ -165,6 +169,21 @@ export default async function Dashboard() {
           </ul>
         )}
       </section>
+
+      {cursorDay && (
+        <section className="home-section" aria-labelledby="home-cursor-volume">
+          <div className="g-glass rounded-xl border border-border p-5">
+            <h2 id="home-cursor-volume" className="home-h2">High Cursor usage on {cursorDay.day} UTC</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your personal billing export shows {cursorDay.items.toLocaleString("en-US")} billing items
+              {cursorDay.tokens !== null && <> and {cursorDay.tokens.toLocaleString("en-US")} reported tokens</>}.
+            </p>
+            <Link href={`/dashboard/usage/cursor?day=${cursorDay.day}#incident`} className="home-link mt-3 inline-block">
+              Investigate this day
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Keep unfinished setup visible; completed setup remains available below. */}
       {setup && !setupComplete && <div className="home-section">{setup}</div>}
