@@ -48,7 +48,7 @@ export function zoneLabel(now: Date): string {
 
 /** One sentence under a daily meter: where today is heading, or that it has arrived. */
 export function paceNote(spent: number, limit: number, now: Date): string | null {
-  if (limit <= 0 || spent >= limit) return "At the limit. New requests are refused until the day resets."
+  if (limit <= 0 || spent >= limit) return "Recorded usage meets this limit; live available budget may differ."
   const pace = dailyPace(spent, limit, now)
   if (pace.onPace === null) return null
   if (!pace.exhaustAt) return `At this pace, about ${fmtUsd(pace.onPace)} by midnight.`
@@ -131,4 +131,9 @@ const REASONS: Record<string, string> = {
 
 export function denialReason(code: string): string {
   return REASONS[code] ?? "refused by policy"
+}
+
+/** Count people-facing agent rows, not one row per budget kind. */
+export function countAgentsAtLimit(rows: LimitRow[]): number {
+  return new Set(rows.filter((row) => row.view.state === "at").map((row) => row.id)).size
 }

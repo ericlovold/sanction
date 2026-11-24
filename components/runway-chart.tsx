@@ -100,6 +100,19 @@ export function RunwayChart({
         <span>{month} {daysInMonth}</span>
       </div>
 
+      <details className="sp-run-data">
+        <summary>View daily values for {label.toLowerCase()}</summary>
+        <table>
+          <caption>{label} in {month}: recorded daily and cumulative totals</caption>
+          <thead><tr><th scope="col">Day</th><th scope="col">That day</th><th scope="col">So far</th></tr></thead>
+          <tbody>
+            {days.map((value, i) => (
+              <tr key={i}><th scope="row">{month} {i + 1}</th><td>{fmtUsd(value)}</td><td>{fmtUsd(cum[i])}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+
       <p className={`sp-run-note${atCap || pace.willExhaust ? " sp-run-warn" : ""}`}>
         {spent <= 0
           ? "Nothing yet this month."

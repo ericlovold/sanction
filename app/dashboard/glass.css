@@ -2434,3 +2434,12 @@ a.sp-brk-link:hover {
     padding: 14px 16px;
   }
 }
+
+/* Native details makes the chart's exact values available without hovering. */
+.sp-run-data { margin-top: 12px; font-size: 12px; color: var(--d-ink-2); }
+.sp-run-data summary { cursor: pointer; }
+.sp-run-data summary:focus-visible { outline: 2px solid var(--d-ink); outline-offset: 4px; }
+.sp-run-data table { width: 100%; margin-top: 10px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sp-run-data caption { text-align: left; padding-bottom: 8px; }
+.sp-run-data th, .sp-run-data td { text-align: right; padding: 4px; }
+.sp-run-data th:first-child { text-align: left; }

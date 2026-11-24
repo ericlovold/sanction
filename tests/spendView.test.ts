@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { closestToLimit, denialReason, meter, paceNote, shares, zoneLabel, type LimitAgent } from "../lib/spendView"
+import { closestToLimit, countAgentsAtLimit, denialReason, meter, paceNote, shares, zoneLabel, type LimitAgent } from "../lib/spendView"
 
 describe("meter", () => {
   it("reads within, close and at the limit", () => {
@@ -69,8 +69,8 @@ describe("paceNote", () => {
   const noon = new Date(2026, 10, 21, 12, 0, 0)
 
   it("says the limit is reached, including a zero limit", () => {
-    expect(paceNote(10, 10, noon)).toBe("At the limit. New requests are refused until the day resets.")
-    expect(paceNote(0, 0, noon)).toBe("At the limit. New requests are refused until the day resets.")
+    expect(paceNote(10, 10, noon)).toBe("Recorded usage meets this limit; live available budget may differ.")
+    expect(paceNote(0, 0, noon)).toBe("Recorded usage meets this limit; live available budget may differ.")
   })
 
   it("projects to midnight when the day will end under the limit", () => {
@@ -104,5 +104,17 @@ describe("shares, zoneLabel and denialReason", () => {
     expect(denialReason("PER_TXN_LIMIT")).toBe("over the largest single purchase")
     expect(denialReason("DAILY_BUDGET_EXCEEDED")).toBe("over its daily limit")
     expect(denialReason("SOMETHING_NEW")).toBe("refused by policy")
+  })
+})
+
+
+describe("agent counts", () => {
+  it("counts an agent once when both model and purchase usage meet limits", () => {
+    const rows = closestToLimit([
+      { id: "both", name: "Both", modelLimitCents: 100, purchaseLimitCents: 100 },
+      { id: "near", name: "Near", modelLimitCents: 100, purchaseLimitCents: null },
+    ], new Map([["both", { model: 1, purchases: 1 }], ["near", { model: 0.9, purchases: 0 }]]))
+    expect(rows).toHaveLength(3)
+    expect(countAgentsAtLimit(rows)).toBe(1)
   })
 })

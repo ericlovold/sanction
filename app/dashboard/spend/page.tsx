@@ -17,7 +17,7 @@ import { SpendBreakdown, type BreakdownTab } from "@/components/spend-breakdown"
 import { decisionsThisMonth } from "@/lib/decisionMeter"
 import { seatHealth, type SeatHealthInput } from "@/lib/seatHealth"
 import { decisionCode } from "@/lib/decisions"
-import { closestToLimit, denialReason, meter, paceNote, shares, zoneLabel } from "@/lib/spendView"
+import { closestToLimit, countAgentsAtLimit, denialReason, meter, paceNote, shares, zoneLabel } from "@/lib/spendView"
 
 export const dynamic = "force-dynamic"
 
@@ -299,7 +299,7 @@ export default async function SpendPage({ searchParams }: {
   // The two caps that add every agent together. Everything else is per agent.
   const pooledPurchases = s.policy?.subtreeDailyCapUsd != null ? s.policy.subtreeDailyCapUsd / 100 : null
   const pooledModel = s.policy?.subtreeDailyTokenCapUsd != null ? s.policy.subtreeDailyTokenCapUsd / 100 : null
-  const atLimit = s.limitRows.filter((r) => r.view.state === "at").length
+  const atLimit = countAgentsAtLimit(s.limitRows)
   // The counter can trail the rows it counts (it is written after the
   // response), so never show fewer decisions than there are recorded outcomes.
   const decided = Math.max(s.decisions, (s.mix.approved ?? 0) + (s.mix.denied ?? 0) + (s.mix.escalated ?? 0))
@@ -396,6 +396,13 @@ export default async function SpendPage({ searchParams }: {
         What your agents cost on models and on purchases, for this wallet and every group below it.
       </p>
 
+      <p className="pol-hint">
+        Recorded usage, not live available budget. Model totals come from token logs; unreported calls and
+        outstanding gateway holds are not included. Purchases are approved authorization amounts, not confirmed
+        payments, grouped by request creation time and including approvals whose grants have not been redeemed.
+        Budget decisions also account for grant state, decision time, reservations, and observe mode.
+      </p>
+
       {requestedWallet && (
         <section className="g-panel sp-review" aria-labelledby="sp-review">
           <h2 id="sp-review" className="home-h2">Budget review · {s.wallet?.name}</h2>
@@ -464,7 +471,7 @@ export default async function SpendPage({ searchParams }: {
       <section className="home-section" aria-labelledby="sp-limits">
         <div className="home-section-head">
           <h2 id="sp-limits" className="home-h2">
-            Daily limits{atLimit > 0 && <span>{plural(atLimit, "agent", "agents")} at a limit</span>}
+            Recorded usage against daily limits{atLimit > 0 && <span>{plural(atLimit, "agent", "agents")} with recorded usage at a limit</span>}
           </h2>
         </div>
         <p className="pol-lede">
@@ -474,7 +481,7 @@ export default async function SpendPage({ searchParams }: {
               ? `Its agents inherit a default model limit of ${fmtUsd(s.modelDefaultCents / 100)} a day from the nearest policy above this wallet, unless an agent sets its own.`
               : "No per-agent daily model limit applies unless an agent sets its own."}`}{" "}
           {pooledPurchases === null && pooledModel === null && s.policy
-            ? "Nothing here caps all agents together."
+            ? "This wallet sets no shared cap; a policy above it may still apply."
             : ""}
         </p>
 
@@ -488,7 +495,7 @@ export default async function SpendPage({ searchParams }: {
 
         {(pooledPurchases !== null || pooledModel !== null) && (
           <div className="g-panel sp-pooled">
-            <p className="sp-pooled-title">All agents together, today</p>
+            <p className="sp-pooled-title">Recorded usage across all agents, today</p>
             <div className="sp-meters">
               {pooledModel !== null && (
                 <Meter label="Model spend" spent={modelDay} limit={pooledModel} note={paceNote(modelDay, pooledModel, now)} />
@@ -502,7 +509,7 @@ export default async function SpendPage({ searchParams }: {
 
         <div className="g-panel">
           {s.limitRows.length === 0 ? (
-            <p className="g-empty">No agent has used half of a daily limit today.</p>
+            <p className="g-empty">No recorded usage reaches half of an applicable daily limit today.</p>
           ) : (
             <div className="sp-limits">
               {s.limitRows.slice(0, LIMIT_ROWS).map((row) => (
@@ -518,9 +525,7 @@ export default async function SpendPage({ searchParams }: {
                   limit={row.limitUsd}
                   note={
                     row.view.state === "at"
-                      ? row.kind === "model"
-                        ? "At its limit. Its model calls are refused until the day resets."
-                        : "At its limit. Its purchases are refused until the day resets."
+                      ? "Recorded usage meets this limit. This does not establish whether the next request will be refused."
                       : undefined
                   }
                 />
