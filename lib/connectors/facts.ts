@@ -9,8 +9,13 @@ export const DAY_MS = 86_400_000
 
 export type CostBasis =
   | "billed" // the provider charged this
+  | "allocated" // an hourly share of a billed daily amount
   | "included" // usage the plan already covers; a value, not an extra charge
   | "estimated" // tokens x a price table, to be reconciled later
+
+export function isBilledCost(basis: string): boolean {
+  return basis === "billed" || basis === "allocated"
+}
 
 export type FactInput = {
   provider: string
@@ -73,6 +78,8 @@ export class ConnectorError extends Error {
 
 // Failures that will not heal by retrying: the poller stops until a human
 // reconnects, instead of sending a dead key to the provider every hour.
+export const reconnectCodes = ["bad_key", "plan_unsupported", "missing_credential"]
+
 export function needsReconnect(kind: string | null | undefined): boolean {
-  return kind === "bad_key" || kind === "plan_unsupported" || kind === "missing_credential"
+  return kind != null && reconnectCodes.includes(kind)
 }

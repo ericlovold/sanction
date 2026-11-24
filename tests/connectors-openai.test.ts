@@ -51,7 +51,7 @@ describe("contract: OpenAI's documented responses", () => {
 
   it("normalizes the documented examples: tokens split by type, six cents billed", () => {
     const [fact] = normalizeOpenAiBuckets(parseOpenAiUsagePage(docs.usage).data, parseOpenAiCostsPage(docs.costs).data)
-    expect(fact).toMatchObject({ provider: "openai", surface: "api", rawIdentity: "unattributed", identityType: "unattributed", model: "(no model)", requests: 5, costBasis: "billed" })
+    expect(fact).toMatchObject({ provider: "openai", surface: "api", rawIdentity: "unattributed", identityType: "unattributed", model: "(no model)", requests: 5, costBasis: "allocated" })
     expect([fact.inputTokens, fact.cacheReadTokens, fact.cacheWriteTokens, fact.outputTokens]).toEqual([BigInt(500), BigInt(400), BigInt(100), BigInt(500)])
     expect(fact.costNanos).toBe(toNanos("0.06", "usd"))
   })
@@ -102,7 +102,7 @@ describe("fetchOpenAiUsageAndCosts", () => {
     expect(c.pathname).toBe(OPENAI_COSTS_PATH)
     expect(Object.fromEntries(c.searchParams)).toMatchObject({ bucket_width: "1d", limit: "180" })
     // No model on the cost side: OpenAI does not offer it.
-    expect(c.searchParams.getAll("group_by")).toEqual(["user_id", "api_key_id"])
+    expect(c.searchParams.getAll("group_by")).toEqual(["user_id", "api_key_id", "line_item"])
   })
 
   it("follows the cursor on each endpoint", async () => {
@@ -140,7 +140,8 @@ describe("fetchOpenAiUsageAndCosts", () => {
   it("waits once on a 429, and stops on a cursor that never ends or goes missing", async () => {
     const sleep = vi.fn(async () => {})
     const recovered = vi.fn().mockResolvedValueOnce(json({}, 429, { "retry-after": "7" })).mockImplementation(async () => json(page([])))
-    await fetchOpenAiUsageAndCosts("k", { startMs: D0, endMs: D0 + HOUR }, { fetch: recovered as never, sleep, take: async () => {} })
+    const retried = await fetchOpenAiUsageAndCosts("k", { startMs: D0, endMs: D0 + HOUR }, { fetch: recovered as never, sleep, take: async () => {} })
+    expect(retried.httpCalls).toBe(3)
     expect(sleep).toHaveBeenCalledExactlyOnceWith(7000)
     await expect(fetchOpenAiUsageAndCosts("k", { startMs: D0, endMs: D0 + HOUR }, { fetch: vi.fn(async () => json({}, 429)) as never, sleep, take: async () => {} })).rejects.toMatchObject({ kind: "rate_limited" })
     const forever = vi.fn(async () => json(page([], "0")))
@@ -183,8 +184,8 @@ describe("normalizeOpenAiBuckets: daily money onto hourly tokens", () => {
       [costBucket(0, [{ value: 8 }])],
     )
     expect(facts.map((f) => [f.bucketStart.toISOString().slice(11, 16), f.model, f.costNanos, f.costBasis])).toEqual([
-      ["09:00", "gpt-big", usd(6), "billed"],
-      ["10:00", "gpt-small", usd(2), "billed"],
+      ["09:00", "gpt-big", usd(6), "allocated"],
+      ["10:00", "gpt-small", usd(2), "allocated"],
     ])
     expect(facts.every((f) => f.rawIdentity === "user-a" && f.identityType === "user" && f.bucketEnd.getTime() - f.bucketStart.getTime() === HOUR)).toBe(true)
   })
@@ -198,7 +199,7 @@ describe("normalizeOpenAiBuckets: daily money onto hourly tokens", () => {
     expect(total("user-b", 0)).toBe(toNanos("0.07", "usd"))
     expect(total("user-a", 1)).toBe(toNanos("3.1", "usd"))
     expect(total("user-b", 1)).toBe(toNanos("41.99", "usd"))
-    expect(facts.every((f) => f.costBasis === "billed")).toBe(true)
+    expect(facts.every((f) => f.costBasis === "allocated")).toBe(true)
   })
 
   it("estimates a day OpenAI has not priced yet from the person's own recent cost per token", () => {
@@ -236,8 +237,30 @@ describe("normalizeOpenAiBuckets: daily money onto hourly tokens", () => {
 
   it("a credit (negative cost) is kept as its own row, never spread over hours", () => {
     const facts = normalize([usageBucket(2, [{ input: 100 }])], [costBucket(0, [{ value: -5 }])])
-    expect(facts.find((f) => f.model === "(other usage)")!.costNanos).toBe(usd(-5))
+    expect(facts.find((f) => f.model === "(credit)")!.costNanos).toBe(usd(-5))
     expect(facts.find((f) => f.model === "gpt-big")!.costNanos).toBe(BigInt(0))
+  })
+
+  it("keeps charges and credits distinct on a mixed day with or without usage", () => {
+    const costs = [costBucket(0, [{ value: 100 }, { value: -95 }])]
+    for (const usage of [[], [usageBucket(2, [{}])]]) {
+      const facts = normalize(usage, costs)
+      expect(facts).toHaveLength(2)
+      expect(sumNanos(facts.map(f => f.costNanos))).toBe(usd(5))
+      expect(facts.find(f => f.costNanos > 0)?.costNanos).toBe(usd(100))
+      const credit = facts.find(f => f.model === "(credit)")!
+      expect(credit.costNanos).toBe(usd(-95))
+      expect(credit.bucketEnd.getTime() - credit.bucketStart.getTime()).toBe(DAY)
+    }
+  })
+
+  it("allocates a single remaining nano to the same hour and model after reordering", () => {
+    const a = usageBucket(1, [{ model: "b" }, { model: "a" }])
+    const b = usageBucket(2, [{}])
+    const costs = [costBucket(0, [{ value: 0.000000001 }])]
+    const facts = normalize([a, b], costs)
+    expect(facts.find(f => f.costNanos === BigInt(1))?.model).toBe("a")
+    expect(normalize([b, { ...a, results: [...a.results].reverse() }], costs)).toEqual(facts)
   })
 
   it("identifies by user, else API key, else unattributed, the same way on both sides", () => {

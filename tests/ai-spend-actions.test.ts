@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const m = vi.hoisted(() => {
   const tx = {
+    usageConnection: { update: vi.fn() },
     credentialVault: { deleteMany: vi.fn(), create: vi.fn() },
     usageFact: { deleteMany: vi.fn(), groupBy: vi.fn() },
     usageAlert: { deleteMany: vi.fn() },
@@ -95,11 +96,11 @@ describe("connectUsageToolAction", () => {
     expect(stored).toMatchObject({ walletId: "w_1", label: "usage:cursor:conn_1", encryptedValue: "ciphertext", keyId: "wk_1", minClearance: 5 })
     expect(stored.allowedAgentIds).toEqual(["gateway-internal-only"])
     expect(JSON.stringify(stored)).not.toContain(KEY)
-    expect(m.db.usageConnection.update).toHaveBeenCalledWith({ where: { id: "conn_1" }, data: { credentialId: "cred_1" } })
+    expect(m.tx.usageConnection.update).toHaveBeenCalledWith({ where: { id: "conn_1", walletId: "w_1" }, data: { credentialId: "cred_1" } })
     expect(m.sync).toHaveBeenCalledWith("conn_1", expect.objectContaining({ trigger: "connect_test", actorEmail: "admin@example.test" }))
     expect(JSON.stringify(result)).not.toContain(KEY)
     // Re-keying resets the watermark so history is re-read under the same row.
-    expect(m.db.usageConnection.upsert.mock.calls[0][0].update).toMatchObject({ syncedThrough: null, status: "active", disconnectedAt: null })
+    expect(m.tx.usageConnection.update.mock.calls[0][0].data).toMatchObject({ syncedThrough: null, status: "active", disconnectedAt: null })
   })
 
   it("attributes a legacy key session to the wallet owner, and says so when the first pull fails", async () => {
@@ -135,7 +136,7 @@ describe("disconnectUsageToolAction", () => {
     await disconnectUsageToolAction(form({ connection_id: "someone-elses" }))
     expect(m.db.usageConnection.findFirst).toHaveBeenCalledExactlyOnceWith({ where: { id: "someone-elses", walletId: "w_1" } })
     expect(m.tx.credentialVault.deleteMany).not.toHaveBeenCalled()
-    expect(m.db.usageConnection.update).not.toHaveBeenCalled()
+    expect(m.tx.usageConnection.update).not.toHaveBeenCalled()
   })
 
   it("hard-deletes the stored key and keeps history by default", async () => {
@@ -143,7 +144,7 @@ describe("disconnectUsageToolAction", () => {
     await disconnectUsageToolAction(form({ connection_id: "conn_1" }))
     expect(m.tx.credentialVault.deleteMany).toHaveBeenCalledWith({ where: { walletId: "w_1", label: "usage:cursor:conn_1" } })
     expect(m.tx.usageFact.deleteMany).not.toHaveBeenCalled()
-    expect(m.db.usageConnection.update.mock.calls[0][0].data).toMatchObject({ status: "disconnected", credentialId: null })
+    expect(m.tx.usageConnection.update.mock.calls[0][0].data).toMatchObject({ status: "disconnected", credentialId: null })
   })
 
   it("deletes usage data too when asked", async () => {

@@ -135,7 +135,7 @@ describe("fetchAnthropicUsageAndCost", () => {
   it("reports the EARLIER refresh time of the two endpoints, and null when either has no data yet", async () => {
     const mixed = serving([page([usageRow(0)], null, "2026-11-23T04:00:00Z")], [page([costRow(0, "1")], null, "2026-11-23T02:00:00Z")])
     expect((await fetchAnthropicUsageAndCost("k", { startMs: start, endMs: start + HOUR }, { fetch: mixed as never, ...noWait })).refreshedAt?.toISOString()).toBe("2026-11-23T02:00:00.000Z")
-    const none = serving([page([], null, null)], [page([], null, null)])
+    const none = serving([page([])], [page([], null, null)])
     expect(await fetchAnthropicUsageAndCost("k", { startMs: start, endMs: start + HOUR }, { fetch: none as never, ...noWait })).toMatchObject({ refreshedAt: null, usage: [], cost: [] })
   })
 
@@ -227,6 +227,14 @@ describe("normalizeAnthropicRows", () => {
     ])
   })
 
+  it("combines distinct products with the same persisted surface", () => {
+    const api = { product: "messages_api" }
+    const batches = { product: "message_batches_api" }
+    const facts = rows([usageRow(0, api), usageRow(0, batches)], [costRow(0, "100", api), costRow(0, "200", batches)])
+    expect(facts).toHaveLength(1)
+    expect(facts[0]).toMatchObject({ surface: "api", requests: 8, inputTokens: BigInt(2000), costNanos: toNanos(3, "usd") })
+  })
+
   it("maps every kind of actor to a stable identity", () => {
     const of = (actor: unknown) => rows([usageRow(0, { actor })], [])[0]
     expect(of({ type: "user_actor", user_id: "user_9", email_address: null, deleted: true })).toMatchObject({ rawIdentity: "user_9", identityType: "user" })
@@ -266,6 +274,26 @@ describe("the anthropic adapter", () => {
     expect(pulled).toMatchObject({ fromMs: start, httpCalls: 2, refreshedAt: new Date("2026-11-23T04:00:00Z") })
     expect(pulled.facts).toHaveLength(1)
     expect(adapter.endpoint).toBe("/v1/organizations/analytics/usage + /v1/organizations/analytics/cost")
+  })
+
+  it("reads catch-up windows in consecutive ranges of at most 31 days", async () => {
+    const cut = start + 31 * 24 * HOUR
+    const end = cut + 24 * HOUR
+    const fetchMock = vi.fn(async (url: string) => {
+      const u = new URL(url)
+      const hour = Date.parse(u.searchParams.get("starting_at")!) === start ? 0 : 31 * 24
+      const data = u.pathname === ANTHROPIC_USAGE_PATH ? [usageRow(hour)] : [costRow(hour, "150")]
+      return json(page(data))
+    })
+    const pulled = await adapterFor("anthropic")!.pull("k", { startMs: start, endMs: end }, { fetch: fetchMock as never, ...noWait })
+    const ranges = fetchMock.mock.calls.map(([url]) => {
+      const q = new URL(url).searchParams
+      return [Date.parse(q.get("starting_at")!), Date.parse(q.get("ending_at")!)]
+    })
+    expect(ranges).toEqual([[start, cut], [start, cut], [cut, end], [cut, end]])
+    expect(pulled.fromMs).toBe(start)
+    expect(pulled.httpCalls).toBe(4)
+    expect(pulled.facts.map(f => f.bucketStart.getTime())).toEqual([start, cut])
   })
 
   it("probes the last 24 whole hours, and Cursor's adapter probes the last hour", async () => {

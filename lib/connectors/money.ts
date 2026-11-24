@@ -45,7 +45,7 @@ export function toNanos(value: string | number, unit: MoneyUnit): bigint {
     if (shift > 40) throw new Error("Money value out of range")
     nanos = digits * BigInt(10) ** BigInt(shift)
   } else {
-    if (shift < -400) return BigInt(0)
+    if (-shift > whole.length + fraction.length) return BigInt(0)
     const divisor = BigInt(10) ** BigInt(-shift)
     const quotient = digits / divisor
     const remainder = digits % divisor

@@ -4,7 +4,7 @@
 
 import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
-import { DAY_MS, needsReconnect } from "./facts"
+import { DAY_MS, isBilledCost, needsReconnect } from "./facts"
 import type { AlertEvidence } from "./guardrails"
 import { KEY_AGE_WARNING_DAYS, usageProvider } from "./registry"
 
@@ -50,14 +50,14 @@ export async function aiSpendView(walletId: string, now = new Date()) {
   const from = chartStart < lastMonthStart ? chartStart : lastMonthStart
 
   const connections = await db.usageConnection.findMany({
-    where: { walletId, status: { not: "disconnected" } },
+    where: { walletId },
     orderBy: { connectedAt: "asc" },
   })
 
   const { hourly, people, alerts, runs, refreshed } = await withTenant(walletId, async (tx) => ({
     // How current each connection's data is by the provider's own account
     // (Anthropic states it; for Cursor it is our pull time).
-    refreshed: await tx.usageFact.groupBy({ by: ["connectionId"], where: { walletId }, _max: { sourceRefreshedAt: true } }),
+    refreshed: await tx.usageFact.groupBy({ by: ["connectionId"], where: { walletId, bucketStart: { gte: from } }, _max: { sourceRefreshedAt: true } }),
     // Hour x provider x basis is small (30 days is 720 hours a provider) and
     // folds into days, months and the split in one pass.
     hourly: await tx.usageFact.groupBy({
@@ -74,6 +74,9 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     runs: await tx.usageSyncRun.findMany({ where: { walletId }, orderBy: { startedAt: "desc" }, take: 10 }),
   }))
 
+  const refreshedById = new Map(refreshed.map((r) => [r.connectionId, r._max.sourceRefreshedAt]))
+  const sources = connections.filter((c) => c.status !== "disconnected" || refreshedById.has(c.id))
+
   let monthToDate = ZERO
   let monthBilled = ZERO
   let monthEstimated = ZERO
@@ -89,7 +92,7 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     const t = row.bucketStart.getTime()
     if (t >= monthStart.getTime()) {
       monthToDate += cost
-      if (row.costBasis === "billed") monthBilled += cost
+      if (isBilledCost(row.costBasis)) monthBilled += cost
       if (row.costBasis === "estimated") monthEstimated += cost
       monthByProvider.set(row.provider, (monthByProvider.get(row.provider) ?? ZERO) + cost)
     } else if (t >= lastMonthStart.getTime()) {
@@ -120,7 +123,7 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     const who = row.rawIdentity
     const p = byPerson.get(who) ?? { identity: who, identityType: row.identityType, cost: ZERO, billed: ZERO, tokens: ZERO, requests: 0, topModel: row.model, tools: [] }
     p.cost += cost
-    if (row.costBasis === "billed") p.billed += cost
+    if (isBilledCost(row.costBasis)) p.billed += cost
     p.tokens += (row._sum.inputTokens ?? ZERO) + (row._sum.outputTokens ?? ZERO) + (row._sum.cacheReadTokens ?? ZERO) + (row._sum.cacheWriteTokens ?? ZERO)
     p.requests += row._sum.requests ?? 0
     byPerson.set(who, p)
@@ -144,8 +147,9 @@ export async function aiSpendView(walletId: string, now = new Date()) {
     // Not billed yet: a provider that prices by the day has not priced it.
     monthEstimated,
     lastMonth,
-    // Last month is only whole if a connection was pulling before it began.
-    lastMonthPartial: !connections.some((c) => c.connectedAt.getTime() - 30 * DAY_MS <= lastMonthStart.getTime()),
+    lastMonthPartial: !sources.length || sources.some((c) =>
+      c.connectedAt.getTime() - (usageProvider(c.provider)?.backfillDays ?? 30) * DAY_MS > lastMonthStart.getTime() ||
+      !c.lastSuccessAt || c.lastSuccessAt < monthStart),
     forecast: forecastMonthEnd(monthToDate, now),
     monthByProvider: [...monthByProvider.entries()].sort(desc((e) => e[1])),
     days,
@@ -155,17 +159,18 @@ export async function aiSpendView(walletId: string, now = new Date()) {
       .sort(desc((m) => m.cost))
       .slice(0, 5),
     alerts: alerts.map((a) => ({ ...a, evidence: a.evidence as unknown as AlertEvidence })),
-    connections: connections.map((c) => {
+    connections: sources.map((c) => {
       const provider = usageProvider(c.provider)
       return {
         id: c.id,
         provider: c.provider,
+        historical: c.status === "disconnected",
         connectedAt: c.connectedAt,
         connectedByEmail: c.connectedByEmail,
         lastSuccessAt: c.lastSuccessAt,
         // "Data as of": the provider's refresh time when it reports one that
         // is older than our last pull, never newer than what we hold.
-        dataAsOf: refreshed.find((r) => r.connectionId === c.id)?._max.sourceRefreshedAt ?? c.lastSuccessAt,
+        dataAsOf: refreshedById.get(c.id) ?? c.lastSuccessAt,
         lastAttemptAt: c.lastAttemptAt,
         statusDetail: c.statusDetail,
         health: connectionHealth(c, provider?.expectedFreshnessMs ?? 3_600_000, now),

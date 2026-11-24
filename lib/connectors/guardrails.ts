@@ -84,6 +84,12 @@ function add(map: Map<string, bigint>, key: string, value: bigint) {
   map.set(key, (map.get(key) ?? ZERO) + value)
 }
 
+function appendFact<K>(groups: Map<K, GuardFact[]>, key: K, fact: GuardFact) {
+  const group = groups.get(key)
+  if (group) group.push(fact)
+  else groups.set(key, [fact])
+}
+
 function total(facts: GuardFact[]): bigint {
   let sum = ZERO
   for (const f of facts) sum += f.costNanos
@@ -128,7 +134,7 @@ function narrowSubject(facts: GuardFact[], threshold: bigint): { subjectType: Al
   for (const [subjectType, ref] of [["automation", "automationRef"], ["conversation", "sessionRef"]] as const) {
     const byRef = new Map<string, bigint>()
     for (const f of facts) if (f[ref]) add(byRef, f[ref], f.costNanos)
-    const [key, cost] = [...byRef.entries()].sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0))[0] ?? []
+    const [key, cost] = [...byRef.entries()].sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))[0] ?? []
     if (key && cost !== undefined && cost > threshold) {
       return { subjectType, subjectKey: key, facts: facts.filter((f) => f[ref] === key) }
     }
@@ -156,13 +162,13 @@ export function evaluateGuardrails(
   const byPerson = new Map<string, GuardFact[]>()
   for (const f of facts) {
     const key = JSON.stringify([f.provider, f.rawIdentity])
-    byPerson.set(key, [...(byPerson.get(key) ?? []), f])
+    appendFact(byPerson, key, f)
   }
 
   for (const personFacts of byPerson.values()) {
     const { provider, rawIdentity } = personFacts[0]
     const hourly = new Map<number, GuardFact[]>()
-    for (const f of personFacts) if (f.hourly) hourly.set(f.bucketStartMs, [...(hourly.get(f.bucketStartMs) ?? []), f])
+    for (const f of personFacts) if (f.hourly) appendFact(hourly, f.bucketStartMs, f)
     const hours = [...hourly.keys()].sort((a, b) => a - b)
     const hourCost = new Map(hours.map((h) => [h, total(hourly.get(h)!)]))
 
@@ -232,7 +238,7 @@ export function evaluateGuardrails(
     for (const f of personFacts) {
       if (!f.human) continue
       const day = utcDay(f.bucketStartMs)
-      daily.set(day, [...(daily.get(day) ?? []), f])
+      appendFact(daily, day, f)
     }
     for (const [day, dayFacts] of daily) {
       // A day is evaluated when any of it falls in the evaluated range.

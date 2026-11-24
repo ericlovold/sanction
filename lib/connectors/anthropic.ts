@@ -24,7 +24,7 @@
 // requests prompt or completion content.
 
 import { z } from "zod"
-import { ConnectorError, type FactInput } from "./facts"
+import { ConnectorError, DAY_MS, type FactInput } from "./facts"
 import { toNanos } from "./money"
 import { createRateLimiter, defaultClock, type FetchDeps } from "./pace"
 
@@ -162,8 +162,8 @@ export type AnthropicPull = {
 }
 
 /**
- * Hourly usage and cost for [startMs, endMs), both hour-aligned. The window
- * may be at most 31 days, which the 30-day backfill stays inside.
+ * Hourly usage and cost for [startMs, endMs), both hour-aligned. Each request
+ * covers at most 31 days, including when catching up after a missed pull.
  */
 export async function fetchAnthropicUsageAndCost(
   apiKey: string,
@@ -181,29 +181,33 @@ export async function fetchAnthropicUsageAndCost(
   if (window.endMs <= window.startMs) return out
 
   const refreshed: (string | null)[] = []
-  for (const [path, kind] of [[ANTHROPIC_USAGE_PATH, "usage"], [ANTHROPIC_COST_PATH, "cost"]] as const) {
-    let cursor: string | null = null
-    do {
-      if (++out.httpCalls > MAX_CALLS) {
-        throw new ConnectorError("unexpected_response", "Claude returned more usage rows than one pull can read. Contact Sanction support.")
-      }
-      const query = new URLSearchParams({
-        starting_at: new Date(window.startMs).toISOString(),
-        ending_at: new Date(window.endMs).toISOString(),
-        time_bucket_width: "1h",
-        order_by: "time",
-        limit: String(PAGE_SIZE),
-      })
-      for (const dimension of GROUP_BY) query.append("group_by[]", dimension)
-      if (cursor) query.set("page", cursor)
-      const body = await getPage(apiKey, path, query, resolved)
-      const page = kind === "usage" ? parseAnthropicUsagePage(body) : parseAnthropicCostPage(body)
-      if (kind === "usage") out.usage.push(...(page.data as AnthropicUsageRow[]))
-      else out.cost.push(...(page.data as AnthropicCostRow[]))
-      if (cursor === null) refreshed.push(page.data_refreshed_at)
-      cursor = page.has_more ? page.next_page : null
-      if (page.has_more && !cursor) throw new ConnectorError("unexpected_response", "Claude said there was more data but gave no way to fetch it.")
-    } while (cursor)
+  const maxWindow = 31 * DAY_MS
+  for (let start = window.startMs; start < window.endMs; start += maxWindow) {
+    const end = Math.min(start + maxWindow, window.endMs)
+    for (const [path, kind] of [[ANTHROPIC_USAGE_PATH, "usage"], [ANTHROPIC_COST_PATH, "cost"]] as const) {
+      let cursor: string | null = null
+      do {
+        if (++out.httpCalls > MAX_CALLS) {
+          throw new ConnectorError("unexpected_response", "Claude returned more usage rows than one pull can read. Contact Sanction support.")
+        }
+        const query = new URLSearchParams({
+          starting_at: new Date(start).toISOString(),
+          ending_at: new Date(end).toISOString(),
+          time_bucket_width: "1h",
+          order_by: "time",
+          limit: String(PAGE_SIZE),
+        })
+        for (const dimension of GROUP_BY) query.append("group_by[]", dimension)
+        if (cursor) query.set("page", cursor)
+        const body = await getPage(apiKey, path, query, resolved)
+        const page = kind === "usage" ? parseAnthropicUsagePage(body) : parseAnthropicCostPage(body)
+        if (kind === "usage") out.usage.push(...(page.data as AnthropicUsageRow[]))
+        else out.cost.push(...(page.data as AnthropicCostRow[]))
+        if (cursor === null) refreshed.push(page.data_refreshed_at)
+        cursor = page.has_more ? page.next_page : null
+        if (page.has_more && !cursor) throw new ConnectorError("unexpected_response", "Claude said there was more data but gave no way to fetch it.")
+      } while (cursor)
+    }
   }
   const known = refreshed.filter((r): r is string => r !== null).map((r) => Date.parse(r))
   out.refreshedAt = known.length === refreshed.length && known.length ? new Date(Math.min(...known)) : null
@@ -239,7 +243,7 @@ function surfaceOf(product: string | null): FactInput["surface"] {
 
 /**
  * Join usage rows (tokens) and cost rows (money) on hour, identity, model and
- * product. A combination present on only one side is kept: cost with no
+ * persisted surface. A combination present on only one side is kept: cost with no
  * tokens is real (web search, session time), and so is the reverse (Priority
  * Tier requests are covered by a commitment and cost zero here).
  */
@@ -249,12 +253,14 @@ export function normalizeAnthropicRows(usage: AnthropicUsageRow[], cost: Anthrop
     const identity = identityOf(row.group.actor)
     const model = row.group.model ?? "(no model)"
     const start = Date.parse(row.starting_at)
-    const key = JSON.stringify([start, identity.rawIdentity, identity.identityType, model, row.group.product])
+    const end = Date.parse(row.ending_at)
+    const surface = surfaceOf(row.group.product)
+    const key = JSON.stringify([start, end, identity.rawIdentity, identity.identityType, model, surface])
     let fact = facts.get(key)
     if (!fact) {
       fact = {
         provider: "anthropic",
-        surface: surfaceOf(row.group.product),
+        surface,
         ...identity,
         model,
         sessionRef: null,
@@ -263,7 +269,7 @@ export function normalizeAnthropicRows(usage: AnthropicUsageRow[], cost: Anthrop
         // are still caught by the rate rule against their own baseline.
         headless: false,
         bucketStart: new Date(start),
-        bucketEnd: new Date(Date.parse(row.ending_at)),
+        bucketEnd: new Date(end),
         inputTokens: BigInt(0),
         outputTokens: BigInt(0),
         cacheReadTokens: BigInt(0),
