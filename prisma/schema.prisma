@@ -1127,6 +1127,8 @@ model UsageFact {
   // When the provider says this data was current, or our pull time when it
   // does not say. The UI's "data as of".
   sourceRefreshedAt DateTime
+  // Cursor events with reported token usage. Null for legacy facts and other providers.
+  tokenReportedRequests Int?
   // sha256(connection, bucket, every dimension above): the idempotency guard.
   dedupeKey         String
 

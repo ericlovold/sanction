@@ -1,3 +1,4 @@
+import Link from "next/link"
 import type { Metadata } from "next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NoWallet } from "@/components/no-wallet"
@@ -8,6 +9,7 @@ import { nanosToUsd } from "@/lib/connectors/money"
 import { USAGE_PROVIDERS, usageProvider } from "@/lib/connectors/registry"
 import { aiSpendView, type AiSpendView, type ConnectionHealth } from "@/lib/connectors/spendView"
 import { disconnectUsageToolAction } from "./actions"
+import { CursorSources } from "./cursor-sources"
 import { ConnectToolForm, SyncNowForm } from "./connect-form"
 
 export const dynamic = "force-dynamic"
@@ -54,7 +56,9 @@ function Source({ view }: { view: AiSpendView }) {
   )
 }
 
-function DailyChart({ view }: { view: AiSpendView }) {
+const sourceDayHref = (date: Date) => `?cursor_day=${date.toISOString().slice(0, 10)}#cursor-sources`
+
+function DailyChart({ view, isAdmin }: { view: AiSpendView; isAdmin: boolean }) {
   const max = view.days.reduce((m, d) => (d.total > m ? d.total : m), BigInt(0))
   const providers = [...new Set(view.days.flatMap((d) => [...d.byProvider.keys()]))]
   return (
@@ -64,7 +68,7 @@ function DailyChart({ view }: { view: AiSpendView }) {
         <Source view={view} />
       </CardHeader>
       <CardContent className="px-5 pb-5">
-        <div className="flex h-36 gap-[2px]" role="img" aria-label="Daily AI tool spend for the last 30 days. The same figures follow in a table.">
+        <div className="flex h-36 gap-[2px]" role={isAdmin ? "group" : "img"} aria-label="Daily AI tool spend for the last 30 days. The same figures follow in a table.">
           {view.days.map((d, i) => (
             <div
               key={i}
@@ -74,6 +78,11 @@ function DailyChart({ view }: { view: AiSpendView }) {
               <span className="pointer-events-none absolute -top-1 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded border border-border bg-popover px-1.5 py-0.5 text-[10px] font-mono text-foreground group-hover:block">
                 {dayLabel(d.date)} · {usdOf(d.total)}
               </span>
+              {isAdmin && (
+                <Link href={sourceDayHref(d.date)} prefetch={false}
+                  className="absolute inset-0 z-10 focus-visible:outline-2"
+                  aria-label={`Show Cursor sources for ${dayLabel(d.date)} UTC, total AI spend ${usdOf(d.total)}`} />
+              )}
               {providers.map((p) => {
                 const cost = d.byProvider.get(p) ?? BigInt(0)
                 if (cost <= BigInt(0) || max <= BigInt(0)) return null
@@ -106,7 +115,10 @@ function DailyChart({ view }: { view: AiSpendView }) {
             <tbody>
               {view.days.filter((d) => d.total > BigInt(0)).map((d) => (
                 <tr key={d.date.toISOString()} className="border-t border-border/60">
-                  <td className="py-1">{dayLabel(d.date)}</td>
+                  <td className="py-1">{isAdmin ? (
+                    <Link href={sourceDayHref(d.date)} prefetch={false} className="underline underline-offset-2"
+                      aria-label={`Show Cursor sources for ${dayLabel(d.date)} UTC`}>{dayLabel(d.date)}</Link>
+                  ) : dayLabel(d.date)}</td>
                   <td className="py-1 text-right">{usdOf(d.total)}</td>
                 </tr>
               ))}
@@ -118,7 +130,7 @@ function DailyChart({ view }: { view: AiSpendView }) {
   )
 }
 
-export default async function AiSpendPage() {
+export default async function AiSpendPage({ searchParams }: { searchParams: Promise<{ cursor_day?: string | string[] }> }) {
   const wallet = await getViewWallet()
   if (!wallet) return <NoWallet />
   const isAdmin = wallet.isSession && hasRole(wallet.role, "admin")
@@ -184,7 +196,8 @@ export default async function AiSpendPage() {
         ))}
       </div>
 
-      {view.hasData && <DailyChart view={view} />}
+      {view.hasData && <DailyChart view={view} isAdmin={isAdmin} />}
+      {isAdmin && <CursorSources walletId={wallet.id} day={(await searchParams).cursor_day} />}
 
       <Card className="bg-card border-border">
         <CardHeader className="px-5 pt-5 pb-2">
