@@ -135,18 +135,47 @@ function anthropicClientTool(value: unknown, at: string): void {
 }
 
 // Context edits ask the provider to drop earlier thinking or tool results
-// before the model reads the conversation. They can only shrink the billed
-// input, never add to it, so the byte estimate stays an upper bound.
-const CONTEXT_EDITS = ["clear_thinking_20251015", "clear_tool_uses_20250919"]
-function anthropicContextManagement(value: unknown): void {
+// before the model reads the conversation, so they shrink the billed input.
+// Anthropic documents one addition: when tool-result clearing nears its
+// threshold the model is sent a warning the request never contained. Its size
+// is not documented, so each such edit reserves a fixed allowance for it.
+// Options are checked against the documented shapes; anything else is refused
+// rather than left for the provider to reject after a hold is taken.
+const CONTEXT_WARNING_ALLOWANCE = 512
+
+function contextMeasure(value: unknown, at: string, types: readonly string[], min = 0): void {
+  const measure = object(value, at)
+  fields(measure, "type value", at)
+  if (!oneOf(measure.type, types)) unsupported(`${at}.type must be ${types.join(" or ")}.`)
+  if (typeof measure.value !== "number" || !Number.isSafeInteger(measure.value) || measure.value < min) invalid(`${at}.value must be an integer of at least ${min}.`)
+}
+
+/** Returns the tokens the provider may add that the request bytes do not hold. */
+function anthropicContextManagement(value: unknown): number {
   const management = object(value, "context_management")
   fields(management, "edits", "context_management")
   if (!Array.isArray(management.edits)) invalid("context_management.edits must be an array.")
+  let hidden = 0
   for (const entry of management.edits) {
     const edit = object(entry, "context_management.edits[]")
-    fields(edit, "type keep trigger clear_at_least exclude_tools clear_tool_inputs", "context_management.edits[]")
-    if (!oneOf(edit.type, CONTEXT_EDITS)) unsupported(`context_management.edits[].type must be one of ${CONTEXT_EDITS.join(", ")}.`)
+    if (edit.type === "clear_thinking_20251015") {
+      fields(edit, "type keep", "clear_thinking")
+      if (edit.keep !== undefined && edit.keep !== "all") contextMeasure(edit.keep, "clear_thinking.keep", ["thinking_turns"], 1)
+    } else if (edit.type === "clear_tool_uses_20250919") {
+      fields(edit, "type trigger keep clear_at_least exclude_tools clear_tool_inputs", "clear_tool_uses")
+      if (edit.trigger !== undefined) contextMeasure(edit.trigger, "clear_tool_uses.trigger", ["input_tokens", "tool_uses"])
+      if (edit.keep !== undefined) contextMeasure(edit.keep, "clear_tool_uses.keep", ["tool_uses"])
+      if (edit.clear_at_least !== undefined) contextMeasure(edit.clear_at_least, "clear_tool_uses.clear_at_least", ["input_tokens"])
+      if (edit.exclude_tools !== undefined && (!Array.isArray(edit.exclude_tools) || edit.exclude_tools.some((name) => typeof name !== "string"))) {
+        invalid("clear_tool_uses.exclude_tools must be an array of tool names.")
+      }
+      if (edit.clear_tool_inputs !== undefined && typeof edit.clear_tool_inputs !== "boolean") invalid("clear_tool_uses.clear_tool_inputs must be a boolean.")
+      hidden += CONTEXT_WARNING_ALLOWANCE
+    } else {
+      unsupported("context_management.edits[].type must be clear_thinking_20251015 or clear_tool_uses_20250919.")
+    }
   }
+  return hidden
 }
 
 // Effort and a JSON output schema steer the answer; neither adds input. Sent
@@ -231,7 +260,7 @@ function anthropicRequest(body: JsonObject): Estimate {
     if (!Array.isArray(body.tools)) invalid("tools must be an array.")
     for (const entry of body.tools) anthropicClientTool(entry, "tools[]")
   }
-  if (body.context_management !== undefined) anthropicContextManagement(body.context_management)
+  if (body.context_management !== undefined) hiddenInputTokens += anthropicContextManagement(body.context_management)
   if (body.tool_choice !== undefined) {
     const choice = object(body.tool_choice, "tool_choice")
     fields(choice, "type name disable_parallel_tool_use", "tool_choice")

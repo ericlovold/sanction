@@ -265,9 +265,20 @@ describe("counted client function and structured text shapes", () => {
     // Claude Code's short structured-output side request.
     const side = anthropic({ output_config: { effort: "medium", format: { type: "json_schema", schema: parameters } }, metadata: { user_id: "user" }, tools: [], stream: true })
     expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(side)).body)).toEqual(side)
-    // Clearing tool results is the other context edit; both only remove input.
-    const cleared = anthropic({ context_management: { edits: [{ type: "clear_tool_uses_20250919", trigger: { type: "input_tokens", value: 30000 }, keep: { type: "tool_uses", value: 3 } }] } })
-    expect(decode(prepareGatewayRequest("anthropic", "v1/messages", encode(cleared)).body)).toEqual(cleared)
+    // Clearing tool results is the other context edit, with every documented option.
+    // The provider may warn the model as the threshold nears, so it reserves an allowance.
+    const cleared = anthropic({ context_management: { edits: [
+      { type: "clear_thinking_20251015", keep: { type: "thinking_turns", value: 2 } },
+      { type: "clear_tool_uses_20250919", trigger: { type: "input_tokens", value: 30000 }, keep: { type: "tool_uses", value: 3 }, clear_at_least: { type: "input_tokens", value: 5000 }, exclude_tools: ["web_search"], clear_tool_inputs: true },
+      { type: "clear_tool_uses_20250919", trigger: { type: "tool_uses", value: 10 }, keep: { type: "tool_uses", value: 0 } },
+    ] } })
+    const clearedResult = prepareGatewayRequest("anthropic", "v1/messages", encode(cleared))
+    expect(decode(clearedResult.body)).toEqual(cleared)
+    const clearedIn = clearedResult.body.byteLength + 1024 + 256 + 512 * 2
+    expect(clearedResult.reservedUsd).toBe(costUsd("claude-sonnet-5", clearedIn, 1024, { cacheWriteTokens: clearedIn, cacheWrite1hTokens: clearedIn }))
+    for (const edit of [{ type: "clear_thinking_20251015" }, { type: "clear_tool_uses_20250919" }]) {
+      expect(prepareGatewayRequest("anthropic", "v1/messages", encode(anthropic({ context_management: { edits: [edit] } }))).reservedUsd).toBeGreaterThan(0)
+    }
   })
 
   it("still refuses what it cannot size in a Claude Code request", () => {
@@ -290,11 +301,32 @@ describe("counted client function and structured text shapes", () => {
     expectError("anthropic", "v1/messages", called({ type: "code_execution_20250825", tool_id: "srvtoolu_1" }), "tool_use.caller.tool_id is not supported")
     expectError("anthropic", "v1/messages", called({ type: "code_execution_20250825" }), "tool_use.caller.type must be direct")
     // Context management admits the two clearing edits and nothing else.
-    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [{ type: "memory_20250818" }] } }), "context_management.edits[].type must be one of")
-    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [{ type: ["clear_thinking_20251015"] }] } }), "context_management.edits[].type must be one of")
+    const edit = (value: Record<string, unknown>) => anthropic({ context_management: { edits: [value] } })
+    const tools = (options: Record<string, unknown>) => edit({ type: "clear_tool_uses_20250919", ...options })
+    const BAD = "GATEWAY_RESERVATION_INVALID_REQUEST"
+    for (const type of ["memory_20250818", "compact_20260112", ["clear_thinking_20251015"], undefined]) {
+      expectError("anthropic", "v1/messages", edit({ type }), "context_management.edits[].type must be clear_thinking_20251015 or clear_tool_uses_20250919")
+    }
     expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [], strategy: "auto" } }), "context_management.strategy is not supported")
-    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: [{ type: "clear_thinking_20251015", source: "file_1" }] } }), "context_management.edits[].source is not supported")
-    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: "all" } }), "must be an array", "GATEWAY_RESERVATION_INVALID_REQUEST")
+    expectError("anthropic", "v1/messages", anthropic({ context_management: { edits: "all" } }), "must be an array", BAD)
+    // Options are held to the documented shapes, not just the edit type.
+    expectError("anthropic", "v1/messages", edit({ type: "clear_thinking_20251015", source: "file_1" }), "clear_thinking.source is not supported")
+    expectError("anthropic", "v1/messages", edit({ type: "clear_thinking_20251015", trigger: { type: "input_tokens", value: 1 } }), "clear_thinking.trigger is not supported")
+    expectError("anthropic", "v1/messages", edit({ type: "clear_thinking_20251015", keep: "none" }), "clear_thinking.keep must be a JSON object", BAD)
+    expectError("anthropic", "v1/messages", edit({ type: "clear_thinking_20251015", keep: { type: "tool_uses", value: 1 } }), "clear_thinking.keep.type must be thinking_turns")
+    expectError("anthropic", "v1/messages", edit({ type: "clear_thinking_20251015", keep: { type: "thinking_turns", value: 0 } }), "integer of at least 1", BAD)
+    expectError("anthropic", "v1/messages", tools({ trigger: null, clear_tool_inputs: "yes" }), "clear_tool_uses.trigger must be a JSON object", BAD)
+    expectError("anthropic", "v1/messages", tools({ clear_tool_inputs: "yes" }), "clear_tool_inputs must be a boolean", BAD)
+    expectError("anthropic", "v1/messages", tools({ clear_tool_inputs: ["Bash"] }), "clear_tool_inputs must be a boolean", BAD)
+    expectError("anthropic", "v1/messages", tools({ trigger: { type: "seconds", value: 5 } }), "clear_tool_uses.trigger.type must be input_tokens or tool_uses")
+    expectError("anthropic", "v1/messages", tools({ trigger: { type: "input_tokens", value: 30000, source: "x" } }), "clear_tool_uses.trigger.source is not supported")
+    for (const value of [-1, 1.5, "3", null, true]) expectError("anthropic", "v1/messages", tools({ trigger: { type: "input_tokens", value } }), "integer of at least 0", BAD)
+    expectError("anthropic", "v1/messages", tools({ keep: { type: "input_tokens", value: 3 } }), "clear_tool_uses.keep.type must be tool_uses")
+    expectError("anthropic", "v1/messages", tools({ keep: "all" }), "clear_tool_uses.keep must be a JSON object", BAD)
+    expectError("anthropic", "v1/messages", tools({ clear_at_least: { type: "tool_uses", value: 3 } }), "clear_tool_uses.clear_at_least.type must be input_tokens")
+    expectError("anthropic", "v1/messages", tools({ exclude_tools: "web_search" }), "exclude_tools must be an array of tool names", BAD)
+    expectError("anthropic", "v1/messages", tools({ exclude_tools: ["web_search", 7] }), "exclude_tools must be an array of tool names", BAD)
+    expectError("anthropic", "v1/messages", tools({ strategy: "aggressive" }), "clear_tool_uses.strategy is not supported")
     expectError("anthropic", "v1/messages", anthropic({ tools: [{ name: "x", input_schema: parameters, defer_loading: "yes" }] }), "defer_loading must be a boolean", "GATEWAY_RESERVATION_INVALID_REQUEST")
     // Stored context and server-side features named at the top level stay out.
     for (const key of ["container", "mcp_servers", "betas"]) expectError("anthropic", "v1/messages", anthropic({ [key]: [] }), `request.${key} is not supported`)

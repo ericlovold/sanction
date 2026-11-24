@@ -152,7 +152,9 @@ Responses assistant messages and function calls can be replayed inline, includin
 their validated metadata. Claude tool loops with thinking are supported,
 including replayed `thinking` and `redacted_thinking` blocks. So is what Claude
 Code adds to a request: context edits that clear earlier thinking or tool
-results (they only remove input), system messages mid-conversation with
+results, with their options held to Anthropic's documented shapes (clearing
+removes input; the hold adds a fixed allowance for the warning Anthropic may
+send the model as tool-result clearing nears), system messages mid-conversation with
 per-turn output settings and inline client tool definitions, deferred tool
 loading, and tool calls marked as made directly by the model. Models that keep
 prior reasoning bill it as input; Anthropic documents the `signature` (and
