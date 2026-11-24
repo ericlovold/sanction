@@ -59,3 +59,18 @@ it("sums reported units across models and flags partial days", async () => {
   expect(html).toContain('aria-expanded="false"')
   expect(html).not.toMatch(/Infinity|NaN/)
 })
+
+it("flags a cache-heavy included-usage day using reported units across models", async () => {
+  mocks.member.mockResolvedValue({ role: "owner", wallet: { id: "test", name: "Test" } })
+  mocks.groupBy.mockResolvedValue([])
+  const row = { day: "2026-11-17", partial: false, cachedPartial: false }
+  mocks.queryRaw.mockResolvedValue([
+    { ...row, model: "Model A", items: BigInt(9525), tokens: BigInt(864585850), cached: BigInt(786051146) },
+    { ...row, model: "Model B", items: BigInt(50), tokens: BigInt(5771831), cached: BigInt(5143552) },
+  ])
+  const html = renderToStaticMarkup(await CursorUsagePage())
+  expect(html).toContain(">High volume<")
+  expect(html).toContain("870,357,681")
+  expect(html).toContain("791,194,698")
+  expect(html).toContain("90.9%")
+})

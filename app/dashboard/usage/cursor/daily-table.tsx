@@ -1,6 +1,7 @@
 "use client"
 
 import { useId, useState } from "react"
+import { CURSOR_DAILY_EVENTS, CURSOR_DAILY_TOKENS, highCursorVolume } from "@/lib/connectors/cursorVolume"
 import type { DailyUsage, UsageCounts } from "./daily-usage"
 
 function Metrics({ usage }: { usage: UsageCounts }) {
@@ -29,6 +30,7 @@ function DayRows({ day }: { day: DailyUsage }) {
           <span aria-hidden="true" className={`mr-2 inline-block h-2 w-2 border-r border-t ${expanded ? "rotate-[135deg]" : "rotate-45"}`} />
           {day.day}
         </button>
+        {highCursorVolume(day.tokens, day.items) && <span className="ml-2 text-xs font-medium text-amber-700 dark:text-amber-400">High volume</span>}
       </th>
       <Metrics usage={day} />
     </tr></tbody>
@@ -44,7 +46,7 @@ function DayRows({ day }: { day: DailyUsage }) {
 export function DailyTable({ days }: { days: DailyUsage[] }) {
   return <section className="space-y-3">
     <h2 className="text-xl font-medium">Usage by day and model</h2>
-    <p className="text-sm text-muted-foreground">Select a UTC day to see its models. Cached share divides cached prompt tokens by all reported prompt, completion, cached prompt and cache-write tokens. Partial totals include only reported counts.</p>
+    <p className="text-sm text-muted-foreground">Select a UTC day to see its models. Cached share divides cached prompt tokens by all reported prompt, completion, cached prompt and cache-write tokens. Partial totals include only reported counts. High volume marks days with at least {CURSOR_DAILY_TOKENS.toLocaleString("en-US")} reported tokens or {CURSOR_DAILY_EVENTS.toLocaleString("en-US")} billing items.</p>
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm tabular-nums">
         <thead><tr>

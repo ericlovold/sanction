@@ -79,7 +79,7 @@ describe("syncConnection", () => {
   it("re-reads a trailing overlap, replaces the window atomically, then records and notifies", async () => {
     const fetchMock = serving(incidentEvents())
     const result = await syncConnection("conn_1", { trigger: "cron", now, http: { fetch: fetchMock as never, ...fast } })
-    expect(result).toMatchObject({ ok: true, factsWritten: INCIDENT_HOURS, alertsRaised: 3 })
+    expect(result).toMatchObject({ ok: true, factsWritten: INCIDENT_HOURS, alertsRaised: 4 })
 
     // 48 hours back from the last pull, aligned to the hour.
     const windowStart = new Date(Math.floor((connection.syncedThrough.getTime() - 48 * HOUR) / HOUR) * HOUR)
@@ -99,7 +99,7 @@ describe("syncConnection", () => {
     })
     expect(m.tx.usageSyncRun.create.mock.calls[0][0].data).toMatchObject({
       walletId: "w_1", connectionId: "conn_1", trigger: "cron", actorEmail: null, endpoint: "/teams/filtered-usage-events",
-      status: "ok", factsWritten: INCIDENT_HOURS, alertsRaised: 3,
+      status: "ok", factsWritten: INCIDENT_HOURS, alertsRaised: 4,
     })
     expect(m.email).toHaveBeenCalledExactlyOnceWith("owner@example.test", expect.objectContaining({ walletName: "Acme" }))
     expect(m.tx.usageAlert.updateMany).toHaveBeenCalledOnce()
@@ -149,7 +149,7 @@ describe("syncConnection", () => {
     m.db.usageConnection.findUnique.mockResolvedValue({ ...connection, syncedThrough: null })
     const later = new Date(now.getTime() + 5 * DAY)
     const result = await syncConnection("conn_1", { trigger: "connect_test", now: later, http: { fetch: serving(incidentEvents()) as never, ...fast } })
-    expect(result).toMatchObject({ ok: true, alertsRaised: 3 })
+    expect(result).toMatchObject({ ok: true, alertsRaised: 4 })
     expect(m.tx.usageAlert.createMany).toHaveBeenCalledOnce()
     expect(m.email).not.toHaveBeenCalled()
   })

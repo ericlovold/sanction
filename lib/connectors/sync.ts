@@ -114,7 +114,7 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
         const baselineFrom = new Date(pulled.fromMs - DEFAULT_THRESHOLDS.baselineDays * DAY_MS)
         const rows = await tx.usageFact.findMany({
           where: { walletId, connectionId, bucketStart: { gte: baselineFrom } },
-          select: { provider: true, rawIdentity: true, identityType: true, model: true, sessionRef: true, automationRef: true, headless: true, bucketStart: true, bucketEnd: true, costNanos: true, costBasis: true },
+          select: { provider: true, rawIdentity: true, identityType: true, model: true, sessionRef: true, automationRef: true, headless: true, bucketStart: true, bucketEnd: true, costNanos: true, costBasis: true, inputTokens: true, outputTokens: true, cacheReadTokens: true, cacheWriteTokens: true, requests: true, tokenReportedRequests: true },
         })
         const guardFacts: GuardFact[] = rows.map((r) => ({
           provider: r.provider,
@@ -127,6 +127,10 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
           hourly: r.provider !== "openai" && r.bucketEnd.getTime() - r.bucketStart.getTime() === HOUR_MS,
           bucketStartMs: r.bucketStart.getTime(),
           costNanos: r.costNanos,
+          volume: r.provider === "cursor" && r.tokenReportedRequests != null ? {
+            tokens: r.inputTokens + r.outputTokens + r.cacheReadTokens + r.cacheWriteTokens,
+            cached: r.cacheReadTokens, requests: r.requests, reported: r.tokenReportedRequests,
+          } : undefined,
           billed: isBilledCost(r.costBasis),
         }))
         const alerts = evaluateGuardrails(guardFacts, pulled.fromMs)
