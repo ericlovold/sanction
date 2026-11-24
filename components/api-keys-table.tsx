@@ -9,6 +9,7 @@ import {
   type RotateState,
   type LimitsState,
 } from "@/app/dashboard/keys/actions"
+import { agentState } from "@/lib/dashboardCounts"
 import { KeyConnect } from "@/components/key-connect"
 
 export type KeyActivity = {
@@ -40,14 +41,6 @@ export type ConsoleAgent = {
   deniedMonth: number
   escalatedMonth: number
   activity: KeyActivity | null
-}
-
-// A seat's effective state: revoked beats expired beats active. Expiry is
-// enforced server-side (the key fails closed); this is the operator's view of it.
-function seatState(agent: ConsoleAgent): "active" | "expired" | "revoked" {
-  if (!agent.isActive) return "revoked"
-  if (agent.expiresAt && new Date(agent.expiresAt) <= new Date()) return "expired"
-  return "active"
 }
 
 function relFuture(iso: string): string {
@@ -99,7 +92,7 @@ function hasOverrides(agent: ConsoleAgent) {
   )
 }
 
-function KeyRow({ agent, editable, startOpen }: { agent: ConsoleAgent; editable: boolean; startOpen: boolean }) {
+function KeyRow({ agent, editable, startOpen, asOf }: { agent: ConsoleAgent; editable: boolean; startOpen: boolean; asOf?: string }) {
   const [rotate, rotateAction, rotating] = useActionState(rotateKeyAction, rotateInit)
   const [limits, limitsFormAction, savingLimits] = useActionState(updateLimitsAction, limitsInit)
   const [open, setOpen] = useState(false)
@@ -110,8 +103,9 @@ function KeyRow({ agent, editable, startOpen }: { agent: ConsoleAgent; editable:
   const overrides = hasOverrides(agent)
   const act = agent.activity
 
-  const state = seatState(agent)
-  const expired = agent.expiresAt ? new Date(agent.expiresAt) <= new Date() : false
+  const now = asOf ? new Date(asOf) : new Date()
+  const state = agentState(agent, now)
+  const expired = agent.expiresAt ? new Date(agent.expiresAt) <= now : false
 
   return (
     <div id={`seat-${agent.id}`} className="seat">
@@ -274,7 +268,7 @@ function KeyRow({ agent, editable, startOpen }: { agent: ConsoleAgent; editable:
   )
 }
 
-export function ApiKeysTable({ agents, editable }: { agents: ConsoleAgent[]; editable: boolean }) {
+export function ApiKeysTable({ agents, editable, asOf }: { agents: ConsoleAgent[]; editable: boolean; asOf?: string }) {
   const [query, setQuery] = useState("")
   // A link such as /dashboard/agents#seat-<id> (the rows on Home) opens that
   // agent. Read after mount: the hash never reaches the server.
@@ -325,7 +319,7 @@ export function ApiKeysTable({ agents, editable }: { agents: ConsoleAgent[]; edi
         {shown.length === 0 && <p className="g-empty">No agents match “{query.trim()}”.</p>}
         {shown.map((a) => (
           // Keyed with the target so a hash link re-mounts that one row open.
-          <KeyRow key={a.id === target ? `${a.id}-open` : a.id} agent={a} editable={editable} startOpen={a.id === target} />
+          <KeyRow key={a.id === target ? `${a.id}-open` : a.id} agent={a} editable={editable} startOpen={a.id === target} asOf={asOf} />
         ))}
       </div>
     </div>

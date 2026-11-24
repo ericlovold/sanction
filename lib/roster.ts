@@ -1,3 +1,4 @@
+import { agentState, waitingApprovalWhere } from "@/lib/dashboardCounts"
 import { db } from "@/lib/db"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { asRecord, resourceTitle } from "@/lib/approvalTitle"
@@ -9,6 +10,7 @@ export type RosterAgent = {
   name: string
   holder: string | null
   isActive: boolean
+  expiresAt: Date | null
   walletId: string
   monthUsd: number
   pending: number
@@ -34,13 +36,13 @@ function startOfMonth(): Date {
   return d
 }
 
-export function agentStamp(agent: { isActive: boolean }, pending: number): AgentStamp {
-  if (!agent.isActive) return "blocked"
+export function agentStamp(agent: { isActive: boolean; expiresAt?: Date | null }, pending: number, now = new Date()): AgentStamp {
+  if (agentState(agent, now) !== "active") return "blocked"
   if (pending > 0) return "paused"
   return "live"
 }
 
-export async function getRoster(rootId: string): Promise<{
+export async function getRoster(rootId: string, now = new Date()): Promise<{
   root: RosterGroup
   pendingTotal: number
   agentCount: number
@@ -55,7 +57,7 @@ export async function getRoster(rootId: string): Promise<{
     }),
     db.agent.findMany({
       where: { walletId: { in: walletIds } },
-      select: { id: true, name: true, holder: true, isActive: true, walletId: true, lastUsedAt: true },
+      select: { id: true, name: true, holder: true, isActive: true, expiresAt: true, walletId: true, lastUsedAt: true },
       orderBy: { createdAt: "asc" },
     }),
     db.policy.findMany({
@@ -66,7 +68,7 @@ export async function getRoster(rootId: string): Promise<{
       by: ["agentId"],
       // The live set only, the same one the nav badge counts: a request past
       // its deadline can no longer be decided, so it is not "waiting".
-      where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      where: waitingApprovalWhere(walletIds, now),
       _count: { _all: true },
     }),
   ])
@@ -103,10 +105,11 @@ export async function getRoster(rootId: string): Promise<{
       name: a.name,
       holder: a.holder,
       isActive: a.isActive,
+      expiresAt: a.expiresAt ?? null,
       walletId: a.walletId,
       monthUsd: monthByAgent.get(a.id) ?? 0,
       pending,
-      stamp: agentStamp(a, pending),
+      stamp: agentStamp(a, pending, now),
       lastUsedAt: a.lastUsedAt ?? null,
     }
     const list = agentsByWallet.get(a.walletId) ?? []
@@ -175,10 +178,10 @@ export type WaitingItem = {
 
 // The requests a person can still decide, oldest first. Read-only: deadlines
 // are settled on the Approvals page, never by loading the home page.
-export async function getWaiting(rootId: string, take = 5): Promise<WaitingItem[]> {
+export async function getWaiting(rootId: string, take = 5, now = new Date()): Promise<WaitingItem[]> {
   const { ids: walletIds } = await subtreeWalletIds(rootId)
   const rows = await db.pendingApproval.findMany({
-    where: { walletId: { in: walletIds }, status: "pending", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    where: waitingApprovalWhere(walletIds, now),
     orderBy: { createdAt: "asc" },
     take,
     select: {
