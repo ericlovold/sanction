@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useSyncExternalStore, type ReactNode } from "react"
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
+import { agentBlockSteps, agentConnectBlock, type AgentBlockAccount } from "@/lib/agentConnectBlock"
 import { connectionHosts, connectionFragment, parseConnectionFragment } from "@/lib/connectionGuideNavigation"
 
 function subscribeToFragment(onChange: () => void) {
@@ -27,6 +28,7 @@ export type ConnectionGuideContent = {
   request: GuideStep
   redemption: GuideStep
   reference: ReactNode
+  agent: { rules: string; setup: Record<string, string> }
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -49,6 +51,36 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   )
 }
 
+// The page is prerendered and shared, so account details arrive after load and
+// only for a real session. Until then, and when signed out, the block is generic.
+function useAgentBlockAccount() {
+  const [account, setAccount] = useState<AgentBlockAccount | null>(null)
+  useEffect(() => {
+    let current = true
+    fetch("/api/connect/agent-facts", { credentials: "same-origin", cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(body => { if (current && body?.account) setAccount(body.account) })
+      .catch(() => {})
+    return () => { current = false }
+  }, [])
+  return account
+}
+
+function AgentBlock({ text, account }: { text: string; account: AgentBlockAccount | null }) {
+  return (
+    <div className="my-5 rounded-md border border-border bg-muted/30 p-4">
+      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">For your agent</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {account
+          ? <>Filled in for <span className="text-foreground">{account.wallet}</span>. Paste it into your AI tool&apos;s chat. It contains no key.</>
+          : <>Paste this into your AI tool&apos;s chat. It contains no key. <a href="/login?next=%2Fdocs%2Fconnect" className="text-amber-200 underline underline-offset-4">Sign in</a> to fill in your wallet and seats.</>}
+      </p>
+      <pre tabIndex={0} aria-label="Text to paste into your AI tool" className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground focus-visible:outline-2 focus-visible:outline-amber-300">{text}</pre>
+      <CopyButton key={text} text={text} label="Copy for your agent" />
+    </div>
+  )
+}
+
 export function ConnectionGuideSteps({ content }: { content: ConnectionGuideContent }) {
   const fragment = useSyncExternalStore(subscribeToFragment, getFragment, getServerFragment)
   const { host: selectedHost, step } = parseConnectionFragment(fragment)
@@ -59,9 +91,12 @@ export function ConnectionGuideSteps({ content }: { content: ConnectionGuideCont
   const hostContent = selectedHost ? content.hosts[selectedHost.slug] : null
   const { endpoint } = content
   const currentStep = step === 1 ? content.check : content.request
-  const prompt = currentStep.prompt
   const followUpPrompt = content.redemption.prompt
   const canConnect = host !== null && host !== "ChatGPT"
+  const account = useAgentBlockAccount()
+  const agentText = selectedHost && endpoint ? agentConnectBlock(selectedHost.slug, agentBlockSteps[step], {
+    endpoint, ...content.agent, prompts: { check: content.check.prompt, request: content.request.prompt },
+  }, account) : null
 
   return (
     <>
@@ -102,6 +137,7 @@ export function ConnectionGuideSteps({ content }: { content: ConnectionGuideCont
               <p className="mt-5 text-xs uppercase tracking-wider text-muted-foreground">Setup</p>
               {hostContent?.setup}
               {hostContent?.details}
+              {agentText && <AgentBlock text={agentText} account={account} />}
               {hostContent?.evidence && (
                 <details className="mt-4 text-sm text-muted-foreground">
                   <summary className="cursor-pointer py-2">Recorded verification and limitations</summary>
@@ -114,7 +150,7 @@ export function ConnectionGuideSteps({ content }: { content: ConnectionGuideCont
             <>
               <h2 className="font-display text-xl font-semibold">{step === 1 ? "Check the connection" : "Request your first approval"}</h2>
               {currentStep.content}
-              {prompt && <CopyButton key={`${host}:${step}`} text={prompt} label={step === 1 ? "Copy connection check" : "Copy test request"} />}
+              {agentText && <AgentBlock text={agentText} account={account} />}
               {step === 2 && (
                 <div className="mt-4 space-y-2">
                   <a href="/dashboard/approvals" target="_blank" rel="noopener noreferrer" className="inline-block rounded-md border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-400/20 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300">
