@@ -2,17 +2,21 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, expect, it, vi } from "vitest"
 import CursorUsagePage from "@/app/dashboard/usage/cursor/page"
 
-const mocks = vi.hoisted(() => ({ member: vi.fn(), groupBy: vi.fn() }))
+const mocks = vi.hoisted(() => ({ member: vi.fn(), groupBy: vi.fn(), queryRaw: vi.fn() }))
 vi.mock("@/lib/session", () => ({ getSessionMember: mocks.member }))
-vi.mock("@/lib/db", () => ({ db: { cursorBillingItem: { groupBy: mocks.groupBy } } }))
+vi.mock("@/lib/db", () => ({ db: { $queryRaw: mocks.queryRaw, cursorBillingItem: { groupBy: mocks.groupBy } } }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
-beforeEach(() => vi.resetAllMocks())
+beforeEach(() => {
+  vi.resetAllMocks()
+  mocks.queryRaw.mockResolvedValue([])
+})
 
 it("requires a session before reading wallet billing observations", async () => {
   mocks.member.mockResolvedValue(null)
   expect(renderToStaticMarkup(await CursorUsagePage())).toContain("Sign in")
   expect(mocks.groupBy).not.toHaveBeenCalled()
+  expect(mocks.queryRaw).not.toHaveBeenCalled()
 })
 
 it.each(["viewer", "admin", "owner"])("shows billing coverage with role-appropriate controls to %s", async role => {
@@ -30,4 +34,28 @@ it.each(["viewer", "admin", "owner"])("shows billing coverage with role-appropri
   expect(html).toContain("Unavailable")
   expect(html).toContain("0.0000000001")
   expect(html).toContain("on_demand")
+})
+
+it("sums reported units across models and flags partial days", async () => {
+  mocks.member.mockResolvedValue({ role: "viewer", wallet: { id: "scoped", name: "Test" } })
+  mocks.groupBy.mockResolvedValue([])
+  const row = { day: "2026-11-23", items: BigInt(1), partial: false, cachedPartial: false }
+  mocks.queryRaw.mockResolvedValue([
+    { ...row, model: "Model A", tokens: BigInt(900), cached: BigInt(300) },
+    { ...row, model: "Model B", tokens: BigInt(300), cached: BigInt(0) },
+    { ...row, model: null, tokens: null, cached: null, partial: true, cachedPartial: true },
+    { ...row, day: "2026-11-22", model: "Model C", tokens: BigInt(0), cached: BigInt(0) },
+  ])
+  const html = renderToStaticMarkup(await CursorUsagePage())
+  const [query, wallet] = mocks.queryRaw.mock.calls[0]
+  expect(query.join("?")).toContain('WHERE "walletId" = ?')
+  expect(wallet).toBe("scoped")
+  expect(html).toContain("1,200 (partial)")
+  expect(html).toContain("25.0% (partial)")
+  expect(html).toContain("300 (partial)")
+  expect(html).toContain("33.3%")
+  expect(html).toContain("0.0%")
+  expect(html).toContain("Model unreported")
+  expect(html).toContain('aria-expanded="false"')
+  expect(html).not.toMatch(/Infinity|NaN/)
 })

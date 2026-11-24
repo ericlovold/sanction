@@ -2,6 +2,8 @@ import Link from "next/link"
 import { db } from "@/lib/db"
 import { getSessionMember } from "@/lib/session"
 import { hasRole } from "@/lib/roles"
+import { getDailyUsage } from "./daily-usage"
+import { DailyTable } from "./daily-table"
 import { CursorImportForm } from "./import-form"
 
 export const dynamic = "force-dynamic"
@@ -17,18 +19,19 @@ export default async function CursorUsagePage() {
   const member = await getSessionMember()
   if (!member) return <Link href="/login?next=/dashboard/usage/cursor">Sign in to view Cursor billing items</Link>
   const { wallet } = member
-  const groups = await db.cursorBillingItem.groupBy({
+  const [days, groups] = await Promise.all([getDailyUsage(wallet.id), db.cursorBillingItem.groupBy({
     where: { walletId: wallet.id }, by: ["product", "chargeCategory", "usageType", "currency"],
     orderBy: [{ product: "asc" }, { chargeCategory: "asc" }, { usageType: "asc" }, { currency: "asc" }],
     _min: { occurredAt: true }, _max: { occurredAt: true },
     _count: { _all: true, promptTokens: true, completionTokens: true, cachedPromptTokens: true, cacheWriteTokens: true, contracted: true },
     _sum: { promptTokens: true, completionTokens: true, cachedPromptTokens: true, cacheWriteTokens: true, contracted: true },
-  })
+  })])
   return <div className="mx-auto max-w-7xl space-y-6 p-5 md:p-10">
     <Link className="text-sm underline" href="/dashboard/usage">Developer usage</Link>
     <h1 className="text-3xl font-semibold">Cursor billing export</h1>
     <p className="text-sm text-muted-foreground">Provider-reported billing items imported into {wallet.name}. These amounts are separate from governed spend and budgets.</p>
     {hasRole(member.role, "admin") && <CursorImportForm walletId={wallet.id} walletName={wallet.name} />}
+    {days.length > 0 && <DailyTable days={days} />}
     <h2 className="text-xl font-medium">All imported billing items</h2>
     {!groups.length ? <p>No billing items imported.</p> : <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-left text-sm">
