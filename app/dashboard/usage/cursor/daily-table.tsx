@@ -1,12 +1,14 @@
 "use client"
 
 import { useId, useState } from "react"
-import type { DailyUsage } from "./daily-usage"
+import type { DailyUsage, UsageCounts } from "./daily-usage"
 
-function Metrics({ usage }: { usage: Pick<DailyUsage, "items" | "tokens" | "cached" | "partial" | "cachedPartial"> }) {
+function Metrics({ usage }: { usage: UsageCounts }) {
   const { items, tokens, cached, partial } = usage
   const suffix = partial ? " (partial)" : ""
-  const share = tokens !== null && tokens > BigInt(0) && cached !== null ? (Number(cached) / Number(tokens) * 100).toFixed(1) + "%" : null
+  const share = tokens !== null && tokens > BigInt(0) && cached !== null
+    ? (Number(cached) / Number(tokens) * 100).toFixed(1) + "%"
+    : null
   return <>
     <td className="p-3 text-right">{items.toLocaleString("en-US")}</td>
     <td className="p-3 text-right">{tokens === null ? "Unavailable" : tokens.toLocaleString("en-US") + suffix}</td>

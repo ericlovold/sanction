@@ -1,6 +1,6 @@
 import { db } from "@/lib/db"
 
-type Counts = {
+export type UsageCounts = {
   items: bigint
   tokens: bigint | null
   cached: bigint | null
@@ -8,8 +8,8 @@ type Counts = {
   cachedPartial: boolean
 }
 
-type ModelUsage = Counts & { day: string; model: string | null }
-export type DailyUsage = Counts & { day: string; models: ModelUsage[] }
+type ModelUsage = UsageCounts & { day: string; model: string | null }
+export type DailyUsage = UsageCounts & { day: string; models: ModelUsage[] }
 
 function addReported(left: bigint | null, right: bigint | null) {
   if (left === null) return right
