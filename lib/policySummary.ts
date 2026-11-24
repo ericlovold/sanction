@@ -10,6 +10,9 @@ export type SummaryPolicy = {
   daily_token_budget_usd: number
   daily_spend_budget_usd: number
   monthly_spend_budget_usd: number | null
+  monthly_token_budget_usd?: number | null
+  subtree_daily_cap_usd?: number | null
+  subtree_daily_token_cap_usd?: number | null
   per_transaction_max_usd: number
   auto_approve_under_usd: number
   escalate_over_usd: number
@@ -39,11 +42,39 @@ export function policySummary(p: SummaryPolicy): string[] {
     out.push("Observe mode is on: requests go ahead whatever this policy decides, and each decision it would have made is recorded.")
   }
 
+  // Daily and monthly limits are counted for each agent on its own
+  // (app/api/v1/authorize/route.ts sums one agent's approved spend; the gateway
+  // sums one agent's model cost). Only the two caps below pool agents together.
+  // This summary sees the wallet's policy only, so it cannot name an agent's
+  // own limit; it says that one may exist.
+  const monthlyModel = p.monthly_token_budget_usd ?? null
   out.push(
-    `Purchases stop at ${fmtUsd(p.daily_spend_budget_usd)} a day` +
+    `Each agent's purchases stop at ${fmtUsd(p.daily_spend_budget_usd)} a day` +
       (p.monthly_spend_budget_usd !== null ? ` and ${fmtUsd(p.monthly_spend_budget_usd)} a month` : "") +
-      `. Model spend stops at ${fmtUsd(p.daily_token_budget_usd)} a day.`,
+      `. Each agent's model spend stops at ${fmtUsd(p.daily_token_budget_usd)} a day` +
+      (monthlyModel !== null ? ` and ${fmtUsd(monthlyModel)} a month` : "") +
+      // Daily purchase and model-spend limits are defaults; monthly purchases
+      // have no agent override. /authorize and the gateway read the
+      // agent's own limit first (agent.dailySpendBudgetUsd ?? policy...).
+      ". The daily purchase and model-spend limits are defaults; an agent’s own limit replaces the corresponding default.",
   )
+
+  const pooledPurchases = p.subtree_daily_cap_usd ?? null
+  const pooledModel = p.subtree_daily_token_cap_usd ?? null
+  if (pooledPurchases !== null || pooledModel !== null) {
+    out.push(
+      "All agents in this wallet and the groups below it, together, stop at " +
+        [
+          pooledPurchases !== null ? `${fmtUsd(pooledPurchases)} a day in purchases` : "",
+          pooledModel !== null ? `${fmtUsd(pooledModel)} a day in model spend` : "",
+        ]
+          .filter(Boolean)
+          .join(" and ") +
+        ".",
+    )
+  } else {
+    out.push("This wallet sets no cap on all agents together, so the total grows with every agent added.")
+  }
 
   // The ladder: over the single-purchase limit is refused; over the ask line a
   // person is asked; everything else inside the budgets goes through. The
