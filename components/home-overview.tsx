@@ -54,6 +54,7 @@ export function HomeOverview({ data }: { data: HomeOverviewData }) {
       </div>
       <p className="mt-3 text-xs text-muted-foreground">Idle, offline, and unconfigured clients can all have no recent delivery. Estimates are not invoices or subscription balances, and are not added to recorded model spend.</p>
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+        <Link href="/dashboard/usage/cursor" className="home-link">Cursor billing export</Link>
         <Link href="/dashboard/connect" className="home-link">Connect a tool</Link>
         <Link href="/dashboard/agents" className="home-link">Manage agents</Link>
         <Link href="/dashboard/spend" className="home-link">Spend and budgets</Link>
