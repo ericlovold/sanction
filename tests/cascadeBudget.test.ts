@@ -3,6 +3,7 @@ import {
   CascadeBudgetExceeded,
   cascadeDailyWouldExceed,
   effectivePerTransactionMaxCents,
+  inheritedTokenDefaults,
   reserveCascadeDailySpend,
   type CascadeTx,
   type WalletBudgetNode,
@@ -69,5 +70,29 @@ describe("cascade budget helpers", () => {
         node("parent", null, capped(5000)),
       ]),
     ).rejects.toBeInstanceOf(CascadeBudgetExceeded)
+  })
+})
+
+describe("inheritedTokenDefaults: a group with no policy takes the nearest policy above", () => {
+  const withModel = (daily: number, monthly: number | null = null) => ({ ...uncapped, dailyTokenBudgetUsd: daily, monthlyTokenBudgetUsd: monthly })
+
+  it("uses the wallet's own policy when it has one, even if the parent's is lower", () => {
+    const chain = [node("team", "org", withModel(5000)), node("org", null, withModel(1000, 20_000))]
+    expect(inheritedTokenDefaults(chain)).toEqual({ dailyTokenBudgetUsd: 5000, monthlyTokenBudgetUsd: null })
+  })
+
+  it("takes daily and monthly from the nearest wallet above when the group has no policy", () => {
+    const chain = [node("team", "dept", null), node("dept", "org", withModel(1000, 20_000)), node("org", null, withModel(9000))]
+    expect(inheritedTokenDefaults(chain)).toEqual({ dailyTokenBudgetUsd: 1000, monthlyTokenBudgetUsd: 20_000 })
+  })
+
+  it("skips several wallets with no policy", () => {
+    const chain = [node("team", "dept", null), node("dept", "org", null), node("org", null, withModel(700))]
+    expect(inheritedTokenDefaults(chain)?.dailyTokenBudgetUsd).toBe(700)
+  })
+
+  it("is null when no wallet in the chain has a policy", () => {
+    expect(inheritedTokenDefaults([node("team", "org", null), node("org", null, null)])).toBeNull()
+    expect(inheritedTokenDefaults([])).toBeNull()
   })
 })
