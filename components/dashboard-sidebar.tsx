@@ -43,6 +43,7 @@ const primary: Item[] = [
 const secondary: Item[] = [
   { href: "/dashboard/usage", label: "Usage", icon: ICON.usage, also: ["/dashboard/connect"] },
   { href: "/dashboard/ai-spend", label: "AI tools", icon: ICON.tools },
+  { href: "/dashboard/observability", label: "Observability", icon: ICON.activity, tab: true },
   { href: "/dashboard/spend", label: "Spend", icon: ICON.spend },
   { href: "/dashboard/policy", label: "Policy", icon: ICON.policy },
   { href: "/dashboard/audit", label: "Activity", icon: ICON.activity, tab: true },
