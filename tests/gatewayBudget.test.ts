@@ -26,6 +26,8 @@ type AncestorFixture = {
   id: string; parentId: string | null; frozenAt?: Date | null; frozenReason?: string | null
   policyId: string | null; perTransactionMaxUsd: number | null
   subtreeDailyCapUsd: number | null; subtreeDailyTokenCapUsd: number | null
+  /** Per-agent model defaults on an ancestor's policy. The agent's own wallet uses currentAgent.policyDaily. */
+  policyDaily?: number | null; policyMonthly?: number | null
 }
 type AgentFixture = {
   id: string; walletId: string; isActive: boolean; expiresAt: Date | null
@@ -93,8 +95,8 @@ beforeEach(() => {
         seatId: currentAgent?.id ?? null, seatWalletId: currentAgent?.walletId ?? null,
         seatActive: currentAgent?.isActive ?? null, seatExpiresAt: currentAgent?.expiresAt ?? null,
         seatDaily: currentAgent?.dailyTokenBudgetUsd ?? null, seatMonthly: currentAgent?.monthlyTokenBudgetUsd ?? null,
-        policyDaily: node.id === AGENT.walletId ? currentAgent?.policyDaily ?? null : null,
-        policyMonthly: node.id === AGENT.walletId ? currentAgent?.policyMonthly ?? null : null,
+        policyDaily: node.id === AGENT.walletId ? currentAgent?.policyDaily ?? null : node.policyDaily ?? null,
+        policyMonthly: node.id === AGENT.walletId ? currentAgent?.policyMonthly ?? null : node.policyMonthly ?? null,
       }))
     }
     if (statement.sql.includes("WITH scopes AS")) {
@@ -215,6 +217,34 @@ describe("durable gateway admission", () => {
     ]
     occupancy.push({ ...EMPTY_USAGE, kind: "pool", scopeId: "parent", walletIds: ["parent", AGENT.walletId, "sibling"], dailyLogs: 8, holds: [1.5] })
     expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, horizon: "subtree-daily", capWalletId: "parent", spent: 9.5, budget: 10 })
+  })
+
+  it("a group with no policy is held to the nearest parent's per-agent daily and monthly defaults", async () => {
+    currentAgent!.policyDaily = null
+    ancestors = [
+      { ...CHAIN[0], parentId: "dept", policyId: null, perTransactionMaxUsd: null },
+      { ...CHAIN[0], id: "dept", parentId: "org", policyId: "dept-policy", perTransactionMaxUsd: 0, policyDaily: 500, policyMonthly: 2000 },
+      { ...CHAIN[0], id: "org", policyId: "org-policy", perTransactionMaxUsd: 0, policyDaily: 9000 },
+    ]
+    const own = { ...EMPTY_USAGE, dailyLogs: 4.5, monthlyLogs: 4.5 }
+    occupancy = [own]
+    // $4.50 spent + $1.00 requested crosses the department's $5.00 default.
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, horizon: "daily", spent: 4.5, budget: 5 })
+    own.dailyLogs = 0
+    own.monthlyLogs = 19.5
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: true, horizon: "monthly", budget: 20 })
+    own.monthlyLogs = 0
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: false, budget: 5 })
+  })
+
+  it("a group with its own policy keeps its own limit, even above the parent's", async () => {
+    currentAgent!.policyDaily = 1000
+    ancestors = [
+      { ...CHAIN[0], parentId: "org", policyId: "team-policy", perTransactionMaxUsd: 0 },
+      { ...CHAIN[0], id: "org", policyId: "org-policy", perTransactionMaxUsd: 0, policyDaily: 100 },
+    ]
+    occupancy = [{ ...EMPTY_USAGE, dailyLogs: 4.5 }]
+    expect(await reserveGatewayBudget(AGENT, INPUT)).toMatchObject({ exhausted: false, budget: 10 })
   })
 
   it("preserves daily, monthly, then leaf-to-root denial precedence regardless of snapshot row order", async () => {

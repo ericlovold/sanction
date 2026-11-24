@@ -1,0 +1,69 @@
+{
+  "_source": "Response examples copied verbatim from the OpenAI API reference for GET /v1/organization/usage/completions and /v1/organization/costs (developers.openai.com/api/reference, admin, organization, usage), read 2026-11-23. Do not edit by hand: if OpenAI changes the documented shape, replace this file and let the contract test say what broke.",
+  "usage": {
+    "object": "page",
+    "data": [
+      {
+        "object": "bucket",
+        "start_time": 1730419200,
+        "end_time": 1730505600,
+        "results": [
+          {
+            "object": "organization.usage.completions.result",
+            "input_tokens": 1000,
+            "input_cached_tokens": 400,
+            "input_cache_write_tokens": 100,
+            "input_cache_write_30m_tokens": 75,
+            "input_cache_write_12h_tokens": 25,
+            "input_uncached_tokens": 500,
+            "output_tokens": 500,
+            "input_text_tokens": 400,
+            "output_text_tokens": 400,
+            "input_cached_text_tokens": 300,
+            "input_audio_tokens": 50,
+            "input_cached_audio_tokens": 50,
+            "output_audio_tokens": 50,
+            "input_image_tokens": 50,
+            "input_cached_image_tokens": 50,
+            "output_image_tokens": 50,
+            "num_model_requests": 5,
+            "project_id": null,
+            "user_id": null,
+            "api_key_id": null,
+            "model": null,
+            "batch": null,
+            "service_tier": null
+          }
+        ]
+      }
+    ],
+    "has_more": true,
+    "next_page": "page_AAAAAGdGxdEiJdKOAAAAAGcqsYA="
+  },
+  "costs": {
+    "object": "page",
+    "data": [
+      {
+        "object": "bucket",
+        "start_time": 1730419200,
+        "end_time": 1730505600,
+        "results": [
+          {
+            "object": "organization.costs.result",
+            "amount": {
+              "value": 0.06,
+              "currency": "usd"
+            },
+            "line_item": null,
+            "project_id": null,
+            "api_key_id": null,
+            "quantity": null,
+            "quantity_unit": null
+          }
+        ]
+      }
+    ],
+    "has_more": false,
+    "next_page": null
+  }
+}

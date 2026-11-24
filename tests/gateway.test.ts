@@ -255,6 +255,13 @@ describe("tokenBudgetUsd — per-agent override > wallet policy > none", () => {
   it("is null (no enforcement) when neither is set", () => {
     expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: null, ...wallet(null) })).toBeNull()
   })
+
+  it("a wallet with no policy uses the inherited default; its own policy or an override still wins", () => {
+    const inherited = { dailyTokenBudgetUsd: 2500 }
+    expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: null, ...wallet(null) }, inherited)).toBe(25)
+    expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: null, ...wallet(10000) }, inherited)).toBe(100)
+    expect(tokenBudgetUsd({ id: "a", walletId: "w", isActive: true, dailyTokenBudgetUsd: 400, ...wallet(null) }, inherited)).toBe(4)
+  })
 })
 
 describe("forceStreamUsage — metering is not the caller's choice", () => {

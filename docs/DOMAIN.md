@@ -80,6 +80,10 @@ named in the discovery doc but not yet a first-class entity.
 | **Slack Install** | Shipped | `SlackInstall` | A workspace's Slack OAuth install: bot token encrypted under the wallet's SEC-1 envelope (a secret-bearing row), plus the channel chosen at install. Backs interactive Approve/Deny; the pasted incoming-webhook route needs no install. |
 | **Outcome** | Shipped | `OutcomeEvent` | A reported result of governed work. Cost-per-outcome ceilings compare spend against these, and a wallet over its ceiling throttles to human-gated spend. |
 | **Budget Reallocation** | Shipped | `BudgetReallocation` | An auditable move of budget across the wallet tree — who moved what, between which wallets, when. |
+| **Usage Connection** | Shipped | `UsageConnection` + a `usage:<provider>:<id>` row in `CredentialVault` | A provider admin credential the wallet connected so Sanction can pull that provider's own usage and cost reporting (`lib/connectors/`: Cursor, Claude via the Anthropic Admin API, OpenAI; one adapter each in `adapters.ts`). The **observe** layer: retrospective, never in the authorization path, never authority to spend. One per provider per wallet. The key is envelope-encrypted, reserved from `/exec`, and hard-deleted on disconnect. |
+| **Usage Fact** | Shipped | `UsageFact` (FORCE RLS) | The one normalized grain every provider maps into: usage and cost for one identity, model and attribution (conversation / automation) in one UTC hour. Money is integer **nano-dollars** (`costNanos`), because providers report finer than a micro-dollar. `costBasis` separates `billed` from plan-`included` usage and from `estimated` (not priced by the provider yet; replaced on a later pull). Distinct from `TokenLog` (gateway-metered, enforceable) and `UsageObservation` (client-reported telemetry). |
+| **Usage Sync Run** | Shipped | `UsageSyncRun` (FORCE RLS) | One row per pull: endpoint, window, trigger, outcome. The audit record of every use of a connector credential, and what connection health is read from. |
+| **Usage Alert** | Shipped | `UsageAlert` (FORCE RLS) | A runaway guardrail that fired (`runaway_rate`, `headless_burn`, `daily_cap`) with its evidence. The daily line applies to people, not service accounts or API keys. Rules are pure (`lib/connectors/guardrails.ts`), so an incident replays deterministically. An alert observes; it stops nothing. |
 | **Team Member** | Shipped | `WalletMember` (WALLET-MEMBERS) | A second (or third) human's access to a Wallet, at a role: `owner` \| `admin` \| `viewer` (plain strings, not a DB enum — matches this schema's convention). Invited by email, accepted via Better Auth (Google/GitHub only — the legacy `sk_`/magic-link session is a single shared secret and can't represent a distinct human). The Wallet's own creator is implicitly `owner` with no row here — see Ownership below. |
 
 ---
@@ -162,6 +166,10 @@ APPROVED           ESCALATED                     DENIED
 - **Default deny / fail closed.** No policy → deny. A `deny` gate is terminal.
   Escalations that no human resolves within `escalationTimeoutMins` settle to
   `escalationTimeoutAction` (default `deny`) on the next read — no deadlocks.
+  On the gateway, a group with no policy of its own is held to the per-agent
+  model limits of the nearest wallet above it (`inheritedTokenDefaults`), so a
+  new group is never unlimited by omission. Purchases in such a group are
+  still denied until it has a policy.
 - **Runtime enforcement.** The decision happens *inline*, before the
   provider/merchant/tool call — not after the fact in a log.
 - **Small trusted surface.** Most flows reduce to **Authorize → Approve → Grant →

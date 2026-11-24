@@ -4,10 +4,11 @@ import { db } from "@/lib/db"
 import { NoWallet } from "@/components/no-wallet"
 import { RosterAddAgent } from "@/components/roster-add-agent"
 import { getViewWallet } from "@/lib/session"
-import { fmtUsd } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
 import { getRoster, getWaiting, type RosterGroup } from "@/lib/roster"
-import { HomeAgents, type HomeGroup } from "@/components/home-agents"
+import { HomeOverview } from "@/components/home-overview"
+import { recentHighCursorDay } from "@/lib/homeCursorIncident"
+import { homeOverview } from "@/lib/homeOverview"
 import { SetupContinuation } from "@/components/setup-continuation"
 import { FirstHourChecklist } from "@/components/first-hour-checklist"
 import {
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Sanction — Home",
-  description: "What is waiting for you, and the agents on this wallet.",
+  description: "Provider records, developer-tool usage, and requests waiting for you.",
 }
 
 // "3 min ago" for a row. Rendered on the server only, so the words cannot
@@ -42,40 +43,24 @@ function ago(then: Date | null, now: Date): string {
   return then.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
 }
 
-// The group tree as a flat, depth-first list: one section per group.
-function flatten(group: RosterGroup, now: Date, depth = 0, out: HomeGroup[] = []): HomeGroup[] {
-  out.push({
-    id: group.id,
-    name: group.name,
-    depth,
-    month:
-      group.spendCapUsd != null
-        ? // A cap covers the whole subtree, so compare it with the subtree's spend.
-          `${fmtUsd(group.monthUsd)} of ${fmtUsd(group.spendCapUsd)}`
-        : fmtUsd(group.agents.reduce((sum, a) => sum + a.monthUsd, 0)),
-    waiting: group.agents.reduce((sum, a) => sum + a.pending, 0),
-    agents: group.agents.map((a) => ({
-      id: a.id,
-      name: a.name,
-      holder: a.holder,
-      stamp: a.stamp,
-      month: fmtUsd(a.monthUsd),
-      seen: ago(a.lastUsedAt ?? null, now),
-    })),
-  })
-  for (const child of group.children) flatten(child, now, depth + 1, out)
-  return out
+// Group choices for adding an agent; the roster itself lives on Agents.
+function flatten(group: RosterGroup): { id: string; name: string }[] {
+  return [{ id: group.id, name: group.name }, ...group.children.flatMap(flatten)]
 }
 
 export default async function Dashboard() {
   const view = await getViewWallet()
   if (!view) return <NoWallet />
 
+  const now = new Date()
   const brokerProof = await db.brokerWalkthrough.findFirst({
     where: { ownerWalletId: view.id, completedAt: { not: null }, executionCount: 1, initialStopped: true, changedStopped: true, reuseStopped: true },
     select: { id: true },
   })
-  const [roster, waiting] = await Promise.all([getRoster(view.id), getWaiting(view.id)])
+  const [roster, waiting, overview, cursorDay] = await Promise.all([
+    getRoster(view.id, now), getWaiting(view.id, 3, now), homeOverview(view.id, now),
+    view.isSession ? recentHighCursorDay(view.id, now) : null,
+  ])
   const isDemo = !view.isSession && process.env.SANCTION_WALLET_ID === view.id
   const canAdd = hasRole(view.role, "admin")
 
@@ -109,8 +94,7 @@ export default async function Dashboard() {
   }
   const showFirstHour = shouldShowFirstHourChecklist(firstHour, { isSession: view.isSession, isDemo })
 
-  const now = new Date()
-  const groups = flatten(roster.root, now)
+  const groups = flatten(roster.root)
   const setupComplete = hasMcpConnection && firstHour.hasDecision
   const setup =
     view.isSession && canAdd ? (
@@ -131,7 +115,7 @@ export default async function Dashboard() {
           <h1 className="home-title">{view.name}</h1>
           <p className="home-sub">
             {roster.agentCount} {roster.agentCount === 1 ? "agent" : "agents"}
-            {groups.length > 1 ? ` in ${groups.length} groups` : ""}, {fmtUsd(roster.root.monthUsd)} this month
+            {groups.length > 1 ? ` across ${groups.length} wallets` : ""} · provider and tool overview
           </p>
         </div>
         <div className="home-actions">
@@ -161,7 +145,7 @@ export default async function Dashboard() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="m5 12.5 4.5 4.5L19 7.5" />
             </svg>
-            Nothing is waiting. Requests that need a person will show up here.
+            No requests need your attention.
           </p>
         ) : (
           <ul className="wait g-glass">
@@ -186,12 +170,25 @@ export default async function Dashboard() {
         )}
       </section>
 
-      {/* Unfinished setup is the next thing to do, so it sits above the agents.
-          Finished setup is reference, so it goes to the bottom. A waiting
-          request always outranks both. */}
+      {cursorDay && (
+        <section className="home-section" aria-labelledby="home-cursor-volume">
+          <div className="g-glass rounded-xl border border-border p-5">
+            <h2 id="home-cursor-volume" className="home-h2">High Cursor usage on {cursorDay.day} UTC</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your personal billing export shows {cursorDay.items.toLocaleString("en-US")} billing items
+              {cursorDay.tokens !== null && <> and {cursorDay.tokens.toLocaleString("en-US")} reported tokens</>}.
+            </p>
+            <Link href={`/dashboard/usage/cursor?day=${cursorDay.day}#incident`} className="home-link mt-3 inline-block">
+              Investigate this day
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* Keep unfinished setup visible; completed setup remains available below. */}
       {setup && !setupComplete && <div className="home-section">{setup}</div>}
 
-      <HomeAgents groups={groups} total={roster.agentCount} />
+      <HomeOverview data={overview} />
 
       {setup && setupComplete && <div className="home-section">{setup}</div>}
     </div>

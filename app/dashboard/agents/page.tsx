@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { agentState, agentExpiringSoon, waitingApprovalWhere } from "@/lib/dashboardCounts"
 import { db } from "@/lib/db"
 import { withTenant } from "@/lib/rls"
 import { readSeatActivity } from "@/lib/seatActivity"
@@ -32,7 +33,7 @@ async function walletScopeIds(rootWalletId: string, scope: "wallet" | "subtree")
   return rows.map((r) => r.id)
 }
 
-async function getAgents(walletId: string, scope: "wallet" | "subtree") {
+async function getAgents(walletId: string, scope: "wallet" | "subtree", now: Date) {
   const monthStart = new Date()
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
@@ -65,11 +66,10 @@ async function getAgents(walletId: string, scope: "wallet" | "subtree") {
     }),
   )
   const agentIds = rows.map((a) => a.id)
-  const now = new Date()
   const [pending, activeGrants, decisions, activity] = await Promise.all([
     db.pendingApproval.groupBy({
       by: ["agentId"],
-      where: { walletId: { in: walletIds }, agentId: { in: agentIds }, status: "pending" },
+      where: { ...waitingApprovalWhere(walletIds, now), agentId: { in: agentIds } },
       _count: true,
     }),
     db.grant.groupBy({
@@ -148,24 +148,18 @@ export default async function AgentsPage({
   // "Current wallet" narrows back to just this wallet's own seats.
   const scope: "wallet" | "subtree" = params.scope === "wallet" ? "wallet" : "subtree"
   const stateFilter = params.state === "inactive" || params.state === "expiring" || params.state === "expired" ? params.state : "all"
-  const agents = await getAgents(view.id, scope)
   const now = new Date()
-  const expiringSoon = agents.filter(
-    (a) => a.expiresAt && new Date(a.expiresAt) > now && new Date(a.expiresAt).getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000,
-  ).length
-  const inactiveAgents = agents.filter((a) => !a.isActive).length
-  const expiredAgents = agents.filter((a) => a.expiresAt && new Date(a.expiresAt) <= now).length
+  const agents = await getAgents(view.id, scope, now)
+  const expiringSoon = agents.filter((a) => agentExpiringSoon(a, now)).length
+  const inactiveAgents = agents.filter((a) => agentState(a, now) === "revoked").length
+  const expiredAgents = agents.filter((a) => agentState(a, now) === "expired").length
   const filteredAgents = agents.filter((a) => {
-    if (stateFilter === "inactive") return !a.isActive
-    if (stateFilter === "expiring") {
-      if (!a.expiresAt) return false
-      const t = new Date(a.expiresAt).getTime()
-      return t > now.getTime() && t - now.getTime() <= 7 * 24 * 60 * 60 * 1000
-    }
-    if (stateFilter === "expired") return !!a.expiresAt && new Date(a.expiresAt) <= now
+    if (stateFilter === "inactive") return agentState(a, now) === "revoked"
+    if (stateFilter === "expiring") return agentExpiringSoon(a, now)
+    if (stateFilter === "expired") return agentState(a, now) === "expired"
     return true
   })
-  const activeAgents = agents.filter((a) => a.isActive).length
+  const activeAgents = agents.filter((a) => agentState(a, now) === "active").length
   const activeGrants = agents.reduce((sum, a) => sum + a.activeGrants, 0)
   const pendingApprovals = agents.reduce((sum, a) => sum + a.pendingApprovals, 0)
 
@@ -224,7 +218,7 @@ export default async function AgentsPage({
             <Link href={scopeHref("wallet")} aria-current={scope === "wallet" ? "true" : undefined}>This wallet only</Link>
           </nav>
         </div>
-        <ApiKeysTable agents={filteredAgents} editable={canEdit} />
+        <ApiKeysTable agents={filteredAgents} editable={canEdit} asOf={now.toISOString()} />
       </section>
 
       <div className="home-section">

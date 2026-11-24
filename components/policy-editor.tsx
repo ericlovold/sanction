@@ -38,25 +38,25 @@ type PolicyDollars = {
 const budgetFields = [
   {
     name: "daily_spend_budget_usd",
-    label: "Purchases per day",
-    hint: "All agents together. A purchase that would cross this is refused.",
+    label: "Purchases per agent, per day",
+    hint: "The default for each agent, counted on its own. An agent with its own daily limit uses that instead. A purchase that would take an agent over its limit is refused.",
   },
   {
     name: "monthly_spend_budget_usd",
-    label: "Purchases per month",
+    label: "Purchases per agent, per month",
     optional: true,
-    hint: "Calendar month. Leave blank for no monthly limit.",
+    hint: "Calendar month, counted for each agent on its own. Leave blank for no monthly limit.",
   },
   {
     name: "daily_token_budget_usd",
-    label: "Model spend per day",
-    hint: "All agents together. Over this, model calls through the gateway are refused until the day resets.",
+    label: "Model spend per agent, per day",
+    hint: "The default for each agent, counted on its own. An agent with its own limit uses that instead. At its limit, that agent's model calls through the gateway are refused until the day resets.",
   },
   {
     name: "subtree_daily_cap_usd",
-    label: "Daily cap including groups below",
+    label: "Purchases per day, all agents together",
     optional: true,
-    hint: "A hard ceiling for this wallet plus every group under it. Leave blank for none.",
+    hint: "One ceiling shared by every agent in this wallet and the groups under it. Leave blank for none.",
   },
 ] as const
 

@@ -127,6 +127,13 @@ Calls with reported usage land in your Spend dashboard by agent, model, and `gat
 task label, against the same daily token budget the policy enforces. Set per-agent
 budgets with `PATCH /api/v1/agents`.
 
+Daily and monthly model limits are counted for each agent on its own. An agent
+uses its own limit if it has one, otherwise the default in its wallet's policy.
+A group with no policy of its own takes the defaults from the nearest wallet
+above it. A group that has a policy keeps its own numbers, lower or higher.
+The caps that add agents together are `subtree_daily_token_cap_usd` on any
+wallet above the agent.
+
 ## Streaming
 
 Streaming is metered and **stays live** — the gateway tees the SSE stream to your

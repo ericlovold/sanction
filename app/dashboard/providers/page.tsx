@@ -9,6 +9,7 @@ import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd } from "@/lib/format"
 import { hasRole } from "@/lib/roles"
 import { PROVIDERS, providerNameOf } from "@/lib/providers"
+import { BrandIcon, BrandNotice } from "@/components/brand-icon"
 import { connectProviderAction, disconnectProviderAction } from "./actions"
 
 export const dynamic = "force-dynamic"
@@ -74,7 +75,7 @@ export default async function ProvidersPage() {
             <Card key={p.id} className="bg-card border-border">
               <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <span aria-hidden className="h-2.5 w-2.5 rounded-[3px]" style={{ background: p.color }} />
+                  <BrandIcon brand={p.id} size={22} />
                   {p.name}
                 </CardTitle>
                 <span
@@ -156,6 +157,7 @@ export default async function ProvidersPage() {
         Connected keys live in the <Link href="/dashboard/credentials" className="underline underline-offset-2">credential vault</Link> under
         reserved <span className="font-mono">provider:*</span> labels — encrypted, rotation-in-one-step, never injectable by agents.
       </p>
+      <BrandNotice />
     </div>
   )
 }

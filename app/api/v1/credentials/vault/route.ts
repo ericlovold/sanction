@@ -11,7 +11,7 @@ const schema = z.object({
     .string()
     .min(1)
     .max(64)
-    .refine((l) => !isReservedVaultLabel(l), "provider:* and mcp:* labels are reserved for Providers and the MCP broker"),
+    .refine((l) => !isReservedVaultLabel(l), "provider:*, mcp:* and usage:* labels are reserved for Providers, the MCP broker and usage connectors"),
   type: z.enum(["api_key", "oauth_token", "certificate", "license", "password"]),
   value: z.string().min(1),
   allowed_agent_ids: z.array(z.string()).default([]),
@@ -85,7 +85,7 @@ const patchSchema = z.object({
     .string()
     .min(1)
     .max(64)
-    .refine((l) => !isReservedVaultLabel(l), "provider:* and mcp:* labels are reserved for Providers and the MCP broker")
+    .refine((l) => !isReservedVaultLabel(l), "provider:*, mcp:* and usage:* labels are reserved for Providers, the MCP broker and usage connectors")
     .optional(),
   allowed_agent_ids: z.array(z.string()).optional(),
   scopes: z.array(z.string()).optional(),
@@ -111,6 +111,7 @@ export async function PATCH(req: NextRequest) {
   const updated = await withTenant(wallet_id, async (tx) => {
     const cred = await tx.credentialVault.findUnique({ where: { id } })
     if (!cred || cred.walletId !== wallet_id) return null
+    if (label !== undefined && isReservedVaultLabel(cred.label)) return "reserved" as const
     return tx.credentialVault.update({
       where: { id },
       data: {
@@ -123,6 +124,7 @@ export async function PATCH(req: NextRequest) {
       select: { id: true, label: true, type: true, scopes: true, allowedAgentIds: true, minClearance: true, expiresAt: true, revokedAt: true, createdAt: true },
     })
   })
+  if (updated === "reserved") return NextResponse.json({ error: "Manage this credential through its owning feature." }, { status: 400 })
   if (!updated) return NextResponse.json({ error: "Credential not found" }, { status: 404 })
   return NextResponse.json({ credential: updated }, { headers: { "Cache-Control": "no-store" } })
 }

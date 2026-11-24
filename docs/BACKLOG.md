@@ -17,6 +17,17 @@ as fact here.
 
 ## Open
 
+- [ ] 2026-11-23 — Validate the [AI spend connectors](plans/ai-spend-validation.md) against live provider accounts (needs an arc).
+
+- [ ] 2026-11-23 — `next dev` no longer starts in a cloud session: the `eve`
+      wrapper in `next.config.ts` needs Node 24 and a reachable AI Gateway, and
+      exits otherwise. `/render-check` and the 2026-07-04 ops note predate it.
+      Decide: an opt-out env flag for local rendering, or document the hosts.
+
+- [ ] 2026-11-23 — The Perplexity chart color (`#953c41`, also `OTHER_COLOR`)
+      fails the dataviz validator in dark mode (lightness band, 2.49:1
+      contrast). Found while validating the Cursor color; not changed.
+
 - [x] 2026-10-03 — Today’s docket: discuss and refresh website/content around one-off human approvals and the current connector feature set. Lead with the user problem and a concrete approval flow; distinguish available connections from accepted marketplace listings and cooperative requests from enforced broker routing. (founder request; after Claude readiness). Closed 2026-10-11: #361/#365/#368 shipped the oversight positioning, full use-case stories and accurate approval boundaries. Activation remains gated on connector completion.
 
 - [ ] 2026-08-22 — GTM launch arc (Eric: "timing is everything"): platform
