@@ -17,21 +17,7 @@ as fact here.
 
 ## Open
 
-- [ ] 2026-11-23 — AI spend connectors (`lib/connectors/`, `/dashboard/ai-spend`):
-      Cursor, Claude (Anthropic Admin API) and OpenAI are built against the
-      providers' published docs and have never run against a live account.
-      Confirm on real keys: Cursor below Enterprise and with a `read:*` key,
-      and which Cursor total `chargedCents` on non-chargeable events
-      reconciles to; that OpenAI attributes the same user or key on its usage
-      and costs endpoints, how it encodes `group_by` arrays, and how late its
-      numbers run; Anthropic's rate limit for the analytics endpoints.
-      Deferred on purpose: Claude Enterprise analytics key, Claude Team CSV
-      upload, OpenAI user id to email lookup and the non-completions usage
-      endpoints, exact per-model OpenAI cost (line items), list price next to
-      charged price, encrypted raw-payload archive with 90-day retention,
-      per-org editable thresholds, weekly reconciliation against provider
-      totals, output metrics, the identity mapping queue and teams, budgets,
-      Slack delivery, the Cursor per-user limit push.
+- [ ] 2026-11-23 — Validate the [AI spend connectors](plans/ai-spend-validation.md) against live provider accounts (needs an arc).
 
 - [ ] 2026-11-23 — `next dev` no longer starts in a cloud session: the `eve`
       wrapper in `next.config.ts` needs Node 24 and a reachable AI Gateway, and
