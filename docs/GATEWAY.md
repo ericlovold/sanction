@@ -28,6 +28,39 @@ client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=100,
 # → metered automatically as gateway:anthropic
 ```
 
+## Claude Code
+
+Claude Code can send its model traffic through the gateway, so a seat's token
+budget is a hard stop for a coding session. Set two variables before starting
+it (Claude Code 2.1.227 or newer):
+
+```bash
+export ANTHROPIC_BASE_URL=https://getsanction.com/api/gateway/anthropic
+export ANTHROPIC_CUSTOM_HEADERS="x-sanction-key: pxy_…"
+```
+
+Your existing Claude login or API key keeps authenticating to Anthropic; the
+gateway forwards it unchanged. When the budget cannot cover a request, Claude
+Code shows `API Error: 402` with `GATEWAY_BUDGET_EXCEEDED` and the limit, and
+does not retry.
+
+Checked against Claude Code 2.1.329 on a local gateway with a Claude
+subscription login: a multi-tool session (Bash, Read, Write, Edit and a
+subagent) had every request accepted, and a budget set just above recorded
+spend stopped the next session before it reached Anthropic.
+
+- **Leave headroom.** Each request reserves its largest possible cost before it
+  is sent. A Claude Code request carries the whole tool list, so a small prompt
+  to a Haiku model reserved about $0.88 and then cost under one cent. Sessions
+  stop when the remaining budget is smaller than one reservation, not at zero.
+- **Subscription plans.** The figure metered is what the same tokens would cost
+  at API prices. It is a usable cap, not what a flat-rate plan charges.
+- **Not supported yet.** Images and PDFs in the conversation, and Claude Code's
+  web search, are refused with a `400`. After a refusal Claude Code retries
+  with every tool definition inlined, which is slower and costs more.
+- **The key is in your environment.** Keep `ANTHROPIC_CUSTOM_HEADERS` out of
+  project settings files that are committed.
+
 ## OpenAI (Python SDK)
 
 ```python
@@ -124,7 +157,13 @@ A `400` response explains which input needs to change. Function definitions and
 ordinary local tool results are supported where their text is in the request.
 Responses assistant messages and function calls can be replayed inline, including
 their validated metadata. Claude tool loops with thinking are supported,
-including replayed `thinking` and `redacted_thinking` blocks. Models that keep
+including replayed `thinking` and `redacted_thinking` blocks. So is what Claude
+Code adds to a request: context edits that clear earlier thinking or tool
+results, with their options held to Anthropic's documented shapes (clearing
+removes input; the hold adds a fixed allowance for the warning Anthropic may
+send the model as tool-result clearing nears), system messages mid-conversation with
+per-turn output settings and inline client tool definitions, deferred tool
+loading, and tool calls marked as made directly by the model. Models that keep
 prior reasoning bill it as input; Anthropic documents the `signature` (and
 redacted `data`) as an encrypted copy of the full reasoning, so the hold counts
 those bytes twice to bound it.
