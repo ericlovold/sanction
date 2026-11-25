@@ -30,8 +30,8 @@ const STEPS: Step[] = [
   },
   {
     target: "home-overview",
-    title: "See your providers and tools",
-    body: "Check stored provider keys, recorded usage and tool reports here. Open Agents to manage individual agents and groups.",
+    title: "See your AI tools",
+    body: "Each tool you connect shows here with its spend this month. Open Agents to manage individual agents and groups.",
   },
   {
     target: "nav-vault",

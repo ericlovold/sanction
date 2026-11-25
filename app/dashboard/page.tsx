@@ -188,7 +188,7 @@ export default async function Dashboard() {
       {/* Keep unfinished setup visible; completed setup remains available below. */}
       {setup && !setupComplete && <div className="home-section">{setup}</div>}
 
-      <HomeOverview data={overview} />
+      <HomeOverview data={overview} canConnect={view.isSession && canAdd} />
 
       {setup && setupComplete && <div className="home-section">{setup}</div>}
     </div>

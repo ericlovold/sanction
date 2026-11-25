@@ -16,7 +16,7 @@ const { dbMock, viewMock, rosterMock } = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/db", () => ({ db: dbMock }))
 vi.mock("@/lib/homeCursorIncident", () => ({ recentHighCursorDay: vi.fn() }))
-vi.mock("@/lib/homeOverview", () => ({ homeOverview: vi.fn(async () => ({ providers: [], otherSpend: null, spendUnavailable: false, tools: [] })) }))
+vi.mock("@/lib/homeOverview", () => ({ homeOverview: vi.fn(async () => ({ view: { kind: "empty", addable: [] }, otherSpend: null })) }))
 vi.mock("@/lib/session", () => ({ getViewWallet: viewMock }))
 vi.mock("@/lib/roster", () => ({ getRoster: rosterMock, getWaiting: vi.fn(async () => []) }))
 vi.mock("@/lib/rls", () => ({ withTenant: (_id: string, fn: (tx: typeof dbMock) => unknown) => fn(dbMock) }))
