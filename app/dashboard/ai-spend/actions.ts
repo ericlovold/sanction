@@ -18,7 +18,7 @@ import { syncConnection } from "@/lib/connectors/sync"
 export type ConnectState = { ok: boolean; message: string }
 
 const PATH = "/dashboard/ai-spend"
-const providerId = z.enum(["cursor", "anthropic", "openai"])
+const providerId = z.enum(["cursor", "anthropic", "openai", "copilot"])
 // A key is one unbroken token. Reject anything with whitespace before it gets
 // near the provider or the vault.
 const apiKey = z.string().trim().min(20).max(500).regex(/^\S+$/)
@@ -45,11 +45,19 @@ export async function connectUsageToolAction(_prev: ConnectState, form: FormData
   const adapter = provider ? adapterFor(provider.id) : undefined
   if (!provider || !adapter) return { ok: false, message: "Unknown tool." }
   const key = apiKey.safeParse(form.get("api_key"))
-  if (!key.success) return { ok: false, message: `That does not look like an API key. ${provider.keyHint}` }
+  if (!key.success) return { ok: false, message: `That does not look like ${provider.keyNoun === "token" ? "a token" : "an API key"}. ${provider.keyHint}` }
+  // The provider-side account the key reads, for providers whose key does not
+  // name one. Validated against the provider's own name rules before use.
+  let accountRef: string | null = null
+  if (provider.account) {
+    const account = z.string().trim().min(1).max(100).regex(provider.account.pattern).safeParse(form.get("account_ref"))
+    if (!account.success) return { ok: false, message: `That is not a valid ${provider.account.label.toLowerCase()}. ${provider.account.hint}` }
+    accountRef = account.data
+  }
 
   const now = new Date()
   try {
-    await adapter.probe(key.data, now)
+    await adapter.probe({ secret: key.data, accountRef }, now)
   } catch (error) {
     return { ok: false, message: error instanceof ConnectorError ? error.message : `Could not reach ${provider.name} to check the key. Try again.` }
   }
@@ -60,7 +68,7 @@ export async function connectUsageToolAction(_prev: ConnectState, form: FormData
   // under the same connection, replacing old facts instead of doubling them.
   const connection = await db.usageConnection.upsert({
     where: { walletId_provider: { walletId, provider: provider.id } },
-    create: { walletId, provider: provider.id, status: "disconnected", authKind: provider.authKind, connectedByEmail: admin.email, connectedAt: now },
+    create: { walletId, provider: provider.id, status: "disconnected", authKind: provider.authKind, accountRef, connectedByEmail: admin.email, connectedAt: now },
     update: { provider: provider.id },
   })
   const label = usageVaultLabel(provider.id, connection.id)
@@ -71,7 +79,7 @@ export async function connectUsageToolAction(_prev: ConnectState, form: FormData
     await tx.usageConnection.update({
       where: { id: connection.id, walletId },
       data: {
-        status: "active", statusCode: null, statusDetail: null, connectedByEmail: admin.email,
+        status: "active", statusCode: null, statusDetail: null, connectedByEmail: admin.email, accountRef, authKind: provider.authKind,
         connectedAt: now, disconnectedAt: null, syncedThrough: null, lastSuccessAt: null, lastAttemptAt: null,
       },
     })

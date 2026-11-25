@@ -27,7 +27,7 @@
 
 import { z } from "zod"
 import { ConnectorError, DAY_MS, HOUR_MS, type FactInput } from "./facts"
-import { toNanos } from "./money"
+import { allocate, toNanos } from "./money"
 import { createRateLimiter, defaultClock, type FetchDeps } from "./pace"
 
 export const OPENAI_API = "https://api.openai.com"
@@ -181,21 +181,6 @@ function identityOf(r: { user_id?: string | null; api_key_id?: string | null }):
 
 function utcDay(ms: number): number {
   return Math.floor(ms / DAY_MS) * DAY_MS
-}
-
-/**
- * Split `total` across `weights` in proportion, in whole nano-dollars, so the
- * parts sum to exactly `total`. The nanos lost to rounding down go one each to
- * the largest weights (ties broken by position), which is deterministic.
- */
-export function allocate(total: bigint, weights: bigint[]): bigint[] {
-  const sum = weights.reduce((a, b) => a + b, ZERO)
-  if (sum <= ZERO || total < ZERO) throw new Error("allocate needs a positive weight sum and a non-negative total")
-  const parts = weights.map((w) => (total * w) / sum)
-  let left = total - parts.reduce((a, b) => a + b, ZERO)
-  const order = weights.map((w, i) => ({ w, i })).sort((a, b) => (a.w < b.w ? 1 : a.w > b.w ? -1 : a.i - b.i))
-  for (let k = 0; left > ZERO; k = (k + 1) % order.length, left--) parts[order[k].i] += BigInt(1)
-  return parts
 }
 
 /**

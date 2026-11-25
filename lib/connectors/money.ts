@@ -84,3 +84,18 @@ export function sumNanos(values: Iterable<bigint>): bigint {
   for (const v of values) total += v
   return total
 }
+
+/**
+ * Split `total` across `weights` in proportion, in whole nano-dollars, so the
+ * parts sum to exactly `total`. The nanos lost to rounding down go one each to
+ * the largest weights (ties broken by position), which is deterministic.
+ */
+export function allocate(total: bigint, weights: bigint[]): bigint[] {
+  const sum = weights.reduce((a, b) => a + b, BigInt(0))
+  if (sum <= BigInt(0) || total < BigInt(0)) throw new Error("allocate needs a positive weight sum and a non-negative total")
+  const parts = weights.map((w) => (total * w) / sum)
+  let left = total - parts.reduce((a, b) => a + b, BigInt(0))
+  const order = weights.map((w, i) => ({ w, i })).sort((a, b) => (a.w < b.w ? 1 : a.w > b.w ? -1 : a.i - b.i))
+  for (let k = 0; left > BigInt(0); k = (k + 1) % order.length, left--) parts[order[k].i] += BigInt(1)
+  return parts
+}

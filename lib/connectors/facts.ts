@@ -9,7 +9,7 @@ export const DAY_MS = 86_400_000
 
 export type CostBasis =
   | "billed" // the provider charged this
-  | "allocated" // an hourly share of a billed daily amount
+  | "allocated" // a share of a billed amount: an hour of a day, or one person of a day
   | "included" // usage the plan already covers; a value, not an extra charge
   | "estimated" // tokens x a price table, to be reconciled later
 
@@ -37,6 +37,14 @@ export type FactInput = {
   requests: number
   costNanos: bigint
   costBasis: CostBasis
+}
+
+// What a pull is handed: the decrypted secret, and the provider-side account
+// it reads when the secret alone does not name one (a GitHub organization).
+// accountRef is not secret; it lives on the connection, not in the vault.
+export type ConnectorCredential = {
+  secret: string
+  accountRef: string | null
 }
 
 export function hourStart(ms: number): number {

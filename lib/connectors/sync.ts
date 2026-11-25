@@ -77,9 +77,9 @@ export async function syncConnection(connectionId: string, opts: SyncOptions): P
         )
       : null
     if (!credential) throw new ConnectorError("missing_credential", "The stored key for this connection is gone. Connect it again.")
-    const apiKey = await decryptCredentialEnvelope(credential)
+    const secret = await decryptCredentialEnvelope(credential)
 
-    const pulled = await adapter.pull(apiKey, { startMs: windowStartMs, endMs: now.getTime() }, opts.http)
+    const pulled = await adapter.pull({ secret, accountRef: connection.accountRef }, { startMs: windowStartMs, endMs: now.getTime() }, opts.http)
     httpCalls = pulled.httpCalls
     // The provider's own "data as of" when it gives one, else our pull time.
     const sourceRefreshedAt = pulled.refreshedAt ?? now

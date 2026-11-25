@@ -46,12 +46,14 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
   let connectionC = ""
   let walletD = ""
   let connectionD = ""
+  let walletE = ""
+  let connectionE = ""
   const all = [...baselineEvents(), ...incidentEvents()] as Record<string, unknown>[]
   const afterIncident = new Date(INCIDENT_START + INCIDENT_HOURS * HOUR + 10 * 60_000)
 
-  async function seed(name: string, provider = "cursor") {
+  async function seed(name: string, provider = "cursor", accountRef: string | null = null) {
     const wallet = await db.wallet.create({ data: { name, ownerEmail: `${crypto.randomUUID()}@example.test` } })
-    const connection = await db.usageConnection.create({ data: { walletId: wallet.id, provider, authKind: "admin_api_key" } })
+    const connection = await db.usageConnection.create({ data: { walletId: wallet.id, provider, authKind: "admin_api_key", accountRef } })
     const label = usageVaultLabel(provider, connection.id)
     const { blob, keyId } = await encryptCredentialEnvelope("crsr_test_key_for_db_tests", wallet.id, label)
     const credential = await withTenant(wallet.id, (tx) =>
@@ -78,11 +80,14 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     const d = await seed("usage-d", "openai")
     walletD = d.walletId
     connectionD = d.connectionId
+    const e = await seed("usage-e", "copilot", "acme-co")
+    walletE = e.walletId
+    connectionE = e.connectionId
   })
 
   afterAll(async () => {
     if (!run) return
-    for (const walletId of [walletA, walletB, walletC, walletD]) {
+    for (const walletId of [walletA, walletB, walletC, walletD, walletE]) {
       await withTenant(walletId, async (tx) => {
         await tx.usageFact.deleteMany({ where: { walletId } })
         await tx.usageAlert.deleteMany({ where: { walletId } })
@@ -341,5 +346,54 @@ describe.skipIf(!run)("usage connectors against Postgres", () => {
     const view = await aiSpendView(walletD, later)
     expect(view).toMatchObject({ monthToDate: usd(108), monthBilled: usd(108), monthEstimated: BigInt(0) })
     expect(view.alerts.map(a => a.rule)).toEqual(["daily_cap"])
+  })
+
+  it("Copilot: reads the org from the connection, keeps each day equal to GitHub's bill, and re-splits a day once its report lands", async () => {
+    const d0 = Date.UTC(2026, 10, 18)
+    const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+    // GitHub's bill: $30 on the 18th, $12 on the 19th, both one model.
+    const bills: Record<string, number> = { [iso(d0)]: 30, [iso(d0 + 24 * HOUR)]: 12 }
+    // Reports: the 18th is published (ana 2 credits : bo 1); the 19th is not yet.
+    const reports: Record<string, string> = { [iso(d0)]: '{"user_login":"ana","ai_credits_used":2}\n{"user_login":"bo","ai_credits_used":1}' }
+    const orgs = new Set<string>()
+    const github = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = new URL(url)
+      if (u.host === "reports.example-storage.net") {
+        if (init?.headers) throw new Error("token sent to a download link")
+        return new Response(reports[u.pathname.slice(1)])
+      }
+      orgs.add(u.pathname.split("/")[2])
+      if (u.pathname.endsWith("/users-1-day")) {
+        const day = u.searchParams.get("day")!
+        if (!reports[day]) return new Response(null, { status: 204 })
+        return new Response(JSON.stringify({ download_links: [`https://reports.example-storage.net/${day}`], report_day: day }))
+      }
+      const day = `${u.searchParams.get("year")}-${u.searchParams.get("month")!.padStart(2, "0")}-${u.searchParams.get("day")!.padStart(2, "0")}`
+      const net = u.pathname.endsWith("/ai_credit/usage") ? bills[day] : undefined
+      return new Response(JSON.stringify({ usageItems: net ? [{ product: "copilot", sku: "ai_credit", model: "gpt-5", netAmount: net, discountAmount: 0 }] : [] }))
+    })
+    const rows = async () => (await facts(walletE)).map((f) => [iso(f.bucketStart.getTime()), f.rawIdentity, f.costBasis, f.costNanos]).sort((a, b) => String(a).localeCompare(String(b)))
+
+    const now = new Date(d0 + 24 * HOUR + 15 * HOUR)
+    expect(await syncConnection(connectionE, { trigger: "connect_test", now, http: { fetch: github as never, ...fast } })).toMatchObject({ ok: true, factsWritten: 3 })
+    expect([...orgs]).toEqual(["acme-co"])
+    expect(await rows()).toEqual([
+      ["2026-11-18", "github:ana", "allocated", usd(20)],
+      ["2026-11-18", "github:bo", "allocated", usd(10)],
+      ["2026-11-19", "unattributed", "billed", usd(12)],
+    ])
+
+    // A day later GitHub publishes the 19th: bo alone. The re-read window (four
+    // days) covers it, so the unattributed row is replaced, not doubled.
+    reports[iso(d0 + 24 * HOUR)] = '{"user_login":"bo","ai_credits_used":5}'
+    const later = new Date(now.getTime() + 24 * HOUR)
+    expect(await syncConnection(connectionE, { trigger: "cron", now: later, http: { fetch: github as never, ...fast } })).toMatchObject({ ok: true })
+    expect(await rows()).toEqual([
+      ["2026-11-18", "github:ana", "allocated", usd(20)],
+      ["2026-11-18", "github:bo", "allocated", usd(10)],
+      ["2026-11-19", "github:bo", "allocated", usd(12)],
+    ])
+    const view = await aiSpendView(walletE, later)
+    expect(view).toMatchObject({ monthToDate: usd(42), monthBilled: usd(42), monthEstimated: BigInt(0) })
   })
 })

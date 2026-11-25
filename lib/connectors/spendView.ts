@@ -164,6 +164,8 @@ export async function aiSpendView(walletId: string, now = new Date()) {
       return {
         id: c.id,
         provider: c.provider,
+        // The provider-side account the key reads (GitHub org). Not secret.
+        accountRef: c.accountRef,
         historical: c.status === "disconnected",
         connectedAt: c.connectedAt,
         connectedByEmail: c.connectedByEmail,

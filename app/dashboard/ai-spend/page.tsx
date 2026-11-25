@@ -434,7 +434,13 @@ export default async function AiSpendPage({ searchParams }: { searchParams: Prom
                           <li>Paste the key here. Sanction checks it, encrypts it, and never shows it again.</li>
                         </ol>
                       )}
-                      <ConnectToolForm provider={p.id} name={p.name} rekey={!!c} />
+                      <ConnectToolForm
+                        provider={p.id}
+                        name={p.name}
+                        rekey={!!c}
+                        keyNoun={p.keyNoun}
+                        account={p.account ? { label: p.account.label, placeholder: p.account.placeholder, current: c?.accountRef ?? null } : undefined}
+                      />
                       {c && (
                         <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border/60 pt-3">
                           <SyncNowForm connectionId={c.id} />

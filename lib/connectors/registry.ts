@@ -1,14 +1,21 @@
+import { GITHUB_ORG_LOGIN } from "./copilot"
+
 // What a usage connector is, in one place: the page, the sync and the vault
 // all read the same record. One entry per connector that is actually built.
 
-export type UsageProviderId = "cursor" | "anthropic" | "openai"
+export type UsageProviderId = "cursor" | "anthropic" | "openai" | "copilot"
 
 export type UsageProvider = {
   id: UsageProviderId
   name: string
   // One color per provider, the same everywhere it is drawn.
   color: string
-  authKind: "admin_api_key"
+  authKind: "admin_api_key" | "github_token"
+  // What the pasted secret is called on the connect form. Default "API key".
+  keyNoun?: string
+  // When the secret alone does not name the account to read, the connect form
+  // asks for it and the connection stores it as accountRef (not secret).
+  account?: { label: string; placeholder: string; pattern: RegExp; hint: string }
   // How late the provider's own numbers run. Shown next to every figure.
   freshness: string
   // A pull is "stale" when none has succeeded in twice this long.
@@ -93,6 +100,43 @@ export const USAGE_PROVIDERS: UsageProvider[] = [
       "Exact cost per model or per hour: OpenAI bills by the day with no model, so that split is by token share",
       "Names and emails: OpenAI reports user ids",
       "ChatGPT Team, Business and Enterprise seats",
+    ],
+    canEnforce: false,
+  },
+  {
+    id: "copilot",
+    name: "GitHub Copilot",
+    // Validated against the three above in light and dark (dataviz validator,
+    // 2026-11-25). A future Gemini usage card must not sit next to it: the
+    // gateway's Gemini ochre and this orange fail colorblind separation.
+    color: "#e0662c",
+    authKind: "github_token",
+    keyNoun: "token",
+    account: {
+      label: "GitHub organization",
+      placeholder: "your-org",
+      pattern: GITHUB_ORG_LOGIN,
+      hint: "Enter the organization's login as it appears in github.com/your-org.",
+    },
+    freshness: "Daily. GitHub bills by the day; each person's share appears once GitHub publishes that day's usage report, usually a day or two later.",
+    expectedFreshnessMs: 24 * 3_600_000,
+    backfillDays: 30,
+    // Re-read four days on every pull, so a day billed before its usage report
+    // existed is re-split once the report lands.
+    overlapHours: 4 * 24,
+    keyLocation: "github.com/settings/personal-access-tokens: a fine-grained token with the organization as resource owner, read access to Administration and to Organization Copilot metrics",
+    keyHelpUrl: "https://docs.github.com/en/rest/copilot/copilot-usage-metrics",
+    rotationUrl: "https://github.com/settings/personal-access-tokens",
+    keyHint: "Use a fine-grained personal access token created for the organization. An organization owner may need to approve it.",
+    gives: [
+      "What GitHub billed for Copilot per day and model, after included usage",
+      "Each person's share of that bill, split by their own AI credit use",
+      "Plan-included usage, separately",
+    ],
+    lacks: [
+      "Exact cost per person per model: GitHub's bill names no one, so that split is by credit share",
+      "Today and yesterday per person, until GitHub publishes the usage report",
+      "Copilot bought by individuals outside the organization",
     ],
     canEnforce: false,
   },

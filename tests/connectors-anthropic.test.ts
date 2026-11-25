@@ -269,7 +269,7 @@ describe("the anthropic adapter", () => {
   it("pulls whole hours only and passes through Anthropic's own refresh time", async () => {
     const fetchMock = serving([page([usageRow(0)])], [page([costRow(0, "150.000000")])])
     const adapter = adapterFor("anthropic")!
-    const pulled = await adapter.pull("k", { startMs: start, endMs: start + 5 * HOUR + 1234 }, { fetch: fetchMock as never, ...noWait })
+    const pulled = await adapter.pull({ secret: "k", accountRef: null }, { startMs: start, endMs: start + 5 * HOUR + 1234 }, { fetch: fetchMock as never, ...noWait })
     expect(new URL(fetchMock.mock.calls[0][0] as string).searchParams.get("ending_at")).toBe("2026-11-20T05:00:00.000Z")
     expect(pulled).toMatchObject({ fromMs: start, httpCalls: 2, refreshedAt: new Date("2026-11-23T04:00:00Z") })
     expect(pulled.facts).toHaveLength(1)
@@ -285,7 +285,7 @@ describe("the anthropic adapter", () => {
       const data = u.pathname === ANTHROPIC_USAGE_PATH ? [usageRow(hour)] : [costRow(hour, "150")]
       return json(page(data))
     })
-    const pulled = await adapterFor("anthropic")!.pull("k", { startMs: start, endMs: end }, { fetch: fetchMock as never, ...noWait })
+    const pulled = await adapterFor("anthropic")!.pull({ secret: "k", accountRef: null }, { startMs: start, endMs: end }, { fetch: fetchMock as never, ...noWait })
     const ranges = fetchMock.mock.calls.map(([url]) => {
       const q = new URL(url).searchParams
       return [Date.parse(q.get("starting_at")!), Date.parse(q.get("ending_at")!)]
@@ -299,11 +299,11 @@ describe("the anthropic adapter", () => {
   it("probes the last 24 whole hours, and Cursor's adapter probes the last hour", async () => {
     const now = new Date(start + 30 * 60_000)
     const fetchMock = serving([page([])], [page([])])
-    await adapterFor("anthropic")!.probe("k", now, { fetch: fetchMock as never, ...noWait })
+    await adapterFor("anthropic")!.probe({ secret: "k", accountRef: null }, now, { fetch: fetchMock as never, ...noWait })
     const q = new URL(fetchMock.mock.calls[0][0] as string).searchParams
     expect([q.get("starting_at"), q.get("ending_at")]).toEqual(["2026-11-19T00:00:00.000Z", "2026-11-20T00:00:00.000Z"])
     const cursorFetch = vi.fn(async () => json({ totalUsageEventsCount: 0, pagination: { hasNextPage: false }, usageEvents: [] }))
-    await adapterFor("cursor")!.probe("k", now, { fetch: cursorFetch as never, ...noWait })
+    await adapterFor("cursor")!.probe({ secret: "k", accountRef: null }, now, { fetch: cursorFetch as never, ...noWait })
     expect(JSON.parse((cursorFetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ startDate: now.getTime() - HOUR })
     expect(adapterFor("constructor")).toBeUndefined()
     expect(adapterFor("gemini")).toBeUndefined()

@@ -5,13 +5,13 @@
 import { describe, expect, it, vi } from "vitest"
 import docs from "./fixtures/openai/usage-costs.docs.json"
 import {
-  OPENAI_API, OPENAI_COSTS_PATH, OPENAI_USAGE_PATH, allocate, fetchOpenAiUsageAndCosts,
+  OPENAI_API, OPENAI_COSTS_PATH, OPENAI_USAGE_PATH, fetchOpenAiUsageAndCosts,
   normalizeOpenAiBuckets, parseOpenAiCostsPage, parseOpenAiUsagePage,
 } from "../lib/connectors/openai"
 import { adapterFor } from "../lib/connectors/adapters"
 import { ConnectorError, factDedupeKey } from "../lib/connectors/facts"
 import { evaluateGuardrails } from "../lib/connectors/guardrails"
-import { sumNanos, toNanos, usd } from "../lib/connectors/money"
+import { allocate, sumNanos, toNanos, usd } from "../lib/connectors/money"
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -305,10 +305,10 @@ describe("the openai adapter", () => {
   it("re-reads whole UTC days and reports where its facts begin", async () => {
     const fetchMock = vi.fn(async () => json(page([])))
     const adapter = adapterFor("openai")!
-    const pulled = await adapter.pull("k", { startMs: D0 + 7 * HOUR, endMs: D0 + 30 * HOUR }, { fetch: fetchMock as never, ...noWait })
+    const pulled = await adapter.pull({ secret: "k", accountRef: null }, { startMs: D0 + 7 * HOUR, endMs: D0 + 30 * HOUR }, { fetch: fetchMock as never, ...noWait })
     expect(pulled).toMatchObject({ fromMs: D0, httpCalls: 2, refreshedAt: null, facts: [] })
     expect(new URL((fetchMock.mock.calls[0] as unknown as [string])[0]).searchParams.get("start_time")).toBe(String(D0 / 1000))
-    await adapter.probe("k", new Date(D0 + 5 * HOUR), { fetch: fetchMock as never, ...noWait })
+    await adapter.probe({ secret: "k", accountRef: null }, new Date(D0 + 5 * HOUR), { fetch: fetchMock as never, ...noWait })
     expect(fetchMock).toHaveBeenCalledTimes(4)
     expect(adapter.endpoint).toBe("/v1/organization/usage/completions + /v1/organization/costs")
   })

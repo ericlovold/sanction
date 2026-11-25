@@ -26,7 +26,7 @@ vi.mock("@/lib/db", () => ({ db: m.db }))
 vi.mock("@/lib/rls", () => ({ withTenant: (_w: string, fn: (tx: unknown) => unknown) => fn(m.tx) }))
 vi.mock("@/lib/session", () => ({ getSessionMember: m.member }))
 vi.mock("@/lib/credentialCrypto", () => ({ encryptCredentialEnvelope: m.encrypt }))
-vi.mock("@/lib/connectors/adapters", () => ({ adapterFor: (id: string) => (id === "cursor" || id === "anthropic" || id === "openai" ? { probe: m.probe } : undefined) }))
+vi.mock("@/lib/connectors/adapters", () => ({ adapterFor: (id: string) => (["cursor", "anthropic", "openai", "copilot"].includes(id) ? { probe: m.probe } : undefined) }))
 vi.mock("@/lib/connectors/sync", () => ({ syncConnection: m.sync }))
 vi.mock("next/cache", () => ({ revalidatePath: m.revalidate }))
 
@@ -87,7 +87,7 @@ describe("connectUsageToolAction", () => {
   it("encrypts under a reserved, connection-bound, non-injectable label, then pulls", async () => {
     const result = await connectUsageToolAction(idle, form({ provider: "cursor", api_key: `  ${KEY}  ` }))
     expect(result).toEqual({ ok: true, message: "Connected. Last 7 days: $142.00 across 2 people." })
-    expect(m.probe.mock.calls[0][0]).toBe(KEY)
+    expect(m.probe.mock.calls[0][0]).toEqual({ secret: KEY, accountRef: null })
     expect(m.encrypt).toHaveBeenCalledWith(KEY, "w_1", "usage:cursor:conn_1")
     expect(isReservedVaultLabel("usage:cursor:conn_1")).toBe(true)
     // The old ciphertext is deleted, not soft-retired.
@@ -121,6 +121,24 @@ describe("connectUsageToolAction", () => {
     expect(m.db.usageConnection.upsert.mock.calls[0][0].where).toEqual({ walletId_provider: { walletId: "w_1", provider: "anthropic" } })
     m.probe.mockRejectedValue(new Error("network"))
     expect((await connectUsageToolAction(idle, form({ provider: "anthropic", api_key: KEY }))).message).toBe("Could not reach Claude to check the key. Try again.")
+  })
+
+  it("asks Copilot for the GitHub organization, checks it before the provider, and stores it on the connection", async () => {
+    const TOKEN = "github_pat_0123456789abcdef0123456789abcdef"
+    for (const bad of ["", "-acme", "acme/../admin", "acme co"]) {
+      const refused = await connectUsageToolAction(idle, form({ provider: "copilot", api_key: TOKEN, account_ref: bad }))
+      expect(refused).toEqual({ ok: false, message: expect.stringContaining("not a valid github organization") })
+    }
+    expect((await connectUsageToolAction(idle, form({ provider: "copilot", api_key: TOKEN }))).ok).toBe(false)
+    expect(m.probe).not.toHaveBeenCalled()
+
+    const result = await connectUsageToolAction(idle, form({ provider: "copilot", api_key: TOKEN, account_ref: " acme-co " }))
+    expect(result.ok).toBe(true)
+    expect(m.probe.mock.calls[0][0]).toEqual({ secret: TOKEN, accountRef: "acme-co" })
+    expect(m.db.usageConnection.upsert.mock.calls[0][0].create).toMatchObject({ provider: "copilot", authKind: "github_token", accountRef: "acme-co" })
+    expect(m.tx.usageConnection.update.mock.calls[0][0].data).toMatchObject({ accountRef: "acme-co", authKind: "github_token" })
+    // The org is not secret and is never encrypted; only the token is.
+    expect(m.encrypt).toHaveBeenCalledWith(TOKEN, "w_1", "usage:copilot:conn_1")
   })
 })
 

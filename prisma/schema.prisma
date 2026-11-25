@@ -1061,6 +1061,10 @@ model UsageConnection {
 
   provider     String // "cursor" (lib/connectors/registry.ts)
   authKind     String // "admin_api_key"
+  // Provider-side account the pull reads when the credential alone does not
+  // name one: the GitHub organization login for Copilot. Not secret, so it
+  // lives here and not in the vault.
+  accountRef   String?
   // CredentialVault row holding the key. Null once disconnected: disconnect
   // hard-deletes the vault row, so no ciphertext outlives the connection.
   credentialId String?
