@@ -1,0 +1,11 @@
+{
+  "name": "@sanction/collector",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype: reads Claude Code and Codex usage counts from local session files and builds a signed, metadata-only batch for Sanction. No network code yet.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": { "sanction-collector": "src/bin.ts" },
+  "engines": { "node": ">=20" }
+}
