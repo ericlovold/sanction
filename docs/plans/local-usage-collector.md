@@ -153,9 +153,10 @@ Proposed additions, for one migration agreed across the three tracks:
 | Change | Why |
 |---|---|
 | `UsageFact.tool`: `claude_code` \| `claude_ai` \| `codex` \| `chatgpt` \| `cursor` \| `copilot` \| `gemini` \| `api` | The product the person thinks they use. `provider` is who bills, `surface` is where in the product. The tool picker and "show only my tools" key on this |
-| `UsageFact.source`: `admin_api` \| `billing_api` \| `otlp` \| `collector` \| `upload` | One person's Claude Code usage can arrive by two roads; the dashboard needs to pick one per person, tool and hour |
+| `UsageFact.source`: `admin_api` \| `billing_api` \| `gateway` \| `reported` \| `otlp` \| `collector` \| `upload` | One person's Claude Code usage can arrive by two roads; the dashboard needs to pick one per person, tool and hour. `gateway` (calls through Sanction's gateway) and `reported` (agents self-logging tokens) come from track 2: a plain API key cannot read provider usage, so gateway metering is the only API-key road |
 | `UsageFact.personId?`, `deviceId?`, `planRef?` | Person resolved inside Sanction; which device reported; `claude_max_5x`, `chatgpt_plus` when known |
 | `UsageConnection.kind`, unique on `[walletId, provider, kind]` | Today one connection per provider per wallet. A collector device needs its own connection row so its `dedupeKey` space stays separate |
+| `TokenLog` unchanged | Track 2: it stays the enforcement ledger. If gateway rows are mirrored into `UsageFact`, that write stays off the reservation path, and `connectionId` would need to be optional for them |
 | `CollectorDevice` (wallet, person, public key, platform, tools, pairedAt, lastBatchAt, revokedAt) | Pairing, signing, revocation |
 | `PlanWindowSnapshot` (person, tool, limitId, window, windowMinutes, hourStart, peak and last percent, resetsAt, planType) | Codex plan windows now; Claude status-line windows later |
 
