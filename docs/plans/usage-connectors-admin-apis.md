@@ -143,11 +143,18 @@ For OAuth and App installs, propose that `secret` stays what the adapter is hand
 
 ## Normalized usage schema
 
-`UsageFact` stays the money grain: provider, surface, person, model, bucket, tokens, requests, nano-dollar cost and a cost basis (billed, allocated, included, estimated). Proposed additions, to agree with the bucket-2 and bucket-3 tracks before anyone builds them:
+`UsageFact` stays the money grain: provider, surface, person, model, bucket, tokens, requests, nano-dollar cost and a cost basis (billed, allocated, included, estimated). Proposed additions, to agree with the bucket-2 and bucket-3 tracks before anyone builds them.
+
+The local-collector track's proposal (`docs/plans/local-usage-collector.md` on branch `claude/local-usage-collector`) agrees on the core and names it more precisely:
+- a `tool` column on `UsageFact`, which is what the picker selects, separate from the billing provider;
+- a `source` column, where admin_api wins for money;
+- `UsageConnection.kind`, with the unique key widened to wallet, provider and kind.
+
+Adopt their names. The `kind` change matters here too: today one wallet cannot hold both a Claude Console and a Claude Enterprise connection, or a Copilot org and a personal Copilot account. The items below are the parts that proposal does not cover, or covers differently.
 
 1. **`UsageConnection.accountRef`**: done on this branch, with an additive nullable migration.
 2. **`UsageToolSelection`** (walletId, tool, route, selectedAt, selectedBy): "the tools you use", stored before anything is connected. The dashboard reads it to decide which cards exist. A selected but unconnected tool shows one "Connect" card. An unselected tool shows nothing.
-3. **A `source` on every usage row**: admin API, gateway or collector.
+3. **A `source` on every usage row** (the collector track's `source`: admin_api, billing_api, otlp, collector, upload).
    - Admin-API billed rows win for the same person, tool and day.
    - Collector rows fill in only where no admin connection exists for that tool.
    - This prevents counting one Claude Code session twice. Bucket 3 owns the collector side.
