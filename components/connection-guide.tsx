@@ -1,6 +1,7 @@
 import { Markdown } from "@/components/markdown"
 import { ConnectionGuideSteps, type ConnectionGuideContent } from "@/components/connection-guide-steps"
 import { connectionHosts } from "@/lib/connectionGuideNavigation"
+import { MCP_DECISION_INSTRUCTIONS } from "@/lib/mcpServer"
 
 // Keep setup, limitations, and test prompts tied to the maintained guide.
 function section(source: string, heading: string) {
@@ -21,11 +22,16 @@ export function ConnectionGuide({ source }: { source: string }) {
   const check = section(source, "## 2. Check the connection")
   const request = section(source, "## 3. Request your first approval")
   const redemption = section(source, "## 4. Check once, then redeem exactly once")
+  const endpoint = choose.match(/```text\n([^\n]+)\n```/)?.[1]
+  // Setup text for the agent blocks: pasted into a chat, so site-relative links become absolute.
+  const origin = endpoint ? new URL(endpoint).origin : ""
+  const setupText: Record<string, string> = {}
   const hosts = Object.fromEntries(connectionHosts.map(({ name, slug }) => {
     const row = source.split("\n").find((line) => line.startsWith(`| ${name} |`))?.split("|")
     const setup = row?.[2]?.trim()
     const evidence = row?.[3]?.trim()
     const details = name === "Cursor" || name === "Codex" ? section(source, `### ${name}`) : ""
+    setupText[slug] = [setup, details].filter(Boolean).join("\n\n").replaceAll("](/", `](${origin}/`)
     return [slug, {
       setup: <Markdown source={setup ?? "See the full connection reference below for setup instructions."} />,
       details: <>
@@ -40,12 +46,14 @@ export function ConnectionGuide({ source }: { source: string }) {
   const content: ConnectionGuideContent = {
     intro: <Markdown source={source.split("\n## ")[0]} />,
     prerequisite: <Markdown source={choose.split("\n\n")[0]} />,
-    endpoint: choose.match(/```text\n([^\n]+)\n```/)?.[1],
+    endpoint,
     hosts,
     check: { content: <Markdown source={check} />, prompt: promptFrom(check) },
     request: { content: <Markdown source={request} />, prompt: promptFrom(request) },
     redemption: { content: <Markdown source={redemption} />, prompt: promptFrom(redemption) },
     reference: <Markdown source={source} />,
+    // One copy of the decision rules: the same string the MCP server sends on initialize.
+    agent: { rules: MCP_DECISION_INSTRUCTIONS, setup: setupText },
   }
   return <ConnectionGuideSteps content={content} />
 }
