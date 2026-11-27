@@ -12,7 +12,8 @@
  *                        status derives the wallet from the agent key.
  *
  * Usage:
- *   npx sanction-mcp
+ *   npx sanction-mcp          start the stdio server (what an MCP host runs)
+ *   npx sanction-mcp init     set up the Sanction plugin for Claude Code
  *   node mcp-server.js
  */
 
@@ -20,6 +21,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { realpathSync } from "fs"
 import { pathToFileURL } from "url"
 import { createSanctionMcpServer } from "./lib/mcpServer"
+import { runInit } from "./lib/mcpInit"
+import { nodeIo } from "./lib/mcpInitIo"
 
 const API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1"
 const API_KEY = process.env.SANCTION_API_KEY ?? ""
@@ -79,5 +82,8 @@ function isEntrypoint(): boolean {
 }
 
 if (isEntrypoint()) {
+  // `init` is the one subcommand. Anything else stays the stdio server, so a
+  // host that passes arguments of its own is unaffected.
+  if (process.argv[2] === "init") process.exit(await runInit(process.argv.slice(3), nodeIo()))
   await main()
 }

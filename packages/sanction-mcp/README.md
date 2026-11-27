@@ -16,6 +16,32 @@ cooperation. The hosted broker at `/mcp/broker/<name>` intercepts `tools/call`.
 This package is the stdio client. The hosted endpoint is the same wallet over
 Streamable HTTP. Discovery: [Wallet Card](https://getsanction.com/.well-known/wallet-card.json).
 
+## Claude Code: one command
+
+```bash
+npx sanction-mcp init
+```
+
+Sets up the [Sanction plugin for Claude Code](https://github.com/ericlovold/sanction/tree/main/claude-plugin),
+which pauses a short list of risky shell commands until a person approves the
+exact command. `init` shows the three `claude plugin` commands it will run and
+asks before running them:
+
+1. Add the Sanction marketplace (a sparse checkout of two folders).
+2. Install the plugin.
+3. Store your seat key in Claude Code's secure storage.
+
+It opens the page where you create a seat, then reads the key without echoing
+it. The key goes to Claude Code on stdin; it is never put on a command line or
+written to a file by this tool. Before storing it, `init` checks the key with
+Sanction and stops if Sanction refuses it.
+
+Needs Claude Code 2.1.295 or newer and Node 20 or newer. `--yes` skips the
+question, `--no-open` prints the address instead of opening a browser, and
+`SANCTION_AGENT_KEY` supplies the key without a prompt. An existing stored key
+is kept unless you choose to replace it. The stored key works with
+`https://getsanction.com`; for a self-hosted instance follow the plugin README.
+
 ## Hosted connection (no npm install)
 
 Use `https://getsanction.com/mcp` with a secret `x-api-key` header containing

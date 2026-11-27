@@ -37209,6 +37209,257 @@ function createSanctionMcpServer(opts) {
   return server2;
 }
 
+// lib/mcpInit.ts
+var MARKETPLACE = "ericlovold/sanction";
+var PLUGIN = "sanction@sanction";
+var KEY_OPTION = "sanction_agent_key";
+var SEAT_PAGE = "https://getsanction.com/dashboard/connect/claude-code";
+var KEY_CHECK = "https://getsanction.com/api/v1/wallets/stats";
+var MIN_CLAUDE = [2, 1, 295];
+var MIN_NODE = 20;
+var STEPS = [
+  // Sparse: the plugin needs two folders of the repository, not all of it.
+  { label: "Add the Sanction marketplace", args: ["plugin", "marketplace", "add", MARKETPLACE, "--sparse", ".claude-plugin", "claude-plugin", "--json"] },
+  { label: "Install the plugin", args: ["plugin", "install", PLUGIN, "--json"] }
+];
+var CONFIGURE_READ = ["plugin", "configure", PLUGIN, "--json"];
+var CONFIGURE_WRITE = ["plugin", "configure", PLUGIN, "--values-stdin", "--json"];
+var USAGE = [
+  "Usage: npx sanction-mcp init [--yes] [--no-open]",
+  "",
+  "Sets up the Sanction plugin for Claude Code: adds the marketplace, installs",
+  "the plugin, and stores a seat key in Claude Code's secure storage.",
+  "",
+  "  --yes      Run the commands without asking first.",
+  "  --no-open  Print the seat page address instead of opening a browser.",
+  "",
+  "Set SANCTION_AGENT_KEY to supply the key without a prompt."
+].join("\n");
+function atLeast(found, wanted) {
+  for (let i = 0; i < wanted.length; i++) {
+    if ((found[i] ?? 0) !== wanted[i]) return (found[i] ?? 0) > wanted[i];
+  }
+  return true;
+}
+function parseJson(stdout) {
+  const text = stdout.trim();
+  for (const candidate of [text, text.slice(text.lastIndexOf("\n{") + 1), text.split("\n").at(-1) ?? ""]) {
+    try {
+      const value = JSON.parse(candidate);
+      if (value && typeof value === "object" && !Array.isArray(value)) return value;
+    } catch {
+    }
+  }
+  return null;
+}
+function keyProblem(value) {
+  if (!value) return "No key entered.";
+  if (/\s/.test(value)) return "A key has no spaces or line breaks.";
+  if (value.startsWith("sk_")) return "That is a management key. Use the seat's pxy_ key; a management key must never be given to an agent.";
+  if (!/^pxy_[A-Za-z0-9_-]{16,200}$/.test(value)) return "A seat key starts with pxy_.";
+  return null;
+}
+var show = (args) => `claude ${args.filter((arg) => arg !== "--json").join(" ")}`;
+var yes = (answer) => /^y(es)?$/i.test(answer.trim());
+async function runInit(argv, io) {
+  const flags = new Set(argv);
+  if (flags.has("--help") || flags.has("-h")) {
+    io.print(USAGE);
+    return 0;
+  }
+  for (const flag of flags) {
+    if (flag !== "--yes" && flag !== "--no-open") {
+      io.print(`Unknown option: ${flag}
+
+${USAGE}`);
+      return 2;
+    }
+  }
+  const assumeYes = flags.has("--yes");
+  const node2 = Number(io.nodeVersion.replace(/^v/, "").split(".")[0]);
+  if (!(node2 >= MIN_NODE)) {
+    io.print(`Node ${MIN_NODE} or newer is required; this is ${io.nodeVersion}.`);
+    return 1;
+  }
+  const version2 = await io.run("claude", ["--version"]).catch(() => null);
+  const found = version2?.code === 0 ? version2.stdout.match(/(\d+)\.(\d+)\.(\d+)/) : null;
+  if (!found) {
+    io.print("Claude Code was not found on PATH. Install it from https://claude.com/claude-code, then run this again.");
+    return 1;
+  }
+  if (!atLeast(found.slice(1, 4).map(Number), MIN_CLAUDE)) {
+    io.print(`Claude Code ${MIN_CLAUDE.join(".")} or newer is required; this is ${found[0]}. Update it, then run this again.`);
+    return 1;
+  }
+  io.print("This sets up the Sanction plugin for Claude Code. It will run:");
+  for (const step of STEPS) io.print(`  ${show(step.args)}`);
+  io.print(`  ${show(CONFIGURE_WRITE)}   (your seat key, on stdin)`);
+  io.print("");
+  if (!assumeYes) {
+    if (!io.interactive) {
+      io.print("Not a terminal. Run it again with --yes to proceed without the question.");
+      return 1;
+    }
+    if (!yes(await io.ask("Run these? [y/N] "))) {
+      io.print("Nothing was changed.");
+      return 0;
+    }
+  }
+  for (const step of STEPS) {
+    io.print(`${step.label}\u2026`);
+    const result = await io.run("claude", step.args);
+    if (result.code !== 0 || parseJson(result.stdout)?.outcome !== "ok") {
+      io.print(`That failed (${show(step.args)}).`);
+      const detail = (result.stderr || result.stdout).trim().split("\n").slice(-3).join("\n");
+      if (detail) io.print(detail);
+      return 1;
+    }
+  }
+  const before = parseJson((await io.run("claude", CONFIGURE_READ)).stdout);
+  const alreadySet = Array.isArray(before?.configured) && before.configured.includes(KEY_OPTION);
+  let key = io.env.SANCTION_AGENT_KEY?.trim() ?? "";
+  if (alreadySet && !key) {
+    const replace = !assumeYes && io.interactive && yes(await io.ask("A seat key is already stored. Replace it? [y/N] "));
+    if (!replace) {
+      io.print("Kept the stored key.");
+      return finish(io);
+    }
+  }
+  if (key) {
+    const problem = keyProblem(key);
+    if (problem) {
+      io.print(`SANCTION_AGENT_KEY: ${problem}`);
+      return 1;
+    }
+  } else {
+    if (!io.interactive) {
+      io.print("No key to store. Set SANCTION_AGENT_KEY, or run this in a terminal.");
+      return 1;
+    }
+    io.print("Create a seat for this machine and copy its key:");
+    io.print(`  ${SEAT_PAGE}`);
+    if (!flags.has("--no-open") && !await io.open(SEAT_PAGE)) io.print("  (Could not open a browser; open that address yourself.)");
+    for (let attempt = 0; attempt < 3 && !key; attempt++) {
+      const entered = (await io.askSecret("Paste the seat key (it will not be shown): ")).trim();
+      const problem = keyProblem(entered);
+      if (problem) io.print(problem);
+      else key = entered;
+    }
+    if (!key) {
+      io.print("No valid key entered. The plugin is installed; run this again when you have the key.");
+      return 1;
+    }
+  }
+  const status = await io.check(KEY_CHECK, key);
+  if (status === 400 || status === 401 || status === 403) {
+    io.print("Sanction does not recognise that key. Check that the seat is active and the key is complete, then run this again.");
+    return 1;
+  }
+  if (status !== 200) io.print(status === 0 ? "Could not reach Sanction to check the key. Storing it anyway." : `Sanction could not check the key just now (HTTP ${status}). Storing it anyway.`);
+  const saved = await io.run("claude", CONFIGURE_WRITE, JSON.stringify({ [KEY_OPTION]: key }));
+  const savedKeys = parseJson(saved.stdout)?.saved;
+  if (saved.code !== 0 || !Array.isArray(savedKeys) || !savedKeys.includes(KEY_OPTION)) {
+    io.print("Claude Code did not store the key. Open /plugin in Claude Code, select Sanction on the Installed tab, and choose Configure.");
+    return 1;
+  }
+  io.print("Key stored in Claude Code's secure storage.");
+  return finish(io);
+}
+async function finish(io) {
+  const after = parseJson((await io.run("claude", CONFIGURE_READ)).stdout);
+  if (!Array.isArray(after?.unconfigured) || after.unconfigured.length > 0) {
+    io.print("The plugin is installed but still has no key. Run this again, or set it under /plugin \u2192 Installed \u2192 Sanction \u2192 Configure.");
+    return 1;
+  }
+  io.print("");
+  io.print("Done. Start a new Claude Code session (or run /reload-plugins) and ask it to run:");
+  io.print("  git push --dry-run");
+  io.print("It is blocked until you approve that request in Sanction. Retry it in the same session and it runs once.");
+  return 0;
+}
+
+// lib/mcpInitIo.ts
+import { spawn } from "node:child_process";
+import { createInterface } from "node:readline";
+function nodeIo() {
+  const run = (command, args, input2) => new Promise((resolve) => {
+    const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], shell: process.platform === "win32" });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error62) => resolve({ code: 127, stdout, stderr: stderr || String(error62) }));
+    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    child.stdin.on("error", () => {
+    });
+    child.stdin.end(input2 ?? "");
+  });
+  const ask = (question) => new Promise((resolve) => {
+    const lines = createInterface({ input: process.stdin, output: process.stdout });
+    lines.question(question, (answer) => {
+      lines.close();
+      resolve(answer);
+    });
+  });
+  const askSecret = (question) => new Promise((resolve) => {
+    const input2 = process.stdin;
+    process.stdout.write(question);
+    input2.setRawMode(true);
+    input2.resume();
+    let value = "";
+    const done = (result) => {
+      input2.setRawMode(false);
+      input2.pause();
+      input2.off("data", onData);
+      process.stdout.write("\n");
+      resolve(result);
+    };
+    const onData = (chunk) => {
+      for (const char of chunk.toString("utf8")) {
+        if (char === "") {
+          done("");
+          process.exit(130);
+        }
+        if (char === "\r" || char === "\n") return done(value);
+        if (char === "\x7F" || char === "\b") value = value.slice(0, -1);
+        else if (char >= " ") value += char;
+      }
+    };
+    input2.on("data", onData);
+  });
+  const open2 = async (url2) => {
+    const [command, args] = process.platform === "darwin" ? ["open", [url2]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url2]] : ["xdg-open", [url2]];
+    return new Promise((resolve) => {
+      const child = spawn(command, args, { stdio: "ignore" });
+      child.on("error", () => resolve(false));
+      child.on("close", (code) => resolve(code === 0));
+    });
+  };
+  const check2 = async (url2, key) => {
+    try {
+      const response = await fetch(url2, { headers: { "x-api-key": key }, redirect: "error", signal: AbortSignal.timeout(8e3) });
+      return response.status;
+    } catch {
+      return 0;
+    }
+  };
+  return {
+    run,
+    ask,
+    askSecret,
+    open: open2,
+    check: check2,
+    print: (line) => process.stdout.write(line + "\n"),
+    env: process.env,
+    nodeVersion: process.version,
+    interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY)
+  };
+}
+
 // mcp-server.ts
 var API_URL = process.env.SANCTION_API_URL ?? "https://getsanction.com/api/v1";
 var API_KEY = process.env.SANCTION_API_KEY ?? "";
@@ -37254,6 +37505,7 @@ function isEntrypoint() {
   }
 }
 if (isEntrypoint()) {
+  if (process.argv[2] === "init") process.exit(await runInit(process.argv.slice(3), nodeIo()));
   await main();
 }
 export {
