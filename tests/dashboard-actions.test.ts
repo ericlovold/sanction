@@ -49,6 +49,8 @@ describe("createAgentAction — role floor", () => {
     expect(sessionMock.requireSessionRole).toHaveBeenCalledWith("admin")
     expect(res.ok).toBe(true)
     expect(dbMock.agent.create).toHaveBeenCalledOnce()
+    // The seat id lets a follow-up act as this seat without a second lookup.
+    expect(res.agentId).toBe("agent_1")
   })
 
   it("refuses a wallet_id outside the subtree", async () => {
