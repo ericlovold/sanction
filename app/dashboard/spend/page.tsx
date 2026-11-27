@@ -1,112 +1,111 @@
 import { redirect } from "next/navigation"
-import { spendReturnPath } from "@/lib/returnPath"
-import { switchWalletAction } from "@/app/dashboard/actions"
 import type { Metadata } from "next"
 import Link from "next/link"
+import type { ReactNode } from "react"
+import { spendReturnPath } from "@/lib/returnPath"
+import { switchWalletAction } from "@/app/dashboard/actions"
 import { db } from "@/lib/db"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { EmptyState } from "@/components/ui/empty-state"
+import { inheritedTokenDefaults, walletAncestorChain } from "@/lib/cascadeBudget"
 import { NoWallet } from "@/components/no-wallet"
 import { getViewWallet, listViewWallets } from "@/lib/session"
 import { OutcomesSection } from "@/components/outcomes-section"
-import { dailyPace } from "@/lib/burn"
 import { readSpendChartDays } from "@/lib/spendChartDays"
 import { subtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd, fmtCount } from "@/lib/format"
 import { RunwayChart } from "@/components/runway-chart"
+import { SpendBreakdown, type BreakdownTab } from "@/components/spend-breakdown"
 import { decisionsThisMonth } from "@/lib/decisionMeter"
 import { seatHealth, type SeatHealthInput } from "@/lib/seatHealth"
 import { decisionCode } from "@/lib/decisions"
+import { closestToLimit, countAgentsAtLimit, denialReason, meter, paceNote, shares, zoneLabel } from "@/lib/spendView"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Sanction — Spend",
-  description: "Token and spend usage across every agent, model, and task.",
+  description: "What your agents cost on models and purchases, and how close each is to its limits.",
 }
 
-function pct(actual: number, budget: number) {
-  if (budget <= 0) return 0
-  return Math.min(999, Math.round((actual / budget) * 100))
-}
-function barTone(p: number) {
-  if (p >= 100) return { bar: "bg-red-500", text: "text-red-400" }
-  if (p >= 80) return { bar: "bg-amber-500", text: "text-amber-400" }
-  return { bar: "bg-emerald-500", text: "text-emerald-400" }
-}
+// The list of agents near a limit stops here; the rest are counted.
+const LIMIT_ROWS = 8
 
-function BudgetBar({ label, actual, budget, format }: { label: string; actual: number; budget: number; format: (n: number) => string }) {
-  const p = pct(actual, budget)
-  const tone = barTone(p)
-  // No surprises: linear end-of-day projection so the CFO sees where today is
-  // heading, not just where it stands.
-  const pace = dailyPace(actual, budget > 0 ? budget : null, new Date())
+// A limit and how much of it is used. The fill carries the state (within,
+// close, at the limit) and the sentence under it says the same in words.
+function Meter({ label, spent, limit, note }: { label: ReactNode; spent: number; limit: number; note?: ReactNode }) {
+  const m = meter(spent, limit)
   return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="font-mono text-xs text-muted-foreground">
-          <span className={tone.text}>{format(actual)}</span> / {format(budget)} <span className="text-muted-foreground">· {p}%</span>
+    <div className="sp-meter" data-state={m.state}>
+      <div className="sp-meter-top">
+        <span className="sp-meter-label">{label}</span>
+        <span className="sp-meter-val">
+          <b>{fmtUsd(spent)}</b> of {fmtUsd(limit)}
         </span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full ${tone.bar} transition-all`} style={{ width: `${Math.min(100, p)}%` }} />
+      <div className="sp-track" role="img" aria-label={`${m.pct}% of the limit used`}>
+        <span style={{ width: `${m.fill}%` }} />
       </div>
-      {p >= 100 ? (
-        <p className="mt-1 text-[11px] text-red-400">Budget exhausted — new requests are being denied.</p>
-      ) : pace.onPace !== null ? (
-        <p className={`mt-1 text-[11px] ${pace.willExhaust ? "text-amber-400" : "text-muted-foreground"}`}>
-          on pace for {format(pace.onPace)} today
-          {pace.exhaustAt && ` · budget hit ~${pace.exhaustAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
-        </p>
-      ) : null}
+      {note && <p className="sp-meter-note">{note}</p>}
     </div>
   )
 }
 
-async function getSpend(walletId: string) {
-  const dayStart = new Date()
+async function getSpend(walletId: string, now: Date) {
+  const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
   const monthStart = new Date(dayStart)
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  // Analytics roll up the subtree (org-wide burn); the budget bars stay on the
-  // root wallet's own policy — the org envelope. Leaf subtree = self, no change.
+  // Totals roll up the wallet and every group below it.
   const { ids: walletIds } = await subtreeWalletIds(walletId)
   const [wallet, agents] = await Promise.all([
     db.wallet.findUnique({ where: { id: walletId }, include: { policy: true } }),
     db.agent.findMany({
       where: { walletId: { in: walletIds } },
-      select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true, perTransactionMaxUsd: true, escalateOverUsd: true },
+      select: {
+        id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true, perTransactionMaxUsd: true, escalateOverUsd: true,
+        // Each agent is measured against its own wallet's defaults, not the
+        // wallet being viewed: a group below can set different limits.
+        wallet: { select: { id: true, name: true, policy: { select: { dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true } } } },
+      },
     }),
   ])
+  // Resolve each wallet once, including a policyless view root whose default
+  // may come from outside the visible subtree. Only the numeric limit leaves
+  // this lookup; ancestor names and unrelated agents never enter the view.
+  const policies = new Map(agents.map((a) => [a.wallet.id, a.wallet.policy]))
+  policies.set(walletId, wallet?.policy ?? null)
+  const modelDefaults = new Map(await Promise.all([...policies].map(async ([id, policy]) => [
+    id,
+    policy?.dailyTokenBudgetUsd ?? inheritedTokenDefaults(await walletAncestorChain(db, id))?.dailyTokenBudgetUsd ?? null,
+  ] as const)))
   const agentIds = agents.map((a) => a.id)
   const nameOf = new Map(agents.map((a) => [a.id, a.name]))
   const overrideOf = new Map(
     agents.map((a) => {
       const parts: string[] = []
-      if (a.dailyTokenBudgetUsd != null) parts.push(`token $${a.dailyTokenBudgetUsd / 100}/day`)
-      if (a.dailySpendBudgetUsd != null) parts.push(`spend $${a.dailySpendBudgetUsd / 100}/day`)
-      if (a.perTransactionMaxUsd != null) parts.push(`per-txn $${a.perTransactionMaxUsd / 100}`)
-      if (a.escalateOverUsd != null) parts.push(`escalate $${a.escalateOverUsd / 100}`)
-      return [a.id, parts.join(" · ")]
+      if (a.dailyTokenBudgetUsd != null) parts.push(`models ${fmtUsd(a.dailyTokenBudgetUsd / 100)} a day`)
+      if (a.dailySpendBudgetUsd != null) parts.push(`purchases ${fmtUsd(a.dailySpendBudgetUsd / 100)} a day`)
+      if (a.perTransactionMaxUsd != null) parts.push(`largest purchase ${fmtUsd(a.perTransactionMaxUsd / 100)}`)
+      if (a.escalateOverUsd != null) parts.push(`asks a person above ${fmtUsd(a.escalateOverUsd / 100)}`)
+      return [a.id, parts.join(", ")]
     }),
   )
 
   const monthScope = { agentId: { in: agentIds }, createdAt: { gte: monthStart } }
+  const todayScope = { agentId: { in: agentIds }, createdAt: { gte: dayStart } }
 
-  const weekStart = new Date()
+  const weekStart = new Date(now)
   weekStart.setDate(weekStart.getDate() - 6)
   weekStart.setHours(0, 0, 0, 0)
 
   const [
     tokDay, spendDay, tokMonth, spendMonth,
     byModel, byTask, tokByAgent, authByAgent, byCategory, decisionMix,
-    chartDays, authByAgentRecent, deniedNotes,
+    chartDays, authByAgentRecent, deniedNotes, tokTodayByAgent, spendTodayByAgent,
   ] = await Promise.all([
-    db.tokenLog.aggregate({ where: { agentId: { in: agentIds }, createdAt: { gte: dayStart } }, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
-    db.authorizationRequest.aggregate({ where: { agentId: { in: agentIds }, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
+    db.tokenLog.aggregate({ where: todayScope, _sum: { costUsd: true, tokensIn: true, tokensOut: true } }),
+    db.authorizationRequest.aggregate({ where: { ...todayScope, status: "approved" }, _sum: { amountUsd: true } }),
     db.tokenLog.aggregate({ where: monthScope, _sum: { costUsd: true, tokensIn: true, tokensOut: true }, _count: { _all: true } }),
     db.authorizationRequest.aggregate({ where: { ...monthScope, status: "approved" }, _sum: { amountUsd: true } }),
     db.tokenLog.groupBy({ by: ["model"], where: monthScope, _sum: { costUsd: true, tokensIn: true, tokensOut: true }, _count: { _all: true }, orderBy: { _sum: { costUsd: "desc" } } }),
@@ -118,11 +117,40 @@ async function getSpend(walletId: string) {
     readSpendChartDays(walletIds, agentIds, dayStart),
     db.authorizationRequest.groupBy({ by: ["agentId", "status"], where: { agentId: { in: agentIds }, createdAt: { gte: weekStart } }, _count: true }),
     db.authorizationRequest.groupBy({ by: ["agentId", "decisionNote"], where: { ...monthScope, status: "denied" }, _count: true }),
+    db.tokenLog.groupBy({ by: ["agentId"], where: todayScope, _sum: { costUsd: true } }),
+    db.authorizationRequest.groupBy({ by: ["agentId"], where: { ...todayScope, status: "approved" }, _sum: { amountUsd: true } }),
   ])
 
-  // Per-agent merge: token cost + approved spend + decision counts
-  const agentRows = new Map<string, { name: string; override: string; tokenCost: number; tokens: number; spend: number; approved: number; denied: number; escalated: number }>()
-  for (const id of agentIds) agentRows.set(id, { name: nameOf.get(id) ?? id, override: overrideOf.get(id) ?? "", tokenCost: 0, tokens: 0, spend: 0, approved: 0, denied: 0, escalated: 0 })
+  // Model defaults come from the nearest policy, even outside this view.
+  // Agent overrides win; an absent default stays unlimited rather than zero.
+  const today = new Map<string, { model: number; purchases: number }>()
+  for (const id of agentIds) today.set(id, { model: 0, purchases: 0 })
+  for (const r of tokTodayByAgent) {
+    const row = today.get(r.agentId)
+    if (row) row.model = r._sum.costUsd ?? 0
+  }
+  for (const r of spendTodayByAgent) {
+    const row = today.get(r.agentId)
+    if (row) row.purchases = r._sum.amountUsd ?? 0
+  }
+  const limitRows = closestToLimit(
+    agents.map((a) => ({
+      id: a.id,
+      name: a.name,
+      modelLimitCents: a.dailyTokenBudgetUsd ?? modelDefaults.get(a.wallet.id) ?? null,
+      purchaseLimitCents: a.dailySpendBudgetUsd ?? a.wallet?.policy?.dailySpendBudgetUsd ?? null,
+    })),
+    today,
+  )
+
+  // Purchases still require a local policy; model defaults may be inherited.
+  const unruled = [...new Map(
+    agents.filter((a) => a.wallet && !a.wallet.policy && a.wallet.id !== walletId).map((a) => [a.wallet.id, a.wallet.name]),
+  ).values()].sort()
+
+  // Per-agent merge: model cost + approved purchases + decision counts
+  const agentRows = new Map<string, { id: string; name: string; override: string; tokenCost: number; tokens: number; spend: number; approved: number; denied: number; escalated: number }>()
+  for (const id of agentIds) agentRows.set(id, { id, name: nameOf.get(id) ?? id, override: overrideOf.get(id) ?? "", tokenCost: 0, tokens: 0, spend: 0, approved: 0, denied: 0, escalated: 0 })
   for (const r of tokByAgent) {
     const row = agentRows.get(r.agentId)
     if (row) { row.tokenCost = r._sum.costUsd ?? 0; row.tokens = (r._sum.tokensIn ?? 0) + (r._sum.tokensOut ?? 0) }
@@ -137,7 +165,6 @@ async function getSpend(walletId: string) {
   const agentList = [...agentRows.values()].sort((a, b) => (b.tokenCost + b.spend) - (a.tokenCost + a.spend))
 
   const { days, tokenByMonthDay, spendByMonthDay } = chartDays
-  const trendMax = Math.max(...days.map((d) => d.cost), 0.0001)
 
   const mix = Object.fromEntries(decisionMix.map((r) => [r.status, r._count])) as Record<string, number>
 
@@ -145,8 +172,8 @@ async function getSpend(walletId: string) {
   // calls never persist a row, so the row-derived mix undercounts them).
   const decisions = await decisionsThisMonth(walletIds)
 
-  // Seat health: month vs last-7-days decision mix, plus each seat's most-hit
-  // denial code (decisionNote → stable DecisionCode, same mapping agents see).
+  // Agents refused often: month vs last-7-days decision mix, plus each agent's
+  // most-hit denial code (decisionNote → stable DecisionCode, as agents see it).
   const recentByAgent = new Map<string, { approved: number; denied: number; escalated: number }>()
   for (const r of authByAgentRecent) {
     const row = recentByAgent.get(r.agentId) ?? { approved: 0, denied: 0, escalated: 0 }
@@ -174,12 +201,25 @@ async function getSpend(walletId: string) {
   const seatFlags = seatHealth(healthInputs)
 
   return {
-    wallet, policy: wallet?.policy ?? null,
+    wallet, policy: wallet?.policy ?? null, modelDefaultCents: modelDefaults.get(walletId) ?? null,
     tokDay, spendDay, tokMonth, spendMonth,
     byModel, byTask: byTask.filter((t) => (t._sum.costUsd ?? 0) > 0), byCategory,
-    agentList, days, trendMax, mix, decisions,
-    tokenByMonthDay, spendByMonthDay, seatFlags,
+    agentList, days, mix, decisions,
+    tokenByMonthDay, spendByMonthDay, seatFlags, limitRows, unruled,
   }
+}
+
+// "A", "A and B", "A, B and C", "A, B, C and 2 more".
+function nameList(names: string[]) {
+  const shown = names.slice(0, 3)
+  const rest = names.length - shown.length
+  if (rest > 0) return `${shown.join(", ")} and ${rest} more`
+  if (shown.length <= 1) return shown[0] ?? ""
+  return `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`
+}
+
+function plural(n: number, one: string, many: string) {
+  return `${fmtCount(n)} ${n === 1 ? one : many}`
 }
 
 export default async function SpendPage({ searchParams }: {
@@ -196,22 +236,29 @@ export default async function SpendPage({ searchParams }: {
     const { ids } = await subtreeWalletIds(view.id)
     if (!ids.includes(requestedWallet)) {
       const wallets = (await listViewWallets()).filter(w => w.id !== view.id)
-      return <div className="mx-auto max-w-xl p-6"><Card>
-        <CardHeader><CardTitle>Switch wallets to review this budget</CardTitle></CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <p>You’re signed in to <strong>{view.name}</strong>. This budget isn’t available from this wallet.</p>
-          <p>Sign in with an account or management key that can access the wallet named in the alert. We’ll return you to its budget.</p>
-          {wallets.length > 0 && <form action={switchWalletAction} className="space-y-3">
-            <input type="hidden" name="next" value={next} />
-            <label className="block">Wallet<select name="wallet_id" className="mt-1 block w-full rounded border border-border bg-background p-2">
-              {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select></label>
-            <button className="rounded bg-primary px-3 py-2 text-primary-foreground">Switch wallet and return</button>
-          </form>}
-          <Link className="block underline" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to another wallet</Link>
-          <Link className="block underline" href="/dashboard/spend">Back to this wallet’s spend</Link>
-        </CardContent>
-      </Card></div>
+      return (
+        <div className="home sp-page">
+          <section className="g-panel sp-gate">
+            <h1 className="home-h2">Switch wallets to review this budget</h1>
+            <p>You’re signed in to <strong>{view.name}</strong>. This budget isn’t available from this wallet.</p>
+            <p>Sign in with an account or management key that can access the wallet named in the alert. We’ll return you to its budget.</p>
+            {wallets.length > 0 && (
+              <form action={switchWalletAction} className="sp-gate-form">
+                <input type="hidden" name="next" value={next} />
+                <label>
+                  Wallet
+                  <select name="wallet_id" className="g-input">
+                    {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </label>
+                <button className="g-btn g-btn-primary">Switch wallet and return</button>
+              </form>
+            )}
+            <Link className="home-link" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to another wallet</Link>
+            <Link className="home-link" href="/dashboard/spend">Back to this wallet’s spend</Link>
+          </section>
+        </div>
+      )
     }
     walletId = requestedWallet
   }
@@ -219,300 +266,358 @@ export default async function SpendPage({ searchParams }: {
   const alertAgent = requestedWallet && requestedAgent
     ? await db.agent.findFirst({ where: { id: requestedAgent, walletId }, select: { id: true, name: true, dailyTokenBudgetUsd: true, dailySpendBudgetUsd: true } })
     : null
-  if (requestedAgent && requestedWallet && !alertAgent) return <div className="p-6">
-    <h1 className="text-xl font-semibold">This agent’s budget is no longer available</h1>
-    <p>The linked agent was not found in this wallet.</p>
-    <Link className="underline" href={spendReturnPath(walletId)}>Review this wallet’s budget</Link>
-  </div>
+  if (requestedAgent && requestedWallet && !alertAgent) {
+    return (
+      <div className="home sp-page">
+        <section className="g-panel sp-gate">
+          <h1 className="home-h2">This agent’s budget is no longer available</h1>
+          <p>The linked agent was not found in this wallet.</p>
+          <Link className="home-link" href={spendReturnPath(walletId)}>Review this wallet’s budget</Link>
+        </section>
+      </div>
+    )
+  }
 
-  const s = await getSpend(walletId)
-  const dayStart = new Date()
+  const now = new Date()
+  const s = await getSpend(walletId, now)
+  const zone = zoneLabel(now)
+  const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
   const alertUsage = alertAgent ? await Promise.all([
     db.tokenLog.aggregate({ where: { agentId: alertAgent.id, createdAt: { gte: dayStart } }, _sum: { costUsd: true } }),
     db.authorizationRequest.aggregate({ where: { agentId: alertAgent.id, status: "approved", createdAt: { gte: dayStart } }, _sum: { amountUsd: true } }),
   ]) : null
-  const tokenBudget = (s.policy?.dailyTokenBudgetUsd ?? 0) / 100
-  const spendBudget = (s.policy?.dailySpendBudgetUsd ?? 0) / 100
+
+  const modelDay = s.tokDay._sum.costUsd ?? 0
+  const purchaseDay = s.spendDay._sum.amountUsd ?? 0
+  const modelMonth = s.tokMonth._sum.costUsd ?? 0
+  const purchaseMonth = s.spendMonth._sum.amountUsd ?? 0
   const tokensMonth = (s.tokMonth._sum.tokensIn ?? 0) + (s.tokMonth._sum.tokensOut ?? 0)
+  const walletName = s.wallet?.name ?? view.name
+  const ownWallet = walletId === view.id
+
+  // The two caps that add every agent together. Everything else is per agent.
+  const pooledPurchases = s.policy?.subtreeDailyCapUsd != null ? s.policy.subtreeDailyCapUsd / 100 : null
+  const pooledModel = s.policy?.subtreeDailyTokenCapUsd != null ? s.policy.subtreeDailyTokenCapUsd / 100 : null
+  const atLimit = countAgentsAtLimit(s.limitRows)
+  // The counter can trail the rows it counts (it is written after the
+  // response), so never show fewer decisions than there are recorded outcomes.
+  const decided = Math.max(s.decisions, (s.mix.approved ?? 0) + (s.mix.denied ?? 0) + (s.mix.escalated ?? 0))
+
+  // Where it went: four lists, one shown at a time.
+  const active = s.agentList.filter((a) => a.tokens > 0 || a.approved > 0 || a.denied > 0 || a.escalated > 0 || a.spend > 0 || a.tokenCost > 0)
+  const idle = s.agentList.length - active.length
+  const agentShare = shares(active.map((a) => a.tokenCost + a.spend))
+  const modelShare = shares(s.byModel.map((m) => m._sum.costUsd ?? 0))
+  const taskShare = shares(s.byTask.map((t) => t._sum.costUsd ?? 0))
+  const categoryShare = shares(s.byCategory.map((c) => c._sum.amountUsd ?? 0))
+  const tabs: BreakdownTab[] = [
+    {
+      id: "agents",
+      label: "Agents",
+      rows: active.map((a, i) => ({
+        key: a.id,
+        label: a.name,
+        sub: [
+          `${fmtCount(a.tokens)} tokens`,
+          a.approved > 0 ? `${fmtCount(a.approved)} approved` : "",
+          a.denied > 0 ? `${fmtCount(a.denied)} refused` : "",
+          a.escalated > 0 ? `${fmtCount(a.escalated)} waiting for a person` : "",
+        ].filter(Boolean).join(" · "),
+        amount: fmtUsd(a.tokenCost + a.spend),
+        detail: a.spend > 0 ? `${fmtUsd(a.spend)} in purchases` : undefined,
+        share: agentShare[i],
+        href: `/dashboard/agents#seat-${a.id}`,
+        chip: a.override ? `Own limits: ${a.override}` : undefined,
+      })),
+      empty: s.agentList.length === 0
+        ? "No agents yet. Add one on the Agents page and what it costs shows here."
+        : "No agent has spent anything or asked for anything this month.",
+      note: idle > 0 && active.length > 0 ? `${plural(idle, "agent", "agents")} with no activity this month.` : undefined,
+    },
+    {
+      id: "models",
+      label: "Models",
+      rows: s.byModel.map((m, i) => ({
+        key: m.model,
+        label: m.model,
+        mono: true,
+        sub: `${plural(m._count._all, "call", "calls")} · ${fmtCount((m._sum.tokensIn ?? 0) + (m._sum.tokensOut ?? 0))} tokens`,
+        amount: fmtUsd(m._sum.costUsd ?? 0),
+        share: modelShare[i],
+      })),
+      empty: "No model spend yet. Point an agent's model SDK at the Sanction gateway, or log tokens directly, and each model's cost shows here.",
+    },
+    {
+      id: "tasks",
+      label: "Tasks",
+      rows: s.byTask.map((t, i) => ({
+        key: t.taskLabel ?? "",
+        label: t.taskLabel ?? "No task label",
+        sub: plural(t._count._all, "call", "calls"),
+        amount: fmtUsd(t._sum.costUsd ?? 0),
+        share: taskShare[i],
+      })),
+      empty: "No labeled tasks yet. Send a task_label with token logs and model spend groups by task here.",
+    },
+    {
+      id: "categories",
+      label: "Categories",
+      rows: s.byCategory.map((c, i) => ({
+        key: c.category,
+        label: c.category,
+        sub: plural(c._count, "approved purchase", "approved purchases"),
+        amount: fmtUsd(c._sum.amountUsd ?? 0),
+        share: categoryShare[i],
+      })),
+      empty: "No approved purchases this month.",
+    },
+  ]
+
+  const barMax = Math.max(...s.days.map((d) => d.cost), 0)
+  const peak = s.days.reduce((best, d) => (d.cost > best.cost ? d : best), s.days[0] ?? { label: "", cost: 0 })
 
   return (
-    <div className="min-h-screen max-w-6xl mx-auto space-y-6 p-6">
-      <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">Spend &amp; budgets</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Recorded model costs and authorized spend by agent, model, and task.
+    <div className="home sp-page">
+      <header className="home-head">
+        <div>
+          <h1 className="home-title">Spend &amp; budgets</h1>
+          <p className="home-sub">{walletName}</p>
+        </div>
+        <div className="home-actions">
+          {ownWallet ? (
+            <Link href="/dashboard/policy" className="g-btn g-btn-quiet">Change limits</Link>
+          ) : (
+            <Link className="home-link" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to this wallet to manage policy</Link>
+          )}
+        </div>
+      </header>
+      <p className="appr-lede">
+        What your agents cost on models and on purchases, for this wallet and every group below it.
+      </p>
+
+      <p className="pol-hint">
+        Recorded usage, not live available budget. Model totals come from token logs; unreported calls and
+        outstanding gateway holds are not included. Purchases are approved authorization amounts, not confirmed
+        payments, grouped by request creation time and including approvals whose grants have not been redeemed.
+        Budget decisions also account for grant state, decision time, reservations, and observe mode.
+      </p>
+
+      {requestedWallet && (
+        <section className="g-panel sp-review" aria-labelledby="sp-review">
+          <h2 id="sp-review" className="home-h2">Budget review · {s.wallet?.name}</h2>
+          {alertAgent && alertUsage ? (
+            <>
+              <p className="sp-review-who">{alertAgent.name} · today</p>
+              <div className="sp-meters">
+                {budget !== "daily_spend" && (() => {
+                  const limitCents = alertAgent.dailyTokenBudgetUsd ?? s.modelDefaultCents
+                  if (limitCents == null) return <p className="sp-review-who">No per-agent daily model limit applies.</p>
+                  const limit = limitCents / 100
+                  const spent = alertUsage[0]._sum.costUsd ?? 0
+                  return <Meter label="Model spend" spent={spent} limit={limit} note={paceNote(spent, limit, now)} />
+                })()}
+                {budget !== "daily_tokens" && (() => {
+                  const limitCents = alertAgent.dailySpendBudgetUsd ?? s.policy?.dailySpendBudgetUsd
+                  if (limitCents == null) return <p className="sp-review-who">No per-agent daily purchase limit applies.</p>
+                  const limit = limitCents / 100
+                  const spent = alertUsage[1]._sum.amountUsd ?? 0
+                  return <Meter label="Purchases" spent={spent} limit={limit} note={paceNote(spent, limit, now)} />
+                })()}
+              </div>
+            </>
+          ) : budget === "subtree_daily_spend" && pooledPurchases !== null ? (
+            <div className="sp-meters">
+              <Meter label="Purchases, all agents together" spent={purchaseDay} limit={pooledPurchases} note={paceNote(purchaseDay, pooledPurchases, now)} />
+            </div>
+          ) : (
+            <p className="sp-review-who">Showing the wallet named in the alert. Current usage appears below.</p>
+          )}
+          <p className="pol-hint">Current usage may differ from the email snapshot.</p>
+        </section>
+      )}
+
+      {/* The four numbers a person opens this page for. */}
+      <dl className="sp-figs g-glass">
+        <div>
+          <dt>This month</dt>
+          <dd>{fmtUsd(modelMonth + purchaseMonth)}</dd>
+          <dd className="sp-fig-sub">models and purchases</dd>
+        </div>
+        <div>
+          <dt>Model spend</dt>
+          <dd>{fmtUsd(modelMonth)}</dd>
+          <dd className="sp-fig-sub">{fmtCount(tokensMonth)} tokens</dd>
+        </div>
+        <div>
+          <dt>Purchases</dt>
+          <dd>{fmtUsd(purchaseMonth)}</dd>
+          <dd className="sp-fig-sub">{fmtCount(s.mix.approved ?? 0)} approved</dd>
+        </div>
+        <div>
+          <dt>Today</dt>
+          <dd>{fmtUsd(modelDay + purchaseDay)}</dd>
+          <dd className="sp-fig-sub">resets at midnight {zone}</dd>
+        </div>
+      </dl>
+      <p className="sp-requests">
+        {plural(decided, "request", "requests")} decided this month. {fmtCount(s.mix.denied ?? 0)} refused
+        {(s.mix.escalated ?? 0) > 0 ? (
+          <>
+            , <Link href="/dashboard/approvals" className="home-link">{fmtCount(s.mix.escalated)} waiting for a person</Link>
+          </>
+        ) : null}
+        .
+      </p>
+
+      <section className="home-section" aria-labelledby="sp-limits">
+        <div className="home-section-head">
+          <h2 id="sp-limits" className="home-h2">
+            Recorded usage against daily limits{atLimit > 0 && <span>{plural(atLimit, "agent", "agents")} with recorded usage at a limit</span>}
+          </h2>
+        </div>
+        <p className="pol-lede">
+          {s.policy
+            ? `Each agent has its own limit: ${fmtUsd(s.policy.dailyTokenBudgetUsd / 100)} a day on models and ${fmtUsd(s.policy.dailySpendBudgetUsd / 100)} a day on purchases in ${walletName}, unless the agent or its group sets another.`
+            : `${walletName} has no policy yet, so its agents' purchases are refused. ${s.modelDefaultCents != null
+              ? `Its agents inherit a default model limit of ${fmtUsd(s.modelDefaultCents / 100)} a day from the nearest policy above this wallet, unless an agent sets its own.`
+              : "No per-agent daily model limit applies unless an agent sets its own."}`}{" "}
+          {pooledPurchases === null && pooledModel === null && s.policy
+            ? "This wallet sets no shared cap; a policy above it may still apply."
+            : ""}
         </p>
-      </div>
 
-      {requestedWallet && <Card>
-        <CardHeader><CardTitle>Budget review · {s.wallet?.name}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {alertAgent && alertUsage ? <>
-            <p className="font-medium">{alertAgent.name} · today</p>
-            {budget !== "daily_spend" && <BudgetBar label="Agent token cost" actual={alertUsage[0]._sum.costUsd ?? 0} budget={(alertAgent.dailyTokenBudgetUsd ?? s.policy?.dailyTokenBudgetUsd ?? 0) / 100} format={fmtUsd} />}
-            {budget !== "daily_tokens" && <BudgetBar label="Agent authorized spend" actual={alertUsage[1]._sum.amountUsd ?? 0} budget={(alertAgent.dailySpendBudgetUsd ?? s.policy?.dailySpendBudgetUsd ?? 0) / 100} format={fmtUsd} />}
-          </> : budget === "subtree_daily_spend" && s.policy?.subtreeDailyCapUsd != null
-            ? <BudgetBar label="Pool authorized spend" actual={s.spendDay._sum.amountUsd ?? 0} budget={s.policy.subtreeDailyCapUsd / 100} format={fmtUsd} />
-            : <p>Showing the wallet named in the alert. Current usage appears below.</p>}
-          <p className="text-xs text-muted-foreground">Current usage may differ from the email snapshot.</p>
-        </CardContent>
-      </Card>}
+        {s.unruled.length > 0 && (
+          <p className="pol-warn sp-unruled">
+            {nameList(s.unruled)} {s.unruled.length === 1 ? "has" : "have"} no policy of {s.unruled.length === 1 ? "its" : "their"} own.
+            Purchases by agents there are refused. Model limits come from the nearest policy above each group when one
+            exists, unless an agent sets its own limit.
+          </p>
+        )}
 
-      {/* Budget vs. actual — today */}
-      <Card className="bg-card border-border">
-        <CardHeader className="px-5 pt-5 pb-1">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Today against budget</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5 pt-3 grid gap-5 sm:grid-cols-2">
-          <BudgetBar label="Token cost" actual={s.tokDay._sum.costUsd ?? 0} budget={tokenBudget} format={fmtUsd} />
-          <BudgetBar label="Authorized spend" actual={s.spendDay._sum.amountUsd ?? 0} budget={spendBudget} format={fmtUsd} />
-        </CardContent>
-      </Card>
+        {(pooledPurchases !== null || pooledModel !== null) && (
+          <div className="g-panel sp-pooled">
+            <p className="sp-pooled-title">Recorded usage across all agents, today</p>
+            <div className="sp-meters">
+              {pooledModel !== null && (
+                <Meter label="Model spend" spent={modelDay} limit={pooledModel} note={paceNote(modelDay, pooledModel, now)} />
+              )}
+              {pooledPurchases !== null && (
+                <Meter label="Purchases" spent={purchaseDay} limit={pooledPurchases} note={paceNote(purchaseDay, pooledPurchases, now)} />
+              )}
+            </div>
+          </div>
+        )}
 
-      {/* Month runway — cumulative burn vs the monthly cap, exhaust date drawn */}
-      <Card className="bg-card border-border">
-        <CardHeader className="px-5 pt-5 pb-1">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Month runway</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5 pt-3 grid gap-5 sm:grid-cols-2">
-          <RunwayChart
-            label="Token cost"
-            dailyTotals={s.tokenByMonthDay}
-            capUsd={s.policy?.monthlyTokenBudgetUsd != null ? s.policy.monthlyTokenBudgetUsd / 100 : null}
-            now={new Date()}
-          />
-          <RunwayChart
-            label="Authorized spend"
-            dailyTotals={s.spendByMonthDay}
-            capUsd={s.policy?.monthlySpendBudgetUsd != null ? s.policy.monthlySpendBudgetUsd / 100 : null}
-            now={new Date()}
-          />
-        </CardContent>
-      </Card>
-
-      {/* KPI row — this month */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {[
-          { label: "Token cost (month)", value: fmtUsd(s.tokMonth._sum.costUsd ?? 0), sub: `${tokensMonth.toLocaleString()} tokens` },
-          { label: "Authorized spend (month)", value: fmtUsd(s.spendMonth._sum.amountUsd ?? 0), sub: `${s.mix.approved ?? 0} approved` },
-          { label: "Denied (month)", value: `${s.mix.denied ?? 0}`, sub: "blocked by policy" },
-          { label: "Escalated (month)", value: `${s.mix.escalated ?? 0}`, sub: "awaiting a human" },
-          { label: "Decisions (month)", value: `${s.decisions}`, sub: "engine verdicts rendered" },
-        ].map((k) => (
-          <Card key={k.label} className="bg-card border-border">
-            <CardHeader className="px-4 pt-4 pb-1">
-              <CardTitle className="text-xs font-normal text-muted-foreground">{k.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <p className="font-mono text-2xl font-semibold">{k.value}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{k.sub}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Trend */}
-      <Card className="bg-card border-border">
-        <CardHeader className="px-5 pt-5 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Token cost · last 14 days</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          {/* items-end here collapsed the bar columns to content height, so the
-              bars' percentage heights resolved against auto and rendered 0px —
-              let the columns stretch; they bottom-align internally. */}
-          <div className="flex h-32 gap-1.5">
-            {s.days.map((d, i) => (
-              <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="text-[9px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{fmtUsd(d.cost)}</span>
-                <div
-                  className="w-full rounded-sm bg-emerald-500/70 group-hover:bg-emerald-400 transition-colors"
-                  style={{ height: `${Math.max(2, (d.cost / s.trendMax) * 100)}%` }}
+        <div className="g-panel">
+          {s.limitRows.length === 0 ? (
+            <p className="g-empty">No recorded usage reaches half of an applicable daily limit today.</p>
+          ) : (
+            <div className="sp-limits">
+              {s.limitRows.slice(0, LIMIT_ROWS).map((row) => (
+                <Meter
+                  key={`${row.id}-${row.kind}`}
+                  label={
+                    <>
+                      <Link href={`/dashboard/agents#seat-${row.id}`} className="sp-limit-name">{row.name}</Link>
+                      <span className="sp-limit-kind">{row.kind === "model" ? "model spend" : "purchases"}</span>
+                    </>
+                  }
+                  spent={row.spentUsd}
+                  limit={row.limitUsd}
+                  note={
+                    row.view.state === "at"
+                      ? "Recorded usage meets this limit. This does not establish whether the next request will be refused."
+                      : undefined
+                  }
                 />
-                <span className="text-[9px] font-mono text-muted-foreground">{d.label}</span>
+              ))}
+              {s.limitRows.length > LIMIT_ROWS && (
+                <p className="sp-brk-note">And {fmtCount(s.limitRows.length - LIMIT_ROWS)} more above half of a limit.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="home-section" aria-labelledby="sp-month">
+        <h2 id="sp-month" className="home-h2">This month, day by day</h2>
+        <div className="g-panel sp-charts">
+          <RunwayChart label="Model spend" dailyTotals={s.tokenByMonthDay} now={now} />
+          <RunwayChart label="Purchases" dailyTotals={s.spendByMonthDay} now={now} />
+        </div>
+      </section>
+
+      <section className="home-section" aria-labelledby="sp-days">
+        <h2 id="sp-days" className="home-h2">Model spend <span>last 14 days</span></h2>
+        <div className="g-panel sp-days">
+          <div className="sp-bars" aria-hidden>
+            {s.days.map((d, i) => (
+              <span key={i} className={`sp-bar-col${i > s.days.length / 2 ? " sp-hit-r" : ""}`}>
+                <span className="sp-tip">
+                  <b>{d.label}</b>
+                  {fmtUsd(d.cost)}
+                </span>
+                <span className="sp-bar" style={{ height: barMax > 0 ? `${Math.max(d.cost > 0 ? 2 : 0, (d.cost / barMax) * 100)}%` : 0 }} />
+              </span>
+            ))}
+          </div>
+          <div className="sp-bar-axis" aria-hidden>
+            {s.days.map((d, i) => (
+              <span key={i}>{(s.days.length - 1 - i) % 2 === 0 ? d.label : ""}</span>
+            ))}
+          </div>
+          <p className="sp-run-note">
+            {barMax > 0
+              ? `Highest day: ${fmtUsd(peak.cost)} on ${peak.label}. Today: ${fmtUsd(s.days[s.days.length - 1]?.cost ?? 0)}.`
+              : "No model spend in the last 14 days."}
+          </p>
+          <details className="sp-run-data">
+            <summary>Show daily values</summary>
+            <table>
+              <caption>Model spend per day, last 14 days</caption>
+              <thead><tr><th>Day</th><th>Model spend</th></tr></thead>
+              <tbody>
+                {s.days.map((d, i) => <tr key={i}><td>{d.label}</td><td>{fmtUsd(d.cost)}</td></tr>)}
+              </tbody>
+            </table>
+          </details>
+        </div>
+      </section>
+
+      <SpendBreakdown tabs={tabs} />
+
+      {/* Only when there is something to act on. */}
+      {s.seatFlags.length > 0 && (
+        <section className="home-section" aria-labelledby="sp-refused">
+          <h2 id="sp-refused" className="home-h2">Refused often</h2>
+          <p className="pol-lede">
+            An agent that keeps hitting the same rule is usually set up wrong. Check its own limits, or the lists in
+            Policy, first.
+          </p>
+          <div className="g-panel">
+            {s.seatFlags.map((f) => (
+              <div key={f.id} className="dec-row sp-flag">
+                <div style={{ minWidth: 0 }}>
+                  <p className="set-title">
+                    <Link href={`/dashboard/agents#seat-${f.id}`} className="sp-limit-name">{f.name}</Link>
+                    {f.climbing && <span className="dec-pill sp-pill-wait">Rising</span>}
+                  </p>
+                  <p className="set-body">
+                    Refused {Math.round(f.denialRateMonth * 100)}% of the time this month
+                    {f.climbing && `, ${Math.round(f.denialRateRecent * 100)}% in the last 7 days`}
+                    {f.escalationRateMonth > 0 && `. ${Math.round(f.escalationRateMonth * 100)}% sent to a person`}.
+                    {f.topDenial && ` Most often: ${denialReason(f.topDenial.code)}, ${plural(f.topDenial.count, "time", "times")}.`}
+                  </p>
+                </div>
+                {f.topDenial && <span className="dec-grant pol-mono">{f.topDenial.code}</span>}
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Seat health — drift flags, not another table of totals */}
-      <Card className="bg-card border-border">
-        <CardHeader className="px-5 pt-5 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Seat health · this month</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          {s.seatFlags.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No drift flags — no seat is running a hot or climbing denial rate.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {s.seatFlags.map((f) => (
-                <div key={f.id} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 truncate text-foreground">
-                      {f.name}
-                      {f.climbing && (
-                        <span className="rounded border border-amber-500/25 bg-amber-500/10 px-1 py-0.5 text-[9px] font-medium text-amber-400">
-                          ▲ denial rate climbing
-                        </span>
-                      )}
-                      {f.hot && (
-                        <span className="rounded border border-red-500/25 bg-red-500/10 px-1 py-0.5 text-[9px] font-medium text-red-400">
-                          hot
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      denied {Math.round(f.denialRateMonth * 100)}% of decisions this month
-                      {f.climbing && ` · ${Math.round(f.denialRateRecent * 100)}% in the last 7 days`}
-                      {f.escalationRateMonth > 0 && ` · ${Math.round(f.escalationRateMonth * 100)}% escalated`}
-                    </p>
-                  </div>
-                  {f.topDenial && (
-                    <span
-                      title={`${f.topDenial.count} denials`}
-                      className="ml-3 shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
-                    >
-                      {f.topDenial.code} ×{f.topDenial.count}
-                    </span>
-                  )}
-                </div>
-              ))}
-              <p className="pt-1 text-[11px] text-muted-foreground">
-                A seat that keeps hitting the same rule is usually misconfigured, not misbehaving — check its
-                budget overrides or the policy&apos;s lists before assuming the worst.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* By model */}
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">By model · this month</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4">
-            {s.byModel.length === 0 && (
-              <EmptyState
-                title="No token usage yet"
-                hint="Point an agent's model SDK at the Sanction gateway (or log tokens directly) and per-model costs appear here, metered against the daily token budget."
-              />
-            )}
-            <div className="space-y-2">
-              {s.byModel.map((m) => (
-                <div key={m.model} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-mono text-xs text-muted-foreground">{m.model}</p>
-                    <p className="text-[11px] text-muted-foreground">{m._count._all} calls · {((m._sum.tokensIn ?? 0) + (m._sum.tokensOut ?? 0)).toLocaleString()} tok</p>
-                  </div>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(m._sum.costUsd ?? 0)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* By agent */}
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">By agent · this month</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4">
-            {s.agentList.length === 0 && (
-              <EmptyState
-                title="No agents registered"
-                hint="Create an agent on the Agents page — its burn shows up here the moment it starts working."
-              />
-            )}
-            <div className="space-y-2">
-              {/* Zero-noise: seats with no activity this month collapse into
-                  one summary line instead of a wall of $0.00 rows. */}
-              {s.agentList.filter((a) => a.tokens > 0 || a.approved > 0 || a.denied > 0 || a.escalated > 0 || a.spend > 0 || a.tokenCost > 0).map((a) => (
-                <div key={a.name} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 truncate text-muted-foreground">
-                      {a.name}
-                      {a.override && (
-                        <span title={a.override} className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1 py-0.5 text-[9px] font-medium text-emerald-400">
-                          custom budget
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {a.tokens.toLocaleString()} tok · {a.approved} appr
-                      {a.denied > 0 && <span className="text-red-400/70"> · {a.denied} deny</span>}
-                      {a.escalated > 0 && <span className="text-amber-400/70"> · {a.escalated} esc</span>}
-                    </p>
-                  </div>
-                  <div className="ml-3 shrink-0 text-right">
-                    <p className="font-mono text-xs text-muted-foreground">{fmtUsd(a.tokenCost)}</p>
-                    {a.spend > 0 && <p className="text-[11px] text-muted-foreground">+{fmtUsd(a.spend)} spend</p>}
-                  </div>
-                </div>
-              ))}
-              {(() => {
-                const idle = s.agentList.filter((a) => a.tokens === 0 && a.approved === 0 && a.denied === 0 && a.escalated === 0 && a.spend === 0 && a.tokenCost === 0).length
-                return idle > 0 ? (
-                  <p className="pt-1 text-[11px] text-muted-foreground">
-                    + {idle} seat{idle === 1 ? "" : "s"} with no activity this month
-                  </p>
-                ) : null
-              })()}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* By task */}
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">By task · this month</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4">
-            {s.byTask.length === 0 && (
-              <EmptyState
-                title="No labeled tasks yet"
-                hint="Send a task_label with token logs and costs group by task here — which jobs are worth what they burn."
-              />
-            )}
-            <div className="space-y-2">
-              {s.byTask.map((t) => (
-                <div key={t.taskLabel ?? "unlabeled"} className="flex items-center justify-between text-sm">
-                  <p className="truncate text-muted-foreground">{t.taskLabel ?? "unlabeled"}</p>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(t._sum.costUsd ?? 0)} <span className="text-muted-foreground">· {t._count._all}</span></span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* By category (spend) */}
-        <Card className="bg-card border-border">
-          <CardHeader className="px-4 pt-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Approved spend by category · month</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4">
-            {s.byCategory.length === 0 && <p className="text-sm text-muted-foreground">No approved spend yet</p>}
-            <div className="space-y-2">
-              {s.byCategory.map((c) => (
-                <div key={c.category} className="flex items-center justify-between text-sm">
-                  <p className="truncate text-muted-foreground">{c.category}</p>
-                  <span className="ml-3 shrink-0 font-mono text-xs text-muted-foreground">{fmtUsd(c._sum.amountUsd ?? 0)} <span className="text-muted-foreground">· {c._count}</span></span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        </section>
+      )}
 
       <OutcomesSection rootWalletId={walletId} />
-
-      {/* Policy authoring lives on its own page now. */}
-      <Card className="bg-card border-border">
-        <CardContent className="flex items-center justify-between px-5 py-4">
-          <span className="text-sm text-muted-foreground">
-            {s.policy ? "Budgets, categories, tools, capability rules, and escalation." : "No policy configured yet."}
-          </span>
-          {walletId === view.id ? <Link href="/dashboard/policy" className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-            Manage policy →
-          </Link> : <Link className="text-sm underline" href={`/login?next=${encodeURIComponent(next)}`}>Sign in to this wallet to manage policy</Link>}
-        </CardContent>
-      </Card>
     </div>
   )
 }

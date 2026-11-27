@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { db } from "@/lib/db"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { walletWindowOutcomes, walletWindowSpendUsd, windowStart } from "@/lib/outcomes"
 import { subtreeWalletIds, frozenSubtreeWalletIds } from "@/lib/walletSubtree"
 import { fmtUsd } from "@/lib/format"
@@ -72,27 +71,26 @@ async function poolOutcomeRow(wallet: { id: string; name: string; frozenAt: Date
 }
 
 function StatusPill({ row }: { row: PoolRow }) {
-  if (row.frozen) return <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400">FROZEN</span>
-  if (row.ceilingUsd === null)
-    return <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">no ceiling</span>
+  if (row.frozen) return <span className="dec-pill dec-denied">Frozen</span>
+  if (row.ceilingUsd === null) return <span className="dec-pill dec-expired">No ceiling</span>
   if (row.outcomes < row.minOutcomes)
-    return <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">cold start · {row.outcomes}/{row.minOutcomes}</span>
+    return <span className="dec-pill dec-expired">Too few to judge · {row.outcomes} of {row.minOutcomes}</span>
   if (row.cpoUsd !== null && row.cpoUsd > row.ceilingUsd)
-    return <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">THROTTLED — over ceiling</span>
-  return <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">earning its cost</span>
+    return <span className="dec-pill sp-pill-wait">Over its ceiling</span>
+  return <span className="dec-pill dec-approved">Within its ceiling</span>
 }
 
 function CpoBar({ row }: { row: PoolRow }) {
   if (row.ceilingUsd === null || row.cpoUsd === null) return null
-  const p = Math.min(100, Math.round((row.cpoUsd / row.ceilingUsd) * 100))
+  const fill = Math.min(100, (row.cpoUsd / row.ceilingUsd) * 100)
   const over = row.cpoUsd > row.ceilingUsd
   return (
-    <div className="mt-2">
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full ${over ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${p}%` }} />
+    <div className="sp-meter sp-cpo" data-state={over ? "near" : "ok"}>
+      <div className="sp-track" role="img" aria-label={`${Math.round((row.cpoUsd / row.ceilingUsd) * 100)}% of the ceiling`}>
+        <span style={{ width: `${fill}%` }} />
       </div>
-      <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-        {fmtUsd(row.cpoUsd)} per {row.kind} · ceiling {fmtUsd(row.ceilingUsd)}
+      <p className="sp-meter-note">
+        {fmtUsd(row.cpoUsd)} per {row.kind}, ceiling {fmtUsd(row.ceilingUsd)}
       </p>
     </div>
   )
@@ -117,17 +115,16 @@ export async function OutcomesSection({ rootWalletId }: { rootWalletId: string }
   // Nothing reported anywhere → one explainer line, not a page of zeros.
   if (recent.length === 0) {
     return (
-      <Card id="outcomes" className="border-border bg-card">
-        <CardContent className="px-5 py-4">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Outcomes:</span> none reported yet. Report them from your
-            systems — <code className="font-mono text-xs">POST /api/v1/outcomes</code> with an agent key, or the{" "}
-            <code className="font-mono text-xs">sanction_log_outcome</code> MCP tool — and spend becomes accountable to
-            results: a pool over its cost-per-outcome ceiling auto-throttles, every further dollar waiting on a human in{" "}
-            <Link href="/dashboard/approvals" className="text-emerald-400 hover:text-primary">Approvals</Link>.
-          </p>
-        </CardContent>
-      </Card>
+      <section id="outcomes" className="home-section" aria-labelledby="sp-outcomes">
+        <h2 id="sp-outcomes" className="home-h2">Outcomes</h2>
+        <p className="pol-lede sp-outcomes-none">
+          None reported yet. Report a result from your systems with <code className="pol-mono">POST /api/v1/outcomes</code>{" "}
+          and an agent key, or with the <code className="pol-mono">sanction_log_outcome</code> MCP tool, and this page
+          shows what each result cost. A group whose cost per outcome goes over its ceiling is slowed down: every further
+          dollar waits for a person in{" "}
+          <Link href="/dashboard/approvals" className="home-link">Approvals</Link>.
+        </p>
+      </section>
     )
   }
 
@@ -137,64 +134,56 @@ export async function OutcomesSection({ rootWalletId }: { rootWalletId: string }
   const nameOf = new Map(rows.map((r) => [r.id, r.name]))
 
   return (
-    <div id="outcomes" className="space-y-6">
-      <Card className="border-border bg-card">
-        <CardHeader className="px-5 pt-5 pb-2">
-          <CardTitle className="text-sm font-medium text-foreground">Outcomes · cost per result</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Spend accountable to results. A pool over its cost-per-outcome ceiling auto-throttles: every further dollar
-            waits for a human in{" "}
-            <Link href="/dashboard/approvals" className="text-emerald-400 hover:text-primary">Approvals</Link>.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-5 px-5 pb-5">
-          {rows.map((row) => (
-            <div key={row.id} className="border-b border-border/60 pb-4 last:border-0 last:pb-0">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="text-sm text-foreground">{row.name}</span>
-                  {row.isSelf && <span className="ml-2 text-[11px] text-muted-foreground">this wallet</span>}
-                </div>
-                <StatusPill row={row} />
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-muted-foreground">
-                <span>{row.outcomes.toLocaleString()} {row.kind ?? "outcomes"} / {row.windowDays}d</span>
-                <span>{fmtUsd(row.spendUsd)} spend</span>
-                {row.cpoUsd !== null && <span className="text-muted-foreground">{fmtUsd(row.cpoUsd)} each</span>}
-              </div>
-              <CpoBar row={row} />
+    <section id="outcomes" className="home-section" aria-labelledby="sp-outcomes">
+      <h2 id="sp-outcomes" className="home-h2">Outcomes <span>cost per result</span></h2>
+      <p className="pol-lede">
+        What each reported result cost. A group over its ceiling is slowed down: every further dollar waits for a person
+        in <Link href="/dashboard/approvals" className="home-link">Approvals</Link>.
+      </p>
+      <div className="g-panel">
+        {rows.map((row) => (
+          <div key={row.id} className="sp-out-row">
+            <div className="sp-out-top">
+              <p className="set-title">
+                {row.name}
+                {row.isSelf && <span className="sp-limit-kind">this wallet</span>}
+              </p>
+              <StatusPill row={row} />
             </div>
-          ))}
-        </CardContent>
-      </Card>
+            <p className="set-body">
+              {row.outcomes.toLocaleString("en-US")} {row.kind ?? "outcomes"} in {row.windowDays} days · {fmtUsd(row.spendUsd)} spent
+              {row.cpoUsd !== null && ` · ${fmtUsd(row.cpoUsd)} each`}
+            </p>
+            <CpoBar row={row} />
+          </div>
+        ))}
+      </div>
 
-      <Card className="border-border bg-card">
-        <CardHeader className="px-5 pt-5 pb-2"><CardTitle className="text-sm text-muted-foreground">Recent outcomes</CardTitle></CardHeader>
-        <CardContent className="px-5 pb-5">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-                <th className="pb-2 pr-4 font-medium">When</th>
-                <th className="pb-2 pr-4 font-medium">Pool</th>
-                <th className="pb-2 pr-4 font-medium">Kind</th>
-                <th className="pb-2 pr-4 font-medium">Play</th>
-                <th className="pb-2 font-medium">Value</th>
+      <h3 className="sp-h3">Recent outcomes</h3>
+      <div className="g-panel sp-table-wrap">
+        <table className="sp-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Group</th>
+              <th>Kind</th>
+              <th>Play</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recent.map((e) => (
+              <tr key={e.id}>
+                <td>{e.occurredAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+                <td>{nameOf.get(e.walletId) ?? e.walletId}</td>
+                <td>{e.kind}</td>
+                <td>{e.playLabel ?? "None"}</td>
+                <td>{e.valueUsd == null ? "Not given" : fmtUsd(e.valueUsd)}</td>
               </tr>
-            </thead>
-            <tbody className="font-mono text-xs text-muted-foreground">
-              {recent.map((e) => (
-                <tr key={e.id} className="border-b border-border last:border-0">
-                  <td className="py-2 pr-4">{e.occurredAt.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">{nameOf.get(e.walletId) ?? e.walletId}</td>
-                  <td className="py-2 pr-4">{e.kind}</td>
-                  <td className="py-2 pr-4">{e.playLabel ?? "—"}</td>
-                  <td className="py-2">{e.valueUsd == null ? "—" : fmtUsd(e.valueUsd)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
